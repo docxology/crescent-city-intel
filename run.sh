@@ -43,7 +43,7 @@ print_banner() {
   echo -e "${BOLD}${CYAN}"
   cat << 'EOF'
   ╔══════════════════════════════════════════════════════════════════╗
-  ║   🌊  Crescent City Intelligence Platform   v2.3.0             ║
+  ║   🌊  Crescent City Intelligence Platform   v2.4.0             ║
   ║   Scrape · Verify · Export · View · Chat · Stream · Monitor     ║
   ╠══════════════════════════════════════════════════════════════════╣
   ║   City of Crescent City, CA  |  41.76°N 124.20°W               ║

@@ -18,6 +18,8 @@ async function checkPrerequisites(): Promise<boolean> {
   if (!ollama) {
     log.error(`Ollama is not running at ${llmConfig.ollamaUrl}`);
     log.error("Start Ollama: ollama serve");
+    log.error("Install: brew install ollama || curl -fsSL https://ollama.ai/install.sh | sh");
+    log.error(`Pull models: ollama pull ${llmConfig.embeddingModel} && ollama pull ${llmConfig.chatModel}`);
     return false;
   }
   if (!chroma) {
@@ -26,9 +28,39 @@ async function checkPrerequisites(): Promise<boolean> {
     if (!ok) {
       log.error(`ChromaDB is not running at ${llmConfig.chromaUrl}`);
       log.error(`Start ChromaDB: chroma run --path chroma_data --port ${new URL(llmConfig.chromaUrl).port}`);
+      log.error("Install: pip install chromadb");
       return false;
     }
   }
+
+  // Check if collection has documents
+  try {
+    const stats = await getStats();
+    if (stats.count === 0) {
+      log.warn(`ChromaDB collection "${llmConfig.collectionName}" is empty`);
+      log.warn("Run: bun run index");
+    } else {
+      log.info(`ChromaDB collection has ${stats.count} documents`);
+    }
+  } catch {
+    log.warn("Could not check ChromaDB collection status");
+  }
+
+  // List available models
+  try {
+    const models = await listModels();
+    const hasEmbed = models.some(m => m.includes(llmConfig.embeddingModel.split(":")[0]));
+    const hasChat = models.some(m => m.includes(llmConfig.chatModel.split(":")[0]));
+    if (!hasEmbed) {
+      log.warn(`Embedding model "${llmConfig.embeddingModel}" not found. Pull: ollama pull ${llmConfig.embeddingModel}`);
+    }
+    if (!hasChat) {
+      log.warn(`Chat model "${llmConfig.chatModel}" not found. Pull: ollama pull ${llmConfig.chatModel}`);
+    }
+  } catch {
+    // Non-fatal
+  }
+
   return true;
 }
 

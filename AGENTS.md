@@ -100,13 +100,13 @@ scripts/
   run-coverage.ts       # Domain coverage orchestrator
   run-readability.ts    # Readability scoring orchestrator
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # 413 tests · 36 files · zero-mock policy
+tests/                  # 413 tests · 38 files · zero-mock policy
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.3.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.4.0)
 ```
 
-## What's New in v2.3.0
+## What's New in v2.4.0
 
 ### New Alert Monitors (3)
 - **EPA AirNow** — Real-time AQI for PM2.5, ozone, PM10 with health advisories

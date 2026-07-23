@@ -1009,6 +1009,23 @@
       padding: 6px 16px; font-size: 13px;
     }
 
+    /* ─── Loading Skeleton Animation ────────────────────────────── */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ─── Print Stylesheet ─────────────────────────────────────── */
+    @media print {
+      #header, #sidebar, #chat-panel, #stats-bar, #analytics-overlay,
+      #alerts-panel, #intel-overlay, .summarize-btn, .header-buttons {
+        display: none !important;
+      }
+      #content { width: 100% !important; padding: 0 !important; }
+      body { font-size: 12pt; }
+      .section-text { white-space: pre-wrap; }
+    }
+
   </style>
 </head>
 
@@ -1367,16 +1384,37 @@
     }
 
     async function loadSection(guid, node) {
+      // Show loading skeleton
+      content.innerHTML = `
+        <div class="content-placeholder">
+          <div style="padding:40px 24px;">
+            <div style="height:24px;background:var(--bg-secondary);border-radius:6px;margin-bottom:12px;width:60%;animation:pulse 1.5s infinite;"></div>
+            <div style="height:16px;background:var(--bg-secondary);border-radius:4px;margin-bottom:8px;width:100%;animation:pulse 1.5s infinite;"></div>
+            <div style="height:16px;background:var(--bg-secondary);border-radius:4px;margin-bottom:8px;width:95%;animation:pulse 1.5s infinite;"></div>
+            <div style="height:16px;background:var(--bg-secondary);border-radius:4px;margin-bottom:8px;width:98%;animation:pulse 1.5s infinite;"></div>
+            <div style="height:16px;background:var(--bg-secondary);border-radius:4px;margin-bottom:8px;width:90%;animation:pulse 1.5s infinite;"></div>
+          </div>
+        </div>`;
       try {
         const resp = await fetch(`/api/section/${guid}`);
         if (!resp.ok) throw new Error("Not found");
         const section = await resp.json();
         activeGuid = guid;
 
+        // Check if bookmarked
+        const bookmarks = JSON.parse(localStorage.getItem("cc-bookmarks") || "[]");
+        const isBookmarked = bookmarks.some(b => b.guid === guid);
+
         content.innerHTML = `
           <div class="section-header">
             <div class="article-title">${escapeHtml(section.articleTitle || "")}</div>
             <h2>${section.number}: ${section.title}</h2>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="copyPermalink('${guid}')" title="Copy permalink">🔗 Permalink</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="toggleBookmark('${guid}', '${escapeHtml(section.number)}', '${escapeHtml(section.title)}')" id="bookmark-btn">${isBookmarked ? '★ Bookmarked' : '☆ Bookmark'}</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="exportSection('${guid}')" title="Export as Markdown">📥 Export</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="window.print()" title="Print">🖨️ Print</button>
+            </div>
           </div>
           <div class="section-body">
             <div class="section-text">${escapeHtml(section.text)}</div>
@@ -1387,6 +1425,57 @@
         content.scrollTop = 0;
       } catch {
         content.innerHTML = '<div class="content-placeholder">Section not found</div>';
+      }
+    }
+
+    // ── Permalink ──
+    function copyPermalink(guid) {
+      const url = `${window.location.origin}/?section=${guid}`;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        setTimeout(() => btn.textContent = orig, 2000);
+      });
+    }
+
+    // ── Bookmarks ──
+    function toggleBookmark(guid, number, title) {
+      const bookmarks = JSON.parse(localStorage.getItem("cc-bookmarks") || "[]");
+      const idx = bookmarks.findIndex(b => b.guid === guid);
+      if (idx >= 0) {
+        bookmarks.splice(idx, 1);
+      } else {
+        bookmarks.push({ guid, number, title, ts: new Date().toISOString() });
+      }
+      localStorage.setItem("cc-bookmarks", JSON.stringify(bookmarks));
+      const btn = document.getElementById("bookmark-btn");
+      if (btn) btn.textContent = idx >= 0 ? '☆ Bookmark' : '★ Bookmarked';
+    }
+
+    function getBookmarks() {
+      return JSON.parse(localStorage.getItem("cc-bookmarks") || "[]");
+    }
+
+    // ── Export section as Markdown ──
+    async function exportSection(guid) {
+      try {
+        const resp = await fetch(`/api/section/${guid}`);
+        const section = await resp.json();
+        const md = `# § ${section.number}: ${section.title}\n\n` +
+          `**Article**: ${section.articleTitle || 'N/A'}\n` +
+          `**GUID**: ${guid}\n\n` +
+          `## Text\n\n${section.text}\n\n` +
+          (section.history ? `## Legislative History\n\n${section.history}\n` : '');
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `section-${section.number.replace(/§\s*/, '').replace(/\./g, '-')}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('Export failed: ' + err.message);
       }
     }
 
@@ -1528,36 +1617,84 @@
       userDiv.textContent = msg;
       chatMessages.appendChild(userDiv);
 
-      // Show thinking indicator
-      const thinkDiv = document.createElement("div");
-      thinkDiv.className = "chat-msg thinking";
-      thinkDiv.textContent = "⏳ Thinking...";
-      chatMessages.appendChild(thinkDiv);
+      // Show streaming assistant message
+      const botDiv = document.createElement("div");
+      botDiv.className = "chat-msg assistant";
+      const answerText = document.createElement("div");
+      answerText.innerHTML = '<span style="color:var(--text-secondary)">⏳ Thinking...</span>';
+      botDiv.appendChild(answerText);
+      chatMessages.appendChild(botDiv);
       chatMessages.scrollTop = chatMessages.scrollHeight;
 
+      // Try SSE streaming first, fall back to regular /api/chat
+      try {
+        const resp = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: msg }),
+        });
+
+        if (resp.ok && resp.headers.get('Content-Type')?.includes('text/event-stream')) {
+          // SSE streaming
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let fullAnswer = '';
+          let buffer = '';
+          let sourcesHtml = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+              if (line.startsWith('event: sources')) {
+                // Next data line has sources
+              } else if (line.startsWith('event: token')) {
+                // Next data line has token
+              } else if (line.startsWith('data: ')) {
+                try {
+                  const payload = JSON.parse(line.substring(6));
+                  if (payload.token) {
+                    fullAnswer += payload.token;
+                    answerText.innerHTML = marked.parse(fullAnswer);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                  }
+                  if (payload.sources) {
+                    sourcesHtml = '<div class="chat-sources"><strong>Sources:</strong> ' +
+                      payload.sources.map(s => `<span class="chat-source">§ ${s.sectionNumber}</span>`).join(' ') +
+                      '</div>';
+                  }
+                  if (payload.answer) {
+                    fullAnswer = payload.answer;
+                    answerText.innerHTML = marked.parse(fullAnswer);
+                  }
+                  if (payload.sources && Array.isArray(payload.sources)) {
+                    sourcesHtml = '<div class="chat-sources"><strong>Sources:</strong> ' +
+                      payload.sources.map(s => `<span class="chat-source">§ ${s.sectionNumber}</span>`).join(' ') +
+                      '</div>';
+                  }
+                } catch { /* skip malformed */ }
+              }
+            }
+          }
+          if (sourcesHtml) botDiv.insertAdjacentHTML('beforeend', sourcesHtml);
+          return;
+        }
+      } catch { /* fall through to regular chat */ }
+
+      // Fallback: regular /api/chat
+      answerText.innerHTML = '<span style="color:var(--text-secondary)">⏳ Thinking...</span>';
       try {
         const resp = await fetch(`/api/chat?q=${encodeURIComponent(msg)}`);
         const data = await resp.json();
 
-        // Remove thinking indicator
-        thinkDiv.remove();
-
         if (data.error) {
-          const errDiv = document.createElement("div");
-          errDiv.className = "chat-msg system";
-          errDiv.textContent = data.error;
-          chatMessages.appendChild(errDiv);
+          answerText.innerHTML = `<span style="color:#f97316">${data.error}</span>`;
         } else {
-          const botDiv = document.createElement("div");
-          botDiv.className = "chat-msg assistant";
-
-          // Answer text
-          const answerText = document.createElement("div");
-          // Use marked to render markdown
           answerText.innerHTML = marked.parse(data.answer || "No response");
-          botDiv.appendChild(answerText);
-
-          // Sources
           if (data.sources && data.sources.length > 0) {
             const sourcesDiv = document.createElement("details");
             sourcesDiv.className = "chat-sources";
@@ -2329,7 +2466,7 @@
         // API endpoints
         html += `<div class="intel-card"><h4>API Endpoints</h4><div class="metric">45+</div><div class="label">OpenAPI 3.0.3 spec</div></div>`;
         // Version
-        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.3.0</div><div class="label">437 tests passing</div></div>`;
+        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.4.0</div><div class="label">454 tests passing</div></div>`;
         grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available</p>';
       } catch (err) {
         grid.innerHTML = '<p style="color:var(--text-secondary)">Failed to load overview</p>';

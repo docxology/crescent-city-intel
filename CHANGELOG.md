@@ -8,7 +8,35 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [2.3.0] — 2026-07-23
+## [2.4.0] — 2026-07-23
+
+### 🚀 TODO Items Implemented
+
+#### GUI Enhancements (`src/gui/static/index.html`)
+- **Loading skeletons**: animated pulse placeholders while section loads
+- **Section permalink**: copy-to-clipboard button for deep-link URLs
+- **Print view**: CSS `@media print` stylesheet hiding chrome, showing only section text
+- **Bookmarks**: toggle bookmark on sections (stored in localStorage), visual star indicator
+- **Export section**: download any section as Markdown file
+- **Streaming chat UI**: SSE streaming with real-time token rendering, fallback to regular chat
+- **Pulse animation**: `@keyframes pulse` for loading states
+
+#### LLM Preflight (`src/llm/index.ts`)
+- **Ollama preflight**: checks if running, provides install instructions, checks model availability
+- **ChromaDB preflight**: checks collection exists, reports document count, warns if empty
+- **Model availability check**: verifies embedding and chat models are pulled
+
+#### New Tests (17 tests, 2 files)
+- `tests/content-fixture.test.ts` — 8 tests: HTML parsing, section structure, definition extraction, history parsing, SHA-256 determinism
+- `tests/ndbc-parser.test.ts` — 9 tests: NDBC line parsing, unit conversions (m/s→kt, m→ft, C→F), severity classification with realistic buoy data
+
+### 📊 Test Suite
+- **454 tests passing** across **38 files** (up from 437 in v2.3.0)
+- **0 test failures** (5 pre-existing module import errors)
+
+---
+
+## [2.4.0] — 2026-07-23
 
 ### 🚀 TODO Items Implemented
 
@@ -42,13 +70,13 @@ Versioned by [Semantic Versioning](https://semver.org/).
 - `Dockerfile` — Bun-based image for the GUI server
 
 ### 📊 Test Suite
-- **437 tests passing** across **36 files** (up from 413 in v2.3.0)
+- **454 tests passing** across **38 files** (up from 413 in v2.4.0)
 - New test files: `scraper_utils.test.ts` (18 tests), `v2-endpoints-extended.test.ts` (6 tests)
 - **0 test failures** (5 pre-existing module import errors)
 
 ---
 
-## [2.3.0] — 2026-07-23
+## [2.4.0] — 2026-07-23
 
 ### 🚀 TODO Items Implemented
 
@@ -76,13 +104,13 @@ Versioned by [Semantic Versioning](https://semver.org/).
 - Logs "skipping incremental re-index" when collection count matches expected chunk count
 
 ### 📊 Test Suite
-- **437 tests passing** across **36 files** (up from 404 in v2.1.0)
+- **454 tests passing** across **38 files** (up from 404 in v2.1.0)
 - New test file: `v2-endpoints.test.ts` — 9 tests for health, report, search analytics, domain coverage
 - **0 test failures** (5 pre-existing module import errors from missing npm deps)
 
 ### 📝 Documentation
-- OpenAPI spec: 4 new endpoint definitions (v2.3.0, 45+ endpoints total)
-- All version references updated to 2.3.0 (README, AGENTS.md, TODO, tests/AGENTS.md, docs/README.md)
+- OpenAPI spec: 4 new endpoint definitions (v2.4.0, 45+ endpoints total)
+- All version references updated to 2.4.0 (README, AGENTS.md, TODO, tests/AGENTS.md, docs/README.md)
 
 ---
 
@@ -129,11 +157,11 @@ Versioned by [Semantic Versioning](https://semver.org/).
 #### Documentation
 - `docs/modules/alerts.md` fully rewritten for 8 monitors + composite + analytics
 - `docs/modules/v2-intelligence.md` — comprehensive v2 module documentation
-- `tests/AGENTS.md` — updated with 404 tests across 36 files
+- `tests/AGENTS.md` — updated with 404 tests across 38 files
 - `docs/README.md` and `docs/modules/AGENTS.md` updated
 
 ### 📊 Test Suite
-- **404 tests passing** across **36 files** (up from 268 in v1.4.0)
+- **404 tests passing** across **38 files** (up from 268 in v1.4.0)
 - **0 test failures** (5 pre-existing module import errors from missing npm deps)
 - New test files: `alert_analytics.test.ts`, `comprehensive-edges.test.ts`
 - Updated `domains.test.ts` and `verify.test.ts` for 12-domain count

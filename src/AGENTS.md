@@ -46,7 +46,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 
 Unit tests cover all **pure-logic** functions. Integration modules (browser, content, scrape, verify, export, alert monitors) require external services and are tested manually via `bun run`.
 
-Run the full test suite: `bun test` (or `bun test tests/`). 404 tests across 36 files.
+Run the full test suite: `bun test` (or `bun test tests/`). 404 tests across 38 files.
 
 ## v2.0+ New Modules
 

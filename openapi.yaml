@@ -2,10 +2,10 @@ openapi: 3.0.3
 info:
   title: Crescent City Intelligence API
   description: REST API for accessing Crescent City, CA municipal code and intelligence system
-  version: 1.4.0
+  version: 2.1.0
   contact:
-    name: Crescent City Intelligence System
-    url: https://github.com/docxology/crescent-city-intel-intel
+    name: Crescent City Intelligence Platform
+    url: https://github.com/docxology/crescent-city-intel
 servers:
   - url: http://localhost:3000
     description: Local development server

@@ -1,6 +1,6 @@
 {
   "name": "crescent-city-intel",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Comprehensive local intelligence platform for Crescent City, CA — municipal code, real-time alerts, RAG chat, analytics, and civic intelligence domains",
   "type": "module",
   "scripts": {

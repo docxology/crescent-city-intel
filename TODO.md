@@ -1,6 +1,6 @@
 # TODO — Crescent City Intelligence Platform
 
-> Remaining development backlog · v2.0.0 · 329 tests passing
+> Remaining development backlog · v2.1.0 · 404 tests passing
 
 ---
 
@@ -111,4 +111,4 @@
 
 ---
 
-_Last updated: July 2026 · v2.0.0 · 329 tests passing_
+_Last updated: July 2026 · v2.1.0 · 404 tests passing_

@@ -1,6 +1,8 @@
-# Crescent City Municipal Code — Documentation
+# Crescent City Intelligence Platform — Documentation
 
-Comprehensive documentation for the full pipeline: scraping, verification, export, web viewer, RAG chat, monitoring, and alerting.
+Comprehensive documentation for the full pipeline: scraping, verification,
+export, web viewer, RAG chat, streaming, monitoring, alerting, structured
+queries, legal analysis, and civic intelligence domains.
 
 ## Contents
 
@@ -15,21 +17,23 @@ Comprehensive documentation for the full pipeline: scraping, verification, expor
 | [Scraping](modules/scraping.md) | Browser, TOC, content extraction, and scraper orchestrator |
 | [Verification](modules/verification.md) | SHA-256 integrity checks, section presence, live re-fetch |
 | [Export](modules/export.md) | JSON, Markdown, plain text, and CSV output |
-| [GUI](modules/gui.md) | Web viewer, API routes, search engine, analytics |
-| [LLM](modules/llm.md) | Ollama, ChromaDB, embeddings, RAG pipeline |
-| [Shared](modules/shared.md) | Paths resolution and data loading layer |
+| [GUI](modules/gui.md) | Web viewer, API routes, search engine, analytics, alerts dashboard |
+| [LLM](modules/llm.md) | Ollama, ChromaDB, embeddings, RAG pipeline, streaming SSE |
+| [Shared](modules/shared.md) | Paths resolution, data loading, Porter stemmer, readability, fuzzy search |
 | [Logger](modules/logger.md) | Structured logging with levels, timestamps, module tags |
-| [Domains](modules/domains.md) | Intelligence domain data with civic cross-references |
+| [Domains](modules/domains.md) | 12 civic intelligence domains with code cross-references |
 | [Monitoring](modules/monitoring.md) | Code change detection, news, and government meeting monitors |
-| [Alerts](modules/alerts.md) | Real-time NOAA, USGS, and NWS hazard alert monitors |
+| [Alerts](modules/alerts.md) | 8 real-time alert monitors + composite severity + alert analytics |
+| [v2 Intelligence](modules/v2-intelligence.md) | New v2.0 modules: structured queries, legal parser, fuzzy, streaming, analytics |
 | [API Middleware](modules/api.md) | Rate limiting, API key authentication, request logging |
 
 ## Quick Links
 
-- **Source**: [`src/`](../src/)
+- **Source**: [`src/`](../src/) — 40+ TypeScript modules
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
-- **Tests**: [`tests/`](../tests/) — 186 tests across 17 files (zero-mock policy)
+- **Tests**: [`tests/`](../tests/) — 404 tests across 33 files (zero-mock policy)
 - **Output**: `output/` (gitignored)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.1.0, 40+ endpoints)
 
 ## Updating Docs
 

@@ -16,7 +16,7 @@ import { createLogger } from "./logger.js";
 
 const log = createLogger("alert_analytics");
 
-const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine"] as const;
+const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"] as const;
 type AlertType = typeof ALERT_TYPES[number];
 
 interface AlertHistoryRecord {
@@ -167,6 +167,8 @@ function computeTypeStats(type: AlertType, records: AlertHistoryRecord[]): Alert
  */
 export function buildAlertAnalytics(): AlertAnalyticsReport {
   const alertsDir = join(process.cwd(), "output", "alerts");
+  const fishingDir = join(process.cwd(), "output", "fishing");
+  const tidesDir = join(process.cwd(), "output", "tides");
 
   const timeline: TimelineEntry[] = [];
   const typeStats: AlertTypeStats[] = [];
@@ -175,7 +177,15 @@ export function buildAlertAnalytics(): AlertAnalyticsReport {
   let maxCount = 0;
 
   for (const type of ALERT_TYPES) {
-    const historyFile = join(alertsDir, type, "history.jsonl");
+    // Fishing and tides write to output/fishing/ and output/tides/ respectively
+    let historyFile: string;
+    if (type === "fishing") {
+      historyFile = join(fishingDir, "history.jsonl");
+    } else if (type === "tides") {
+      historyFile = join(tidesDir, "history.jsonl");
+    } else {
+      historyFile = join(alertsDir, type, "history.jsonl");
+    }
     const records = readJsonl(historyFile);
 
     // Convert to timeline entries

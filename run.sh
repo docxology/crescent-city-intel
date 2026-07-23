@@ -43,8 +43,8 @@ print_banner() {
   echo -e "${BOLD}${CYAN}"
   cat << 'EOF'
   ╔══════════════════════════════════════════════════════════════════╗
-  ║   🌊  Crescent City Intelligence Platform   v2.0.0             ║
-  ║   Scrape · Verify · Export · View · Chat · Monitor · Alert      ║
+  ║   🌊  Crescent City Intelligence Platform   v2.1.0             ║
+  ║   Scrape · Verify · Export · View · Chat · Stream · Monitor     ║
   ╠══════════════════════════════════════════════════════════════════╣
   ║   City of Crescent City, CA  |  41.76°N 124.20°W               ║
   ║   Del Norte County  |  242 Articles  |  2,194 Code Sections     ║
@@ -204,7 +204,7 @@ run_gui() {
 # ─── Monitoring ───────────────────────────────────────────────────────────────
 run_monitor_menu() {
   print_banner
-  echo -e "${BOLD}  📡 Monitoring & Alerts${RESET}\n"
+  echo -e "${BOLD}  📡 Monitoring & Alerts (8 monitors)${RESET}\n"
   echo -e "  ${BOLD}[1]${RESET}  🔍 Code change detection"
   echo -e "  ${BOLD}[2]${RESET}  📰 News RSS (4 sources — Times-Standard, Lost Coast, Humboldt, KIEM-TV)"
   echo -e "  ${BOLD}[3]${RESET}  🏛️  Government meetings (City Council, Planning, Harbor Commission)"
@@ -213,7 +213,10 @@ run_monitor_menu() {
   echo -e "  ${BOLD}[6]${RESET}  🌊 NOAA tsunami CAP alerts"
   echo -e "  ${BOLD}[7]${RESET}  🌍 USGS earthquake (M4.0+, 200 km, Cascadia)"
   echo -e "  ${BOLD}[8]${RESET}  ⛈️  NWS coastal weather (Del Norte CAZ006)"
-  echo -e "  ${BOLD}[9]${RESET}  🚨 All alerts concurrently"
+  echo -e "  ${BOLD}[9]${RESET}  🌫️  EPA AirNow air quality (AQI — PM2.5/ozone/PM10)"
+  echo -e "  ${BOLD}[a]${RESET}  🔥 CAL FIRE wildfire incidents (Del Norte region)"
+  echo -e "  ${BOLD}[m]${RESET}  ⚓ NDBC marine buoys (wave/wind/temp — 3 stations)"
+  echo -e "  ${BOLD}[A]${RESET}  🚨 All 8 alerts concurrently + composite severity"
   echo -e "  ${BOLD}[w]${RESET}  📅 Weekly health check (full report)"
   echo -e "  ${BOLD}[b]${RESET}  ← Back\n"
   read -rp "  Choice: " choice
@@ -226,7 +229,10 @@ run_monitor_menu() {
     6) bun run alerts:tsunami ;;
     7) bun run alerts:earthquake ;;
     8) bun run alerts:weather ;;
-    9) bun run alerts ;;
+    9) bun run alerts:airquality ;;
+    [a]) bun run alerts:wildfire ;;
+    [m]) bun run alerts:marine ;;
+    [A]) bun run alerts ;;
     w|W) bun run weekly-check ;;
     b|B) return ;;
     *) warn "Invalid choice" ;;

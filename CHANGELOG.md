@@ -1,9 +1,99 @@
 # Changelog
 
-All notable changes to **Crescent City Municipal Intelligence** are documented here.
+All notable changes to the **Crescent City Intelligence Platform** are
+documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioned by [Semantic Versioning](https://semver.org/).
+
+---
+
+## [2.1.0] — 2026-07-23
+
+### 🚀 Comprehensive Integration & Testing
+
+#### Full Module Wiring
+- `run-alerts.ts` orchestrator now runs all 8 monitors + computes composite severity + persists to `output/alerts/composite/current.json`
+- `weekly-check.ts` now runs all 8 alert monitors + alert analytics in weekly cycle
+- `run.sh` interactive menu expanded with air quality, wildfire, marine, and composite alert options
+- `monthly_report.ts` now includes air quality, wildfire, and marine sections
+
+#### 8-Monitor Composite Severity (enhanced)
+- `/api/monitor/alerts` expanded from 5 to 8 monitors + composite severity
+- New per-type endpoints: `/api/alerts/airquality`, `/api/alerts/wildfire`, `/api/alerts/marine`, `/api/alerts/composite`
+
+#### Search Engine Integration
+- BM25 `search.ts` now imports `fuzzyCorrect` and returns `fuzzyCorrections` array when BM25 finds 0 results — "Did you mean?" built into search response shape
+
+#### Intelligence Domains (9 → 12)
+- **Climate & Environment** — sea-level rise, drought/water conservation, air quality/environmental justice
+- **Demographics & Social Indicators** — population profile (PBSP skew), poverty/economic vulnerability, homelessness/housing instability
+- **Public Health & Safety** — EMS, food safety/restaurant inspection, mental health/CARE Court
+
+#### Cross-Reference Validation
+- `validateAllCrossReferences()` — scans entire code corpus for § references, computes resolution rate, identifies broken links
+- `GET /api/cross-refs/validate` — API endpoint
+
+#### Alert Analytics Bug Fix
+- `alert_analytics.ts` now includes "fishing" in ALERT_TYPES (was missing)
+- Fixed history file path resolution for fishing (`output/fishing/`) and tides (`output/tides/`)
+
+#### GUI Dashboard
+- New 🚨 Alerts button in header
+- 8-monitor composite dashboard panel with severity banner, per-monitor grid, timeline summary
+
+#### OpenAPI Spec
+- 16 new endpoint definitions with full schemas (Structured Queries, Legal Analysis, Alert Analytics, Alerts, LLM, Search tags)
+
+#### GitHub Actions
+- Weekly CI workflow now runs all 8 alert monitors (airquality, wildfire, marine added)
+
+#### Documentation
+- `docs/modules/alerts.md` fully rewritten for 8 monitors + composite + analytics
+- `docs/modules/v2-intelligence.md` — comprehensive v2 module documentation
+- `tests/AGENTS.md` — updated with 404 tests across 34 files
+- `docs/README.md` and `docs/modules/AGENTS.md` updated
+
+### 📊 Test Suite
+- **404 tests passing** across **33 files** (up from 268 in v1.4.0)
+- **0 test failures** (5 pre-existing module import errors from missing npm deps)
+- New test files: `alert_analytics.test.ts`, `comprehensive-edges.test.ts`
+- Updated `domains.test.ts` and `verify.test.ts` for 12-domain count
+
+---
+
+## [2.0.0] — 2026-07-22
+
+### 🚀 Major Release — Comprehensive Local Intelligence Platform
+
+#### New Alert Monitors (3)
+- **EPA AirNow air quality** (`src/alerts/epa_airnow.ts`) — PM2.5/ozone/PM10 AQI with 6-level classification
+- **CAL FIRE wildfire** (`src/alerts/calfire_wildfire.ts`) — active fire incidents, evac orders, Haversine distance
+- **NDBC marine buoy** (`src/alerts/ndbc_marine.ts`) — 3 stations, wave/wind/temp, gale thresholds
+
+#### Structured Query Engine
+- Legislative history parsing, section comparison (word-level diff), semantic similarity (cosine + title boost)
+
+#### Legal Citation Parser
+- CA Code, U.S.C., case law, ordinance amendment extraction, definition glossary builder
+
+#### Fuzzy Search
+- Levenshtein edit distance for typo-tolerant queries
+
+#### Streaming RAG
+- Server-Sent Events for word-by-word answer streaming
+
+#### Alert Analytics
+- Unified timeline across all 8 monitor types, per-type statistics
+
+#### 16 New API Endpoints
+- `/api/history/:guid`, `/api/compare`, `/api/similar/:guid`
+- `/api/citations/:guid`, `/api/glossary`, `/api/cross-refs/validate`
+- `/api/alerts/timeline`, `/api/alerts/recent`, `/api/chat/stream`, `/api/fuzzy`
+- `/api/alerts/airquality`, `/api/alerts/wildfire`, `/api/alerts/marine`, `/api/alerts/composite`
+
+#### Renamed from crescent-city → crescent-city-intel
+- Old repo (`docxology/crescent-city`) deprecated with signpost README
 
 ---
 

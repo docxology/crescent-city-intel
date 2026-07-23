@@ -570,17 +570,15 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
-  // GET /api/monitor/alerts — latest entry from each alert monitor
+  // GET /api/monitor/alerts — latest entry from each of 8 alert monitors
   if (path === "/api/monitor/alerts") {
     const { existsSync } = await import("fs");
     const { readdir, readFile } = await import("fs/promises");
-    const alertTypes = ["tsunami", "earthquake", "weather", "tides", "fishing"];
+    const alertTypes = ["tsunami", "earthquake", "weather", "tides", "fishing", "airquality", "wildfire", "marine"];
     const alerts: Record<string, unknown> = {};
 
     for (const type of alertTypes) {
-      const dir = `output/alerts/${type}`;
-      const tidesDir = `output/${type === "tides" ? "tides" : type === "fishing" ? "fishing" : "alerts/" + type}`;
-      const searchDir = type === "tides" ? "output/tides" : type === "fishing" ? "output/fishing" : dir;
+      const searchDir = type === "tides" ? "output/tides" : type === "fishing" ? "output/fishing" : `output/alerts/${type}`;
       if (!existsSync(searchDir)) { alerts[type] = null; continue; }
       try {
         const files = (await readdir(searchDir))
@@ -594,7 +592,51 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       }
     }
 
+    // Also include composite severity if available
+    const compositePath = "output/alerts/composite/current.json";
+    if (existsSync(compositePath)) {
+      try {
+        alerts["composite"] = JSON.parse(await readFile(compositePath, "utf-8"));
+      } catch { alerts["composite"] = null; }
+    }
+
     return json({ fetchedAt: new Date().toISOString(), alerts });
+  }
+
+  // GET /api/alerts/airquality — current air quality reading
+  if (path === "/api/alerts/airquality") {
+    const { existsSync, readFileSync } = await import("fs");
+    const filePath = "output/alerts/airquality/current.json";
+    if (!existsSync(filePath)) return json({ error: "No air quality data. Run: bun run alerts:airquality" }, 404);
+    try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
+    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+  }
+
+  // GET /api/alerts/wildfire — current wildfire report
+  if (path === "/api/alerts/wildfire") {
+    const { existsSync, readFileSync } = await import("fs");
+    const filePath = "output/alerts/wildfire/current.json";
+    if (!existsSync(filePath)) return json({ error: "No wildfire data. Run: bun run alerts:wildfire" }, 404);
+    try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
+    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+  }
+
+  // GET /api/alerts/marine — current marine buoy report
+  if (path === "/api/alerts/marine") {
+    const { existsSync, readFileSync } = await import("fs");
+    const filePath = "output/alerts/marine/current.json";
+    if (!existsSync(filePath)) return json({ error: "No marine data. Run: bun run alerts:marine" }, 404);
+    try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
+    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+  }
+
+  // GET /api/alerts/composite — composite 8-monitor severity
+  if (path === "/api/alerts/composite") {
+    const { existsSync, readFileSync } = await import("fs");
+    const filePath = "output/alerts/composite/current.json";
+    if (!existsSync(filePath)) return json({ error: "No composite severity. Run: bun run alerts" }, 404);
+    try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
+    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
   }
 
   // GET /api/openapi.yaml — OpenAPI specification
@@ -711,6 +753,17 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ total: glossary.length, entries: glossary });
     } catch (err: any) {
       return json({ error: `Glossary build failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/cross-refs/validate — validate all internal cross-references
+  if (path === "/api/cross-refs/validate") {
+    try {
+      const { validateAllCrossReferences } = await import("../structured_queries.js");
+      const result = await validateAllCrossReferences();
+      return json(result);
+    } catch (err: any) {
+      return json({ error: `Cross-ref validation failed: ${err.message}` }, 500);
     }
   }
 

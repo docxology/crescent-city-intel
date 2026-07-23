@@ -301,3 +301,96 @@ export async function resolveCrossReferences(guid: string): Promise<CrossReferen
     return [];
   }
 }
+
+// ─── Corpus-Wide Cross-Reference Validation ──────────────────────────
+
+export interface CrossRefValidationResult {
+  /** Total cross-references found across all sections */
+  totalReferences: number;
+  /** References that resolve to an actual section */
+  resolvedCount: number;
+  /** References that do NOT resolve to any section */
+  unresolvedCount: number;
+  /** Unresolved references grouped by section number */
+  unresolved: Array<{ sectionNumber: string; citation: string; sectionGuid: string }>;
+  /** Resolution rate (0-1) */
+  resolutionRate: number;
+  /** Sections with the most unresolved references */
+  mostUnresolved: Array<{ sectionNumber: string; count: number }>;
+}
+
+/**
+ * Validate all internal cross-references across the entire code corpus.
+ * Checks every § X.XX.XXX pattern in every section against all known sections.
+ */
+export async function validateAllCrossReferences(): Promise<CrossRefValidationResult> {
+  try {
+    const sections = await loadAllSections();
+    const sectionNumbers = new Set(sections.map(s => s.number));
+    const prefixMap = new Map<string, string>(); // prefix → full number
+    for (const s of sections) {
+      const parts = s.number.split(".");
+      for (let i = 1; i <= parts.length; i++) {
+        const prefix = parts.slice(0, i).join(".");
+        if (!prefixMap.has(prefix)) prefixMap.set(prefix, s.number);
+      }
+    }
+
+    const refPattern = /§\s*(\d+\.\d+(?:\.\d+)?)(?:\(?[A-Z]\)?)?/g;
+    const unresolved: Array<{ sectionNumber: string; citation: string; sectionGuid: string }> = [];
+    let totalReferences = 0;
+    let resolvedCount = 0;
+    const unresolvedBySection = new Map<string, number>();
+
+    for (const section of sections) {
+      const matches = [...section.text.matchAll(refPattern)];
+      const seen = new Set<string>();
+
+      for (const match of matches) {
+        const sectionNumber = match[1];
+        if (seen.has(sectionNumber)) continue;
+        seen.add(sectionNumber);
+        totalReferences++;
+
+        const exact = sectionNumbers.has(sectionNumber);
+        const prefix = prefixMap.has(sectionNumber);
+
+        if (exact || prefix) {
+          resolvedCount++;
+        } else {
+          unresolved.push({
+            sectionNumber,
+            citation: match[0],
+            sectionGuid: section.guid,
+          });
+          unresolvedBySection.set(section.number, (unresolvedBySection.get(section.number) ?? 0) + 1);
+        }
+      }
+    }
+
+    const unresolvedCount = totalReferences - resolvedCount;
+    const mostUnresolved = [...unresolvedBySection.entries()]
+      .map(([sectionNumber, count]) => ({ sectionNumber, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return {
+      totalReferences,
+      resolvedCount,
+      unresolvedCount,
+      unresolved,
+      resolutionRate: totalReferences > 0 ? resolvedCount / totalReferences : 1,
+      mostUnresolved,
+    };
+  } catch (err: any) {
+    log.error("Failed to validate cross-references", { error: err.message });
+    return {
+      totalReferences: 0,
+      resolvedCount: 0,
+      unresolvedCount: 0,
+      unresolved: [],
+      resolutionRate: 1,
+      mostUnresolved: [],
+    };
+  }
+}

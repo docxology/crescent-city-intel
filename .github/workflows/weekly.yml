@@ -78,6 +78,23 @@ jobs:
         continue-on-error: true
         timeout-minutes: 3
 
+      - name: Check EPA air quality
+        run: bun run alerts:airquality
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          AIRNOW_API_KEY: ${{ secrets.AIRNOW_API_KEY }}
+
+      - name: Check CAL FIRE wildfire
+        run: bun run alerts:wildfire
+        continue-on-error: true
+        timeout-minutes: 3
+
+      - name: Check NDBC marine conditions
+        run: bun run alerts:marine
+        continue-on-error: true
+        timeout-minutes: 3
+
       - name: Check news monitor
         run: bun run src/news_monitor.ts
         continue-on-error: true

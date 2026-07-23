@@ -18,6 +18,7 @@ import type { FlatSection, SearchResult } from "../types.js";
 import { loadAllSections } from "../shared/data.js";
 import { createLogger } from "../logger.js";
 import { stem } from "../shared/porter_stem.js";
+import { fuzzyCorrect } from "../shared/fuzzy.js";
 
 const logger = createLogger("search");
 
@@ -302,6 +303,8 @@ export interface PagedSearchResult {
   total: number;
   offset: number;
   limit: number;
+  /** Fuzzy correction suggestions (populated when BM25 returns 0 results) */
+  fuzzyCorrections?: Array<{ original: string; suggestion: string; score: number }>;
 }
 
 /**
@@ -361,6 +364,27 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
     const snippet = extractSnippet(section.text || section.title, rawQuery, highlight);
     return { section, snippet, matchCount: Math.round(score * 100) / 100 };
   });
+
+  // ─── Fuzzy fallback: if BM25 returns 0 results, suggest corrections ───
+  if (total === 0 && sections.length > 0) {
+    try {
+      // Build vocabulary from all section texts (sample first 500 sections for performance)
+      const vocab = new Set<string>();
+      const sample = sections.slice(0, Math.min(500, sections.length));
+      for (const s of sample) {
+        for (const w of s.text.toLowerCase().split(/\s+/)) {
+          if (w.length > 3) vocab.add(w);
+        }
+      }
+      const queryWords = rawQuery.split(/\s+/).filter(Boolean);
+      const corrections = fuzzyCorrect(queryWords, vocab, 0.7);
+      if (corrections.length > 0) {
+        return { results, total, offset, limit, fuzzyCorrections: corrections };
+      }
+    } catch {
+      // fuzzy module not available — return empty results
+    }
+  }
 
   return { results, total, offset, limit };
 }

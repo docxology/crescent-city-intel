@@ -897,13 +897,14 @@
 
 <body>
   <div id="header">
-    <h1>Crescent City Municipal Code</h1>
+    <h1>Crescent City Intelligence</h1>
     <div id="search-container">
       <input type="text" id="search-input" placeholder="Search sections... (e.g. 'zoning', '12.04')" autocomplete="off">
       <div id="search-results"></div>
     </div>
     <div class="header-buttons">
       <button class="btn" id="analytics-toggle">📊 Analytics</button>
+      <button class="btn" id="alerts-toggle">🚨 Alerts</button>
       <button class="btn" id="chat-toggle">Chat</button>
       <button class="btn" id="theme-toggle">Dark</button>
     </div>
@@ -956,6 +957,12 @@
             <p>💬 &nbsp;<strong>Chat</strong> — ask questions using the RAG-powered assistant</p>
           </div>
         </div>
+      </div>
+    </div>
+    <div id="alerts-panel" style="display:none; padding:1rem; background:var(--bg-secondary, #1a1a2e); color:var(--text-primary, #fff); border-bottom:1px solid var(--border, #333);">
+      <h3 style="margin:0 0 0.5rem 0;">🚨 8-Monitor Alert Dashboard</h3>
+      <div id="alerts-content">
+        <p style="color:var(--text-muted, #888);">Loading alert data...</p>
       </div>
     </div>
     <div id="chat-panel">
@@ -1396,6 +1403,93 @@
         loadAnalytics();
       }
     });
+
+    // ─── Alerts Dashboard ───────────────────────────────────────────
+    let alertsLoaded = false;
+    document.getElementById('alerts-toggle').addEventListener('click', () => {
+      const panel = document.getElementById('alerts-panel');
+      const btn = document.getElementById('alerts-toggle');
+      const isOpen = panel.style.display !== 'none';
+      panel.style.display = isOpen ? 'none' : 'block';
+      btn.classList.toggle('active', !isOpen);
+      if (!isOpen && !alertsLoaded) {
+        alertsLoaded = true;
+        loadAlertsDashboard();
+      }
+    });
+
+    async function loadAlertsDashboard() {
+      const container = document.getElementById('alerts-content');
+      try {
+        // Fetch composite severity + all monitor data
+        const [alertsResp, timelineResp] = await Promise.all([
+          fetch('/api/monitor/alerts'),
+          fetch('/api/alerts/timeline'),
+        ]);
+        const alertsData = await alertsResp.json();
+        const timelineData = await timelineResp.ok ? await timelineResp.json() : null;
+
+        let html = '';
+
+        // Composite severity banner
+        const composite = alertsData.alerts?.composite;
+        if (composite) {
+          const levelColors = { CALM: '#22c55e', WATCH: '#eab308', WARNING: '#f97316', EMERGENCY: '#ef4444' };
+          const color = levelColors[composite.level] || '#888';
+          html += `<div style="padding:0.75rem; border-radius:8px; background:${color}22; border:1px solid ${color}; margin-bottom:0.5rem;">`;
+          html += `<strong style="color:${color}; font-size:1.1rem;">${composite.level}</strong>`;
+          html += `<span style="margin-left:0.5rem; color:var(--text-muted, #888);">${composite.reason}</span>`;
+          html += `<span style="float:right; font-size:0.8rem; color:var(--text-muted, #888);">${new Date(composite.assessedAt).toLocaleString()}</span>`;
+          html += '</div>';
+        }
+
+        // Per-monitor grid
+        const monitorOrder = ['tsunami', 'earthquake', 'weather', 'tides', 'fishing', 'airquality', 'wildfire', 'marine'];
+        const monitorIcons = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓' };
+
+        html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0.5rem; margin-bottom:1rem;">';
+        for (const type of monitorOrder) {
+          const data = alertsData.alerts?.[type];
+          const icon = monitorIcons[type] || '📊';
+          if (data) {
+            const summary = data.summary || data.level || 'Data available';
+            const level = data.level || (data.overallStatus ? 'CHECK' : 'OK');
+            const levelColors = { CALM: '#22c55e', WATCH: '#eab308', WARNING: '#f97316', EMERGENCY: '#ef4444', GOOD: '#22c55e', ADVISORY: '#eab308', NONE: '#22c55e' };
+            const color = levelColors[level] || '#888';
+            html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333);">`;
+            html += `<div style="font-size:0.9rem;">${icon} <strong>${type}</strong></div>`;
+            html += `<div style="font-size:0.8rem; color:${color};">${level}</div>`;
+            html += `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.25rem;">${String(summary).substring(0, 80)}</div>`;
+            html += '</div>';
+          } else {
+            html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333); opacity:0.5;">`;
+            html += `<div style="font-size:0.9rem;">${icon} <strong>${type}</strong></div>`;
+            html += `<div style="font-size:0.75rem; color:var(--text-muted, #888);">No data</div>`;
+            html += '</div>';
+          }
+        }
+        html += '</div>';
+
+        // Timeline summary
+        if (timelineData && timelineData.totalEvents > 0) {
+          html += `<div style="margin-top:0.5rem;">`;
+          html += `<strong>📊 Alert Timeline:</strong> ${timelineData.totalEvents} total events`;
+          if (timelineData.mostActiveType) {
+            html += ` · Most active: <strong>${timelineData.mostActiveType}</strong>`;
+          }
+          if (timelineData.mostRecentAlert) {
+            const recent = timelineData.mostRecentAlert;
+            html += `<div style="font-size:0.8rem; color:var(--text-muted, #888); margin-top:0.25rem;">`;
+            html += `Most recent: [${recent.type}] ${recent.description.substring(0, 80)} — ${new Date(recent.timestamp).toLocaleString()}</div>`;
+          }
+          html += '</div>';
+        }
+
+        container.innerHTML = html || '<p style="color:var(--text-muted, #888);">No alert data available. Run: bun run alerts</p>';
+      } catch (err) {
+        container.innerHTML = '<p style="color:#f97316;">Failed to load alerts. Is the GUI running?</p>';
+      }
+    }
 
     async function loadAnalytics() {
       const container = document.getElementById('analytics-content');

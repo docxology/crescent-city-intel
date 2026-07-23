@@ -496,6 +496,162 @@ export const domains: IntelligenceDomain[] = [
       },
     ],
   },
+
+  // ─── Climate & Environment ───────────────────────────────────
+  {
+    id: "climate-environment",
+    name: "Climate & Environment",
+    icon: "🌡️",
+    description: "Climate resilience, drought monitoring, sea-level rise adaptation, carbon footprint, and environmental justice for Crescent City — a frontline coastal community facing Cascadia earthquake, tsunami inundation, and changing marine ecosystems.",
+    updatedAt: "2026-07-22",
+    topics: [
+      {
+        name: "Climate Adaptation & Sea-Level Rise",
+        description: "Planning for rising sea levels, increased storm intensity, and coastal erosion. Crescent City's downtown and harbor are in the FEMA tsunami inundation zone, making climate adaptation critical infrastructure planning.",
+        sources: [
+          { sectionNumber: "§ 15.04", relevance: "Building code — flood zone construction standards" },
+          { sectionNumber: "§ 17.04", relevance: "Zoning — coastal overlay and setback requirements" },
+          { sectionNumber: "§ 17.08", relevance: "Special development standards in hazard zones" },
+        ],
+        externalRefs: [
+          "https://earthquake.usgs.gov/hazards/",
+          "https://www.conservation.ca.gov/cgs/tsunami/maps",
+        ],
+        tags: ["climate adaptation", "sea level rise", "coastal resilience", "flood zone"],
+      },
+      {
+        name: "Drought & Water Conservation",
+        description: "Water conservation ordinances, drought contingency planning, and Smith River watershed protection. The Smith River is California's last undammed major river.",
+        sources: [
+          { sectionNumber: "§ 13.04", relevance: "Public services — water utility conservation" },
+          { sectionNumber: "§ 8.04", relevance: "Health and safety — water quality standards" },
+        ],
+        externalRefs: [
+          "https://www.waterboards.ca.gov/",
+          "https://droughtmonitor.unl.edu/",
+        ],
+        tags: ["drought", "water conservation", "smith river", "watershed"],
+      },
+      {
+        name: "Air Quality & Environmental Justice",
+        description: "Wildfire smoke impacts, industrial emissions monitoring, and environmental justice considerations for disadvantaged communities. Crescent City's coastal location exposes it to seasonal wildfire smoke from interior Northern California and Oregon.",
+        sources: [
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — air quality authority" },
+          { sectionNumber: "§ 8.08", relevance: "Nuisance abatement — air pollution" },
+        ],
+        externalRefs: [
+          "https://www.airnow.gov/",
+          "https://ww2.arb.ca.gov/",
+        ],
+        tags: ["air quality", "wildfire smoke", "environmental justice", "emissions"],
+      },
+    ],
+  },
+
+  // ─── Demographics & Social Indicators ─────────────────────────
+  {
+    id: "demographics-social",
+    name: "Demographics & Social Indicators",
+    icon: "👥",
+    description: "Population trends, poverty indicators, prison-adjacent demographics, homelessness data, and social vulnerability indices for Crescent City — where ~3,000 of the ~6,000 residents are incarcerated at Pelican Bay State Prison.",
+    updatedAt: "2026-07-22",
+    topics: [
+      {
+        name: "Population & Demographic Profile",
+        description: "Crescent City's population includes approximately 3,000 inmates at Pelican Bay State Prison, skewing demographic data. The non-incarcerated population is approximately 3,000 residents with high poverty rates.",
+        sources: [
+          { sectionNumber: "§ 2.04", relevance: "Administration — census and demographic data coordination" },
+          { sectionNumber: "§ 5.04", relevance: "Business licenses — demographic-based business zoning" },
+        ],
+        externalRefs: [
+          "https://www.census.gov/quickfacts/crescentcitycalifornia",
+          "https://www.cdcr.ca.gov/facility-locator/pbsp/",
+        ],
+        tags: ["demographics", "population", "pelican bay", "census", "incarceration"],
+      },
+      {
+        name: "Poverty & Economic Vulnerability",
+        description: "17% poverty rate, median income $35,540, and high reliance on government employment. The city's economy is heavily dependent on the prison, harbor, and timber sectors.",
+        sources: [
+          { sectionNumber: "§ 5.04", relevance: "Business licenses — economic development incentives" },
+          { sectionNumber: "§ 5.08", relevance: "Business license fees — low-income provisions" },
+          { sectionNumber: "§ 13.04", relevance: "Public services — social service coordination" },
+        ],
+        externalRefs: [
+          "https://www.hud.gov/states/california",
+          "https://www.census.gov/quickfacts/crescentcitycalifornia",
+        ],
+        tags: ["poverty", "economic development", "median income", "unemployment"],
+      },
+      {
+        name: "Homelessness & Housing Instability",
+        description: "Homelessness response, shelter capacity, vehicle dwelling enforcement, and the intersection with tourism and harbor operations. Del Norte County operates the Cal-Ore Homeless Shelter.",
+        sources: [
+          { sectionNumber: "§ 9.04", relevance: "Public Peace — camping and loitering regulations" },
+          { sectionNumber: "§ 10.04", relevance: "Vehicles — overnight parking restrictions" },
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — emergency shelter authority" },
+          { sectionNumber: "§ 17.60", relevance: "Special use permits — shelter facilities" },
+        ],
+        externalRefs: [
+          "https://www.hudexchange.info/homelessness-assistance/",
+          "https://www.caloes.ca.gov/emergency-shelter/",
+        ],
+        tags: ["homelessness", "shelter", "vehicle dwelling", "housing instability", "CARE Court"],
+      },
+    ],
+  },
+
+  // ─── Public Health & Safety ───────────────────────────────────
+  {
+    id: "public-health-safety",
+    name: "Public Health & Safety",
+    icon: "🏥",
+    description: "Public health services, emergency medical response, pandemic preparedness, food safety, water quality, and mental health services coordination for Crescent City and Del Norte County.",
+    updatedAt: "2026-07-22",
+    topics: [
+      {
+        name: "Emergency Medical Services",
+        description: "EMS coordination, ambulance services, and emergency medical response protocols. Crescent City is served by Del Norte County EMS with mutual aid from Curry County, Oregon.",
+        sources: [
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — EMS authority" },
+          { sectionNumber: "§ 9.04", relevance: "Public Peace — emergency response coordination" },
+          { sectionNumber: "§ 2.04", relevance: "Administration — intergovernmental EMS agreements" },
+        ],
+        externalRefs: [
+          "https://www.co.del-norte.ca.us/departments/health-human-services",
+          "https://www.emsa.ca.gov/",
+        ],
+        tags: ["ems", "ambulance", "emergency medical", "mutual aid"],
+      },
+      {
+        name: "Food Safety & Restaurant Inspection",
+        description: "Restaurant permitting, food handler certification, health inspections, and mobile food vendor regulations. Food safety oversight is coordinated between the city and Del Norte County Environmental Health Division.",
+        sources: [
+          { sectionNumber: "§ 5.04", relevance: "Business licenses — food service permits" },
+          { sectionNumber: "§ 5.12", relevance: "Specific business type — restaurant regulations" },
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — food safety authority" },
+        ],
+        externalRefs: [
+          "https://www.co.del-norte.ca.us/departments/environmental-health",
+        ],
+        tags: ["food safety", "restaurant inspection", "food handler", "health permit"],
+      },
+      {
+        name: "Mental Health & Crisis Response",
+        description: "Mental health crisis intervention, CARE Court compliance, and coordination with Del Norte County Health and Human Services. The city's high poverty and prison-adjacent population creates significant demand for integrated mental health services.",
+        sources: [
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — mental health authority" },
+          { sectionNumber: "§ 2.04", relevance: "Administration — county mental health coordination" },
+          { sectionNumber: "§ 9.04", relevance: "Public Peace — crisis intervention protocols" },
+        ],
+        externalRefs: [
+          "https://carecourt.ca.gov/",
+          "https://www.delnortecounty.gov/departments/health-human-services",
+        ],
+        tags: ["mental health", "crisis intervention", "care court", "behavioral health"],
+      },
+    ],
+  },
 ];
 
 /** Get a domain by its ID */

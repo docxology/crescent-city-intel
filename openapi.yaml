@@ -647,6 +647,394 @@ paths:
                   count: {type: integer, example: 2194}
         '404': {description: Manifest not found}
 
+  # ─── v2.0 Intelligence Endpoints ──────────────────────────────────
+
+  /api/history/{guid}:
+    get:
+      summary: Legislative history for a section
+      description: Parses the legislative history field of a section into structured ordinance chain entries.
+      operationId: getSectionHistory
+      tags: [Structured Queries]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: {type: string}
+          description: Section GUID
+      responses:
+        '200':
+          description: Legislative history with parsed ordinance entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guid: {type: string}
+                  number: {type: string}
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ordinance: {type: string, example: "Ord. No. 942"}
+                        action: {type: string, example: "amended"}
+                        date: {type: string, nullable: true, example: "2011"}
+                        raw: {type: string}
+                  rawHistory: {type: string}
+        '404': {description: Section not found}
+
+  /api/compare:
+    get:
+      summary: Compare two sections
+      description: Word-level diff between two sections, returning lines unique to each, common lines, and a similarity score.
+      operationId: compareSections
+      tags: [Structured Queries]
+      parameters:
+        - name: guid1
+          in: query
+          required: true
+          schema: {type: string}
+        - name: guid2
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Section comparison result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guid1: {type: string}
+                  guid2: {type: string}
+                  number1: {type: string}
+                  number2: {type: string}
+                  wordCountDelta: {type: integer}
+                  onlyInFirst: {type: array, items: {type: string}}
+                  onlyInSecond: {type: array, items: {type: string}}
+                  common: {type: array, items: {type: string}}
+                  similarity: {type: number, format: float}
+
+  /api/similar/{guid}:
+    get:
+      summary: Find semantically similar sections
+      description: Returns sections similar to the given one using cosine-similarity term overlap with a same-title boost.
+      operationId: findSimilarSections
+      tags: [Structured Queries]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: {type: string}
+        - name: limit
+          in: query
+          required: false
+          schema: {type: integer, default: 10}
+      responses:
+        '200':
+          description: Similar sections with scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guid: {type: string}
+                  limit: {type: integer}
+                  count: {type: integer}
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        score: {type: number}
+                        reason: {type: string}
+
+  /api/citations/{guid}:
+    get:
+      summary: Extract legal citations from a section
+      description: Parses section text for California Code, U.S.C., case law, and ordinance amendment citations.
+      operationId: extractCitations
+      tags: [Legal Analysis]
+      parameters:
+        - name: guid
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Extracted citations and ordinance amendments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guid: {type: string}
+                  number: {type: string}
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        citation: {type: string}
+                        type: {type: string, enum: [ca-code, federal, case-law, ordinance]}
+                        codeName: {type: string, nullable: true}
+                        section: {type: string, nullable: true}
+                  amendments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ordinance: {type: string}
+                        action: {type: string}
+                        year: {type: integer, nullable: true}
+
+  /api/glossary:
+    get:
+      summary: Definition glossary
+      description: Extracts defined terms from the entire code corpus using legal definition patterns ("shall mean", "means", "is defined as").
+      operationId: getGlossary
+      tags: [Legal Analysis]
+      responses:
+        '200':
+          description: Glossary entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: {type: integer}
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term: {type: string}
+                        definition: {type: string}
+                        sectionNumber: {type: string}
+
+  /api/cross-refs/validate:
+    get:
+      summary: Validate all internal cross-references
+      description: Checks every section reference (§ X.XX.XXX) in the code against actual sections. Returns resolution rate and unresolved references.
+      operationId: validateCrossReferences
+      tags: [Legal Analysis]
+      responses:
+        '200':
+          description: Cross-reference validation report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalReferences: {type: integer}
+                  resolvedCount: {type: integer}
+                  unresolvedCount: {type: integer}
+                  resolutionRate: {type: number, format: float}
+                  unresolved:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sectionNumber: {type: string}
+                        citation: {type: string}
+                        sectionGuid: {type: string}
+
+  /api/alerts/timeline:
+    get:
+      summary: Unified alert event timeline
+      description: Aggregates all alert events across all 8 monitor types into a single chronological timeline with per-type statistics.
+      operationId: getAlertTimeline
+      tags: [Alert Analytics]
+      responses:
+        '200':
+          description: Alert analytics report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generatedAt: {type: string, format: date-time}
+                  totalEvents: {type: integer}
+                  timeline:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp: {type: string, format: date-time}
+                        type: {type: string}
+                        severity: {type: string}
+                        description: {type: string}
+                  typeStats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: {type: string}
+                        totalEvents: {type: integer}
+                        avgPerDay: {type: number}
+
+  /api/alerts/recent:
+    get:
+      summary: Recent alert events
+      description: Returns the most recent alert events across all monitor types.
+      operationId: getRecentAlerts
+      tags: [Alert Analytics]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: {type: integer, default: 20}
+      responses:
+        '200':
+          description: Recent alert events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  limit: {type: integer}
+                  count: {type: integer}
+                  alerts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        timestamp: {type: string}
+                        type: {type: string}
+                        severity: {type: string}
+                        description: {type: string}
+
+  /api/alerts/airquality:
+    get:
+      summary: Current air quality reading
+      description: Latest EPA AirNow AQI data for Crescent City (ZIP 95531).
+      operationId: getAirQuality
+      tags: [Alerts]
+      responses:
+        '200':
+          description: Air quality report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp: {type: string, format: date-time}
+                  maxAqi: {type: integer}
+                  level: {type: string}
+                  summary: {type: string}
+                  advisory: {type: string, nullable: true}
+        '404': {description: No air quality data available}
+
+  /api/alerts/wildfire:
+    get:
+      summary: Current wildfire report
+      description: Active CAL FIRE wildfire incidents in Del Norte and surrounding counties.
+      operationId: getWildfireReport
+      tags: [Alerts]
+      responses:
+        '200':
+          description: Wildfire report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp: {type: string, format: date-time}
+                  totalIncidents: {type: integer}
+                  level: {type: string}
+                  summary: {type: string}
+        '404': {description: No wildfire data available}
+
+  /api/alerts/marine:
+    get:
+      summary: Current marine buoy report
+      description: Latest NDBC buoy observations for Crescent City marine region (wave height, wind, water temp).
+      operationId: getMarineReport
+      tags: [Alerts]
+      responses:
+        '200':
+          description: Marine report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  timestamp: {type: string, format: date-time}
+                  primaryStation: {type: string}
+                  level: {type: string}
+                  summary: {type: string}
+                  advisory: {type: string, nullable: true}
+        '404': {description: No marine data available}
+
+  /api/alerts/composite:
+    get:
+      summary: Composite 8-monitor alert severity
+      description: Aggregated severity assessment across all 8 alert monitors (tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine).
+      operationId: getCompositeSeverity
+      tags: [Alerts]
+      responses:
+        '200':
+          description: Composite severity report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  level: {type: string, enum: [CALM, WATCH, WARNING, EMERGENCY]}
+                  assessedAt: {type: string, format: date-time}
+                  reason: {type: string}
+        '404': {description: No composite severity data available}
+
+  /api/chat/stream:
+    post:
+      summary: Streaming RAG chat (SSE)
+      description: Server-Sent Events stream for word-by-word RAG answer generation. Sends sources event, token events, and a done event.
+      operationId: streamRagChat
+      tags: [LLM]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q: {type: string, description: Question to ask}
+      responses:
+        '200':
+          description: SSE stream (text/event-stream)
+        '503': {description: Ollama or ChromaDB unavailable}
+
+  /api/fuzzy:
+    get:
+      summary: Fuzzy search suggestions
+      description: Returns typo-tolerant corrections for query terms using Levenshtein edit distance.
+      operationId: fuzzySearch
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Fuzzy corrections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original: {type: string}
+                  expanded: {type: string}
+                  corrections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        original: {type: string}
+                        suggestion: {type: string}
+                        score: {type: number}
+
 
 components:
   schemas:

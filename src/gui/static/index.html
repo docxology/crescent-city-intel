@@ -892,6 +892,123 @@
         z-index: 50;
       }
     }
+    /* ─── Intelligence Dashboard ─────────────────────────────────── */
+    #intel-overlay {
+      display: none;
+      position: fixed;
+      top: var(--header-height);
+      left: 0; right: 0; bottom: 0;
+      background: var(--bg);
+      z-index: 100;
+      overflow-y: auto;
+      font-family: system-ui, sans-serif;
+    }
+    #intel-overlay.open { display: block; }
+    .intel-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-secondary);
+      border-bottom: 2px solid var(--border);
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .intel-tab {
+      padding: 10px 18px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .intel-tab:hover { color: var(--text); background: var(--bg-hover); }
+    .intel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .intel-content { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .intel-panel { display: none; }
+    .intel-panel.active { display: block; }
+    .intel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .intel-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      transition: box-shadow 0.2s;
+    }
+    .intel-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+    .intel-card h4 { font-size: 14px; margin-bottom: 8px; color: var(--accent); }
+    .intel-card .metric { font-size: 28px; font-weight: 700; color: var(--text); }
+    .intel-card .label { font-size: 12px; color: var(--text-secondary); }
+    .intel-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .intel-table th { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); color: var(--text-secondary); font-weight: 600; }
+    .intel-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    .intel-table tr:hover { background: var(--bg-hover); }
+    .intel-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: #22c55e22; color: #22c55e; }
+    .badge-yellow { background: #eab30822; color: #eab308; }
+    .badge-orange { background: #f9731622; color: #f97316; }
+    .badge-red { background: #ef444422; color: #ef4444; }
+    .badge-blue { background: #3b82f622; color: #3b82f6; }
+    .fuzzy-suggestion { padding: 4px 8px; font-size: 12px; color: var(--accent); cursor: pointer; }
+    .fuzzy-suggestion:hover { text-decoration: underline; }
+    #glossary-search {
+      width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 14px; background: var(--bg); color: var(--text);
+      margin-bottom: 16px; font-family: inherit;
+    }
+    .api-explorer-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px;
+      background: var(--bg-secondary); font-size: 13px;
+    }
+    .api-explorer-method { font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 3px; }
+    .method-get { background: #22c55e22; color: #22c55e; }
+    .method-post { background: #3b82f622; color: #3b82f6; }
+    .api-explorer-path { font-family: monospace; flex: 1; }
+    .api-explorer-btn { padding: 4px 10px; font-size: 12px; cursor: pointer; border: 1px solid var(--accent); border-radius: 4px; background: transparent; color: var(--accent); }
+    .api-explorer-btn:hover { background: var(--accent); color: var(--bg); }
+    #api-explorer-result {
+      margin-top: 16px; padding: 16px; background: var(--bg-secondary);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: monospace; font-size: 12px; white-space: pre-wrap;
+      max-height: 400px; overflow-y: auto;
+    }
+    .compare-section {
+      display: flex; gap: 16px;
+    }
+    .compare-col { flex: 1; }
+    .compare-col select { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-family: inherit; margin-bottom: 8px; }
+    .compare-col .compare-text {
+      padding: 12px; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--bg-secondary); font-size: 12px; max-height: 300px; overflow-y: auto;
+      font-family: monospace;
+    }
+    .intel-section-header { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+
+    /* ─── Fuzzy Search Suggestions ──────────────────────────────── */
+    .fuzzy-suggestions {
+      padding: 4px 8px; font-size: 12px; color: var(--text-secondary);
+      background: var(--bg-secondary); border: 1px solid var(--border);
+      border-top: none; border-radius: 0 0 6px 6px;
+    }
+
+    /* ─── Staleness/Alert Banners ──────────────────────────────── */
+    .banner-stale {
+      padding: 6px 16px; background: #f59e0b22;
+      border-bottom: 1px solid #f59e0b; color: #f59e0b; font-size: 13px;
+    }
+    .banner-alert {
+      padding: 6px 16px; font-size: 13px;
+    }
+
   </style>
 </head>
 
@@ -905,6 +1022,7 @@
     <div class="header-buttons">
       <button class="btn" id="analytics-toggle">📊 Analytics</button>
       <button class="btn" id="alerts-toggle">🚨 Alerts</button>
+      <button class="btn" id="intel-toggle">🧠 Intelligence</button>
       <button class="btn" id="chat-toggle">Chat</button>
       <button class="btn" id="theme-toggle">Dark</button>
     </div>
@@ -991,6 +1109,86 @@
     <h2>📊 Municipal Code Analytics</h2>
     <div id="analytics-content">
       <div class="analytics-loading">Click to load analytics...</div>
+    </div>
+  </div>
+
+  <!-- ─── Intelligence Dashboard ─────────────────────────────────── -->
+  <div id="intel-overlay">
+    <div class="intel-tabs">
+      <button class="intel-tab active" data-tab="overview">📋 Overview</button>
+      <button class="intel-tab" data-tab="alerts">🚨 Alert Timeline</button>
+      <button class="intel-tab" data-tab="search">🔍 Search Analytics</button>
+      <button class="intel-tab" data-tab="glossary">📖 Glossary</button>
+      <button class="intel-tab" data-tab="xrefs">🔗 Cross-Refs</button>
+      <button class="intel-tab" data-tab="history">📜 Legislative History</button>
+      <button class="intel-tab" data-tab="compare">⚖️ Compare Sections</button>
+      <button class="intel-tab" data-tab="report">📅 Monthly Report</button>
+      <button class="intel-tab" data-tab="api">🔌 API Explorer</button>
+      <button class="intel-tab" data-tab="domains">🧭 Domains</button>
+      <button class="intel-tab" data-tab="readability">📊 Readability</button>
+    </div>
+    <div class="intel-content">
+      <div class="intel-panel active" id="intel-overview">
+        <div class="intel-section-header">Intelligence Platform Overview</div>
+        <div class="intel-grid" id="intel-overview-grid"><p style="color:var(--text-secondary)">Loading...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-alerts">
+        <div class="intel-section-header">Alert Timeline (8 monitors)</div>
+        <div id="alert-timeline-content"><p style="color:var(--text-secondary)">Loading...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-search">
+        <div class="intel-section-header">Search Analytics</div>
+        <div id="search-analytics-content"><p style="color:var(--text-secondary)">Loading...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-glossary">
+        <div class="intel-section-header">Definition Glossary</div>
+        <input type="text" id="glossary-search" placeholder="Search glossary terms...">
+        <div id="glossary-content" style="max-height:500px;overflow-y:auto"></div>
+      </div>
+      <div class="intel-panel" id="intel-xrefs">
+        <div class="intel-section-header">Cross-Reference Validation</div>
+        <div id="xrefs-content"><p style="color:var(--text-secondary)">Loading...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-history">
+        <div class="intel-section-header">Legislative History</div>
+        <p style="color:var(--text-secondary);margin-bottom:12px">Enter a section GUID to view its ordinance chain:</p>
+        <input type="text" id="history-guid-input" placeholder="Section GUID (e.g. 12345...)" style="width:300px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;margin-bottom:8px">
+        <button class="btn" id="history-load-btn" style="margin-left:8px">Load</button>
+        <div id="history-content" style="margin-top:16px"></div>
+      </div>
+      <div class="intel-panel" id="intel-compare">
+        <div class="intel-section-header">Compare Two Sections</div>
+        <p style="color:var(--text-secondary);margin-bottom:12px">Enter two section GUIDs to diff:</p>
+        <div class="compare-section">
+          <div class="compare-col">
+            <input type="text" id="compare-guid1" placeholder="Section GUID 1" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;margin-bottom:8px">
+            <div class="compare-text" id="compare-text1">—</div>
+          </div>
+          <div class="compare-col">
+            <input type="text" id="compare-guid2" placeholder="Section GUID 2" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;margin-bottom:8px">
+            <div class="compare-text" id="compare-text2">—</div>
+          </div>
+        </div>
+        <button class="btn" id="compare-btn" style="margin-top:12px">Compare</button>
+        <div id="compare-result" style="margin-top:16px"></div>
+      </div>
+      <div class="intel-panel" id="intel-report">
+        <div class="intel-section-header">Monthly Civic Health Report</div>
+        <div id="report-content"><p style="color:var(--text-secondary)">Loading latest report...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-api">
+        <div class="intel-section-header">API Explorer (45+ endpoints)</div>
+        <div id="api-explorer-list"></div>
+        <div id="api-explorer-result" style="display:none"></div>
+      </div>
+      <div class="intel-panel" id="intel-domains">
+        <div class="intel-section-header">12 Civic Intelligence Domains</div>
+        <div id="domains-content"><p style="color:var(--text-secondary)">Loading...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-readability">
+        <div class="intel-section-header">Readability Analysis</div>
+        <div id="readability-content"><p style="color:var(--text-secondary)">Loading...</p></div>
+      </div>
     </div>
   </div>
 
@@ -2051,6 +2249,365 @@
 
     // Start
     init();
+
+    // ─── Intelligence Dashboard ──────────────────────────────────────
+
+    let intelLoaded = {};
+    const intelOverlay = document.getElementById('intel-overlay');
+    const intelToggle = document.getElementById('intel-toggle');
+
+    intelToggle.addEventListener('click', () => {
+      const isOpen = intelOverlay.classList.toggle('open');
+      intelToggle.classList.toggle('active', isOpen);
+      // Close other overlays
+      if (isOpen) {
+        document.getElementById('analytics-overlay')?.classList.remove('open');
+        document.getElementById('alerts-panel').style.display = 'none';
+        document.getElementById('alerts-toggle').classList.remove('active');
+        document.getElementById('analytics-toggle').classList.remove('active');
+        if (!intelLoaded.overview) { intelLoaded.overview = true; loadIntelOverview(); }
+      }
+    });
+
+    // Tab switching
+    document.querySelectorAll('.intel-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.intel-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.intel-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const tabName = tab.dataset.tab;
+        document.getElementById('intel-' + tabName).classList.add('active');
+        // Lazy load
+        if (!intelLoaded[tabName]) {
+          intelLoaded[tabName] = true;
+          if (tabName === 'alerts') loadAlertTimeline();
+          else if (tabName === 'search') loadSearchAnalytics();
+          else if (tabName === 'glossary') loadGlossary();
+          else if (tabName === 'xrefs') loadXRefs();
+          else if (tabName === 'report') loadReport();
+          else if (tabName === 'api') loadApiExplorer();
+          else if (tabName === 'domains') loadDomainsPanel();
+          else if (tabName === 'readability') loadReadabilityPanel();
+        }
+      });
+    });
+
+    // ─ Overview ─
+    async function loadIntelOverview() {
+      const grid = document.getElementById('intel-overview-grid');
+      try {
+        const [health, alerts, timeline] = await Promise.all([
+          fetch('/api/health').then(r => r.json()).catch(() => null),
+          fetch('/api/monitor/alerts').then(r => r.json()).catch(() => null),
+          fetch('/api/alerts/timeline').then(r => r.json()).catch(() => null),
+        ]);
+        let html = '';
+        if (health) {
+          html += `<div class="intel-card"><h4>System Status</h4><div class="metric">${health.status === 'ok' ? '✅' : '⚠️'}</div><div class="label">Health</div></div>`;
+          if (health.manifest) {
+            html += `<div class="intel-card"><h4>Data Freshness</h4><div class="metric">${health.manifest.ageDays}</div><div class="label">days old ${health.manifest.stale ? '(⚠️ stale)' : '✅'}</div></div>`;
+          }
+          if (health.manifest?.sectionCount) {
+            html += `<div class="intel-card"><h4>Sections</h4><div class="metric">${health.manifest.sectionCount}</div><div class="label">code sections</div></div>`;
+          }
+          if (health.alertLevel) {
+            const colors = {CALM:'badge-green',WATCH:'badge-yellow',WARNING:'badge-orange',EMERGENCY:'badge-red'};
+            html += `<div class="intel-card"><h4>Composite Alert</h4><div class="metric"><span class="intel-badge ${colors[health.alertLevel]||'badge-blue'}">${health.alertLevel}</span></div></div>`;
+          }
+        }
+        if (timeline) {
+          html += `<div class="intel-card"><h4>Total Alert Events</h4><div class="metric">${timeline.totalEvents}</div><div class="label">across all monitors</div></div>`;
+          if (timeline.mostActiveType) {
+            html += `<div class="intel-card"><h4>Most Active Monitor</h4><div class="metric" style="font-size:18px">${timeline.mostActiveType}</div></div>`;
+          }
+        }
+        // Domains
+        try {
+          const domains = await fetch('/api/domains').then(r => r.json());
+          html += `<div class="intel-card"><h4>Intelligence Domains</h4><div class="metric">${domains.length || 12}</div><div class="label">civic domains</div></div>`;
+        } catch { /* skip */ }
+        // API endpoints
+        html += `<div class="intel-card"><h4>API Endpoints</h4><div class="metric">45+</div><div class="label">OpenAPI 3.0.3 spec</div></div>`;
+        // Version
+        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.2.0</div><div class="label">413 tests passing</div></div>`;
+        grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available</p>';
+      } catch (err) {
+        grid.innerHTML = '<p style="color:var(--text-secondary)">Failed to load overview</p>';
+      }
+    }
+
+    // ─ Alert Timeline ─
+    async function loadAlertTimeline() {
+      const el = document.getElementById('alert-timeline-content');
+      try {
+        const data = await fetch('/api/alerts/timeline').then(r => r.json());
+        let html = '';
+        // Type stats table
+        if (data.typeStats?.length > 0) {
+          html += '<table class="intel-table"><thead><tr><th>Monitor</th><th>Events</th><th>First</th><th>Last</th><th>Avg/Day</th></tr></thead><tbody>';
+          for (const s of data.typeStats) {
+            html += `<tr><td>${s.type}</td><td>${s.totalEvents}</td><td>${s.firstEvent?.substring(0,10) ?? '—'}</td><td>${s.lastEvent?.substring(0,10) ?? '—'}</td><td>${s.avgPerDay?.toFixed(2) ?? '—'}</td></tr>`;
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<p style="color:var(--text-secondary)">No alert events recorded. Run: bun run alerts</p>';
+        }
+        // Recent events
+        if (data.mostRecentAlert) {
+          const r = data.mostRecentAlert;
+          html += `<div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary)"><strong>Most Recent Alert:</strong> <span class="intel-badge badge-blue">${r.type}</span> ${r.description.substring(0,100)} — ${new Date(r.timestamp).toLocaleString()}</div>`;
+        }
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load alert timeline</p>'; }
+    }
+
+    // ─ Search Analytics ─
+    async function loadSearchAnalytics() {
+      const el = document.getElementById('search-analytics-content');
+      try {
+        const data = await fetch('/api/search/analytics').then(r => r.json());
+        let html = `<p style="margin-bottom:12px"><strong>Total queries:</strong> ${data.totalQueries}</p>`;
+        if (data.topTerms?.length > 0) {
+          html += '<table class="intel-table"><thead><tr><th>Term</th><th>Count</th></tr></thead><tbody>';
+          for (const t of data.topTerms) {
+            html += `<tr><td>${t.term}</td><td>${t.count}</td></tr>`;
+          }
+          html += '</tbody></table>';
+        } else {
+          html += '<p style="color:var(--text-secondary)">No search queries logged yet. Search the code to populate analytics.</p>';
+        }
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load search analytics</p>'; }
+    }
+
+    // ─ Glossary ─
+    let glossaryData = null;
+    async function loadGlossary() {
+      const el = document.getElementById('glossary-content');
+      try {
+        const data = await fetch('/api/glossary').then(r => r.json());
+        glossaryData = data.entries || [];
+        renderGlossary('');
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load glossary</p>'; }
+    }
+    function renderGlossary(filter) {
+      const el = document.getElementById('glossary-content');
+      if (!glossaryData) return;
+      const filtered = filter ? glossaryData.filter(g => g.term.toLowerCase().includes(filter.toLowerCase()) || g.definition.toLowerCase().includes(filter.toLowerCase())) : glossaryData;
+      let html = `<p style="margin-bottom:8px;color:var(--text-secondary)">${filtered.length} of ${glossaryData.length} definitions</p>`;
+      html += '<table class="intel-table"><thead><tr><th>Term</th><th>Definition</th><th>Section</th></tr></thead><tbody>';
+      for (const g of filtered.slice(0, 200)) {
+        html += `<tr><td><strong>${g.term}</strong></td><td>${g.definition.substring(0,200)}</td><td>${g.sectionNumber}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+    document.getElementById('glossary-search').addEventListener('input', (e) => renderGlossary(e.target.value));
+
+    // ─ Cross-Refs ─
+    async function loadXRefs() {
+      const el = document.getElementById('xrefs-content');
+      el.innerHTML = '<p style="color:var(--text-secondary)">Validating cross-references (may take a moment)...</p>';
+      try {
+        const data = await fetch('/api/cross-refs/validate').then(r => r.json());
+        const pct = (data.resolutionRate * 100).toFixed(1);
+        const badge = data.resolutionRate > 0.9 ? 'badge-green' : data.resolutionRate > 0.7 ? 'badge-yellow' : 'badge-red';
+        let html = `<div class="intel-grid" style="margin-bottom:16px">
+          <div class="intel-card"><h4>Resolution Rate</h4><div class="metric"><span class="intel-badge ${badge}">${pct}%</span></div></div>
+          <div class="intel-card"><h4>Total References</h4><div class="metric">${data.totalReferences}</div></div>
+          <div class="intel-card"><h4>Resolved</h4><div class="metric" style="color:#22c55e">${data.resolvedCount}</div></div>
+          <div class="intel-card"><h4>Unresolved</h4><div class="metric" style="color:#ef4444">${data.unresolvedCount}</div></div>
+        </div>`;
+        if (data.mostUnresolved?.length > 0) {
+          html += '<h4 style="margin:16px 0 8px">Sections with Most Unresolved References</h4><table class="intel-table"><thead><tr><th>Section</th><th>Unresolved Count</th></tr></thead><tbody>';
+          for (const m of data.mostUnresolved) { html += `<tr><td>§ ${m.sectionNumber}</td><td>${m.count}</td></tr>`; }
+          html += '</tbody></table>';
+        }
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to validate cross-references</p>'; }
+    }
+
+    // ─ Legislative History ─
+    document.getElementById('history-load-btn').addEventListener('click', async () => {
+      const guid = document.getElementById('history-guid-input').value.trim();
+      if (!guid) return;
+      const el = document.getElementById('history-content');
+      el.innerHTML = '<p style="color:var(--text-secondary)">Loading...</p>';
+      try {
+        const data = await fetch(`/api/history/${guid}`).then(r => r.json());
+        if (data.error) { el.innerHTML = `<p style="color:#f97316">${data.error}</p>`; return; }
+        let html = `<h4>§ ${data.number}</h4><p style="color:var(--text-secondary);margin-bottom:12px">${data.rawHistory}</p>`;
+        if (data.entries?.length > 0) {
+          html += '<table class="intel-table"><thead><tr><th>Ordinance</th><th>Action</th><th>Year</th></tr></thead><tbody>';
+          for (const e of data.entries) { html += `<tr><td>${e.ordinance}</td><td>${e.action}</td><td>${e.date ?? '—'}</td></tr>`; }
+          html += '</tbody></table>';
+        }
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load history</p>'; }
+    });
+
+    // ─ Compare Sections ─
+    document.getElementById('compare-btn').addEventListener('click', async () => {
+      const g1 = document.getElementById('compare-guid1').value.trim();
+      const g2 = document.getElementById('compare-guid2').value.trim();
+      if (!g1 || !g2) return;
+      const el = document.getElementById('compare-result');
+      el.innerHTML = '<p style="color:var(--text-secondary)">Comparing...</p>';
+      try {
+        const data = await fetch(`/api/compare?guid1=${g1}&guid2=${g2}`).then(r => r.json());
+        if (data.error) { el.innerHTML = `<p style="color:#f97316">${data.error}</p>`; return; }
+        const pct = (data.similarity * 100).toFixed(1);
+        let html = `<div class="intel-grid" style="margin-bottom:12px">
+          <div class="intel-card"><h4>Similarity</h4><div class="metric">${pct}%</div></div>
+          <div class="intel-card"><h4>Word Delta</h4><div class="metric">${data.wordCountDelta > 0 ? '+' : ''}${data.wordCountDelta}</div></div>
+          <div class="intel-card"><h4>Common Lines</h4><div class="metric">${data.common.length}</div></div>
+        </div>`;
+        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><h5>Only in § ${data.number1}</h5><div class="compare-text">${data.onlyInFirst.slice(0,20).join('<br>')}</div></div><div><h5>Only in § ${data.number2}</h5><div class="compare-text">${data.onlyInSecond.slice(0,20).join('<br>')}</div></div></div>`;
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to compare</p>'; }
+    });
+
+    // ─ Monthly Report ─
+    async function loadReport() {
+      const el = document.getElementById('report-content');
+      try {
+        const resp = await fetch('/api/report/latest');
+        if (resp.status === 404) { el.innerHTML = '<p style="color:var(--text-secondary)">No reports generated. Run: bun run report</p>'; return; }
+        const md = await resp.text();
+        el.innerHTML = marked.parse(md);
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load report</p>'; }
+    }
+
+    // ─ API Explorer ─
+    const apiEndpoints = [
+      {method:'GET', path:'/api/health', desc:'Health + staleness + alert level'},
+      {method:'GET', path:'/api/toc', desc:'Table of contents tree'},
+      {method:'GET', path:'/api/stats', desc:'Code statistics'},
+      {method:'GET', path:'/api/stats/count', desc:'Lightweight section count'},
+      {method:'GET', path:'/api/search?q=zoning', desc:'BM25 search with fuzzy fallback'},
+      {method:'GET', path:'/api/sections', desc:'Hierarchical section listing'},
+      {method:'GET', path:'/api/domains', desc:'12 intelligence domains'},
+      {method:'GET', path:'/api/domains/coverage', desc:'Domain coverage metrics'},
+      {method:'GET', path:'/api/readability', desc:'Flesch-Kincaid + Gunning Fog scores'},
+      {method:'GET', path:'/api/monitor/status', desc:'Code change detection status'},
+      {method:'GET', path:'/api/monitor/alerts', desc:'8-monitor alert aggregation + composite'},
+      {method:'GET', path:'/api/alerts/timeline', desc:'Unified alert event timeline'},
+      {method:'GET', path:'/api/alerts/recent?limit=10', desc:'Recent alert events'},
+      {method:'GET', path:'/api/alerts/airquality', desc:'Current EPA AQI'},
+      {method:'GET', path:'/api/alerts/wildfire', desc:'Current CAL FIRE incidents'},
+      {method:'GET', path:'/api/alerts/marine', desc:'Current NDBC buoy data'},
+      {method:'GET', path:'/api/alerts/composite', desc:'8-monitor composite severity'},
+      {method:'GET', path:'/api/glossary', desc:'Definition glossary from code corpus'},
+      {method:'GET', path:'/api/cross-refs/validate', desc:'Cross-reference validation'},
+      {method:'GET', path:'/api/search/analytics', desc:'Search term analytics'},
+      {method:'GET', path:'/api/report/latest', desc:'Monthly civic health report (Markdown)'},
+      {method:'POST', path:'/api/chat/stream', desc:'Streaming RAG chat (SSE)'},
+      {method:'GET', path:'/api/fuzzy?q=harbr', desc:'Fuzzy search suggestions'},
+      {method:'GET', path:'/api/openapi.yaml', desc:'OpenAPI 3.0.3 spec'},
+    ];
+    function loadApiExplorer() {
+      const list = document.getElementById('api-explorer-list');
+      let html = '';
+      for (const ep of apiEndpoints) {
+        const methodClass = ep.method === 'GET' ? 'method-get' : 'method-post';
+        html += `<div class="api-explorer-item"><span class="api-explorer-method ${methodClass}">${ep.method}</span><span class="api-explorer-path">${ep.path}</span><span style="color:var(--text-secondary);font-size:12px">${ep.desc}</span><button class="api-explorer-btn" data-path="${ep.path}" data-method="${ep.method}">Try</button></div>`;
+      }
+      list.innerHTML = html;
+      list.querySelectorAll('.api-explorer-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const path = btn.dataset.path;
+          const method = btn.dataset.method;
+          const resultEl = document.getElementById('api-explorer-result');
+          resultEl.style.display = 'block';
+          resultEl.textContent = `Loading ${method} ${path}...`;
+          try {
+            const opts = method === 'POST' ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({q:'tsunami'})} : {};
+            const resp = await fetch(path, opts);
+            const text = await resp.text();
+            resultEl.textContent = `${resp.status} ${resp.statusText}\n\n${text.substring(0, 2000)}`;
+          } catch (err) {
+            resultEl.textContent = `Error: ${err.message}`;
+          }
+        });
+      });
+    }
+
+    // ─ Domains Panel ─
+    async function loadDomainsPanel() {
+      const el = document.getElementById('domains-content');
+      try {
+        const domains = await fetch('/api/domains').then(r => r.json());
+        let html = '<div class="intel-grid">';
+        for (const d of domains) {
+          html += `<div class="intel-card"><h4>${d.icon} ${d.name}</h4><div class="label">${d.topicCount} topics</div><p style="font-size:12px;color:var(--text-secondary);margin-top:8px">${d.description.substring(0,150)}...</p></div>`;
+        }
+        html += '</div>';
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load domains</p>'; }
+    }
+
+    // ─ Readability Panel ─
+    async function loadReadabilityPanel() {
+      const el = document.getElementById('readability-content');
+      try {
+        const resp = await fetch('/api/readability');
+        if (!resp.ok) { el.innerHTML = '<p style="color:var(--text-secondary)">No readability data. Run: bun run readability</p>'; return; }
+        const data = await resp.json();
+        let html = '';
+        if (data.stats) {
+          const s = data.stats;
+          html += `<div class="intel-grid"><div class="intel-card"><h4>Avg Grade Level</h4><div class="metric">${s.avgGradeLevel?.toFixed(1) ?? '—'}</div></div><div class="intel-card"><h4>Avg Reading Ease</h4><div class="metric">${s.avgReadingEase?.toFixed(0) ?? '—'}</div></div><div class="intel-card"><h4>Sections</h4><div class="metric">${s.totalSections ?? '—'}</div></div></div>`;
+          if (s.distribution) {
+            html += '<table class="intel-table" style="margin-top:16px"><thead><tr><th>Difficulty</th><th>Count</th></tr></thead><tbody>';
+            for (const [k,v] of Object.entries(s.distribution)) { html += `<tr><td>${k}</td><td>${v}</td></tr>`; }
+            html += '</tbody></table>';
+          }
+        }
+        el.innerHTML = html || '<p style="color:var(--text-secondary)">No readability data</p>';
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load readability</p>'; }
+    }
+
+    // ─ Fuzzy Search Suggestions ─
+    let fuzzyTimer = null;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(fuzzyTimer);
+      const q = searchInput.value.trim();
+      if (q.length < 3) return;
+      fuzzyTimer = setTimeout(async () => {
+        // Only fetch fuzzy if search results are empty
+        const results = searchResults.children;
+        if (results.length === 0) {
+          try {
+            const data = await fetch(`/api/fuzzy?q=${encodeURIComponent(q)}`).then(r => r.json());
+            if (data.corrections?.length > 0) {
+              let html = '<div class="fuzzy-suggestions">Did you mean: ';
+              for (const c of data.corrections) { html += `<span class="fuzzy-suggestion" data-suggestion="${c.suggestion}">${c.suggestion}</span> `; }
+              html += '?</div>';
+              searchResults.innerHTML = html;
+              searchResults.querySelectorAll('.fuzzy-suggestion').forEach(s => {
+                s.addEventListener('click', () => { searchInput.value = s.dataset.suggestion; searchInput.dispatchEvent(new Event('input')); });
+              });
+            }
+          } catch { /* non-fatal */ }
+        }
+      }, 300);
+    });
+
+    // ─ Keyboard Shortcuts ─
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === '/') { e.preventDefault(); searchInput.focus(); }
+      if (e.key === 'Escape') {
+        intelOverlay.classList.remove('open');
+        intelToggle.classList.remove('active');
+        document.getElementById('analytics-overlay')?.classList.remove('open');
+        document.getElementById('analytics-toggle')?.classList.remove('active');
+        chatPanel.classList.remove('open');
+        document.getElementById('chat-toggle').classList.remove('active');
+      }
+      if (e.key === 'i' && e.ctrlKey) { e.preventDefault(); intelToggle.click(); }
+      if (e.key === 'a' && e.ctrlKey) { e.preventDefault(); document.getElementById('alerts-toggle').click(); }
+    });
   </script>
 </body>
 

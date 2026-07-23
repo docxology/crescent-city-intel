@@ -53,19 +53,75 @@ async function logRagQuery(
   }
 }
 
+// ─── Adaptive topK ────────────────────────────────────────────────
+
+/** Estimate query complexity and return appropriate topK value */
+function adaptiveTopK(question: string): number {
+  const wordCount = question.split(/\s+/).filter(Boolean).length;
+  if (wordCount <= llmConfig.shortQueryThreshold) {
+    return llmConfig.adaptiveTopKMin;
+  }
+  return llmConfig.adaptiveTopKMax;
+}
+
+// ─── Query expansion ──────────────────────────────────────────────
+
+/** CA municipal law synonym map for query expansion before embedding */
+const QUERY_SYNONYMS: Record<string, string[]> = {
+  "zoning": ["land use", "district", "overlay", "permitted use"],
+  "permit": ["license", "authorization", "approval"],
+  "parking": ["vehicle", "parking space", "off-street"],
+  "building": ["structure", "construction", "building code"],
+  "noise": ["sound", "amplified", "decibel"],
+  "tsunami": ["tidal wave", "inundation", "evacuation"],
+  "harbor": ["port", "marina", "waterfront"],
+  "fishing": ["crab", "dungeness", "commercial fishing"],
+  "business": ["commercial", "business license", "trade"],
+  "housing": ["residential", "dwelling", "affordable"],
+  "homeless": ["shelter", "vehicle dwelling", "transitional"],
+  "evacuation": ["emergency", "tsunami", " evacuation route"],
+};
+
+/** Expand a query with synonyms for better retrieval recall */
+function expandQuery(question: string): string {
+  const lower = question.toLowerCase();
+  const expansions: string[] = [];
+  for (const [term, syns] of Object.entries(QUERY_SYNONYMS)) {
+    if (lower.includes(term)) {
+      expansions.push(...syns);
+    }
+  }
+  if (expansions.length === 0) return question;
+  return `${question} ${expansions.slice(0, 5).join(" ")}`;
+}
+
+// ─── Citation deep-links ──────────────────────────────────────────
+
+/** Build ecode360 deep-link URL for a section GUID */
+function buildCitationUrl(guid: string): string {
+  return `https://ecode360.com/${guid}`;
+}
+
 // ─── RAG pipeline ─────────────────────────────────────────────────
 
 /** Query the RAG pipeline with a user question */
-export async function ragQuery(userQuestion: string): Promise<RagResponse> {
+export async function ragQuery(userQuestion: string, modelOverride?: string): Promise<RagResponse> {
   const start = Date.now();
+  const model = modelOverride ?? llmConfig.chatModel;
 
-  // Step 1: Embed the question
-  const questionEmbedding = await embed(userQuestion);
+  // Adaptive topK based on query complexity
+  const topK = adaptiveTopK(userQuestion);
 
-  // Step 2: Search ChromaDB for similar chunks
-  const results = await query(questionEmbedding, llmConfig.topK);
+  // Query expansion with CA municipal law synonyms
+  const expandedQuery = expandQuery(userQuestion);
 
-  // Step 3: Build context from retrieved chunks
+  // Step 1: Embed the (expanded) question
+  const questionEmbedding = await embed(expandedQuery);
+
+  // Step 2: Search ChromaDB for similar chunks with adaptive topK
+  const results = await query(questionEmbedding, topK);
+
+  // Step 3: Build context from retrieved chunks with citation deep-links
   const sources: RagSource[] = [];
   const contextParts: string[] = [];
 
@@ -83,7 +139,7 @@ export async function ragQuery(userQuestion: string): Promise<RagResponse> {
       sectionNumber: meta.sectionNumber,
       sectionTitle: meta.sectionTitle,
       snippet: doc.substring(0, 200),
-      score: Math.round((1 - distance) * 1000) / 1000, // 3 decimal places
+      score: Math.round((1 - distance) * 1000) / 1000,
     });
   }
 
@@ -94,11 +150,11 @@ export async function ragQuery(userQuestion: string): Promise<RagResponse> {
     { role: "user", content: userQuestion },
   ];
 
-  const answer = await chat(messages, context);
+  const answer = await chat(messages, context, model);
   const latencyMs = Date.now() - start;
 
   // Log the query asynchronously (non-blocking)
-  void logRagQuery(userQuestion, answer, sources, latencyMs, llmConfig.chatModel);
+  void logRagQuery(userQuestion, answer, sources, latencyMs, model);
 
   return {
     answer,

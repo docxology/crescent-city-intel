@@ -24,4 +24,13 @@ export const llmConfig = {
 
   /** Number of top results to retrieve for RAG */
   topK: 10,
+
+  /** Minimum topK for adaptive retrieval (short/specific queries) */
+  adaptiveTopKMin: 5,
+
+  /** Maximum topK for adaptive retrieval (broad queries) */
+  adaptiveTopKMax: 15,
+
+  /** Word count threshold below which a query is considered "short/specific" */
+  shortQueryThreshold: 3,
 };

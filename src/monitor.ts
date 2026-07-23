@@ -134,6 +134,35 @@ export async function runMonitor(): Promise<MonitorReport> {
   log.info(`Report saved to ${paths.monitorReport}`);
   log.info(`Overall: ${report.overallStatus.toUpperCase()} — ${report.summary}`);
 
+  // Generate diff report if changes detected
+  if (overallStatus === "changed" && (mismatches.length > 0 || missing.length > 0)) {
+    try {
+      const { mkdir } = await import("fs/promises");
+      const { join } = await import("path");
+      const diffReport = {
+        timestamp: report.timestamp,
+        changes: [...mismatches, ...missing.map((s: string) => `Missing: ${s}`)],
+        summary: report.summary,
+      };
+      const diffPath = join(process.cwd(), "output", "monitor-diff.json");
+      await mkdir(join(process.cwd(), "output"), { recursive: true });
+      await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
+      log.info(`Diff report written to ${diffPath}`);
+
+      // Archive version snapshot
+      const snapshotDir = join(process.cwd(), "output", "snapshots");
+      await mkdir(snapshotDir, { recursive: true });
+      const snapshotPath = join(snapshotDir, `snapshot-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+      if (existsSync(paths.manifest)) {
+        const manifestData = await readFile(paths.manifest, "utf-8");
+        await writeFile(snapshotPath, manifestData);
+        log.info(`Version snapshot archived to ${snapshotPath}`);
+      }
+    } catch (err: any) {
+      log.warn("Failed to write diff/snapshot", { error: err.message });
+    }
+  }
+
   return report;
 }
 

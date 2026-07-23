@@ -97,12 +97,13 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/search — BM25 full-text search with pagination
   if (path === "/api/search") {
     const q = url.searchParams.get("q") ?? "";
-    const limit = Math.min(200, parseInt(url.searchParams.get("limit") ?? "50", 10));
-    const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10));
+    const limit = parseInt(url.searchParams.get("limit") ?? "50", 10) || 50;
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10) || 0;
     const titleFilter = url.searchParams.get("title") ?? undefined;
     const highlight = url.searchParams.get("highlight") === "true";
-
-    const paged: PagedSearchResult = search(q, { limit, offset, titleFilter, highlight });
+    const typeFilter = url.searchParams.get("type") as "article" | "section" | undefined;
+    const field = url.searchParams.get("field") as "number" | "text" | "title" | undefined;
+    const paged: PagedSearchResult = search(q, { limit, offset, titleFilter, highlight, typeFilter, field });
     return json({
       query: q,
       total: paged.total,
@@ -189,9 +190,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
   // ─── LLM-dependent routes ────────────────────────────────────
 
-  // GET /api/chat — RAG query
+  // GET /api/chat — RAG query (with optional model override)
   if (path === "/api/chat") {
     const q = url.searchParams.get("q") ?? "";
+    const modelOverride = url.searchParams.get("model") ?? undefined;
     if (!q.trim()) {
       return json({ error: "No question provided" }, 400);
     }
@@ -216,8 +218,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       }
 
       log.info(`[chat] Query: ${q}`);
-      const result = await llm.rag.ragQuery(q);
-      log.info(`[chat] Answer: ${result.answer.substring(0, 100)}...`);
+      const result = await llm.rag.ragQuery(q, modelOverride);
 
       return json({
         answer: result.answer,
@@ -252,7 +253,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!indexed) return json({ error: "No documents indexed. Run: bun run index" }, 503);
 
       log.info(`[chat POST] Query: ${q.substring(0, 80)}`);
-      const result = await llm.rag.ragQuery(q);
+      const result = await llm.rag.ragQuery(q, body.model);
       return json({ answer: result.answer, sources: result.sources, model: result.model });
     } catch (err: any) {
       log.error("[chat POST] RAG error", { error: err.message });
@@ -941,6 +942,125 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ original: q, expanded: result.query, corrections: result.corrections });
     } catch (err: any) {
       return json({ error: `Fuzzy search failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/alerts/correlation — detect correlated alert sequences
+  if (path === "/api/alerts/correlation") {
+    try {
+      const { buildAlertAnalytics } = await import("../alert_analytics.js");
+      const report = buildAlertAnalytics();
+      const correlations: Array<{ type: string; description: string; events: any[] }> = [];
+
+      // Detect earthquake → tsunami sequences (within 1 hour)
+      const earthquakes = report.timeline.filter(e => e.type === "earthquake" && (e.severity === "WARNING" || e.severity === "EMERGENCY"));
+      const tsunamis = report.timeline.filter(e => e.type === "tsunami");
+      for (const eq of earthquakes) {
+        const eqTime = new Date(eq.timestamp).getTime();
+        for (const ts of tsunamis) {
+          const tsTime = new Date(ts.timestamp).getTime();
+          const diffMin = (tsTime - eqTime) / (1000 * 60);
+          if (diffMin > 0 && diffMin < 60) {
+            correlations.push({
+              type: "earthquake-tsunami",
+              description: `Earthquake "${eq.description}" followed by tsunami alert ${diffMin.toFixed(0)} min later`,
+              events: [eq, ts],
+            });
+          }
+        }
+      }
+
+      // Detect wildfire → air quality sequences (within 6 hours)
+      const wildfires = report.timeline.filter(e => e.type === "wildfire" && e.severity !== "CALM");
+      const aqSpikes = report.timeline.filter(e => e.type === "airquality" && (e.severity === "WARNING" || e.severity === "EMERGENCY"));
+      for (const wf of wildfires) {
+        const wfTime = new Date(wf.timestamp).getTime();
+        for (const aq of aqSpikes) {
+          const aqTime = new Date(aq.timestamp).getTime();
+          const diffHr = (aqTime - wfTime) / (1000 * 60 * 60);
+          if (diffHr > 0 && diffHr < 6) {
+            correlations.push({
+              type: "wildfire-airquality",
+              description: `Wildfire "${wf.description}" followed by AQI spike ${diffHr.toFixed(1)} hr later`,
+              events: [wf, aq],
+            });
+          }
+        }
+      }
+
+      return json({ totalCorrelations: correlations.length, correlations });
+    } catch (err: any) {
+      return json({ error: `Correlation failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/ordinal-check — detect gaps in section numbering
+  if (path === "/api/ordinal-check") {
+    try {
+      const sections = await loadAllSections();
+      const byTitle = new Map<string, string[]>();
+      for (const s of sections) {
+        const title = s.number.split(".")[0];
+        if (!byTitle.has(title)) byTitle.set(title, []);
+        byTitle.get(title)!.push(s.number);
+      }
+      const gaps: Array<{ title: string; missing: string[] }> = [];
+      for (const [title, numbers] of byTitle) {
+        const sorted = numbers.sort((a, b) => {
+          const aParts = a.split(".").map(Number);
+          const bParts = b.split(".").map(Number);
+          for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
+            if (aParts[i] !== bParts[i]) return aParts[i] - bParts[i];
+          }
+          return aParts.length - bParts.length;
+        });
+        // Check for gaps in the sequence
+        const missing: string[] = [];
+        for (let i = 1; i < sorted.length; i++) {
+          const prev = sorted[i - 1].split(".").map(Number);
+          const curr = sorted[i].split(".").map(Number);
+          if (prev.length >= 2 && curr.length >= 2 && prev[1] !== curr[1]) {
+            // Gap detected in chapter numbering
+            for (let ch = prev[1] + 1; ch < curr[1]; ch++) {
+              missing.push(`${title}.${String(ch).padStart(2, "0")}`);
+            }
+          }
+        }
+        if (missing.length > 0) gaps.push({ title, missing });
+      }
+      return json({ totalGaps: gaps.length, gaps });
+    } catch (err: any) {
+      return json({ error: `Ordinal check failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/definitions/conflicts — find conflicting definitions
+  if (path === "/api/definitions/conflicts") {
+    try {
+      const { buildGlossary } = await import("../legal_parser.js");
+      const sections = await loadAllSections();
+      const glossary = buildGlossary(sections);
+      // Group by term (case-insensitive)
+      const byTerm = new Map<string, Array<{ term: string; definition: string; sectionNumber: string }>>();
+      for (const entry of glossary) {
+        const key = entry.term.toLowerCase();
+        if (!byTerm.has(key)) byTerm.set(key, []);
+        byTerm.get(key)!.push(entry);
+      }
+      // Find terms with conflicting definitions
+      const conflicts: Array<{ term: string; definitions: any[] }> = [];
+      for (const [term, entries] of byTerm) {
+        if (entries.length > 1) {
+          // Check if definitions differ
+          const uniqueDefs = new Set(entries.map(e => e.definition.substring(0, 100).toLowerCase()));
+          if (uniqueDefs.size > 1) {
+            conflicts.push({ term, definitions: entries });
+          }
+        }
+      }
+      return json({ totalConflicts: conflicts.length, conflicts });
+    } catch (err: any) {
+      return json({ error: `Conflict detection failed: ${err.message}` }, 500);
     }
   }
 

@@ -314,6 +314,8 @@ export interface SearchOptions {
   highlight?: boolean;
   /** Filter by node type: 'article' (section is the article container) or 'section' (individual section) */
   typeFilter?: "article" | "section";
+  /** Search only section numbers (field-level search) */
+  field?: "number" | "text" | "title";
 }
 
 export interface PagedSearchResult {
@@ -332,12 +334,54 @@ export interface PagedSearchResult {
  * @param options - Pagination, filters, highlighting
  */
 export function search(query: string, options: SearchOptions = {}): PagedSearchResult {
-  const { limit = 50, offset = 0, titleFilter, highlight = false, typeFilter } = options;
+  const { limit = 50, offset = 0, titleFilter, highlight = false, typeFilter, field } = options;
 
   if (!query.trim()) return { results: [], total: 0, offset, limit };
 
   const terms = queryTerms(query); // raw + stemmed union
   const rawQuery = query.trim();
+
+  // Field-level search: if field=number, only match section numbers
+  if (field === "number") {
+    const lowerQuery = rawQuery.toLowerCase();
+    const scored: Array<{ idx: number; score: number }> = [];
+    for (let i = 0; i < sections.length; i++) {
+      const num = sections[i].number.replace(/§\s*/, "").trim().toLowerCase();
+      if (num.includes(lowerQuery) || num.startsWith(lowerQuery)) {
+        scored.push({ idx: i, score: 20 });
+      }
+    }
+    scored.sort((a, b) => b.score - a.score);
+    const total = scored.length;
+    const page = scored.slice(offset, offset + limit);
+    const results: SearchResult[] = page.map(({ idx, score }) => {
+      const section = sections[idx];
+      return { section, snippet: `§ ${section.number} — ${section.title}`, matchCount: Math.round(score * 100) / 100 };
+    });
+    logSearchQuery(rawQuery, total);
+    return { results, total, offset, limit };
+  }
+
+  // Field-level search: if field=title, only match section titles
+  if (field === "title") {
+    const lowerQuery = rawQuery.toLowerCase();
+    const scored: Array<{ idx: number; score: number }> = [];
+    for (let i = 0; i < sections.length; i++) {
+      const title = sections[i].title.toLowerCase();
+      if (title.includes(lowerQuery)) {
+        scored.push({ idx: i, score: 10 });
+      }
+    }
+    scored.sort((a, b) => b.score - a.score);
+    const total = scored.length;
+    const page = scored.slice(offset, offset + limit);
+    const results: SearchResult[] = page.map(({ idx, score }) => {
+      const section = sections[idx];
+      return { section, snippet: section.title, matchCount: Math.round(score * 100) / 100 };
+    });
+    logSearchQuery(rawQuery, total);
+    return { results, total, offset, limit };
+  }
 
   const scored: Array<{ idx: number; score: number }> = [];
 

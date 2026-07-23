@@ -51,8 +51,10 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
 /** Chat with the model, optionally injecting context into the system prompt */
 export async function chat(
   messages: ChatMessage[],
-  context?: string
+  context?: string,
+  modelOverride?: string
 ): Promise<string> {
+  const model = modelOverride ?? llmConfig.chatModel;
   const systemPrompt =
     "You are a helpful assistant that answers questions about the Crescent City Municipal Code. " +
     "Use only the provided context to answer. Cite section numbers when possible. " +
@@ -73,7 +75,7 @@ export async function chat(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: llmConfig.chatModel,
+      model: model,
       messages: fullMessages,
       stream: false,
     }),

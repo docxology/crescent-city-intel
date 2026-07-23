@@ -644,6 +644,156 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     return json({ status: "ok", timestamp: new Date().toISOString() });
   }
 
+  // ─── v2.0 Intelligence Endpoints ──────────────────────────────────
+
+  // GET /api/history/:guid — legislative history for a section
+  const historyMatch = path.match(/^\/api\/history\/([a-zA-Z0-9_-]+)$/);
+  if (historyMatch) {
+    try {
+      const { getSectionHistory } = await import("../structured_queries.js");
+      const history = await getSectionHistory(historyMatch[1]);
+      if (!history) return json({ error: "Section not found" }, 404);
+      return json(history);
+    } catch (err: any) {
+      return json({ error: `History lookup failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/compare?guid1=...&guid2=... — diff two sections
+  if (path === "/api/compare") {
+    const guid1 = url.searchParams.get("guid1");
+    const guid2 = url.searchParams.get("guid2");
+    if (!guid1 || !guid2) return json({ error: "Both guid1 and guid2 required" }, 400);
+    try {
+      const { compareSections } = await import("../structured_queries.js");
+      const diff = await compareSections(guid1, guid2);
+      if (!diff) return json({ error: "One or both sections not found" }, 404);
+      return json(diff);
+    } catch (err: any) {
+      return json({ error: `Compare failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/similar/:guid?limit=N — find semantically similar sections
+  const similarMatch = path.match(/^\/api\/similar\/([a-zA-Z0-9_-]+)$/);
+  if (similarMatch) {
+    try {
+      const limit = parseInt(url.searchParams.get("limit") ?? "10", 10) || 10;
+      const { findSimilarSections } = await import("../structured_queries.js");
+      const similar = await findSimilarSections(similarMatch[1], limit);
+      return json({ guid: similarMatch[1], limit, results: similar, count: similar.length });
+    } catch (err: any) {
+      return json({ error: `Similarity search failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/citations/:guid — extract legal citations from a section
+  const citationsMatch = path.match(/^\/api\/citations\/([a-zA-Z0-9_-]+)$/);
+  if (citationsMatch) {
+    try {
+      const { extractCitations, extractOrdinanceAmendments } = await import("../legal_parser.js");
+      const section = await loadSection(citationsMatch[1]);
+      if (!section) return json({ error: "Section not found" }, 404);
+      const citations = extractCitations(section.text);
+      const amendments = extractOrdinanceAmendments(section.history);
+      return json({ guid: section.guid, number: section.number, citations, amendments });
+    } catch (err: any) {
+      return json({ error: `Citation extraction failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/glossary — definition glossary from entire code corpus
+  if (path === "/api/glossary") {
+    try {
+      const { buildGlossary } = await import("../legal_parser.js");
+      const sections = await loadAllSections();
+      const glossary = buildGlossary(sections);
+      return json({ total: glossary.length, entries: glossary });
+    } catch (err: any) {
+      return json({ error: `Glossary build failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/alerts/timeline — unified alert event timeline
+  if (path === "/api/alerts/timeline") {
+    try {
+      const { buildAlertAnalytics } = await import("../alert_analytics.js");
+      const report = buildAlertAnalytics();
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Alert analytics failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/alerts/recent?limit=N — most recent alert events
+  if (path === "/api/alerts/recent") {
+    try {
+      const limit = parseInt(url.searchParams.get("limit") ?? "20", 10) || 20;
+      const { getRecentAlerts } = await import("../alert_analytics.js");
+      const recent = getRecentAlerts(limit);
+      return json({ limit, count: recent.length, alerts: recent });
+    } catch (err: any) {
+      return json({ error: `Recent alerts failed: ${err.message}` }, 500);
+    }
+  }
+
+  // POST /api/chat/stream — streaming RAG via Server-Sent Events
+  if (path === "/api/chat/stream" && req?.method === "POST") {
+    try {
+      const body = await req.json();
+      const q = body.q;
+      if (!q) return json({ error: "No question provided (field 'q' required)" }, 400);
+
+      const llm = await getLlm();
+      if (!llm) return json({ error: "LLM modules unavailable" }, 503);
+
+      // Retrieve context from ChromaDB
+      const { ollama, chroma } = llm;
+      const ollamaHealthy = await ollama.healthCheck();
+      if (!ollamaHealthy) return json({ error: "Ollama is not running" }, 503);
+
+      const queryEmbedding = await ollama.embed(q);
+      const chromaResult = await chroma.query(queryEmbedding, llmConfig.topK);
+
+      const sources: import("../types.js").RagSource[] = chromaResult.documents.map((doc: any, i: number) => ({
+        sectionGuid: doc.guid ?? doc.id,
+        sectionNumber: doc.number ?? "",
+        sectionTitle: doc.title ?? "",
+        snippet: chromaResult.documents[i]?.text?.substring(0, 200) ?? "",
+        score: 1 - (chromaResult.distances?.[i] ?? 0),
+      }));
+
+      const context = chromaResult.documents.map((doc: any, i: number) =>
+        `Section ${doc.number ?? "?"}: ${doc.text ?? ""}`
+      ).join("\n\n");
+
+      const { createStreamingRagResponse } = await import("../llm/streaming_rag.js");
+      return createStreamingRagResponse(q, { sources, context }, llmConfig.chatModel);
+    } catch (err: any) {
+      return json({ error: `Streaming chat failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/fuzzy?q=... — fuzzy search suggestions
+  if (path === "/api/fuzzy") {
+    try {
+      const q = url.searchParams.get("q");
+      if (!q) return json({ error: "No query provided" }, 400);
+      const { expandQueryFuzzy } = await import("../shared/fuzzy.js");
+      const sections = await loadAllSections();
+      const vocab = new Set<string>();
+      for (const s of sections) {
+        for (const w of s.text.toLowerCase().split(/\s+/)) {
+          if (w.length > 3) vocab.add(w);
+        }
+      }
+      const result = expandQueryFuzzy(q, vocab);
+      return json({ original: q, expanded: result.query, corrections: result.corrections });
+    } catch (err: any) {
+      return json({ error: `Fuzzy search failed: ${err.message}` }, 500);
+    }
+  }
+
   return json({ error: "Not found" }, 404);
 }
 

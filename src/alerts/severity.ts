@@ -1,15 +1,15 @@
 /**
  * Composite alert severity scoring for Crescent City.
  *
- * Aggregates input from all 5 alert monitors and returns a single
+ * Aggregates input from all 8 alert monitors and returns a single
  * standardised composite status: CALM | WATCH | WARNING | EMERGENCY.
  *
  * Rules (applied in priority order):
  *   EMERGENCY — any active Tsunami Warning (CAP) or USGS tsunami flag ≥ 2
  *   WARNING   — active Earthquake M≥6 within 200 km, NWS Severe weather warning,
- *               or tidal water level ≥ 5 ft MLLW
+ *               tidal water level ≥ 5 ft MLLW, gale-force winds, or wildfire evac orders
  *   WATCH     — Earthquake M4-6 within 200 km, NWS watch/advisory,
- *               CDFW fishing closure, tidal level ≥ 3 ft MLLW
+ *               CDFW fishing closure, tidal level ≥ 3 ft MLLW, elevated seas
  *   CALM      — no active alerts meeting above thresholds
  *
  * Designed to be called by GET /api/monitor/alerts and the GUI dashboard.
@@ -31,6 +31,9 @@ export interface AlertSeverityReport {
     weather: MonitorStatus;
     tides: MonitorStatus;
     fishing: MonitorStatus;
+    airQuality: MonitorStatus;
+    wildfire: MonitorStatus;
+    marine: MonitorStatus;
   };
 }
 
@@ -74,6 +77,31 @@ export interface FishingInput {
   closureActive: boolean;
   /** Optional closure message */
   closureMessage?: string;
+}
+
+export interface AirQualityInput {
+  /** Max AQI value across all parameters (0-500) */
+  maxAqi: number;
+  /** Whether data was available */
+  available: boolean;
+}
+
+export interface WildfireInput {
+  /** Number of active incidents in Del Norte region */
+  incidentCount: number;
+  /** Whether any incident has active evacuation orders */
+  hasEvacuationOrders: boolean;
+  /** Whether any large fire (>1000 acres, <50% contained) exists nearby */
+  hasLargeFireNearby: boolean;
+}
+
+export interface MarineInput {
+  /** Wave height in feet at primary buoy (null if unavailable) */
+  waveHeightFt: number | null;
+  /** Wind speed in knots at primary buoy (null if unavailable) */
+  windSpeedKt: number | null;
+  /** Whether buoy data was available */
+  available: boolean;
 }
 
 /**
@@ -206,6 +234,90 @@ function assessFishing(input: FishingInput): MonitorStatus {
   return { level: "CALM", summary: "No active fishery closures", count: 0 };
 }
 
+/**
+ * Assess EPA air quality monitor severity.
+ */
+function assessAirQuality(input: AirQualityInput): MonitorStatus {
+  if (!input.available) {
+    return { level: "CALM", summary: "Air quality data unavailable", count: 0 };
+  }
+  if (input.maxAqi > 200) {
+    return {
+      level: "WARNING",
+      summary: `🔴 Air quality AQI ${input.maxAqi} (Very Unhealthy)`,
+      count: 1,
+    };
+  }
+  if (input.maxAqi > 100) {
+    return {
+      level: "WATCH",
+      summary: `🟡 Air quality AQI ${input.maxAqi} (Unhealthy for Sensitive Groups)`,
+      count: 1,
+    };
+  }
+  return {
+    level: "CALM",
+    summary: `Air quality AQI ${input.maxAqi} (Good/Moderate)`,
+    count: 0,
+  };
+}
+
+/**
+ * Assess CAL FIRE wildfire monitor severity.
+ */
+function assessWildfire(input: WildfireInput): MonitorStatus {
+  if (input.incidentCount === 0) {
+    return { level: "CALM", summary: "No active wildfires in region", count: 0 };
+  }
+  if (input.hasEvacuationOrders) {
+    return {
+      level: "EMERGENCY",
+      summary: `🚨 Wildfire evacuation orders active (${input.incidentCount} incident(s))`,
+      count: input.incidentCount,
+    };
+  }
+  if (input.hasLargeFireNearby) {
+    return {
+      level: "WARNING",
+      summary: `🔴 Large active wildfire nearby (${input.incidentCount} incident(s))`,
+      count: input.incidentCount,
+    };
+  }
+  return {
+    level: "WATCH",
+    summary: `🟡 ${input.incidentCount} active wildfire(s) in region`,
+    count: input.incidentCount,
+  };
+}
+
+/**
+ * Assess NDBC marine weather monitor severity.
+ */
+function assessMarine(input: MarineInput): MonitorStatus {
+  if (!input.available || (input.waveHeightFt === null && input.windSpeedKt === null)) {
+    return { level: "CALM", summary: "Marine buoy data unavailable", count: 0 };
+  }
+  if ((input.waveHeightFt ?? 0) >= 15 || (input.windSpeedKt ?? 0) >= 34) {
+    return {
+      level: "WARNING",
+      summary: `🔴 Hazardous marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "—"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "—"}kt wind`,
+      count: 1,
+    };
+  }
+  if ((input.waveHeightFt ?? 0) >= 10 || (input.windSpeedKt ?? 0) >= 22) {
+    return {
+      level: "WATCH",
+      summary: `🟡 Elevated marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "—"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "—"}kt wind`,
+      count: 1,
+    };
+  }
+  return {
+    level: "CALM",
+    summary: `Normal marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "—"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "—"}kt wind`,
+    count: 0,
+  };
+}
+
 /** Priority ordering for severity levels */
 const SEVERITY_ORDER: Record<AlertSeverity, number> = {
   CALM: 0,
@@ -215,7 +327,7 @@ const SEVERITY_ORDER: Record<AlertSeverity, number> = {
 };
 
 /**
- * Compute composite alert severity from all 5 monitor inputs.
+ * Compute composite alert severity from all 8 monitor inputs.
  *
  * @returns AlertSeverityReport with composite level and per-monitor breakdown.
  */
@@ -224,7 +336,10 @@ export function computeAlertSeverity(
   earthquake: EarthquakeInput,
   weather: WeatherInput,
   tides: TidesInput,
-  fishing: FishingInput
+  fishing: FishingInput,
+  airQuality: AirQualityInput = { maxAqi: 0, available: false },
+  wildfire: WildfireInput = { incidentCount: 0, hasEvacuationOrders: false, hasLargeFireNearby: false },
+  marine: MarineInput = { waveHeightFt: null, windSpeedKt: null, available: false },
 ): AlertSeverityReport {
   const monitors = {
     tsunami: assessTsunami(tsunami),
@@ -232,6 +347,9 @@ export function computeAlertSeverity(
     weather: assessWeather(weather),
     tides: assessTides(tides),
     fishing: assessFishing(fishing),
+    airQuality: assessAirQuality(airQuality),
+    wildfire: assessWildfire(wildfire),
+    marine: assessMarine(marine),
   };
 
   // Find the highest severity across all monitors

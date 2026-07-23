@@ -127,7 +127,7 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
     
     const response = await fetch(NOAA_TSUNAMI_CAP_URL, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city)'
+        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel-intel)'
       }
     });
     

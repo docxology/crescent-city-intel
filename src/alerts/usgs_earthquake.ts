@@ -153,7 +153,7 @@ async function fetchUSGSOverlayEarthquakes(): Promise<Array<{
     
     const response = await fetch(USGS_EARTHQUAKE_URL, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city)'
+        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel-intel)'
       }
     });
     

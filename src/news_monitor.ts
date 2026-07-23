@@ -110,7 +110,7 @@ export async function fetchRSSFeed(
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city)',
+        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
       },
     });
     if (!response.ok) {

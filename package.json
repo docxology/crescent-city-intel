@@ -1,7 +1,7 @@
 {
-  "name": "crescent-city-municipal-code",
-  "version": "1.4.0",
-  "description": "Comprehensive scraper, verifier, exporter, viewer, and RAG chat for Crescent City, CA municipal code from ecode360.com",
+  "name": "crescent-city-intel",
+  "version": "2.0.0",
+  "description": "Comprehensive local intelligence platform for Crescent City, CA — municipal code, real-time alerts, RAG chat, analytics, and civic intelligence domains",
   "type": "module",
   "scripts": {
     "scrape": "bun run src/scrape.ts",
@@ -22,6 +22,10 @@
     "alerts:weather": "bun run src/alerts/nws_weather.ts",
     "alerts:tides": "bun run src/alerts/noaa_tides.ts",
     "alerts:fishing": "bun run src/alerts/cdfw_fishing.ts",
+    "alerts:airquality": "bun run src/alerts/epa_airnow.ts",
+    "alerts:wildfire": "bun run src/alerts/calfire_wildfire.ts",
+    "alerts:marine": "bun run src/alerts/ndbc_marine.ts",
+    "alerts:all": "bun run scripts/run-alerts.ts",
     "weekly-check": "bun run scripts/weekly-check.ts",
     "cron-setup": "bash scripts/cron-setup.sh",
     "coverage": "bun run scripts/run-coverage.ts",

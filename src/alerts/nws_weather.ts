@@ -292,7 +292,7 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
   try {
     const response = await fetch(NWS_ALERTS_URL, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city)'
+        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel-intel)'
       }
     });
     

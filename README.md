@@ -1,18 +1,18 @@
 <p align="center">
-  <h1 align="center">🌊 Crescent City Municipal Intelligence</h1>
+  <h1 align="center">🌊 Crescent City Intelligence Platform</h1>
   <p align="center">
-    <strong>Scrape · Verify · Export · View · Chat · Monitor · Alert · Analyze</strong><br/>
-    A complete civic intelligence pipeline for the
+    <strong>Scrape · Verify · Export · View · Chat · Stream · Monitor · Alert · Analyze · Query</strong><br/>
+    The most comprehensive local intelligence platform for the
     <a href="https://crescentcity.org">City of Crescent City, CA</a> —
     powered by <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a>
   </p>
   <p align="center">
-    <a href="https://github.com/docxology/crescent-city"><img src="https://img.shields.io/badge/GitHub-docxology%2Fcrescent--city-181717?logo=github" alt="GitHub"></a>
+    <a href="https://github.com/docxology/crescent-city-intel"><img src="https://img.shields.io/badge/GitHub-docxology%2Fcrescent--city--intel-181717?logo=github" alt="GitHub"></a>
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Bun-v1.0+-black?logo=bun" alt="Bun"></a>
-    <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_Chat-blue" alt="Ollama"></a>
+    <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
-    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-235_passing-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-1.3.0-orange" alt="Version"></a>
+    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-329_passing-brightgreen" alt="Tests"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.0.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -160,7 +160,7 @@ flowchart LR
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/docxology/crescent-city.git
+git clone https://github.com/docxology/crescent-city-intel-intel-intel.git
 cd crescent-city
 bun install
 

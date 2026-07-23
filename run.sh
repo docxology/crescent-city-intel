@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  🌊 Crescent City Municipal Intelligence — Interactive Run Menu
+#  🌊 Crescent City Intelligence Platform — Interactive Run Menu
 #  run.sh — top-level entry point for ALL project features
 #
 #  Usage:
@@ -43,7 +43,7 @@ print_banner() {
   echo -e "${BOLD}${CYAN}"
   cat << 'EOF'
   ╔══════════════════════════════════════════════════════════════════╗
-  ║   🌊  Crescent City Municipal Intelligence   v1.3.0             ║
+  ║   🌊  Crescent City Intelligence Platform   v2.0.0             ║
   ║   Scrape · Verify · Export · View · Chat · Monitor · Alert      ║
   ╠══════════════════════════════════════════════════════════════════╣
   ║   City of Crescent City, CA  |  41.76°N 124.20°W               ║

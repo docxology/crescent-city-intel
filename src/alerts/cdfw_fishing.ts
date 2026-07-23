@@ -62,7 +62,7 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
   try {
     const resp = await fetch(url, {
       headers: {
-        "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city)",
+        "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
         Accept: "text/html",
       },
     });

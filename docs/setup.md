@@ -1,6 +1,6 @@
-# Start Here — Crescent City Municipal Code
+# Start Here — Crescent City Intelligence Platform
 
-Complete setup guide to get the scraper, web viewer, and RAG chat running.
+Complete setup guide to get the scraper, web viewer, RAG chat, and 8 alert monitors running.
 
 ## Prerequisites
 
@@ -11,7 +11,9 @@ Complete setup guide to get the scraper, web viewer, and RAG chat running.
 | [ChromaDB](https://www.trychroma.com) | Latest | `pip install chromadb` |
 | Python 3 | 3.9+ | Required for ChromaDB |
 
-> **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. The scraper and web viewer work without them.
+> **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. The scraper,
+> web viewer, and all 8 alert monitors work without them.
+> For air quality alerts, set `AIRNOW_API_KEY` env var (free at [airnowapi.org](https://airnowapi.org)).
 
 ---
 

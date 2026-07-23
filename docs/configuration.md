@@ -79,9 +79,17 @@ Hard-coded project constants. Change these to target a different municipality.
 | `usgs_earthquake.ts` | `SEARCH_RADIUS_KM` | `200` | Max distance from Crescent City for quakes |
 | `usgs_earthquake.ts` | `MIN_MAGNITUDE` | `4.0` | Minimum earthquake magnitude |
 | `nws_weather.ts` | NWS zone | `CAZ006` | Northwest CA coastal zone code |
+| `epa_airnow.ts` | `AIRNOW_API_KEY` | _(none)_ | Free API key from [airnowapi.org](https://airnowapi.org) — **required** for air quality monitor |
+| `calfire_wildfire.ts` | `SEARCH_COUNTIES` | `["Del Norte", "Siskiyou", "Humboldt", "Trinity"]` | Counties to monitor |
+| `calfire_wildfire.ts` | `SEARCH_RADIUS_KM` | `150` | Max distance from Crescent City for fire incidents |
+| `ndbc_marine.ts` | `WAVE_HEIGHT_WARNING_FT` | `15` | Wave height threshold for WARNING severity |
+| `ndbc_marine.ts` | `WAVE_HEIGHT_WATCH_FT` | `10` | Wave height threshold for WATCH severity |
+| `ndbc_marine.ts` | `WIND_SPEED_WARNING_KT` | `34` | Wind speed threshold for WARNING (gale force) |
+| `ndbc_marine.ts` | `WIND_SPEED_WATCH_KT` | `22` | Wind speed threshold for WATCH |
 
 ## Example: Override Multiple Settings
 
 ```bash
 PORT=8080 LOG_LEVEL=debug OLLAMA_URL=http://my-server:11434 bun run gui
+AIRNOW_API_KEY=your-key-here bun run alerts:airquality
 ```

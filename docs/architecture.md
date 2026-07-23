@@ -2,7 +2,12 @@
 
 ## System Overview
 
-The Crescent City Municipal Code project is a complete pipeline for scraping, verifying, exporting, viewing, querying, monitoring, and alerting on the Crescent City, CA municipal code from [ecode360.com](https://ecode360.com/CR4919).
+The Crescent City Intelligence Platform is a complete pipeline for scraping,
+verifying, exporting, viewing, querying, monitoring, alerting, and analyzing
+the Crescent City, CA municipal code from [ecode360.com](https://ecode360.com/CR4919).
+It includes 8 real-time alert monitors, 12 civic intelligence domains,
+structured query capabilities, legal citation parsing, fuzzy search,
+streaming RAG, and a comprehensive analytics dashboard.
 
 ```text
 ecode360.com/CR4919
@@ -21,21 +26,47 @@ ecode360.com/CR4919
    │ Exporter │  JSON, Markdown, plain text, CSV
    └────┬────┘
         │
-   ┌────┴────┐
-   │         │
-┌──▼──┐  ┌──▼──┐
-│ GUI │  │ LLM │
-│:3000│  │ RAG │
-└─────┘  └─────┘
+   ┌────┴────────────────┐
+   │                     │
+┌──▼──┐           ┌───▼────┐
+│ GUI │           │  LLM   │
+│:3000│           │ RAG    │
+│ BM25│           │+SSE    │
+│+Fuzzy│          └────────┘
+└─────┘
 
-Real-Time Intelligence Layer (independent of scraper):
-┌─────────────────────┐
-│ Monitoring + Alerts  │
-│  monitor.ts          │ Change detection
-│  news_monitor.ts     │ RSS aggregation
-│  gov_meeting_monitor │ Meeting agenda scraper
-│  alerts/             │ NOAA / USGS / NWS
-└─────────────────────┘
+Real-Time Intelligence Layer (8 monitors):
+┌──────────────────────────────────────┐
+│ Alerts                                │
+│  noaa_tsunami.ts    NOAA CAP          │
+│  usgs_earthquake.ts USGS GeoJSON      │
+│  nws_weather.ts     NWS CAZ006        │
+│  noaa_tides.ts      CO-OPS 9419750    │
+│  cdfw_fishing.ts    CDFW crab season  │
+│  epa_airnow.ts      EPA AQI (v2.0)    │
+│  calfire_wildfire.ts CAL FIRE (v2.0)  │
+│  ndbc_marine.ts     NDBC buoys (v2.0) │
+│  severity.ts        8-monitor composite│
+└──────────────────────────────────────┘
+
+Structured Query + Legal Analysis (v2.0):
+┌──────────────────────────────────────┐
+│ structured_queries.ts                │
+│  Legislative history + section diff  │
+│  Semantic similarity + cross-ref val│
+│ legal_parser.ts                      │
+│  Citation extraction + glossary     │
+│ alert_analytics.ts                   │
+│  Unified timeline + per-type stats  │
+└──────────────────────────────────────┘
+
+Monitoring:
+┌──────────────────────────────────────┐
+│  monitor.ts          Change detection│
+│  news_monitor.ts     RSS (4 sources) │
+│  gov_meeting_monitor.ts 3 commissions│
+│  monthly_report.ts  Civic health     │
+└──────────────────────────────────────┘
 ```
 
 ## Data Flow

@@ -31,7 +31,7 @@ queries, legal analysis, and civic intelligence domains.
 
 - **Source**: [`src/`](../src/) — 40+ TypeScript modules
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
-- **Tests**: [`tests/`](../tests/) — 454 tests across 38 files (zero-mock policy)
+- **Tests**: [`tests/`](../tests/) — 489 tests across 38 files (zero-mock policy)
 - **Output**: `output/` (gitignored)
 - **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.4.0, 45+ endpoints)
 

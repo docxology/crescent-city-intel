@@ -25,7 +25,13 @@ Polls the NOAA Weather API for active tsunami warnings affecting the California 
 
 ### Data Source
 
-`GET https://api.weather.gov/alerts/active?event=Tsunami+Warning&region=CA`
+`GET https://api.weather.gov/alerts/active?event=Tsunami%20Warning&area=CA`
+
+Built via `URLSearchParams` so the `event` value is always properly
+URL-encoded. **Fixed 2026-07-23**: the endpoint requires the query param to be
+named `area` (not `region`), and an unencoded space in `Tsunami Warning`
+previously caused `api.weather.gov` to return HTTP 400 on every run, silently
+breaking the monitor.
 
 ### Exports
 
@@ -74,7 +80,12 @@ Monitors National Weather Service alerts for the Northwest CA coastal zone (CAZ0
 
 ### Data Source
 
-`GET https://api.weather.gov/alerts/active?region=CA&zone=CAZ006`
+`GET https://api.weather.gov/alerts/active?zone=CAZ006`
+
+**Fixed 2026-07-23**: `zone` and `region` are mutually exclusive on
+`api.weather.gov` — combining them (as this monitor previously did) returns
+HTTP 400 on every run. `zone=CAZ006` alone (the Northwest CA coastal zone) is
+correct and sufficient.
 
 ### Severity Categorization
 
@@ -159,6 +170,12 @@ Fetches active wildfire incidents from CAL FIRE for Del Norte County and surroun
 ### Data Source
 
 `GET https://www.fire.ca.gov/imap/imapdata/all`
+
+**Known issue (confirmed 2026-07-23)**: this endpoint currently returns HTTP
+403 Forbidden for all requests, including browser `User-Agent` headers — an
+anti-bot/WAF block on CAL FIRE's side, not a parser or format bug. The monitor
+degrades gracefully (no incidents reported) until CAL FIRE's WAF policy
+changes or an alternate data source is adopted.
 
 ### Exports
 

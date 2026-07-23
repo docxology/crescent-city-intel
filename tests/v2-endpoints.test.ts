@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { handleApiRoute } from "../src/gui/routes.js";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "fs";
 import { join } from "path";
 
 // Test helper — create a temporary output directory with test data
@@ -27,6 +27,12 @@ describe("v2.2 New API Endpoints", () => {
     // Create a test manifest
     const manifestPath = join(process.cwd(), "output", "manifest.json");
     const hadManifest = existsSync(manifestPath);
+    // Save the real content (if any) so it can be restored, not just deleted —
+    // a prior version of this test permanently overwrote a real scrape's
+    // output/manifest.json with this fixture's empty `articles: {}`, since the
+    // cleanup only removed the file when none existed before, never restoring
+    // real content when one did.
+    const originalManifest = hadManifest ? readFileSync(manifestPath, "utf-8") : null;
     const testManifest = {
       municipality: "Crescent City",
       municipalityGuid: "CR4919",
@@ -51,9 +57,13 @@ describe("v2.2 New API Endpoints", () => {
       expect(data.manifest.stale).toBe(false); // just created, not stale
       expect(data.manifest.sectionCount).toBe(2194);
     } finally {
-      if (!hadManifest) {
-        try { rmSync(manifestPath); } catch { /* ignore */ }
-      }
+      try {
+        if (originalManifest !== null) {
+          writeFileSync(manifestPath, originalManifest, "utf-8");
+        } else {
+          rmSync(manifestPath);
+        }
+      } catch { /* ignore */ }
     }
   });
 
@@ -71,8 +81,15 @@ describe("v2.2 New API Endpoints", () => {
     const reportsDir = join(process.cwd(), "output", "reports");
     const hadReports = existsSync(reportsDir);
     mkdirSync(reportsDir, { recursive: true });
+    // Use a fixture filename that sorts after any real monthly-YYYY-MM.md
+    // report and is namespaced to avoid collisions. A prior version of this
+    // test hardcoded "monthly-2026-07.md" and permanently clobbered a real
+    // report for that month with fixture content, with no restore path in
+    // its cleanup — exactly the same class of bug already fixed above for
+    // output/manifest.json.
+    const testReportPath = join(reportsDir, "monthly-9999-99-test-fixture.md");
     const testReport = "# Test Report\n\nThis is a test.";
-    writeFileSync(join(reportsDir, "monthly-2026-07.md"), testReport, "utf-8");
+    writeFileSync(testReportPath, testReport, "utf-8");
 
     try {
       const url = new URL("http://localhost:3000/api/report/latest");
@@ -82,6 +99,7 @@ describe("v2.2 New API Endpoints", () => {
       expect(content).toContain("Test Report");
       expect(resp.headers.get("Content-Type")).toContain("text/markdown");
     } finally {
+      try { rmSync(testReportPath); } catch { /* ignore */ }
       if (!hadReports) {
         try { rmSync(reportsDir, { recursive: true }); } catch { /* ignore */ }
       }
@@ -104,6 +122,13 @@ describe("v2.2 New API Endpoints", () => {
   test("GET /api/search/analytics returns term counts when log exists", async () => {
     const logPath = join(process.cwd(), "output", "search-queries.jsonl");
     const hadLog = existsSync(logPath);
+    // Same class of bug already fixed above (manifest.json, report fixture):
+    // this used to overwrite the real search-queries.jsonl log unconditionally
+    // and only deleted it in cleanup if it hadn't existed before — silently
+    // permanently mixing synthetic "tsunami harbor"/"tsunami zoning" entries
+    // into real query history whenever a real log already existed. Save and
+    // restore the original content instead.
+    const originalLog = hadLog ? readFileSync(logPath, "utf-8") : null;
     const testLog = JSON.stringify({ ts: new Date().toISOString(), query: "tsunami harbor", resultCount: 5 }) + "\n" +
                     JSON.stringify({ ts: new Date().toISOString(), query: "tsunami zoning", resultCount: 3 }) + "\n";
     writeFileSync(logPath, testLog, "utf-8");
@@ -119,9 +144,13 @@ describe("v2.2 New API Endpoints", () => {
       expect(tsunami).toBeDefined();
       expect(tsunami.count).toBe(2);
     } finally {
-      if (!hadLog) {
-        try { rmSync(logPath); } catch { /* ignore */ }
-      }
+      try {
+        if (originalLog !== null) {
+          writeFileSync(logPath, originalLog, "utf-8");
+        } else {
+          rmSync(logPath);
+        }
+      } catch { /* ignore */ }
     }
   });
 

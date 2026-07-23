@@ -100,7 +100,7 @@ scripts/
   run-coverage.ts       # Domain coverage orchestrator
   run-readability.ts    # Readability scoring orchestrator
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # 413 tests · 38 files · zero-mock policy
+tests/                  # 489 tests · 38 files · zero-mock policy
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
 openapi.yaml            # OpenAPI 3.0.3 spec (v2.4.0)
@@ -175,18 +175,17 @@ bun run weekly-check         # Full health check + summary
 bun run readability          # Flesch-Kincaid scoring
 bun run coverage             # Domain coverage analysis
 bun run report               # Monthly civic health report
-bun test                     # Run all 329 tests
+bun test                     # Run all 489 tests
 ```
 
 ## Testing
 
 ```bash
-bun test                    # 329 tests · 25 files
+bun test                    # 489 tests · 38 files
 ```
 
 All tests run offline. Zero-mock policy: real data, real modules.
-5 pre-existing failures are dependency resolution errors (playwright,
-chromadb, xmldom) that require `bun install` to resolve.
+0 test failures.
 
 ## Prerequisites
 
@@ -212,6 +211,7 @@ chromadb, xmldom) that require `bun install` to resolve.
 
 - Cloudflare Turnstile timing can vary; scraper may need retries
 - ecode360 content changes not auto-detected (re-scrape to update)
-- CAL FIRE API format may change; parser is defensive
+- CAL FIRE wildfire API (`fire.ca.gov/imap/imapdata/all`) currently returns HTTP 403 Forbidden for all requests, including browser `User-Agent` headers — confirmed 2026-07-23 as an anti-bot/WAF block on CAL FIRE's end, not a parser or response-format issue; the monitor degrades gracefully
+- Government meeting tracker source URLs (`crescentcity.org/government/{city-council,planning-commission,harbor-commission}/agendas`) all 404 as of 2026-07-23 — the city migrated to a new evogov.com-based CMS and no replacement agenda-portal URL was found (the one evogov.com subdomain link on the site does not resolve in DNS); not code-fixable until the new URL is identified. `monitorGovMeetings()` now returns `[]` gracefully rather than crashing.
 - NDBC buoy data may have gaps (stations go offline for maintenance)
 - AirNow API requires free API key

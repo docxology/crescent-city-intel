@@ -13,7 +13,9 @@ import { join } from 'path';
 const logger = createLogger('nws_weather_alert');
 
 // NWS API endpoint for active alerts in California (specifically for Northwest CA zone)
-const NWS_ALERTS_URL = 'https://api.weather.gov/alerts/active?region=CA&zone=CAZ006'; // CAZ006 is Northwest CA coastal zone
+// NB: `zone` and `region` are mutually exclusive on api.weather.gov and combining
+// them returns HTTP 400 — `zone=CAZ006` alone (Northwest CA coastal zone) is correct.
+const NWS_ALERTS_URL = 'https://api.weather.gov/alerts/active?zone=CAZ006';
 
 const CRESCENT_CITY_LAT = 41.7485;
 const CRESCENT_CITY_LNG = -124.2028;

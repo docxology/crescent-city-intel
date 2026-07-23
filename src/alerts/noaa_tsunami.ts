@@ -12,7 +12,12 @@ import { join } from 'path';
 const logger = createLogger('noaa_tsunami_alert');
 
 // NOAA CAP feed for tsunami warnings (Pacific Coast/Alaska region)
-const NOAA_TSUNAMI_CAP_URL = 'https://api.weather.gov/alerts/active?event=Tsunami Warning&region=CA';
+// NB: the api.weather.gov `/alerts/active` endpoint takes `area` (not `region`)
+// and requires the `event` value to be URL-encoded (raw spaces cause HTTP 400).
+const NOAA_TSUNAMI_CAP_URL = `https://api.weather.gov/alerts/active?${new URLSearchParams({
+  event: 'Tsunami Warning',
+  area: 'CA',
+})}`;
 
 // Persistent alert history JSONL path
 const HISTORY_DIR = join(process.cwd(), 'output', 'alerts', 'tsunami');

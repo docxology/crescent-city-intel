@@ -233,7 +233,14 @@ export async function findSimilarSections(guid: string, limit: number = 10): Pro
     }
 
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, limit);
+    // Guard against a negative (or non-finite) limit: Array.slice(0, -1) means
+    // "all but the last element", not "zero results" — a negative limit would
+    // silently return nearly the entire scored list instead of respecting the
+    // caller's requested cap. Reachable via the real /api/similar/:guid?limit=
+    // route, whose `parseInt(...) || 10` fallback does not catch negative
+    // numbers (they're truthy, so the `|| 10` default never kicks in).
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 0;
+    return scored.slice(0, safeLimit);
   } catch (err: any) {
     log.error("Failed to find similar sections", { guid, error: err.message });
     return [];
@@ -253,6 +260,30 @@ export interface CrossReference {
   guid: string | null;
   /** Title number if resolved */
   title: string | null;
+}
+
+/**
+ * Resolve a single citation's section number (e.g. "17.56.040" or "17.5")
+ * against a corpus of known section numbers.
+ *
+ * Tries an exact match first, then a dot-boundary-anchored prefix match.
+ * The prefix match is anchored on "." so a short citation like "17.5" can
+ * never falsely match an unrelated section such as "17.56.040" — plain
+ * `startsWith("17.5")` would incorrectly match since "17.56.040" begins
+ * with the digit string "17.5", even though chapter 17.5 and chapter 17.56
+ * are different chapters. This mirrors the boundary-anchored prefix logic
+ * used in domains/coverage.ts and gui/search.ts.
+ *
+ * Pure and side-effect free — exported separately so it can be tested
+ * directly against literal section-number data without touching disk.
+ */
+export function resolveSectionNumber<T extends { number: string }>(
+  sectionNumber: string,
+  sections: readonly T[]
+): T | undefined {
+  const exact = sections.find(s => s.number === sectionNumber);
+  if (exact) return exact;
+  return sections.find(s => s.number.startsWith(sectionNumber + "."));
 }
 
 /**
@@ -279,12 +310,7 @@ export async function resolveCrossReferences(guid: string): Promise<CrossReferen
       if (seen.has(sectionNumber)) continue;
       seen.add(sectionNumber);
 
-      // Try exact match first
-      const exact = sections.find(s => s.number === sectionNumber);
-      // Then prefix match
-      const prefix = sections.find(s => s.number.startsWith(sectionNumber));
-
-      const resolved = exact ?? prefix;
+      const resolved = resolveSectionNumber(sectionNumber, sections);
 
       refs.push({
         citation: fullCitation,

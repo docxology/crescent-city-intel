@@ -12,7 +12,7 @@
  * Usage: bun run report            (uses current month)
  *        bun run report 2026-02    (specific month)
  *
- * Reads from existing output/alerts/*/history.jsonl and news/seen-ids.json.
+ * Reads from existing output/alerts/{type}/history.jsonl and news/seen-ids.json.
  * No live network calls — summarizes already-scraped local data.
  */
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
@@ -62,7 +62,12 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const now = new Date();
   const month = targetMonth ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const [year, monthNum] = month.split('-');
-  const monthLabel = new Date(`${month}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  // `new Date("YYYY-MM-01")` parses as UTC midnight; toLocaleDateString then
+  // renders it in the local timezone, which rolls back to the previous month
+  // for any timezone behind UTC (e.g. US Pacific: July 2026 displayed as
+  // "June 2026"). Constructing with explicit numeric args parses in local
+  // time instead, avoiding the UTC/local day-boundary mismatch.
+  const monthLabel = new Date(Number(year), Number(monthNum) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   logger.info(`Generating monthly civic health report for ${monthLabel}`, { month });
 
@@ -109,10 +114,18 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
     lines.push(`| TOC nodes | ${manifest.tocNodeCount ?? '–'} |`);
     lines.push(`| Last scraped | ${manifest.completedAt ?? manifest.scrapedAt ?? '–'} |`);
     lines.push('');
-    if (readability?.stats) {
-      const s = readability.stats;
-      lines.push(`**Readability**: Average grade level ${s.avgGradeLevel?.toFixed(1) ?? '–'} ` +
-        `(Flesch ease ${s.avgReadingEase?.toFixed(0) ?? '–'}/100, ${s.distribution?.legal ?? '–'} sections at legal difficulty)`);
+    // output/readability.json (written by scoreCorpusReadability()) has no
+    // top-level `stats` field — its real shape is averageGradeLevel/allScores
+    // with per-section score.{gradeLevel,readingEase,difficulty}. The `stats`
+    // check below was always false, so this line never rendered in any report.
+    if (readability?.averageGradeLevel !== undefined) {
+      const scores = readability.allScores as Array<{ score: { readingEase: number; difficulty: string } }> | undefined;
+      const avgReadingEase = scores?.length
+        ? scores.reduce((sum, s) => sum + s.score.readingEase, 0) / scores.length
+        : null;
+      const legalCount = scores?.filter(s => s.score.difficulty === 'legal').length ?? null;
+      lines.push(`**Readability**: Average grade level ${readability.averageGradeLevel.toFixed(1)} ` +
+        `(Flesch ease ${avgReadingEase !== null ? avgReadingEase.toFixed(0) : '–'}/100, ${legalCount ?? '–'} sections at legal difficulty)`);
     }
   } else {
     lines.push('_No scraped data available. Run `bun run scrape` first._');
@@ -202,11 +215,21 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   // Marine
   lines.push(`### ⚓ Marine Conditions (${marine.length} buoy readings this month)`);
   if (marine.length > 0) {
-    const maxWaves = Math.max(...marine.map(m => m.observations?.[0]?.waveHeightFt ?? 0).filter(v => v > 0));
-    const maxWind = Math.max(...marine.map(m => m.observations?.[0]?.windSpeedKt ?? 0).filter(v => v > 0));
+    // `marine` rows come from output/alerts/marine/history.jsonl, one flat
+    // per-station reading per line (waveHeightFt/windSpeedKt directly on the
+    // record) — there is no nested `observations` array on this shape, so
+    // `m.observations?.[0]?...` was always undefined regardless of real data.
+    // Separately, Math.max(...[]) is -Infinity when every reading's wave/wind
+    // field is null (buoy stations frequently report null wave height —
+    // confirmed live this session), so the positive-values array can still
+    // legitimately end up empty even after reading the right field.
+    const waveValues = marine.map((m: any) => m.waveHeightFt ?? 0).filter(v => v > 0);
+    const windValues = marine.map((m: any) => m.windSpeedKt ?? 0).filter(v => v > 0);
+    const maxWaves = waveValues.length > 0 ? Math.max(...waveValues) : null;
+    const maxWind = windValues.length > 0 ? Math.max(...windValues) : null;
     const advisories = marine.filter(m => m.advisory);
-    lines.push(`- **Peak wave height**: ${maxWaves.toFixed(1)} ft`);
-    lines.push(`- **Peak wind speed**: ${maxWind.toFixed(0)} kt`);
+    lines.push(`- **Peak wave height**: ${maxWaves !== null ? maxWaves.toFixed(1) + ' ft' : 'no data'}`);
+    lines.push(`- **Peak wind speed**: ${maxWind !== null ? maxWind.toFixed(0) + ' kt' : 'no data'}`);
     lines.push(`- **Marine advisories issued**: ${advisories.length}`);
   } else {
     lines.push('_No marine buoy readings recorded this month._');
@@ -226,10 +249,17 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   if (coverage?.domains) {
     lines.push(`**Overall coverage**: ${coverage.overallCoveragePct?.toFixed(1) ?? '–'}% of ${coverage.totalSections ?? '–'} sections`);
     lines.push('');
+    // coverage.domains rows come from output/domain-coverage.json (written by
+    // computeDomainCoverage()), whose real fields are domainName/referencedCount
+    // — not name/matchedSections, which this table was reading before (always
+    // undefined). topicCount isn't part of that report at all; look it up from
+    // the static domains list this file already imports.
+    const topicCountById = new Map(domains.map(d => [d.id, d.topics.length]));
     lines.push('| Domain | Topics | Matched Sections | Coverage % |');
     lines.push('|---|---|---|---|');
     for (const d of coverage.domains) {
-      lines.push(`| ${d.name} | ${d.topicCount} | ${d.matchedSections} | ${d.coveragePct?.toFixed(1) ?? '–'}% |`);
+      const topicCount = topicCountById.get(d.domainId) ?? '–';
+      lines.push(`| ${d.domainName} | ${topicCount} | ${d.referencedCount} | ${d.coveragePct?.toFixed(1) ?? '–'}% |`);
     }
   } else {
     const totalTopics = domains.reduce((sum, d) => sum + d.topics.length, 0);

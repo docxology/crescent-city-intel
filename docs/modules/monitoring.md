@@ -62,7 +62,7 @@ Content is included if it matches any of: `crescent city`, `del norte`, `tsunami
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `monitorNews` | `() → Promise<NewsItem[]>` | Fetch all feeds, deduplicate, filter, save |
+| `monitorNews` | `(filterKeywords?: string[]) → Promise<NewsItem[]>` | Fetch all feeds, deduplicate, filter, save |
 | `fetchRSSFeed` | `(source, url) → Promise<NewsItem[]>` | Parse one RSS feed |
 | `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
 
@@ -73,6 +73,11 @@ Saves JSON to `output/news/news-<timestamp>.json`.
 ```bash
 bun run news     # via scripts/run-news.ts
 ```
+
+**Fixed 2026-07-23**: `scripts/run-news.ts` previously called `monitorNews`
+with an object instead of the `string[] | undefined` array `monitorNews`
+actually expects, which broke the news monitor completely in normal use (no
+`--keywords` flag). It now passes the parsed keyword array correctly.
 
 ---
 
@@ -87,6 +92,18 @@ Scrapes city government website for upcoming agendas and meeting minutes from Ci
 | City Council | `crescentcity.org/government/city-council/agendas` |
 | Planning Commission | `crescentcity.org/government/planning-commission/agendas` |
 | Harbor Commission | `crescentcity.org/government/harbor-commission/agendas` |
+
+> **Known limitation (confirmed 2026-07-23)**: all three source URLs above
+> currently 404. The City of Crescent City migrated `crescentcity.org` to a
+> new CMS (evogov.com-based) at some point after this scraper module was
+> written, and the old `/government/*/agendas` URL scheme no longer exists.
+> A live check of `www.crescentcity.org` did not turn up an obvious
+> replacement agenda-portal URL — the one `evogov.com` subdomain link found
+> on the site, `crescentcityca.evogov.com`, does not resolve in DNS and
+> appears to be a dead link on the city's own site too. This is not
+> code-fixable without discovering the city's new agenda-portal URL; until
+> then `monitorGovMeetings()` runs cleanly but returns `[]` (see fix below —
+> it used to crash the caller instead).
 
 ### Change Detection
 
@@ -109,10 +126,16 @@ Saves to `output/gov_meetings/meetings-<timestamp>.json`.
 bun run gov-meetings   # via scripts/run-meetings.ts
 ```
 
+**Fixed 2026-07-23**: `monitorGovMeetings()` previously declared
+`Promise<void>` and never returned its collected items, while
+`scripts/run-meetings.ts` expected an array back — this crashed every run. It
+now correctly returns `Promise<MeetingItem[]>` (gracefully `[]` given the
+source-URL 404s noted above, instead of crashing).
+
 ### Tests
 
 ```bash
 bun test tests/monitor.test.ts              # 3 tests
 bun test tests/news_monitor.test.ts         # 3 tests
-bun test tests/gov_meeting_monitor.test.ts  # 2 tests
+bun test tests/gov_meeting_monitor.test.ts  # 3 tests
 ```

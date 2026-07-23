@@ -23,6 +23,8 @@ import { monitorNWSWeatherAlerts } from "../src/alerts/nws_weather.ts";
 import { runAirQualityMonitor } from "../src/alerts/epa_airnow.ts";
 import { runWildfireMonitor } from "../src/alerts/calfire_wildfire.ts";
 import { runMarineMonitor } from "../src/alerts/ndbc_marine.ts";
+import { monitorTides } from "../src/alerts/noaa_tides.ts";
+import { monitorFishing } from "../src/alerts/cdfw_fishing.ts";
 import { monitorNews } from "../src/news_monitor.ts";
 import { monitorGovMeetings } from "../src/gov_meeting_monitor.ts";
 import { createLogger } from "../src/logger.ts";
@@ -67,8 +69,8 @@ await Promise.allSettled([
   runAirQualityMonitor().catch((err: Error) => logger.error("EPA air quality monitor failed", { error: err.message })),
   runWildfireMonitor().catch((err: Error) => logger.error("CAL FIRE wildfire monitor failed", { error: err.message })),
   runMarineMonitor().catch((err: Error) => logger.error("NDBC marine monitor failed", { error: err.message })),
-  import("../src/alerts/noaa_tides.ts").then(() => {}).catch(() => {}),
-  import("../src/alerts/cdfw_fishing.ts").then(() => {}).catch(() => {}),
+  monitorTides().catch((err: Error) => logger.error("NOAA tides monitor failed", { error: err.message })),
+  monitorFishing().catch((err: Error) => logger.error("CDFW fishing monitor failed", { error: err.message })),
 ]);
 logger.info("✅ All 8 alert monitors complete");
 

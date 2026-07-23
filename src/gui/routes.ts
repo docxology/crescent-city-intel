@@ -191,7 +191,9 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // ─── LLM-dependent routes ────────────────────────────────────
 
   // GET /api/chat — RAG query (with optional model override)
-  if (path === "/api/chat") {
+  // Note: must not match POST /api/chat below — that path carries a JSON body,
+  // not a `q` query param, and needs its own handler further down.
+  if (path === "/api/chat" && req?.method !== "POST") {
     const q = url.searchParams.get("q") ?? "";
     const modelOverride = url.searchParams.get("model") ?? undefined;
     if (!q.trim()) {
@@ -231,7 +233,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
   // POST /api/chat — RAG query via JSON body (for longer questions)
-  if (path === "/api/chat" && req.method === "POST") {
+  if (path === "/api/chat" && req?.method === "POST") {
     let body: { q?: string; context?: string } = {};
     try {
       body = await req.json();

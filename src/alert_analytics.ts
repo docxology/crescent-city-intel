@@ -149,7 +149,11 @@ function computeTypeStats(type: AlertType, records: AlertHistoryRecord[]): Alert
     const first = new Date(timestamps[0]).getTime();
     const last = new Date(timestamps[timestamps.length - 1]).getTime();
     const daysDiff = (last - first) / (1000 * 60 * 60 * 24);
-    avgPerDay = daysDiff > 0 ? records.length / daysDiff : records.length;
+    // Guard against a sub-day span exploding the rate (e.g. 3 events minutes
+    // apart dividing by a near-zero daysDiff produced avgPerDay=3122891.57
+    // in production). Below one full day, report the raw event count as the
+    // best available same-day rate estimate instead of extrapolating.
+    avgPerDay = daysDiff >= 1 ? records.length / daysDiff : records.length;
   }
 
   return {

@@ -2691,12 +2691,25 @@
         if (!resp.ok) { el.innerHTML = '<p style="color:var(--text-secondary)">No readability data. Run: bun run readability</p>'; return; }
         const data = await resp.json();
         let html = '';
-        if (data.stats) {
-          const s = data.stats;
-          html += `<div class="intel-grid"><div class="intel-card"><h4>Avg Grade Level</h4><div class="metric">${s.avgGradeLevel?.toFixed(1) ?? '—'}</div></div><div class="intel-card"><h4>Avg Reading Ease</h4><div class="metric">${s.avgReadingEase?.toFixed(0) ?? '—'}</div></div><div class="intel-card"><h4>Sections</h4><div class="metric">${s.totalSections ?? '—'}</div></div></div>`;
-          if (s.distribution) {
+        // Actual /api/readability shape: { totalSections, scored, averageGradeLevel, hardestSections, easiestSections, allScores? }
+        if (typeof data.averageGradeLevel === 'number') {
+          html += `<div class="intel-grid"><div class="intel-card"><h4>Avg Grade Level</h4><div class="metric">${data.averageGradeLevel.toFixed(1)}</div></div><div class="intel-card"><h4>Scored Sections</h4><div class="metric">${data.scored ?? '—'}</div></div><div class="intel-card"><h4>Total Sections</h4><div class="metric">${data.totalSections ?? '—'}</div></div></div>`;
+          // Difficulty distribution — only computable when the full score list is present
+          if (Array.isArray(data.allScores) && data.allScores.length > 0) {
+            const distribution = {};
+            for (const row of data.allScores) {
+              const d = row.score?.difficulty ?? 'unknown';
+              distribution[d] = (distribution[d] ?? 0) + 1;
+            }
             html += '<table class="intel-table" style="margin-top:16px"><thead><tr><th>Difficulty</th><th>Count</th></tr></thead><tbody>';
-            for (const [k,v] of Object.entries(s.distribution)) { html += `<tr><td>${k}</td><td>${v}</td></tr>`; }
+            for (const [k, v] of Object.entries(distribution)) { html += `<tr><td>${k}</td><td>${v}</td></tr>`; }
+            html += '</tbody></table>';
+          }
+          if (Array.isArray(data.hardestSections) && data.hardestSections.length > 0) {
+            html += '<h4 style="margin:16px 0 8px">Hardest Sections</h4><table class="intel-table"><thead><tr><th>Section</th><th>Title</th><th>Grade Level</th><th>Difficulty</th></tr></thead><tbody>';
+            for (const row of data.hardestSections) {
+              html += `<tr><td>${escapeHtml(row.number)}</td><td>${escapeHtml(row.title)}</td><td>${row.score?.gradeLevel ?? '—'}</td><td>${row.score?.difficulty ?? '—'}</td></tr>`;
+            }
             html += '</tbody></table>';
           }
         }

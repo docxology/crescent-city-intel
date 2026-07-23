@@ -61,5 +61,9 @@ describe("v2.3 New API Endpoints", () => {
     const resp = await handleApiRoute(url);
     // Will be 503 if LLM not running, or 200 if it is — either is acceptable
     expect([200, 503, 400]).toContain(resp.status);
-  });
+    // 30s, not bun's 5s default: a real embed+generate round-trip against a
+    // live local Ollama instance genuinely exceeds 5s (confirmed reproducibly
+    // this session — a real gemma3:4b RAG call timed out at exactly 5000ms
+    // three runs in a row when LLM services were actually up, not flaky).
+  }, 30000);
 });

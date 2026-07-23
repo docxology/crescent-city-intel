@@ -50,10 +50,13 @@ describe("verify — verification report structure", () => {
     const { readFile } = await import("fs/promises");
     const raw = await readFile(reportPath, "utf-8");
     const report = JSON.parse(raw);
-    // Structure check
+    // Structure check — field names must match the real shape written by
+    // src/verify.ts's `report` object (verified against a live scrape's
+    // output/verification-report.json, not guessed).
     expect(typeof report.verifiedAt).toBe("string");
-    expect(typeof report.articlesChecked).toBe("number");
-    expect(Array.isArray(report.hashMismatches)).toBe(true);
+    expect(typeof report.totalArticles).toBe("number");
+    expect(typeof report.passedArticles).toBe("number");
+    expect(typeof report.failedArticles).toBe("number");
     expect(Array.isArray(report.missingSections)).toBe(true);
     expect(typeof report.overallStatus).toBe("string");
   });

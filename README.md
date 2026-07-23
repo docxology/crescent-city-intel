@@ -11,7 +11,7 @@
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Bun-v1.0+-black?logo=bun" alt="Bun"></a>
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
-    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-413_passing-brightgreen" alt="Tests"></a>
+    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-489_passing-brightgreen" alt="Tests"></a>
     <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.4.0-orange" alt="Version"></a>
   </p>
 </p>
@@ -487,10 +487,10 @@ scripts/
   run-coverage.ts       # Domain coverage analysis orchestrator
   run-readability.ts    # Readability scoring orchestrator
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # 235 tests · 21 files · zero-mock policy
+tests/                  # 489 tests · 38 files · zero-mock policy
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v1.3.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.4.0)
 ```
 
 ---
@@ -531,38 +531,55 @@ The **Crescent City Code of Ordinances** covers **17 titles** across **242 artic
 ## 🧪 Test Suite
 
 ```
-235 pass · 0 fail · 668 assertions · 21 test files
+489 pass · 0 fail · 3210 expect() calls · 38 test files
 Zero-mock policy: all tests use real functions, real data structures, no stubs
 ```
 
 | Test File | Module | Tests |
 | :-------- | :----- | :---: |
-| `utils.test.ts` | Hash, flatten, chunk, groupBy, truncate, sleep, retry, deepEqual | 55 |
+| `utils.test.ts` | Hash, flatten, chunk, groupBy, truncate, sleep, retry, deepEqual | 62 |
+| `utils_normalization.test.ts` | Unicode normalization, section length outliers | 17 |
 | `toc.test.ts` | Article pages, sections, TOC summary | 10 |
 | `shared-paths.test.ts` | All output path constants | 10 |
+| `shared-data.test.ts` | Data loading, loadSection, loadMonitorReport, TTL cache | 14 |
 | `constants.test.ts` | Project constants | 5 |
 | `constants-extended.test.ts` | Configurable constants + env overrides | 10 |
 | `llm-config.test.ts` | LLM configuration values | 8 |
-| `shared-data.test.ts` | Data loading, loadSection, loadMonitorReport, TTL cache | 20 |
 | `search.test.ts` | BM25 search · pagination · titleFilter · highlight · typeFilter | 12 |
-| `analytics.test.ts` | PCA, K-Means, word loadings | 7 |
+| `search_enhancements.test.ts` | Stop words, synonyms, severity | 25 |
+| `analytics.test.ts` | PCA, K-Means, word loadings | 6 |
 | `routes.test.ts` | API route handlers | 7 |
-| `logger.test.ts` | Structured logger levels + output | 6 |
+| `routes.integration.test.ts` | Real server integration | 15 |
 | `embeddings.test.ts` | Text chunking for embeddings | 7 |
-| `export.test.ts` | CSV, Markdown, filename formatting | 12 |
-| `domains.test.ts` | 6 intelligence domains data + search + getDomainSummaries | 15 |
-| `middleware.test.ts` | Sliding-window rate limiter · API key auth · bypass paths | 7 |
-| `alerts.test.ts` | NOAA tides constants · CDFW crab season · all 5 modules | 13 |
+| `export.test.ts` | CSV, Markdown, filename formatting | 10 |
 | `content.test.ts` | htmlToText · Porter stemmer · Flesch-Kincaid readability | 14 |
-| `verify.test.ts` | computeSha256 · manifest structure · data TTL cache · coverage | 11 |
+| `content-fixture.test.ts` | HTML parsing, section structure, SHA-256 determinism | 8 |
+| `domains.test.ts` | Intelligence domains data + search + getDomainSummaries | 15 |
+| `domains-extended.test.ts` | New domains, search edge cases | 13 |
+| `middleware.test.ts` | Sliding-window rate limiter · API key auth · bypass paths | 8 |
+| `middleware_sliding_window.test.ts` | Sliding-window edge cases | 5 |
+| `alerts.test.ts` | NOAA tides constants · CDFW crab season · module imports | 9 |
+| `new_alerts.test.ts` | AQI, CAL FIRE wildfire, NDBC marine severity | 22 |
+| `verify.test.ts` | computeSha256 · manifest structure · data TTL cache · coverage | 13 |
 | `monitor.test.ts` | Monitor report types + validation | 3 |
 | `news_monitor.test.ts` | RSS news monitor + dedup | 3 |
-| `gov_meeting_monitor.test.ts` | Government meeting tracker | 2 |
+| `gov_meeting_monitor.test.ts` | Government meeting tracker | 3 |
+| `scraper_utils.test.ts` | Scraper resume/manifest utilities | 18 |
+| `comprehensive-edges.test.ts` | All v2 modules — boundary + edge cases | 48 |
+| `fuzzy.test.ts` | Levenshtein, fuzzy correction | 18 |
+| `legal_parser.test.ts` | Citations, definitions, ordinance parsing | 15 |
+| `structured_queries.test.ts` | Legislative history, section compare, similarity | 12 |
+| `readability-gunning-fog.test.ts` | Gunning Fog readability scoring | 6 |
+| `alert_analytics.test.ts` | Unified alert timeline + per-type stats | 8 |
+| `v2-endpoints.test.ts` | v2.2 API endpoints — health, report, search analytics | 9 |
+| `v2-endpoints-extended.test.ts` | v2.3+ API endpoints — additional edge cases | 6 |
+| `ndbc-parser.test.ts` | NDBC line parsing, unit conversions, severity | 9 |
+| `logger.test.ts` | Structured logger levels + output | 6 |
 
 Run tests:
 
 ```bash
-bun test              # all 235 tests
+bun test              # all 489 tests
 bun test tests/search.test.ts   # single file
 ```
 
@@ -612,7 +629,7 @@ bun test tests/search.test.ts   # single file
 | :------ | :---------- |
 | `bun run readability` | Flesch-Kincaid scoring → `output/readability.json` |
 | `bun run coverage` | Domain coverage % → `output/domain-coverage.json` |
-| `bun test` | Run all 235 tests |
+| `bun test` | Run all 489 tests |
 
 ---
 
@@ -631,7 +648,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/chat` | POST | RAG query (`{q}` JSON body, long questions) |
 | `/api/summarize` | POST | Ollama section summarizer |
 | `/api/stats` | GET | Scrape statistics |
-| `/api/domains` | GET | All 6 intelligence domains |
+| `/api/domains` | GET | All 12 intelligence domains |
 | `/api/domain/:id` | GET | Domain detail with topic cross-refs |
 | `/api/domain/:id/sections` | GET | Domain → code section map |
 | `/api/domains/coverage` | GET | Domain coverage % report |
@@ -641,10 +658,10 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/analytics/embeddings` | GET | PCA projection (requires ChromaDB) |
 | `/api/monitor/status` | GET | Latest monitor report |
 | `/api/monitor/history` | GET | Monitor history JSONL |
-| `/api/monitor/alerts` | GET | Aggregated alert status (all 5 monitors) |
+| `/api/monitor/alerts` | GET | Aggregated alert status (all 8 monitors) |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v1.3.0)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.4.0)
 
 ---
 
@@ -700,6 +717,8 @@ All settings support environment variable overrides:
 - **Rate-limit in-memory store** resets on server restart — not suitable for multi-instance deployments without shared cache (e.g., Redis)
 - **CDFW crab season** is estimated by regulatory calendar — check [CDFW North Coast bulletins](https://wildlife.ca.gov/regions/1) for emergency closures (domoic acid, whale entanglement)
 - **Tsunami monitor** fetches active CAP alerts — no historical data without archiving
+- **CAL FIRE wildfire API** (`fire.ca.gov/imap/imapdata/all`) currently returns HTTP 403 Forbidden for all requests, including browser `User-Agent` headers — this is an anti-bot/WAF block on CAL FIRE's end (confirmed 2026-07-23), not a code bug or response-format change; the monitor degrades gracefully with no incidents reported
+- **Government meeting tracker** — all three `crescentcity.org/government/{city-council,planning-commission,harbor-commission}/agendas` source URLs now 404 (confirmed 2026-07-23). The city migrated to a new evogov.com-based CMS at some point after this module was written, and no obvious replacement agenda-portal URL was found (the one evogov.com subdomain link on the city's site, `crescentcityca.evogov.com`, does not resolve in DNS either). Not code-fixable until the new URL is identified; `monitorGovMeetings()` now returns `[]` gracefully instead of crashing
 
 ---
 

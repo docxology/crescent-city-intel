@@ -38,17 +38,27 @@ await initSearch();
 
 const server = Bun.serve({
   port: PORT,
+  // Bun's default idleTimeout is 10s. The non-streaming RAG endpoints
+  // (GET/POST /api/chat, /api/summarize) hold the connection open with zero
+  // bytes flowing for the entire embed+retrieve+generate round-trip against a
+  // real local Ollama model, which routinely exceeds 10s — Bun was silently
+  // killing the socket mid-generation ("[Bun.serve]: request timed out after
+  // 10 seconds"), making chat effectively unusable for any real query.
+  // Confirmed live: curl to /api/chat hung/dropped every time until this was
+  // raised. 120s covers a slow cold-start model load plus generation.
+  idleTimeout: 120,
   async fetch(req) {
     const url = new URL(req.url);
 
-    // Apply middleware
-    const middlewareResponse = await applyMiddleware(req);
-    if (middlewareResponse !== null) {
-      return middlewareResponse;
-    }
-
-    // API routes
+    // API routes — middleware (rate limiting / API key auth) applies only here.
+    // It must not run for static asset / SPA requests below: PUBLIC_PATHS and
+    // BYPASS_PATHS are both "/api/..."-scoped, so applying it unconditionally
+    // (as before) 401'd every page load, including "/" itself.
     if (url.pathname.startsWith("/api/")) {
+      const middlewareResponse = await applyMiddleware(req);
+      if (middlewareResponse !== null) {
+        return middlewareResponse;
+      }
       const apiRes = await handleApiRoute(url, req);
       return maybeCompress(apiRes, req.headers.get("Accept-Encoding"));
     }

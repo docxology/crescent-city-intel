@@ -304,10 +304,21 @@ export async function saveMeetingItems(items: Array<{title: string, link: string
 /**
  * Main government meeting monitoring function with change detection
  */
-export async function monitorGovMeetings(): Promise<void> {
+export interface GovMeetingItem {
+  title: string;
+  link: string;
+  date: string;
+  content: string;
+  source: string;
+  fetchedAt: string;
+  isNew: boolean;
+  changed: boolean;
+}
+
+export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   logger.info('=== Starting Crescent City Government Meeting Monitoring ===');
-  
-  const allItems: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean}> = [];
+
+  const allItems: GovMeetingItem[] = [];
   
   // Fetch from each government source
   for (const [sourceName, url] of Object.entries(GOV_SOURCES)) {
@@ -372,8 +383,9 @@ export async function monitorGovMeetings(): Promise<void> {
   } else {
     logger.warn('No government meeting items found in this cycle');
   }
-  
+
   logger.info('=== Government Meeting Monitoring Complete ===');
+  return allItems;
 }
 
 // Run the monitoring if this script is executed directly

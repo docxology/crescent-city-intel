@@ -28,14 +28,14 @@ LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade
 | GET | `/api/section/:guid` | Single section with parent article metadata |
 | GET | `/api/search?q=...&limit=N` | Full-text search (default limit: 20) |
 | GET | `/api/stats` | Municipality stats (article/section counts, timestamps) |
-| GET | `/api/domains` | All 5 intelligence domains (from `domains.ts`) |
-| GET | `/api/monitor-status` | Latest monitor report `output/monitor-report.json` |
+| GET | `/api/domains` | All 12 intelligence domains (from `domains.ts`) |
+| GET | `/api/monitor/status` | Latest monitor report `output/monitor-report.json` |
 | GET | `/api/chat?q=...` | RAG query (requires Ollama + ChromaDB) |
 | GET | `/api/analytics/stats` | Code statistics (word counts, title breakdown) |
 | GET | `/api/analytics/embeddings` | PCA projection of embedding vectors |
 | POST | `/api/summarize` | AI-generated section summary body: `{text, number, title}` |
 | GET | `/api/openapi.yaml` | OpenAPI 3.0 specification |
-| GET | `/api/swagger` | Swagger UI redirect |
+| GET | `/api/docs` | Swagger UI |
 
 ### Error Handling
 

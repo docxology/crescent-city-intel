@@ -32,5 +32,5 @@ if (filterKeywords) {
   logger.info(`Filtering with custom keywords: ${filterKeywords.join(", ")}`);
 }
 
-const items = await monitorNews({ filterKeywords });
+const items = await monitorNews(filterKeywords);
 logger.info(`News monitoring complete: ${items.length} relevant items saved to output/news/`);

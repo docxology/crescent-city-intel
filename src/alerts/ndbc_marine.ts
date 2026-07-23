@@ -127,9 +127,12 @@ function parseNdbcLine(station: typeof MONITORED_STATIONS[number], line: string)
     return Number.isNaN(n) ? null : n;
   };
 
-  // Year fix: NDBC uses 2-digit year
-  const yy = parseInt(parts[0], 10);
-  const year = yy < 50 ? 2000 + yy : 1900 + yy;
+  // NDBC's realtime2 feed has used a 4-digit year since 2007 (e.g. "2026"); older
+  // archived formats used a 2-digit year needing century inference. Handle both —
+  // blindly adding 1900/2000 to an already-4-digit year corrupted timestamps into
+  // year 3926 (1900 + 2026), confirmed against the live feed for station 46027.
+  const yyRaw = parseInt(parts[0], 10);
+  const year = yyRaw >= 1000 ? yyRaw : (yyRaw < 50 ? 2000 + yyRaw : 1900 + yyRaw);
   const mm = parts[1].padStart(2, "0");
   const dd = parts[2].padStart(2, "0");
   const hh = parts[3].padStart(2, "0");

@@ -196,24 +196,25 @@ scripts/
   run-news.ts           # RSS news monitor script
   run-meetings.ts       # Government meeting monitor script
   weekly-check.sh       # Legacy bash wrapper (kept for reference)
-tests/
-  utils.test.ts         # 22 tests
+tests/                  # 489 tests · 38 files (see tests/AGENTS.md for full per-file breakdown)
+  utils.test.ts         # 62 tests
   constants.test.ts     # 5 tests
   constants-extended.test.ts # 10 tests
   logger.test.ts        # 6 tests
   toc.test.ts           # 10 tests
   shared-paths.test.ts  # 10 tests
-  shared-data.test.ts   # 6 tests
-  search.test.ts        # 8 tests
-  analytics.test.ts     # 7 tests
+  shared-data.test.ts   # 14 tests
+  search.test.ts        # 12 tests
+  analytics.test.ts     # 6 tests
   llm-config.test.ts    # 8 tests
   routes.test.ts        # 7 tests
   embeddings.test.ts    # 7 tests
-  export.test.ts        # 12 tests
-  domains.test.ts       # 14 tests
+  export.test.ts        # 10 tests
+  domains.test.ts       # 15 tests
   monitor.test.ts       # 3 tests
   news_monitor.test.ts  # 3 tests
-  gov_meeting_monitor.test.ts # 2 tests
+  gov_meeting_monitor.test.ts # 3 tests
+  # ...and 21 more test files not shown here (38 total; see tests/AGENTS.md)
 docs/                   # This documentation
 output/                 # Scraped data (gitignored)
 ```

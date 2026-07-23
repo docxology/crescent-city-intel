@@ -19,8 +19,26 @@ import { loadAllSections } from "../shared/data.js";
 import { createLogger } from "../logger.js";
 import { stem } from "../shared/porter_stem.js";
 import { fuzzyCorrect } from "../shared/fuzzy.js";
+import { appendFileSync, mkdirSync, existsSync } from "fs";
 
 const logger = createLogger("search");
+
+// ─── Search query logging ──────────────────────────────────────────
+const SEARCH_LOG_PATH = "output/search-queries.jsonl";
+
+function logSearchQuery(query: string, resultCount: number): void {
+  try {
+    if (!existsSync("output")) mkdirSync("output", { recursive: true });
+    const entry = JSON.stringify({
+      ts: new Date().toISOString(),
+      query,
+      resultCount,
+    });
+    appendFileSync(SEARCH_LOG_PATH, entry + "\n", "utf-8");
+  } catch {
+    // Non-fatal — search logging should never break search
+  }
+}
 
 // ─── BM25 constants ───────────────────────────────────────────────
 const K1 = 1.5;  // Term frequency saturation
@@ -385,6 +403,9 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
       // fuzzy module not available — return empty results
     }
   }
+
+  // Log search query for analytics (non-fatal)
+  logSearchQuery(rawQuery, total);
 
   return { results, total, offset, limit };
 }

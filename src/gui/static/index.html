@@ -1039,6 +1039,25 @@
         if (wa) wa.textContent = stats.articleCount;
         if (ws) ws.textContent = stats.sectionCount;
         if (wn) wn.textContent = stats.tocNodeCount;
+
+        // Staleness detection — show warning banner if manifest >30 days old
+        try {
+          const healthResp = await fetch("/api/health");
+          const health = await healthResp.json();
+          if (health.manifest?.stale) {
+            const banner = document.createElement("div");
+            banner.style.cssText = "padding:0.5rem 1rem; background:#f59e0b22; border-bottom:1px solid #f59e0b; color:#f59e0b; font-size:0.9rem;";
+            banner.textContent = `⚠️ Data is ${health.manifest.ageDays} days old (scraped ${health.manifest.completedAt.substring(0,10)}). Run \`bun run scrape\` to refresh.`;
+            document.body.insertBefore(banner, document.getElementById("header"));
+          }
+          if (health.alertLevel && health.alertLevel !== "CALM") {
+            const alertColors = { WATCH: "#eab308", WARNING: "#f97316", EMERGENCY: "#ef4444" };
+            const alertBanner = document.createElement("div");
+            alertBanner.style.cssText = `padding:0.5rem 1rem; background:${alertColors[health.alertLevel] || "#888"}22; border-bottom:1px solid ${alertColors[health.alertLevel] || "#888"}; color:${alertColors[health.alertLevel] || "#888"}; font-size:0.9rem;`;
+            alertBanner.textContent = `🚨 Active alert level: ${health.alertLevel}`;
+            document.body.insertBefore(alertBanner, document.getElementById("header"));
+          }
+        } catch { /* non-fatal */ }
       } catch { }
     }
 

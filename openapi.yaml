@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Crescent City Intelligence API
   description: REST API for accessing Crescent City, CA municipal code and intelligence system
-  version: 2.1.0
+  version: 2.2.0
   contact:
     name: Crescent City Intelligence Platform
     url: https://github.com/docxology/crescent-city-intel
@@ -1034,6 +1034,69 @@ paths:
                         original: {type: string}
                         suggestion: {type: string}
                         score: {type: number}
+
+  /api/report/latest:
+    get:
+      summary: Latest monthly civic health report
+      description: Serves the most recent monthly report from output/reports/ as Markdown.
+      operationId: getLatestReport
+      tags: [Reporting]
+      responses:
+        '200':
+          description: Monthly report as Markdown
+          content:
+            text/markdown:
+              schema: {type: string}
+        '404': {description: No reports generated}
+
+  /api/search/analytics:
+    get:
+      summary: Search analytics
+      description: Returns most-queried search terms aggregated from the search query log.
+      operationId: getSearchAnalytics
+      tags: [Search]
+      responses:
+        '200':
+          description: Search analytics summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalQueries: {type: integer}
+                  topTerms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term: {type: string}
+                        count: {type: integer}
+
+  /api/domains/{id}/coverage:
+    get:
+      summary: Per-domain coverage metrics
+      description: Returns coverage metrics for a single intelligence domain.
+      operationId: getDomainCoverage
+      tags: [Domains]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+          description: Domain ID (e.g. emergency-management)
+      responses:
+        '200':
+          description: Domain coverage metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domain: {type: string}
+                  matchedSections: {type: integer}
+                  coveragePct: {type: number}
+                  totalSections: {type: integer}
+        '404': {description: Domain not found}
 
 
 components:

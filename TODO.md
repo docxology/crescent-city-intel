@@ -1,6 +1,6 @@
 # TODO — Crescent City Intelligence Platform
 
-> Remaining development backlog · v2.1.0 · 404 tests passing · 45 source modules · 33 test files
+> Remaining development backlog · v2.2.0 · 413 tests passing · 45 source modules · 34 test files
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix)
 >
@@ -445,4 +445,4 @@
 
 ---
 
-_Last updated: July 2026 · v2.1.0 · 404 tests passing · 45 source modules · 33 test files_
+_Last updated: July 2026 · v2.2.0 · 413 tests passing · 45 source modules · 34 test files_

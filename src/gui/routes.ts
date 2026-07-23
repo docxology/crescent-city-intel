@@ -681,9 +681,106 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
-  // GET /api/health — liveness probe
+  // GET /api/health — liveness probe with optional composite status
   if (path === "/api/health") {
-    return json({ status: "ok", timestamp: new Date().toISOString() });
+    const { existsSync, readFileSync } = await import("fs");
+    const health: Record<string, any> = { status: "ok", timestamp: new Date().toISOString() };
+
+    // Include manifest staleness info if available
+    const manifestPath = "output/manifest.json";
+    if (existsSync(manifestPath)) {
+      try {
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+        const completedAt = manifest.completedAt ?? manifest.scrapedAt;
+        if (completedAt) {
+          const ageDays = (Date.now() - new Date(completedAt).getTime()) / (1000 * 60 * 60 * 24);
+          health.manifest = {
+            completedAt,
+            ageDays: Math.round(ageDays),
+            stale: ageDays > 30,
+            sectionCount: manifest.sectionCount ?? null,
+          };
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Include composite alert severity if available
+    const compositePath = "output/alerts/composite/current.json";
+    if (existsSync(compositePath)) {
+      try {
+        health.alertLevel = JSON.parse(readFileSync(compositePath, "utf-8")).level;
+      } catch { /* ignore */ }
+    }
+
+    return json(health);
+  }
+
+  // GET /api/report/latest — serve most recent monthly civic health report
+  if (path === "/api/report/latest") {
+    const { existsSync, readdirSync, readFileSync } = await import("fs");
+    const reportsDir = "output/reports";
+    if (!existsSync(reportsDir)) return json({ error: "No reports generated. Run: bun run report" }, 404);
+    try {
+      const files = readdirSync(reportsDir)
+        .filter(f => f.startsWith("monthly-") && f.endsWith(".md"))
+        .sort()
+        .reverse();
+      if (files.length === 0) return json({ error: "No monthly reports found" }, 404);
+      const content = readFileSync(`${reportsDir}/${files[0]}`, "utf-8");
+      return new Response(content, {
+        headers: {
+          "Content-Type": "text/markdown",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch (err: any) {
+      return json({ error: `Failed to read report: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/search/analytics — most-queried search terms
+  if (path === "/api/search/analytics") {
+    const { existsSync, readFileSync } = await import("fs");
+    const logPath = "output/search-queries.jsonl";
+    if (!existsSync(logPath)) return json({ totalQueries: 0, topTerms: [] });
+    try {
+      const lines = readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
+      const termCounts = new Map<string, number>();
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          const q = entry.query ?? entry.q ?? "";
+          if (q) {
+            const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            for (const w of words) {
+              termCounts.set(w, (termCounts.get(w) ?? 0) + 1);
+            }
+          }
+        } catch { /* skip */ }
+      }
+      const topTerms = [...termCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([term, count]) => ({ term, count }));
+      return json({ totalQueries: lines.length, topTerms });
+    } catch (err: any) {
+      return json({ error: `Search analytics failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/domains/:id/coverage — per-domain coverage metrics
+  const domainCoverageMatch = path.match(/^\/api\/domains\/([a-z0-9-]+)\/coverage$/);
+  if (domainCoverageMatch) {
+    try {
+      const domainId = domainCoverageMatch[1];
+      const { computeDomainCoverage } = await import("../domains/coverage.js");
+      const report = await computeDomainCoverage();
+      const domain = report.domains?.find((d: any) => d.id === domainId);
+      if (!domain) return json({ error: `Domain "${domainId}" not found` }, 404);
+      return json({ domain: domainId, ...domain, totalSections: report.totalSections });
+    } catch (err: any) {
+      return json({ error: `Coverage failed: ${err.message}` }, 500);
+    }
   }
 
   // ─── v2.0 Intelligence Endpoints ──────────────────────────────────

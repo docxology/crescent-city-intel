@@ -5,10 +5,12 @@ import { query } from "./chroma.js";
 import { llmConfig } from "./config.js";
 import { appendFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
+import { join } from "path";
 
 // ─── Query logging ────────────────────────────────────────────────
 
 const RAG_LOG_PATH = "output/rag-queries.jsonl";
+const CHAT_HISTORY_DIR = "output/chat-history";
 
 async function logRagQuery(
   question: string,
@@ -29,6 +31,23 @@ async function logRagQuery(
   try {
     if (!existsSync("output")) await mkdir("output", { recursive: true });
     await appendFile(RAG_LOG_PATH, entry + "\n");
+
+    // Also persist to chat history (one file per day)
+    if (!existsSync(CHAT_HISTORY_DIR)) await mkdir(CHAT_HISTORY_DIR, { recursive: true });
+    const today = new Date().toISOString().substring(0, 10);
+    const historyEntry = JSON.stringify({
+      ts: new Date().toISOString(),
+      role: "user",
+      content: question,
+    }) + "\n" + JSON.stringify({
+      ts: new Date().toISOString(),
+      role: "assistant",
+      content: answer,
+      sources: sources.slice(0, 5).map(s => s.sectionNumber),
+      model,
+      latencyMs,
+    }) + "\n";
+    await appendFile(join(CHAT_HISTORY_DIR, `${today}.jsonl`), historyEntry);
   } catch {
     // Non-fatal — log path may not exist before first scrape
   }

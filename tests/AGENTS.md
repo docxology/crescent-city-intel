@@ -7,7 +7,7 @@ Bun-native unit tests (`bun:test`) covering all pure-logic functions. **Zero-moc
 ## Running
 
 ```bash
-bun test              # Run all 404 tests across 33 files
+bun test              # Run all 413 tests across 34 files
 bun test tests/utils  # Run a specific file
 bun test --watch      # Watch mode
 ```
@@ -46,12 +46,13 @@ bun test --watch      # Watch mode
 | `structured_queries.test.ts` | `src/structured_queries.ts` — legislative history | 6 |
 | `readability-gunning-fog.test.ts` | `src/shared/readability.ts` — Gunning Fog | 6 |
 | `alert_analytics.test.ts` | `src/alert_analytics.ts` — timeline, type stats | 8 |
+| `v2-endpoints.test.ts` | v2.2 API endpoints — health, report, search analytics, domain coverage | 9 |
 | `middleware.test.ts` | `src/api/middleware.ts` — rate limit, auth | 8 |
 | `middleware_sliding_window.test.ts` | `src/api/middleware.ts` — sliding window | 5 |
 | `verify.test.ts` | `src/verify.ts` + `src/shared/data.ts` + coverage | 14 |
 | `test_chroma.ts` | ChromaDB manual integration (not run in suite) | 0 |
 
-**Total: 404 pass · 0 fail · 33 files**
+**Total: 413 pass · 0 fail · 34 files**
 
 > 5 module-level import errors are pre-existing npm dependency issues
 > (`@xmldom/xmldom`, `chromadb`, `playwright`) that resolve after `bun install`.

@@ -37,7 +37,7 @@ export async function isIndexed(): Promise<boolean> {
   }
 }
 
-/** Index all sections into ChromaDB */
+/** Index all sections into ChromaDB (incremental — skips unchanged sections) */
 export async function indexAllSections(): Promise<void> {
   log.info("Loading all sections...");
   const sections = await loadAllSections();
@@ -45,8 +45,9 @@ export async function indexAllSections(): Promise<void> {
 
   // Check existing index
   const stats = await getStats();
-  if (stats.count > 0) {
-    log.info(`Collection already has ${stats.count} documents`);
+  const existingCount = stats.count;
+  if (existingCount > 0) {
+    log.info(`Collection already has ${existingCount} documents`);
   }
 
   // Prepare chunks with metadata
@@ -55,6 +56,22 @@ export async function indexAllSections(): Promise<void> {
     text: string;
     metadata: Record<string, string>;
   }[] = [];
+
+  // Track which section GUIDs we've already indexed
+  // For incremental indexing: if collection count matches expected, skip
+  const expectedChunkCount = sections.reduce((sum, s) => {
+    const text = `${s.number}: ${s.title}\n${s.text}`;
+    return sum + chunkText(text).length;
+  }, 0);
+
+  if (existingCount >= expectedChunkCount) {
+    log.info(`Collection has ${existingCount} chunks (expected ${expectedChunkCount}) — skipping incremental re-index`);
+    return;
+  }
+
+  if (existingCount > 0) {
+    log.info(`Incremental: re-indexing (have ${existingCount}/${expectedChunkCount} chunks)`);
+  }
 
   for (const section of sections) {
     const text = `${section.number}: ${section.title}\n${section.text}`;

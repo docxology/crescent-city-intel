@@ -8,6 +8,44 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.2.0] — 2026-07-23
+
+### 🚀 TODO Items Implemented
+
+#### New API Endpoints (4)
+- `GET /api/report/latest` — serve most recent monthly civic health report as Markdown
+- `GET /api/search/analytics` — most-queried search terms aggregated from search query log
+- `GET /api/domains/:id/coverage` — per-domain coverage metrics
+- Enhanced `GET /api/health` — now includes manifest staleness info (ageDays, stale flag) and composite alert level
+
+#### Search Analytics
+- BM25 search engine now logs every query to `output/search-queries.jsonl` with timestamp, query text, and result count
+- `GET /api/search/analytics` aggregates logged queries into top-20 term frequency report
+
+#### Chat History Persistence
+- RAG pipeline now persists all Q&A pairs to `output/chat-history/YYYY-MM-DD.jsonl` (one file per day)
+- Each entry includes timestamp, role (user/assistant), content, source sections, model, and latency
+
+#### Staleness Detection
+- `/api/health` now checks manifest age — returns `manifest.ageDays` and `manifest.stale` (true if >30 days)
+- GUI shows warning banner when data is stale: "Data is X days old. Run `bun run scrape` to refresh."
+- GUI also shows active alert level banner when composite severity is not CALM
+
+#### Incremental Indexing
+- `indexAllSections()` now skips re-embedding when ChromaDB collection already has the expected number of chunks
+- Logs "skipping incremental re-index" when collection count matches expected chunk count
+
+### 📊 Test Suite
+- **413 tests passing** across **34 files** (up from 404 in v2.1.0)
+- New test file: `v2-endpoints.test.ts` — 9 tests for health, report, search analytics, domain coverage
+- **0 test failures** (5 pre-existing module import errors from missing npm deps)
+
+### 📝 Documentation
+- OpenAPI spec: 4 new endpoint definitions (v2.2.0, 45+ endpoints total)
+- All version references updated to 2.2.0 (README, AGENTS.md, TODO, tests/AGENTS.md, docs/README.md)
+
+---
+
 ## [2.1.0] — 2026-07-23
 
 ### 🚀 Comprehensive Integration & Testing

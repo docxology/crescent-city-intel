@@ -3,7 +3,7 @@
 import { handleApiRoute } from "./routes.js";
 import { initSearch } from "./search.js";
 import { createLogger } from "../logger.js";
-import { applyMiddleware, getPrimaryApiKey, resolveIp, isTrustedLocalIp } from "../api/middleware.ts";
+import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp } from "../api/middleware.ts";
 
 const log = createLogger("gui");
 
@@ -37,6 +37,18 @@ async function maybeCompress(res: Response, acceptEncoding: string | null): Prom
  * Serve index.html, injecting the live API key ONLY for loopback/LAN
  * requesters so the page's own fetch() calls can authenticate.
  *
+ * `socketIp` MUST be Bun's own `server.requestIP(req)` value — never
+ * anything derived from `resolveIp()`/proxy headers. A prior version of this
+ * gate used `resolveIp()`, which prefers `x-forwarded-for`/`x-real-ip` over
+ * the socket address (correct for rate-limit bucketing behind a real proxy,
+ * where those headers are meaningful) — but headers are attacker-controlled
+ * on any deployment without a proxy that strips/rewrites them. A remote
+ * requester sending `X-Forwarded-For: 127.0.0.1` was classified as trusted
+ * and handed the real key (confirmed live via cross-vendor audit 2026-07-24,
+ * reproduced with `curl -H "X-Forwarded-For: 127.0.0.1"`). The socket address
+ * a client observes for its own connection cannot be spoofed the same way,
+ * so it's the only signal this decision may trust.
+ *
  * The key is embedded in page source, visible via view-source/devtools to
  * anyone who loads the URL — fine for the same trust boundary the rate
  * limiter already grants local traffic, but a real key exposure if handed to
@@ -46,12 +58,16 @@ async function maybeCompress(res: Response, acceptEncoding: string | null): Prom
  * to an unauthenticated fetch — i.e. remote visitors see exactly the
  * pre-fix behavior (protected panels 401, public ones work), not a leaked key.
  */
-async function serveIndexHtml(callerIp: string): Promise<Response> {
+export async function serveIndexHtml(socketIp: string | undefined): Promise<Response> {
   const raw = await Bun.file(`${STATIC_DIR}index.html`).text();
-  const key = isTrustedLocalIp(callerIp) ? getPrimaryApiKey() : "";
+  const key = isTrustedLocalIp(socketIp ?? "unknown") ? getPrimaryApiKey() : "";
   const html = raw.replace("__CC_API_KEY_INJECT__", key);
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
+
+// Guarded so importing this module (e.g. from a test, to reach
+// serveIndexHtml directly) never binds a real port or builds the search index.
+if (import.meta.main) {
 
 // Pre-load search index
 await initSearch();
@@ -88,11 +104,9 @@ const server = Bun.serve({
       return maybeCompress(apiRes, req.headers.get("Accept-Encoding"));
     }
 
-    const callerIp = resolveIp(req, socketIp);
-
     // Static files
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return serveIndexHtml(callerIp);
+      return serveIndexHtml(socketIp);
     }
     const filePath = `${STATIC_DIR}${url.pathname}`;
     const file = Bun.file(filePath);
@@ -101,7 +115,7 @@ const server = Bun.serve({
     }
 
     // SPA fallback
-    return serveIndexHtml(callerIp);
+    return serveIndexHtml(socketIp);
   },
   error(err) {
     // Catch EADDRINUSE (port already in use) and give a helpful message
@@ -116,3 +130,5 @@ const server = Bun.serve({
 });
 
 log.info(`Municipal Code Viewer running at http://localhost:${server.port}`);
+
+}

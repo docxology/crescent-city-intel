@@ -1,8 +1,8 @@
 ---
 project: crescent-city-intel
 effort: E4
-phase: verify
-progress: 76/76
+phase: complete
+progress: 78/78
 mode: algorithm
 started: 2026-07-23
 updated: 2026-07-24
@@ -203,6 +203,10 @@ idempotency store that every monitor — old and new — uses, all verified by r
 - [x] ISC-74: Anti: Anti-criterion — sub-tab switching within one overlay (e.g. Code Analytics) never affects the active tab/panel state of a different overlay (e.g. Developer), despite reusing the same CSS classes
 - [x] ISC-75: An explicit "Code" nav button exists to return to the default municipal-code browser view — previously there was no button-based way back, only re-toggling whichever overlay happened to be open
 - [x] ISC-76: Anti: Anti-criterion — no top-level tab or sub-tab silently fails to load (every one inspected live returns real data, confirmed via direct DOM state + rendered content, not just that a click handler exists)
+
+### Cato-driven critical security fix (2026-07-24, same session)
+- [x] ISC-77: Anti: Anti-criterion — a remote requester cannot obtain the real API key by spoofing `X-Forwarded-For`/`X-Real-IP` to claim a loopback/LAN address; the key-injection decision has no code path through which any client-supplied header can reach it
+- [x] ISC-78: `isTrustedLocalIp()` correctly recognizes the full `172.16.0.0/12` range and IPv4-mapped IPv6 loopback (`::ffff:127.0.0.1`), not just a literal `"172.16."` string prefix and bare `"127.0.0.1"`
 
 ## Test Strategy
 
@@ -413,3 +417,29 @@ Live-verified in a real browser session against `bun run gui` (after restarting 
 Confirmed both newly-found bugs are real and fixed: (1) mutual exclusion — opening Alerts then Analytics via `.click()` correctly set `alerts-panel.style.display` back to `'none'` and removed its active class, verified via direct DOM inspection, not just visual inspection; (2) header-height — `getComputedStyle(document.documentElement).getPropertyValue('--header-height')` read `92px` (up from the hardcoded `56px`) after the WARNING banner rendered, and nav buttons remained clickable with an overlay open and the banner showing, confirmed via `.click()` successfully toggling `feeds-overlay`'s `open` class from that state.
 
 `bun test tests/` — 549/549 pass (unchanged from the prior session's fixes; this refactor touched only the static frontend file plus a doc, no backend/API code).
+
+---
+
+## Verification — Cato cross-vendor audit + critical fix (2026-07-24, same session)
+
+Invoked Cato (read-only, GPT-5.4 via `codex exec --sandbox read-only`) for the mandatory E4 cross-vendor audit. It stopped mid-investigation without a final verdict on its first two turns; resumed twice via `SendMessage` (its task ID stopped resolving via `TaskOutput` between turns, but `SendMessage` successfully resumed it from its persisted transcript both times — noted here since this task-tracking quirk cost real wall-clock time and is worth remembering for future Cato invocations).
+
+**Final verdict: CONCERNS** — one CRITICAL finding, one WARNING, two INFO, plus independent reconciliation of a test-count question. All resolved:
+
+### CRITICAL (confirmed real, fixed) — API key leaked to spoofed remote requester
+`resolveIp()` prefers client-supplied `X-Forwarded-For`/`X-Real-IP` over the real socket address (by design, for rate-limit bucketing behind a real reverse proxy). `gui/server.ts`'s key-injection gate was built on top of `resolveIp()`'s output, so a remote requester sending `X-Forwarded-For: 127.0.0.1` was classified as trusted-local by `isTrustedLocalIp()` and handed the real API key in page source — defeating the entire point of the trust-gating I'd added earlier this session in response to the Advisor's key-exposure concern. Confirmed live: `curl -H "X-Forwarded-For: 127.0.0.1"` against the real running server returned the real key (this reproduction doesn't distinguish old-vs-new code from a same-machine curl, since the real socket IS loopback either way — the decisive fix is architectural, not behavioral, see below).
+
+**Fix**: `serveIndexHtml()`'s signature changed from taking a caller-IP *string derived from resolveIp()* to taking the raw `server.requestIP(req)?.address` value directly — no `Request`/headers parameter exists on the function at all, so there is no code path by which a client-supplied header can reach this decision, structurally, not just behaviorally. `server.ts` no longer imports or calls `resolveIp` for this purpose at all (still used, correctly, for rate-limit bucketing via `applyMiddleware`).
+
+**New regression test** (`tests/gui-server.test.ts`, 4 tests): required guarding `server.ts`'s top-level `Bun.serve()`/`initSearch()` call behind `if (import.meta.main)` (same pattern already applied to `scripts/run-alerts.ts` earlier this session) so `serveIndexHtml` could be imported and unit-tested without binding a real port. Tests assert: real loopback/LAN socket IPs get the real key; a genuinely remote socket IP (`203.0.113.42`) — exactly the value an attacker would try to spoof via `X-Forwarded-For` — gets nothing, because the function has no header input to spoof in the first place; `undefined` socket IP gets nothing.
+
+### INFO (confirmed real, fixed) — `isTrustedLocalIp` private-range gaps
+Missed `172.16.0.0/12` (was checking a literal `"172.16."` string prefix, not the full 172.16–172.31 range) and IPv4-mapped IPv6 (`::ffff:127.0.0.1`, which `Bun.requestIP()` can return for dual-stack sockets). Direction of error was fail-closed (denies a real local user, not a leak) but defeated the check's own stated intent. Fixed: proper 172.16–172.31 second-octet range check, and `::ffff:` prefix normalization before matching. Covered by the existing `isTrustedLocalIp` tests plus the new `172.20.0.5` case in `gui-server.test.ts`.
+
+### Test-count discrepancy — reconciled, not a real defect
+Cato's own sandbox reported `534 ran / 529 pass / 5 fail`, all 5 in `tests/routes.integration.test.ts` failing with `EADDRINUSE` on `Bun.serve({port: 0})`. This is the exact same sandbox-network-restriction artifact I identified and confirmed at the very start of this session (see the first `## Verification` section above: `git diff` showed the identical failure resolves to 15/15 pass the moment the sandbox is disabled). Cato independently reached the same conclusion ("a sandbox network restriction, not a code defect") without my prompting it toward that answer — cross-vendor agreement on the root cause, not just my own assertion. My claimed `549/549` (now `553/553` after this fix) is run with `dangerouslyDisableSandbox: true`, confirmed reproducible across every rerun this session.
+
+### Verified as claimed (no changes needed)
+Cato independently confirmed: zero bare `fetch(` remain in `index.html`; the `run-alerts.ts` tides/fishing fix is real and correct with no reintroduced silent-failure pattern; the new `run-alerts.test.ts` tests are substantive, not tautological; the rate-limiter change introduces no regression for legitimate remote traffic; `gov_meeting_monitor.ts`'s date formatting and title-filter logic have no obvious defect (network-unverifiable in its sandbox, reasonable on static read).
+
+`bun test tests/` → **553 pass, 0 fail, 3448 expect() calls, 45 files** (549 prior + 4 new from `gui-server.test.ts`).

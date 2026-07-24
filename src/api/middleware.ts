@@ -144,7 +144,21 @@ export function resolveIp(req: Request, socketIp?: string): string {
  * defeating the point of a key on any deployment that isn't purely local).
  */
 export function isTrustedLocalIp(ip: string): boolean {
-  return ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.");
+  // Bun's requestIP() can return an IPv4-mapped IPv6 form (::ffff:127.0.0.1)
+  // for dual-stack sockets — normalize before matching, or a real loopback
+  // connection fails this check (a fail-closed gap, not a leak, but it
+  // defeats the check's own stated intent).
+  const normalized = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+  if (normalized === "127.0.0.1" || normalized === "::1") return true;
+  if (normalized.startsWith("192.168.") || normalized.startsWith("10.")) return true;
+  // 172.16.0.0/12 = second octet 16-31, not just the literal "172.16." prefix
+  // (missing this let e.g. 172.20.x.x wrongly fail as "not local").
+  const octets = normalized.split(".");
+  if (octets.length === 4 && octets[0] === "172") {
+    const second = Number(octets[1]);
+    if (Number.isInteger(second) && second >= 16 && second <= 31) return true;
+  }
+  return false;
 }
 
 /** Rate limiting with sliding window algorithm. */

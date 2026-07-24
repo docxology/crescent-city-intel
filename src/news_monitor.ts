@@ -15,26 +15,33 @@
 import { createLogger } from './logger.js';
 import { htmlToText } from './utils.js';
 import { DOMParser } from '@xmldom/xmldom';
-import { mkdir, writeFile, readFile, appendFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { IdempotencyStore } from './shared/idempotency.js';
 
 const logger = createLogger('news_monitor');
 
 /** RSS feed URLs for local news sources covering the NorCal coast */
-const NEWS_FEEDS: Record<string, string> = {
+export const NEWS_FEEDS: Record<string, string> = {
   'Times-Standard': 'https://www.times-standard.com/news/rss.xml',
   'Lost Coast Outpost': 'https://lostcoastoutpost.com/feed',
   'Humboldt Times': 'https://www.humboldtcountynews.com/feed',
   'KIEM-TV NBC Eureka': 'https://www.kiemtv.com/feed/',
+  'Redwood Voice': 'https://www.redwoodvoice.org/feed/',
 };
 
 const NEWS_OUTPUT_DIR = join(process.cwd(), 'output', 'news');
-/** Persistent deduplication index — survives restarts */
-const SEEN_IDS_PATH = join(NEWS_OUTPUT_DIR, 'seen-ids.json');
+/** Persistent deduplication index — survives restarts. Lives under
+ * output/state/, NOT output/news/, so it never collides with a naive
+ * "list output/news/*.json and take the latest" consumer (this exact bug
+ * class broke tests/gov_meeting_monitor.test.ts when a sibling monitor's
+ * state file was colocated with its batch output — see gov_meeting_monitor.ts).
+ * IdempotencyStore.load() transparently migrates the legacy bare string[]
+ * shape on first read, so no separate migration step is needed. */
+const SEEN_IDS_PATH = join(process.cwd(), 'output', 'state', 'news-seen-ids.json');
 
 /** Normalize a URL to a stable dedup key (strip tracking params, trailing slash) */
-function normalizeUrl(url: string): string {
+export function normalizeUrl(url: string): string {
   try {
     const u = new URL(url);
     // Remove common tracking parameters
@@ -43,26 +50,6 @@ function normalizeUrl(url: string): string {
   } catch {
     return url.trim();
   }
-}
-
-/** Load persisted seen-ids set from disk. Returns empty set if file not found. */
-export async function loadSeenIds(): Promise<Set<string>> {
-  if (!existsSync(SEEN_IDS_PATH)) return new Set();
-  try {
-    const raw = await readFile(SEEN_IDS_PATH, 'utf-8');
-    const arr: string[] = JSON.parse(raw);
-    return new Set(arr);
-  } catch {
-    return new Set();
-  }
-}
-
-/** Persist seen-ids set to disk (capped at 10,000 most recent entries). */
-export async function saveSeenIds(seen: Set<string>): Promise<void> {
-  await mkdir(NEWS_OUTPUT_DIR, { recursive: true });
-  // Cap to avoid unbounded growth — keep most recent
-  const arr = [...seen].slice(-10_000);
-  await writeFile(SEEN_IDS_PATH, JSON.stringify(arr, null, 2));
 }
 
 /** Keywords triggering inclusion — case-insensitive substring match */
@@ -210,11 +197,12 @@ export async function monitorNews(filterKeywords?: string[]): Promise<NewsItem[]
     ? [...CRESCENT_CITY_KEYWORDS, ...filterKeywords.map(k => k.toLowerCase())]
     : CRESCENT_CITY_KEYWORDS;
 
-  // Load persistent dedup index
-  const persistedSeen = await loadSeenIds();
-  const sessionSeen = new Set<string>(persistedSeen);
+  // Load persistent dedup index (shared store — survives restarts, same file
+  // path as the legacy seen-ids.json, transparently migrated on first load)
+  const idempotency = new IdempotencyStore(SEEN_IDS_PATH);
+  await idempotency.load();
   const allItems: NewsItem[] = [];
-  const newIds: string[] = [];
+  let newCount = 0;
 
   // Fetch all feeds concurrently
   const fetchResults = await Promise.all(
@@ -238,9 +226,9 @@ export async function monitorNews(filterKeywords?: string[]): Promise<NewsItem[]
       }
 
       const key = normalizeUrl(item.link);
-      if (sessionSeen.has(key)) continue; // cross-source + cross-run dedup
-      sessionSeen.add(key);
-      newIds.push(key);
+      const { isNew } = idempotency.seen(key); // presence-only dedup, cross-source + cross-run
+      if (!isNew) continue;
+      newCount++;
       allItems.push({ ...item, source: sourceName, fetchedAt });
     }
   }
@@ -253,9 +241,9 @@ export async function monitorNews(filterKeywords?: string[]): Promise<NewsItem[]
   });
 
   // Persist updated seen-ids
-  if (newIds.length > 0) {
-    await saveSeenIds(sessionSeen);
-    logger.info(`Added ${newIds.length} new URL(s) to dedup index (total: ${sessionSeen.size})`);
+  if (newCount > 0) {
+    await idempotency.save();
+    logger.info(`Added ${newCount} new URL(s) to dedup index (total: ${idempotency.size})`);
   }
 
   if (allItems.length > 0) {

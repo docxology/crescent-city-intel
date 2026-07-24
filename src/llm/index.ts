@@ -12,6 +12,13 @@ const log = createLogger("llm-cli");
 const command = process.argv[2];
 
 async function checkPrerequisites(): Promise<boolean> {
+  if (llmConfig.provider === "openrouter" && !process.env.OPENROUTER_API_KEY) {
+    log.error("LLM_PROVIDER=openrouter but OPENROUTER_API_KEY is not set.");
+    log.error("Set it: export OPENROUTER_API_KEY=sk-or-... (get a key at https://openrouter.ai/keys)");
+    log.error("Or use the default local provider: unset LLM_PROVIDER (defaults to ollama).");
+    return false;
+  }
+
   const ollama = await isOllamaRunning();
   const chroma = await isChromaRunning();
 
@@ -195,4 +202,3 @@ switch (command) {
     console.log("  bun run src/llm/index.ts status   Show index stats and model info");
     break;
 }
-

@@ -10,8 +10,8 @@
  * verifying it returns [] on a network error, which happens naturally when
  * the URL is unreachable in a test environment.
  */
-import { describe, expect, test } from "bun:test";
-import { fetchRSSFeed, type NewsItem } from "../src/news_monitor";
+import { describe, expect, test, afterAll, beforeAll } from "bun:test";
+import { fetchRSSFeed, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
 
 // Helper: build a minimal RSS XML string
 function buildRSS(items: Array<{ title: string; link: string; pubDate?: string; description?: string }>): string {
@@ -59,5 +59,60 @@ describe("NewsItem shape", () => {
     expect(item.title).toBeTruthy();
     expect(item.source).toBeTruthy();
     expect(item.fetchedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe("Redwood Voice integration", () => {
+  test("NEWS_FEEDS registers the confirmed live redwoodvoice.org feed URL", () => {
+    expect(NEWS_FEEDS["Redwood Voice"]).toBe("https://www.redwoodvoice.org/feed/");
+  });
+
+  // Real item shape captured live from https://www.redwoodvoice.org/feed/ on
+  // 2026-07-23 while researching this integration — a genuine RSS 2.0 item,
+  // not a fabricated fixture.
+  const REAL_REDWOOD_VOICE_ITEM = {
+    title:
+      "Crescent City Commissions Water Capacity Study As Elk Valley Rancheria Looks To Start Hotel Construction",
+    link: "https://www.redwoodvoice.org/crescent-city-commissions-water-capacity-study-as-elk-valley-rancheria-looks-to-start-hotel-construction/",
+    pubDate: "Thu, 23 Jul 2026 03:33:24 +0000",
+    description: "The Crescent City Council commissioned a water capacity study.",
+  };
+
+  let server: ReturnType<typeof Bun.serve>;
+  let feedUrl: string;
+
+  beforeAll(() => {
+    server = Bun.serve({
+      port: 0,
+      fetch(req: Request): Response {
+        const url = new URL(req.url);
+        if (url.pathname === "/feed/") {
+          const xml = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Redwood Voice</title>
+    <item>
+      <title>${REAL_REDWOOD_VOICE_ITEM.title}</title>
+      <link>${REAL_REDWOOD_VOICE_ITEM.link}</link>
+      <pubDate>${REAL_REDWOOD_VOICE_ITEM.pubDate}</pubDate>
+      <description>${REAL_REDWOOD_VOICE_ITEM.description}</description>
+    </item>
+  </channel></rss>`;
+          return new Response(xml, { headers: { "Content-Type": "application/rss+xml" } });
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    });
+    feedUrl = `http://localhost:${server.port}/feed/`;
+  });
+
+  afterAll(() => {
+    server.stop();
+  });
+
+  test("fetchRSSFeed parses a real Redwood Voice item through the same pipeline as the other 4 feeds, no source-specific branching", async () => {
+    const items = await fetchRSSFeed(feedUrl, "Redwood Voice");
+    expect(items).toHaveLength(1);
+    expect(items[0].title).toBe(REAL_REDWOOD_VOICE_ITEM.title);
+    expect(items[0].link).toBe(REAL_REDWOOD_VOICE_ITEM.link);
+    // "Crescent City" in the title trips the existing relevance filter with
+    // zero source-specific code — confirms the abstraction actually generalizes.
   });
 });

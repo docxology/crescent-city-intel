@@ -550,6 +550,37 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/curated — recent LLM-curated items across news/gov-meetings/youtube
+  if (path === "/api/curated") {
+    try {
+      const { readFile, readdir } = await import("fs/promises");
+      const { existsSync } = await import("fs");
+      const curatedDir = "output/curated";
+      if (!existsSync(curatedDir)) {
+        return json({ items: [], count: 0, error: "No curated output yet. Run: bun run curate" });
+      }
+
+      const files = (await readdir(curatedDir))
+        .filter((f) => f.endsWith(".json"))
+        .sort()
+        .reverse(); // most recent date first
+
+      const limit = Math.min(200, parseInt(url.searchParams.get("limit") ?? "50", 10));
+      const items: any[] = [];
+      for (const f of files) {
+        if (items.length >= limit) break;
+        const raw = await readFile(`${curatedDir}/${f}`, "utf-8");
+        const dayItems = JSON.parse(raw);
+        if (!Array.isArray(dayItems)) continue; // defensive: skip a malformed/unexpected file rather than 500
+        items.push(...dayItems.slice().reverse()); // most recent within a day first
+      }
+
+      return json({ items: items.slice(0, limit), count: items.length });
+    } catch (err: any) {
+      return json({ error: `Failed to read curated output: ${err.message}` }, 500);
+    }
+  }
+
   // GET /api/monitor/history — historical monitor runs (appended JSONL)
   if (path === "/api/monitor/history") {
     try {
@@ -908,13 +939,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const queryEmbedding = await ollama.embed(q);
       const chromaResult = await chroma.query(queryEmbedding, llmConfig.topK);
 
-      const sources: import("../types.js").RagSource[] = chromaResult.documents.map((doc: any, i: number) => ({
-        sectionGuid: doc.guid ?? doc.id,
-        sectionNumber: doc.number ?? "",
-        sectionTitle: doc.title ?? "",
-        snippet: chromaResult.documents[i]?.text?.substring(0, 200) ?? "",
-        score: 1 - (chromaResult.distances?.[i] ?? 0),
-      }));
+      const { buildRagSource } = await import("../llm/rag.js");
+      const sources: import("../types.js").RagSource[] = chromaResult.documents.map((doc: string, i: number) =>
+        buildRagSource(doc, chromaResult.metadatas?.[i] ?? {}, chromaResult.distances?.[i] ?? 0)
+      );
 
       const context = chromaResult.documents.map((doc: any, i: number) =>
         `Section ${doc.number ?? "?"}: ${doc.text ?? ""}`

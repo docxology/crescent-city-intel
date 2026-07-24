@@ -195,8 +195,10 @@ scripts/
   run-alerts.ts         # All alert monitors (concurrent)
   run-news.ts           # RSS news monitor script
   run-meetings.ts       # Government meeting monitor script
+  run-youtube.ts        # YouTube meeting transcript pipeline script
+  run-curation.ts       # LLM curation pipeline script
   weekly-check.sh       # Legacy bash wrapper (kept for reference)
-tests/                  # 489 tests · 38 files (see tests/AGENTS.md for full per-file breakdown)
+tests/                  # 538 tests · 43 files (see tests/AGENTS.md for full per-file breakdown)
   utils.test.ts         # 62 tests
   constants.test.ts     # 5 tests
   constants-extended.test.ts # 10 tests

@@ -102,6 +102,45 @@ function buildCitationUrl(guid: string): string {
   return `https://ecode360.com/${guid}`;
 }
 
+/**
+ * Build a RagSource from a retrieved chunk's document text + metadata,
+ * branching on `sourceType` so a YouTube transcript chunk and a municipal
+ * code chunk produce distinctly-shaped citations. This is the single
+ * construction site for RagSource objects — the streaming chat endpoint
+ * (`gui/routes.ts`) imports and reuses this rather than re-deriving the
+ * same mapping a second time (that duplication was itself a latent bug:
+ * the prior inline version there read `.guid`/`.number`/`.title`/`.text`
+ * off `chromaResult.documents[i]`, which is a plain string per
+ * `chroma.ts`'s own `query()` return type, not an object — every one of
+ * those property reads silently evaluated to `undefined`).
+ */
+export function buildRagSource(doc: string, meta: Record<string, string>, distance: number): RagSource {
+  const score = Math.round((1 - distance) * 1000) / 1000;
+  const snippet = doc.substring(0, 200);
+
+  if (meta.sourceType === "youtube_transcript") {
+    return {
+      sourceType: "youtube_transcript",
+      sectionGuid: meta.videoId ?? "",
+      sectionNumber: meta.timestamp ?? "",
+      sectionTitle: meta.videoTitle ?? "",
+      snippet,
+      score,
+      videoId: meta.videoId,
+      timestamp: meta.timestamp,
+    };
+  }
+
+  return {
+    sourceType: "municipal_code",
+    sectionGuid: meta.sectionGuid ?? "",
+    sectionNumber: meta.sectionNumber ?? "",
+    sectionTitle: meta.sectionTitle ?? "",
+    snippet,
+    score,
+  };
+}
+
 // ─── RAG pipeline ─────────────────────────────────────────────────
 
 /** Query the RAG pipeline with a user question */
@@ -130,17 +169,13 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
     const meta = results.metadatas[i];
     const distance = results.distances[i];
 
-    contextParts.push(
-      `[${meta.sectionNumber}: ${meta.sectionTitle}]\n${doc}\n`
-    );
+    const label =
+      meta.sourceType === "youtube_transcript"
+        ? `[YouTube: ${meta.videoTitle} @ ${meta.timestamp}]`
+        : `[${meta.sectionNumber}: ${meta.sectionTitle}]`;
+    contextParts.push(`${label}\n${doc}\n`);
 
-    sources.push({
-      sectionGuid: meta.sectionGuid,
-      sectionNumber: meta.sectionNumber,
-      sectionTitle: meta.sectionTitle,
-      snippet: doc.substring(0, 200),
-      score: Math.round((1 - distance) * 1000) / 1000,
-    });
+    sources.push(buildRagSource(doc, meta, distance));
   }
 
   const context = contextParts.join("\n---\n");

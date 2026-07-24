@@ -10,10 +10,14 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 8 alert monit
 | [Ollama](https://ollama.ai) | Latest | `brew install ollama` or [download](https://ollama.ai/download) |
 | [ChromaDB](https://www.trychroma.com) | Latest | `pip install chromadb` |
 | Python 3 | 3.9+ | Required for ChromaDB |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Recent (updated within ~90 days) | `pip install -U yt-dlp` |
 
-> **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. The scraper,
-> web viewer, and all 8 alert monitors work without them.
+> **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. `yt-dlp` is only
+> needed for `bun run youtube`. The scraper, web viewer, and all 8 alert monitors
+> work without any of them.
 > For air quality alerts, set `AIRNOW_API_KEY` env var (free at [airnowapi.org](https://airnowapi.org)).
+> For OpenRouter (optional, paid, alternative to local Ollama for chat/curation),
+> set `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY` — see Environment Variables below.
 
 ---
 
@@ -148,8 +152,11 @@ The web viewer's chat panel (💬 button) also connects to the RAG pipeline once
 | `bun run chat` | Interactive RAG chat |
 | `bun run query "..."` | Single RAG query |
 | `bun run status` | Check Ollama/ChromaDB/index status |
-| `bun test` | Run tests (489 tests, 38 files) |
+| `bun test` | Run tests (538 tests, 43 files) |
 | `bun run monitor` | Detect municipal code changes |
+| `bun run news` | Fetch RSS news (Times-Standard, Lost Coast Outpost, Humboldt Times, KIEM-TV, Redwood Voice) |
+| `bun run youtube` | Pull YouTube meeting transcripts (requires `yt-dlp` on PATH) |
+| `bun run curate` | LLM-summarize + domain-tag new items across news/meetings/YouTube |
 
 ---
 
@@ -159,9 +166,13 @@ All optional — defaults work out of the box.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `LLM_PROVIDER` | `ollama` | Chat provider selection (`ollama` or `openrouter`) |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API server |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `CHAT_MODEL` | `gemma3:4b` | Chat model |
+| `OPENROUTER_API_KEY` | `(unset)` | Required only when `LLM_PROVIDER=openrouter` |
+| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | OpenRouter chat model |
+| `OPENROUTER_MAX_REQUESTS` | `100` | Max OpenRouter chat requests allowed per run |
 | `CHROMA_URL` | `http://localhost:8000` | ChromaDB server |
 | `PORT` | `3000` | GUI server port |
 | `LOG_LEVEL` | `info` | Logger verbosity (debug/info/warn/error) |

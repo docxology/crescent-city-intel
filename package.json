@@ -1,7 +1,7 @@
 {
   "name": "crescent-city-intel",
-  "version": "2.4.0",
-  "description": "Comprehensive local intelligence platform for Crescent City, CA — municipal code, real-time alerts, RAG chat, analytics, and civic intelligence domains",
+  "version": "2.5.0",
+  "description": "Comprehensive local intelligence platform for Crescent City, CA — municipal code, real-time alerts, RAG chat, YouTube meeting transcripts, multi-source news, LLM curation, and civic intelligence domains",
   "type": "module",
   "scripts": {
     "scrape": "bun run src/scrape.ts",
@@ -16,6 +16,8 @@
     "monitor": "bun run scripts/run-monitor.ts",
     "news": "bun run scripts/run-news.ts",
     "gov-meetings": "bun run scripts/run-meetings.ts",
+    "youtube": "bun run scripts/run-youtube.ts",
+    "curate": "bun run scripts/run-curation.ts",
     "alerts": "bun run scripts/run-alerts.ts",
     "alerts:tsunami": "bun run src/alerts/noaa_tsunami.ts",
     "alerts:earthquake": "bun run src/alerts/usgs_earthquake.ts",

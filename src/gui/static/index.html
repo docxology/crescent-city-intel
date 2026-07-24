@@ -1140,6 +1140,7 @@
       <button class="intel-tab" data-tab="history">📜 Legislative History</button>
       <button class="intel-tab" data-tab="compare">⚖️ Compare Sections</button>
       <button class="intel-tab" data-tab="report">📅 Monthly Report</button>
+      <button class="intel-tab" data-tab="curated">📰 Curated Feed</button>
       <button class="intel-tab" data-tab="api">🔌 API Explorer</button>
       <button class="intel-tab" data-tab="domains">🧭 Domains</button>
       <button class="intel-tab" data-tab="readability">📊 Readability</button>
@@ -1192,6 +1193,11 @@
       <div class="intel-panel" id="intel-report">
         <div class="intel-section-header">Monthly Civic Health Report</div>
         <div id="report-content"><p style="color:var(--text-secondary)">Loading latest report...</p></div>
+      </div>
+      <div class="intel-panel" id="intel-curated">
+        <div class="intel-section-header">Curated Feed — News, Meetings &amp; YouTube Transcripts</div>
+        <p style="color:var(--text-secondary);margin-bottom:12px">LLM-summarized, domain-tagged items from every monitored source. Run <code>bun run curate</code> to refresh.</p>
+        <div id="curated-content"><p style="color:var(--text-secondary)">Loading...</p></div>
       </div>
       <div class="intel-panel" id="intel-api">
         <div class="intel-section-header">API Explorer (45+ endpoints)</div>
@@ -2422,6 +2428,7 @@
           else if (tabName === 'glossary') loadGlossary();
           else if (tabName === 'xrefs') loadXRefs();
           else if (tabName === 'report') loadReport();
+          else if (tabName === 'curated') loadCuratedFeed();
           else if (tabName === 'api') loadApiExplorer();
           else if (tabName === 'domains') loadDomainsPanel();
           else if (tabName === 'readability') loadReadabilityPanel();
@@ -2613,6 +2620,40 @@
         const md = await resp.text();
         el.innerHTML = marked.parse(md);
       } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load report</p>'; }
+    }
+
+    // ─ Curated Feed ─
+    // Attribute-safe escaping (also quotes) — distinct from the existing
+    // escapeHtml() above, which does not escape quotes and is therefore
+    // unsafe to use inside an href="..." attribute. Curated titles/links
+    // originate from external scraped sources (news RSS, Triplicate,
+    // YouTube), so this must not be skipped.
+    function escapeHtmlAttr(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    const SOURCE_LABELS = { news: '📰 News', gov_meetings: '🏛️ Gov Meeting', youtube: '📺 YouTube' };
+    async function loadCuratedFeed() {
+      const el = document.getElementById('curated-content');
+      try {
+        const resp = await fetch('/api/curated?limit=50');
+        const data = await resp.json();
+        if (!data.items || data.items.length === 0) {
+          el.innerHTML = '<p style="color:var(--text-secondary)">' + escapeHtmlAttr(data.error || 'No curated items yet. Run: bun run curate') + '</p>';
+          return;
+        }
+        let html = '';
+        for (const item of data.items) {
+          const sourceLabel = SOURCE_LABELS[item.source] || escapeHtmlAttr(item.source);
+          const tags = (item.tags || []).map(t => '<span class="intel-tab" style="padding:2px 8px;font-size:11px;cursor:default">' + escapeHtmlAttr(t) + '</span>').join(' ');
+          html += '<div style="border-bottom:1px solid var(--border);padding:12px 0">'
+            + '<div style="font-size:12px;color:var(--text-secondary)">' + sourceLabel + ' · ' + escapeHtmlAttr(new Date(item.curatedAt).toLocaleString()) + '</div>'
+            + '<div style="font-weight:600;margin:4px 0">' + (item.link ? '<a href="' + escapeHtmlAttr(item.link) + '" target="_blank" rel="noopener">' + escapeHtmlAttr(item.title) + '</a>' : escapeHtmlAttr(item.title)) + '</div>'
+            + '<div style="color:var(--text-secondary);margin-bottom:6px">' + escapeHtmlAttr(item.summary) + '</div>'
+            + (tags ? '<div>' + tags + '</div>' : '')
+            + '</div>';
+        }
+        el.innerHTML = html;
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load curated feed</p>'; }
     }
 
     // ─ API Explorer ─

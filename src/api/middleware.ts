@@ -36,6 +36,7 @@ const PUBLIC_PATHS = [
   "/api/sections",
   "/api/openapi.yaml",
   "/api/docs",
+  "/api/curated",
 ];
 
 // ─── API Key Store ────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # TODO — Crescent City Intelligence Platform
 
-> Upcoming development backlog · v2.4.0 · 489 tests passing · 46 source modules · 38 test files
+> Upcoming development backlog · v2.5.0 · 538 tests passing · 51 source modules · 43 test files
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix)
 >
@@ -18,6 +18,7 @@
 - 🟡 **GUI error banner**: render user-facing error UI for failed `/api/*` responses
 - 🟡 **Ollama preflight**: `ollama check` before `bun run index` — fail fast with install instructions
 - 🟡 **ChromaDB preflight**: check collection exists before RAG query; better error if empty
+- 🔴 **Frontend never sends an API key** (found 2026-07-23): `apiKeyMiddleware` is live in `applyMiddleware()`, but `src/gui/static/index.html`'s `fetch()` calls never attach `X-API-Key`. Every intel-dashboard panel backed by a non-`PUBLIC_PATHS` endpoint (`/api/report/latest`, `/api/monitor/status`, `/api/domains/coverage`, `/api/alerts/*`, etc.) 401s when actually used from the browser. `/api/curated` was added to `PUBLIC_PATHS` to avoid shipping a panel that's broken on arrival, but that's a one-endpoint patch, not a fix — either the frontend needs a stored key, or the whole read-only GUI surface needs auditing into `PUBLIC_PATHS`.
 
 ---
 
@@ -45,7 +46,8 @@
 ## Phase 4 — Monitoring Expansion
 
 ### 4.1 News Monitor
-- 🟢 **Del Norte Triplicate**: add feed when public RSS becomes available
+- ✅ **Redwood Voice**: live, active RSS feed added (`redwoodvoice.org/feed/`, confirmed publishing 2026-07-23)
+- 🟢 **Del Norte Triplicate**: no public RSS exists (confirmed 2026-07-23); Cloudflare-protected — see `src/triplicate_monitor.ts` (Playwright-based, not RSS)
 - 🟢 **KHUM-FM**: add local radio news RSS if available
 - 🟡 **Sentiment scoring**: classify each filtered article as positive/negative/neutral
 - 🟡 **Aggregated digest**: daily top-5 articles by relevance + sentiment
@@ -58,6 +60,18 @@
 - 🟡 **Code cross-reference**: keyword-match agenda items to relevant code sections via BM25
 - 🟢 **Agenda calendar**: infer next meeting dates from past schedule → proactive reminder
 - 🟢 **PDF support**: extract text from PDF agendas/minutes
+
+### 4.4 YouTube Meeting Transcripts (✅ shipped 2026-07-23)
+- ✅ **`src/youtube_monitor.ts`**: lists `youtube.com/c/CityofCrescentCityCalifornia`, extracts auto-captions via `yt-dlp`, indexes into ChromaDB with `sourceType: "youtube_transcript"` citations distinct from municipal code.
+- 🟡 **Extractor-args maintenance**: the `player_client=android,web_safari` yt-dlp flag was empirically required 2026-07-23 to clear YouTube's current JS challenge — this WILL need revisiting as YouTube's extraction internals evolve. `extraction_failed` status is logged distinctly from `unavailable` (no captions) precisely so this regression is visible rather than silently read as "no new videos."
+- 🟢 **Backfill older meetings**: current run defaults to the 15 most recent channel videos; a one-time deeper backfill pass would need channel pagination beyond `--playlist-end`.
+- 🟢 **Cleaner transcript reconstruction**: `parseVtt`'s growing-caption collapse handles simple prefix-extension groups well but leaves some residual near-duplication on more complex caption patterns — acceptable for RAG search, not a polished human-readable transcript.
+
+### 4.5 Curation Pipeline (✅ shipped 2026-07-23)
+- ✅ **`src/curation.ts`** / `bun run curate`: LLM-summarizes + domain-tags new items across news/gov-meetings/youtube via the configured provider (Ollama default, OpenRouter opt-in). `/api/curated` + GUI "Curated Feed" tab.
+- 🟡 **Triplicate not yet wired into curation**: `gatherCurationInputs()` covers news/gov_meetings/youtube; adding Triplicate is a small follow-up (same `gatherXItems()` pattern).
+- 🟢 **OpenRouter default model/cap**: `openai/gpt-4o-mini` @ 100 req/run are placeholder defaults — confirm they suit real curation volume before relying on OpenRouter for a full run.
+- 🟢 **Facebook**: deliberately not built this pass — no sanctioned automated-access path for a hobby project (ToS prohibits scraping; Graph API Page Public Content Access needs Meta App Review). Revisit only if a real content gap surfaces that no other source covers.
 
 ### 4.3 Municipal Code Change Monitor
 - 🟢 **`--full-rescrape` flag**: bypass resume, re-fetch all 242 articles
@@ -239,4 +253,4 @@
 
 ---
 
-_Last updated: July 2026 · v2.4.0 · 489 tests passing · 46 source modules · 38 test files_
+_Last updated: July 2026 · v2.5.0 · 538 tests passing · 51 source modules · 43 test files_

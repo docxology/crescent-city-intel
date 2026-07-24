@@ -7,3 +7,6 @@ chroma_data/
 summary_output.txt
 __pycache__/
 *.pyc
+.env
+.env.*
+!.env.example

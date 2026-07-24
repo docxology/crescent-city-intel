@@ -131,13 +131,18 @@ export interface ChatMessage {
   content: string;
 }
 
-/** A source citation from RAG retrieval */
+/** A source citation from RAG retrieval — either a municipal code section or a YouTube meeting transcript chunk */
 export interface RagSource {
+  sourceType: "municipal_code" | "youtube_transcript";
   sectionGuid: string;
   sectionNumber: string;
   sectionTitle: string;
   snippet: string;
   score: number;
+  /** Present only when sourceType is "youtube_transcript" */
+  videoId?: string;
+  /** Present only when sourceType is "youtube_transcript" — VTT-cue timestamp "HH:MM:SS.mmm" */
+  timestamp?: string;
 }
 
 /** Response from the RAG pipeline */

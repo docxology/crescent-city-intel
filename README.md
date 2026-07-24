@@ -11,8 +11,8 @@
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Bun-v1.0+-black?logo=bun" alt="Bun"></a>
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
-    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-489_passing-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.4.0-orange" alt="Version"></a>
+    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-538_passing-brightgreen" alt="Tests"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.5.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -108,8 +108,9 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 | ✅ **Verify** | SHA-256 integrity checks + TOC cross-reference + live re-fetch sampling | 11 | [→](docs/modules/verification.md) |
 | 📦 **Export** | JSON · Markdown · plain text · CSV index | ✓ | [→](docs/modules/export.md) |
 | 🖥️ **View** | Web viewer: TOC, BM25 search, analytics dashboard, dark/light mode | 8 | [→](docs/modules/gui.md) |
-| 💬 **Chat** | Ollama RAG with ChromaDB vector store · source citations · RAG query logging | ✓ | [→](docs/modules/llm.md) |
-| 📡 **Monitor** | Municipal code change detection + RSS news (4 sources) + government meeting tracking | 3 | [→](docs/modules/monitoring.md) |
+| 💬 **Chat** | Ollama or OpenRouter RAG with ChromaDB vector store · source citations (municipal code + YouTube transcripts) · RAG query logging | ✓ | [→](docs/modules/llm.md) |
+| 📡 **Monitor** | Municipal code change detection + RSS news (5 sources) + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare) | 5 | [→](docs/modules/monitoring.md) |
+| 📰 **Curate** | LLM summarization + domain tagging across news/meetings/YouTube, idempotent, provider-agnostic | ✓ | [→](docs/modules/monitoring.md) |
 | 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing | 13 | [→](docs/modules/alerts.md) |
 | 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | 14 | [→](docs/modules/gui.md) |
 
@@ -487,10 +488,10 @@ scripts/
   run-coverage.ts       # Domain coverage analysis orchestrator
   run-readability.ts    # Readability scoring orchestrator
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # 489 tests · 38 files · zero-mock policy
+tests/                  # 538 tests · 43 files · zero-mock policy
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.4.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
 ```
 
 ---
@@ -531,7 +532,7 @@ The **Crescent City Code of Ordinances** covers **17 titles** across **242 artic
 ## 🧪 Test Suite
 
 ```
-489 pass · 0 fail · 3210 expect() calls · 38 test files
+538 pass · 0 fail · 3421 expect() calls · 43 test files
 Zero-mock policy: all tests use real functions, real data structures, no stubs
 ```
 
@@ -579,7 +580,7 @@ Zero-mock policy: all tests use real functions, real data structures, no stubs
 Run tests:
 
 ```bash
-bun test              # all 489 tests
+bun test              # all 538 tests
 bun test tests/search.test.ts   # single file
 ```
 
@@ -629,7 +630,7 @@ bun test tests/search.test.ts   # single file
 | :------ | :---------- |
 | `bun run readability` | Flesch-Kincaid scoring → `output/readability.json` |
 | `bun run coverage` | Domain coverage % → `output/domain-coverage.json` |
-| `bun test` | Run all 489 tests |
+| `bun test` | Run all 538 tests |
 
 ---
 
@@ -661,7 +662,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/monitor/alerts` | GET | Aggregated alert status (all 8 monitors) |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.4.0)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.5.0)
 
 ---
 

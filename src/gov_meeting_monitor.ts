@@ -8,6 +8,8 @@
 import { createLogger } from './logger.js';
 import { computeSha256, htmlToText } from './utils.js';
 import { DOMParser } from '@xmldom/xmldom';
+import { join } from 'path';
+import { IdempotencyStore } from './shared/idempotency.js';
 
 const logger = createLogger('gov_meeting_monitor');
 
@@ -18,9 +20,21 @@ const GOV_SOURCES = {
   'Harbor Commission': 'https://crescentcity.org/government/harbor-commission/agendas'
 };
 
-// Cache for storing hashes of previously seen meeting documents to detect changes
-const PROCESSED_MEETING_CACHE = new Map<string, {hash: string, firstSeen: string}>();
-const CACHE_MAX_SIZE = 500;
+/**
+ * Persistent change-detection index (id = meeting link, hash = content hash).
+ * Was previously an in-memory-only Map (PROCESSED_MEETING_CACHE) that never
+ * survived across separate CLI invocations, so every run silently treated
+ * every item as new — this is a real cross-run idempotency fix, not just a
+ * refactor. Cap of 500 preserved from the prior in-memory cache's own limit.
+ *
+ * Lives under output/state/, NOT output/gov_meetings/ — colocating it with
+ * the batch output broke tests/gov_meeting_monitor.test.ts's naive "sort
+ * output/gov_meetings/*.json and take the last" lookup, since
+ * "seen-meetings.json" sorts alphabetically after every "gov_meetings-*"
+ * timestamped file and has a different (non-batch) shape.
+ */
+const MEETING_CACHE_PATH = join(process.cwd(), 'output', 'state', 'gov-meetings-seen.json');
+const meetingCache = new IdempotencyStore(MEETING_CACHE_PATH, 500);
 
 // Keywords for filtering relevant meeting items
 const MEETING_KEYWORDS = [
@@ -49,25 +63,18 @@ const MEETING_KEYWORDS = [
 ];
 
 /**
- * Generate a hash for content to detect changes
+ * Generate a hash for content to detect changes.
+ *
+ * Was previously declared to return `string` while actually returning the
+ * unawaited `computeSha256(...)` Promise object itself — `tsc --noEmit`
+ * confirms this was a genuine pre-existing type error (TS2322), and at
+ * runtime it meant every "hash" was a fresh Promise instance, so the
+ * `cached.hash !== hash` change-detection comparison two Promise objects
+ * were (by reference) essentially always unequal — change detection was
+ * silently non-functional. Fixed by making this properly async/awaited.
  */
-function generateContentHash(content: string): string {
+async function generateContentHash(content: string): Promise<string> {
   return computeSha256(content.trim());
-}
-
-/**
- * Clean up old cache entries to prevent memory growth
- */
-function cleanupCache() {
-  if (PROCESSED_MEETING_CACHE.size > CACHE_MAX_SIZE) {
-    // Convert to array, sort by firstSeen, keep newest 250
-    const entries = Array.from(PROCESSED_MEETING_CACHE.entries());
-    entries.sort((a, b) => new Date(b[1].firstSeen).getTime() - new Date(a[1].firstSeen).getTime());
-    PROCESSED_MEETING_CACHE.clear();
-    for (let i = 0; i < 250 && i < entries.length; i++) {
-      PROCESSED_MEETING_CACHE.set(entries[i][0], entries[i][1]);
-    }
-  }
 }
 
 /**
@@ -146,8 +153,8 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
         
         // Generate hash for change detection
         const hashContent = `${title}|${href}|${date}|${content}`;
-        const hash = generateContentHash(hashContent);
-        
+        const hash = await generateContentHash(hashContent);
+
         items.push({
           title,
           link: href.startsWith('http') ? href : new URL(href, url).toString(),
@@ -157,7 +164,7 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
         });
       }
     }
-    
+
     // Pattern 2: Look for specific meeting containers (common in government sites)
     const containers = [
       ...doc.getElementsByClassName('meeting'),
@@ -208,7 +215,7 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
           
           // Generate hash for change detection
           const hashContent = `${title}|${href}|${date}|${content}`;
-          const hash = generateContentHash(hashContent);
+          const hash = await generateContentHash(hashContent);
           
           items.push({
             title,
@@ -228,29 +235,6 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
     logger.error(`Failed to fetch government meetings from ${sourceName}`, { error: error.message, url });
     return [];
   }
-}
-
-/**
- * Check if a meeting item has changed since last seen
- */
-function isMeetingChanged(link: string, hash: string): {changed: boolean, isNew: boolean} {
-  const cached = PROCESSED_MEETING_CACHE.get(link);
-  if (!cached) {
-    // New meeting item
-    PROCESSED_MEETING_CACHE.set(link, {hash, firstSeen: new Date().toISOString()});
-    cleanupCache();
-    return {changed: true, isNew: true};
-  }
-  
-  if (cached.hash !== hash) {
-    // Changed meeting item
-    PROCESSED_MEETING_CACHE.set(link, {hash, firstSeen: cached.firstSeen}); // Keep original firstSeen
-    cleanupCache();
-    return {changed: true, isNew: false};
-  }
-  
-  // No change
-  return {changed: false, isNew: false};
 }
 
 /**
@@ -318,16 +302,20 @@ export interface GovMeetingItem {
 export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   logger.info('=== Starting Crescent City Government Meeting Monitoring ===');
 
+  // Load the persistent change-detection index (shared store — this is what
+  // gives cross-run idempotency; the prior in-memory Map never had it)
+  await meetingCache.load();
+
   const allItems: GovMeetingItem[] = [];
-  
+
   // Fetch from each government source
   for (const [sourceName, url] of Object.entries(GOV_SOURCES)) {
     try {
       const items = await fetchGovMeetings(url, sourceName);
       for (const item of items) {
         // Check for changes
-        const changeResult = isMeetingChanged(item.link, item.hash);
-        
+        const changeResult = meetingCache.seen(item.link, item.hash);
+
         allItems.push({
           ...item,
           source: sourceName,
@@ -340,7 +328,10 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
       logger.error(`Error processing ${sourceName}`, { error: error.message });
     }
   }
-  
+
+  // Persist the updated change-detection index
+  await meetingCache.save();
+
   // Sort by date (newest first), then by source
   allItems.sort((a, b) => {
     // Try to parse dates for sorting

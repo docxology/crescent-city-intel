@@ -15,3 +15,8 @@ The refresh script refuses to copy data unless
 `output/verification-report.json` has `overallStatus: "pass"`. Live news,
 meetings, alerts, YouTube, Triplicate metadata, curation, and reports are
 collected separately by the Pages workflow and retain their own health states.
+
+The public Pages snapshot also carries the source registry and discovery report.
+Discovery-only sources are displayed as `not-checked` until a dedicated
+connector writes source health; the export never turns an unmonitored source
+into an implied healthy result. Triplicate remains citation/reference-only.

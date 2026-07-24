@@ -30,6 +30,9 @@ LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade
 | GET | `/api/stats` | Municipality stats (article/section counts, timestamps) |
 | GET | `/api/domains` | All 12 intelligence domains (from `domains.ts`) |
 | GET | `/api/monitor/status` | Latest monitor report `output/monitor-report.json` |
+| GET | `/api/metadata` | Build, provider, artifact, and source-lineage metadata |
+| GET | `/api/sources` | Canonical source registry and discovery joins; add `?format=csv` for a flat download |
+| GET | `/api/source-discovery` | Fingerprinted source coverage report and explicit gaps |
 | GET | `/api/chat?q=...` | RAG query (requires Ollama + ChromaDB) |
 | GET | `/api/analytics/stats` | Code statistics (word counts, title breakdown) |
 | GET | `/api/analytics/embeddings` | PCA projection of embedding vectors |
@@ -104,13 +107,14 @@ Single-file SPA with no build step.
 
 ### Navigation (redesigned 2026-07-24)
 
-Six top-level nav buttons, each a distinct, non-overlapping purpose. Exactly one overlay is ever open at a time — every button calls a shared `closeAllOverlays()` before opening its own, so switching tabs never leaves a stale panel open behind the new one (previously only one of the four buttons did this closing, asymmetrically).
+Seven top-level nav buttons, each a distinct, non-overlapping purpose. Exactly one overlay is ever open at a time — every button calls a shared `closeAllOverlays()` before opening its own, so switching tabs never leaves a stale panel open behind the new one (previously only one of the four buttons did this closing, asymmetrically).
 
 | Tab | Contains | Sub-tabs |
 | :--- | :--- | :--- |
 | 📖 **Code** | Not an overlay — resets to the TOC/section-viewer view (the default landing state) | — |
 | 📊 **Code Analytics** | Tools for analyzing the municipal code itself | Stats & Charts, Readability, Glossary, Cross-Refs, Domains, Compare Sections, Legislative History |
 | 📰 **News & Feeds** | Everything sourced from *outside* the code — the actual "news sources" (RSS, government meeting agendas, YouTube transcripts) | Civic Dashboard, News Feed, Monthly Report |
+| 🧭 **Sources** | Canonical source coverage, operational joins, provenance, and machine-readable exports | Source Coverage, Structured Output |
 | 🚨 **Alerts** | The 8 real-time safety monitors + their timeline (previously the timeline duplicated as a separate Intelligence sub-tab) | — (single panel) |
 | 💬 **Chat** | RAG assistant over the code + transcripts | — |
 | 🔌 **Developer** | Meta/dev-facing tools, not end-user civic content | API Explorer, Search Analytics |
@@ -129,6 +133,7 @@ Before this pass, all of Code Analytics/News & Feeds/Developer's content lived f
 | **💬 Chat panel** | RAG queries with cited sources |
 | **Dark/light mode** | Toggle persisted in localStorage |
 | **Domains panel** | Intelligence domain browser with municipal code cross-refs |
+| **Source Coverage panel** | Filterable monitored/discovery/reference registry, per-source drill-down, coverage gaps, and structured JSON download |
 
 ### Tests
 

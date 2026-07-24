@@ -186,6 +186,7 @@ All optional — defaults work out of the box.
 | `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
 | `OPENROUTER_MAX_REQUESTS` | `100` | Max OpenRouter chat requests allowed per run |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Bounded selected-provider health-check timeout |
+| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `PORT` | `3000` | GUI server port |
 | `LOG_LEVEL` | `info` | Logger verbosity (debug/info/warn/error) |

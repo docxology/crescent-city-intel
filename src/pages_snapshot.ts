@@ -9,8 +9,10 @@
  */
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "fs/promises";
 import { dirname, join, relative, resolve } from "path";
-import type { SourceHealth, SourceHealthStatus } from "./types.js";
-import { writeJsonAtomic } from "./shared/source_health.js";
+import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealthStatus, SourceHealthSummary } from "./types.js";
+import { summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
+import { runtimeMetadata } from "./shared/orchestration.js";
+import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
@@ -30,6 +32,10 @@ export interface PagesSnapshot {
   repository: string;
   commit: string | null;
   status: "ok" | "degraded" | "unavailable";
+  healthSummary: SourceHealthSummary;
+  sourceRegistry: SourceDefinition[];
+  sourceRegistryFingerprint: string;
+  sourceDiscovery: SourceDiscoveryReport | null;
   municipalCode: {
     available: boolean;
     source: string;
@@ -50,7 +56,10 @@ export interface PagesSnapshot {
   };
   report: {
     monthly: string | null;
+    metadata: Record<string, unknown> | null;
     weeklySummary: Record<string, unknown> | null;
+    pipelineRun: Record<string, unknown> | null;
+    curation: Record<string, unknown> | null;
   };
   files: {
     code: string | null;
@@ -60,7 +69,12 @@ export interface PagesSnapshot {
     coverage: string | null;
     readability: string | null;
     report: string | null;
+    reportMetadata: string | null;
+    pipelineRun: string | null;
+    curation: string | null;
     sourceHealth: string;
+    sourceRegistry: string;
+    sourceDiscovery: string;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
@@ -314,6 +328,12 @@ async function collectHealth(outputDir: string): Promise<SourceHealth[]> {
         httpStatus: typeof source.httpStatus === "number" ? source.httpStatus : undefined,
         ageMs: typeof source.ageMs === "number" ? source.ageMs : undefined,
         provenance: typeof source.provenance === "string" ? source.provenance : undefined,
+        freshness: ["fresh", "stale", "unknown"].includes(String(source.freshness))
+          ? source.freshness as SourceHealth["freshness"]
+          : undefined,
+        freshnessWindowMs: typeof source.freshnessWindowMs === "number" ? source.freshnessWindowMs : undefined,
+        durationMs: typeof source.durationMs === "number" ? source.durationMs : undefined,
+        disabled: typeof source.disabled === "boolean" ? source.disabled : undefined,
       });
     }
   }
@@ -363,10 +383,23 @@ export async function buildPagesSnapshot(
   const coverage = await readFirstJson<JsonRecord>("domain-coverage.json");
   const readability = await readFirstJson<JsonRecord>("readability.json");
   const health = await collectHealth(resolvedOutput);
+  const healthSummary = summarizeSourceHealth(health, generatedAt);
+  const registryPayload = await readFirstJson<{ sources?: SourceDefinition[] }>("source-registry.json");
+  const sourceRegistry = Array.isArray(registryPayload?.sources) ? registryPayload.sources : getSourceRegistry();
+  const registryFingerprint = await sourceRegistryFingerprint(sourceRegistry);
+  const persistedDiscovery = await readFirstJson<SourceDiscoveryReport>("source-discovery.json");
+  const sourceDiscovery = persistedDiscovery?.registryFingerprint === registryFingerprint && persistedDiscovery.sourceCount === sourceRegistry.length
+    ? persistedDiscovery
+    : await buildSourceDiscoveryReport({ checkedAt: generatedAt, health, registry: sourceRegistry });
   const alerts = await collectCurrentAlerts(resolvedOutput);
   const reportPath = (await listFiles(join(resolvedOutput, "reports"), name => name.startsWith("monthly-") && name.endsWith(".md"))).at(-1) ?? null;
   const monthly = reportPath ? await readFile(reportPath, "utf8").catch(() => null) : null;
+  const reportMetadata = reportPath
+    ? await readJson<JsonRecord>(reportPath.replace(/\.md$/, ".json"))
+    : null;
   const weeklySummary = await readJson<JsonRecord>(join(resolvedOutput, "weekly-check-summary.json"));
+  const pipelineRun = await readJson<JsonRecord>(join(resolvedOutput, "state/latest-pipeline-run.json"));
+  const curation = await readJson<JsonRecord>(join(resolvedOutput, "state/curation-report.json"));
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
@@ -377,13 +410,17 @@ export async function buildPagesSnapshot(
     collectCurated(join(resolvedOutput, "curated")),
   ]);
 
-  const commit = process.env.GITHUB_SHA ?? process.env.GIT_COMMIT ?? null;
+  const commit = runtimeMetadata().commit;
   const snapshot: PagesSnapshot = {
     schemaVersion: "1.0.0",
     generatedAt,
     repository: REPOSITORY_URL,
     commit,
     status: snapshotStatus(health, codeAvailable),
+    healthSummary,
+    sourceRegistry,
+    sourceRegistryFingerprint: registryFingerprint,
+    sourceDiscovery,
     municipalCode: {
       available: codeAvailable,
       source: MUNICIPAL_CODE_URL,
@@ -399,7 +436,7 @@ export async function buildPagesSnapshot(
     triplicate,
     curated,
     alerts,
-    report: { monthly, weeklySummary },
+    report: { monthly, metadata: reportMetadata, weeklySummary, pipelineRun, curation },
     files: {
       code: codeAvailable ? "data/code.json" : null,
       toc: (await readFirstJson<unknown>("toc.json")) !== null ? "data/toc.json" : null,
@@ -408,7 +445,12 @@ export async function buildPagesSnapshot(
       coverage: coverage ? "data/domain-coverage.json" : null,
       readability: readability ? "data/readability.json" : null,
       report: monthly ? "data/report.md" : null,
+      reportMetadata: reportMetadata ? "data/report-metadata.json" : null,
+      pipelineRun: pipelineRun ? "data/pipeline-run.json" : null,
+      curation: curation ? "data/curation.json" : null,
       sourceHealth: "data/source-health.json",
+      sourceRegistry: "data/source-registry.json",
+      sourceDiscovery: "data/source-discovery.json",
     },
     publicationPolicy: {
       triplicate: "reference-citation-only",
@@ -447,7 +489,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
 
     await writeJson(join(temporary, "data/snapshot.json"), snapshot);
     await writeJson(join(temporary, "data/source-health.json"), snapshot.sourceHealth);
-    files.push("data/snapshot.json", "data/source-health.json");
+    await writeJson(join(temporary, "data/source-registry.json"), snapshot.sourceRegistry);
+    await writeJson(join(temporary, "data/source-discovery.json"), snapshot.sourceDiscovery);
+    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json");
 
     const sourceRoot = resolve(options.outputDir ?? "output");
     const seedRoot = resolve(seedDir);
@@ -468,6 +512,18 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     if (snapshot.report.monthly !== null) {
       await writeFile(join(temporary, "data/report.md"), snapshot.report.monthly, "utf8");
       files.push("data/report.md");
+    }
+    if (snapshot.report.metadata) {
+      await writeJson(join(temporary, "data/report-metadata.json"), snapshot.report.metadata);
+      files.push("data/report-metadata.json");
+    }
+    if (snapshot.report.pipelineRun) {
+      await writeJson(join(temporary, "data/pipeline-run.json"), snapshot.report.pipelineRun);
+      files.push("data/pipeline-run.json");
+    }
+    if (snapshot.report.curation) {
+      await writeJson(join(temporary, "data/curation.json"), snapshot.report.curation);
+      files.push("data/curation.json");
     }
 
     await rm(destination, { recursive: true, force: true });
@@ -500,6 +556,10 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("Pages index contains an API-key placeholder");
   if (indexHtml.includes("localhost:3000") || indexHtml.includes("localhost:8001")) errors.push("Pages index references a local-only service");
   if (!indexHtml.includes("source-health.json")) errors.push("Pages index does not expose source health");
+  if (!indexHtml.includes("source-discovery.json")) errors.push("Pages index does not expose source discovery");
+  if (!indexHtml.includes("sourceRegistry")) errors.push("Pages index does not render the source registry");
+  if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
+  if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");
   return errors;
 }
 

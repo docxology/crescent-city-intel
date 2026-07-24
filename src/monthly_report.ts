@@ -21,7 +21,9 @@ import { join } from 'path';
 import { createLogger } from './logger.js';
 import { domains } from './domains.js';
 import { paths } from './shared/paths.js';
-import { isIsoTimestamp, writeTextAtomic } from './shared/source_health.js';
+import { isIsoTimestamp, summarizeSourceHealth, writeJsonAtomic, writeTextAtomic } from './shared/source_health.js';
+import { buildSourceDiscoveryReport, getSourceRegistry } from './source_registry.js';
+import type { MonthlyReportMetadata, SourceHealth } from './types.js';
 
 const logger = createLogger('monthly-report');
 
@@ -49,11 +51,39 @@ function readJson(filePath: string): any | null {
 }
 
 /** Filter JSONL records to those within the given year-month (YYYY-MM) */
-function inMonth(records: any[], month: string): any[] {
-  return records.filter(r => {
-    const ts = r.fetchedAt ?? r.time ?? r.scrapedAt ?? '';
-    return isIsoTimestamp(ts) && ts.startsWith(month);
+export function parseTargetMonth(targetMonth?: string): { month: string; year: number; monthIndex: number; start: Date; end: Date; label: string } {
+  const now = new Date();
+  const candidate = targetMonth ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(candidate)) {
+    throw new Error(`Invalid report period "${candidate}"; expected YYYY-MM`);
+  }
+  const [yearText, monthText] = candidate.split('-');
+  const year = Number(yearText);
+  const monthIndex = Number(monthText) - 1;
+  const start = new Date(Date.UTC(year, monthIndex, 1));
+  const end = new Date(Date.UTC(year, monthIndex + 1, 1));
+  return {
+    month: candidate,
+    year,
+    monthIndex,
+    start,
+    end,
+    label: new Date(year, monthIndex, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+  };
+}
+
+export function inPeriod(records: any[], start: Date, end: Date): { items: any[]; invalidTimestamps: number } {
+  let invalidTimestamps = 0;
+  const items = records.filter(r => {
+    const ts = r.fetchedAt ?? r.time ?? r.scrapedAt ?? r.timestamp ?? r.pubDate ?? r.date ?? '';
+    if (!isIsoTimestamp(ts)) {
+      if (ts) invalidTimestamps++;
+      return false;
+    }
+    const time = Date.parse(ts);
+    return time >= start.getTime() && time < end.getTime();
   });
+  return { items, invalidTimestamps };
 }
 
 function readBatchItems(dir: string, month: string): any[] {
@@ -63,8 +93,9 @@ function readBatchItems(dir: string, month: string): any[] {
     const batch = readJson(join(dir, file));
     if (Array.isArray(batch)) {
       items.push(...batch.filter(item => {
-        const ts = item?.curatedAt ?? item?.fetchedAt ?? '';
-        return isIsoTimestamp(ts) && ts.startsWith(month);
+        const ts = item?.curatedAt ?? item?.fetchedAt ?? item?.pubDate ?? item?.date ?? '';
+        const parsed = Date.parse(ts);
+        return Number.isFinite(parsed) && new Date(parsed).toISOString().startsWith(month);
       }));
       continue;
     }
@@ -81,14 +112,10 @@ const fmtMag = (m: number) => `M${m.toFixed(1)}`;
 
 async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const now = new Date();
-  const month = targetMonth ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const [year, monthNum] = month.split('-');
-  // `new Date("YYYY-MM-01")` parses as UTC midnight; toLocaleDateString then
-  // renders it in the local timezone, which rolls back to the previous month
-  // for any timezone behind UTC (e.g. US Pacific: July 2026 displayed as
-  // "June 2026"). Constructing with explicit numeric args parses in local
-  // time instead, avoiding the UTC/local day-boundary mismatch.
-  const monthLabel = new Date(Number(year), Number(monthNum) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const period = parseTargetMonth(targetMonth);
+  const { month } = period;
+  const monthLabel = period.label;
+  const warnings: string[] = [];
 
   logger.info(`Generating monthly civic health report for ${monthLabel}`, { month });
 
@@ -99,12 +126,19 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const readabilityPath = join(process.cwd(), 'output', 'readability.json');
   const readability = readJson(readabilityPath);
 
-  const earthquakes = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'earthquake', 'history.jsonl')), month);
-  const weather = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'weather', 'history.jsonl')), month);
-  const tsunami = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'tsunami', 'history.jsonl')), month);
-  const airquality = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'airquality', 'history.jsonl')), month);
-  const wildfire = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'wildfire', 'history.jsonl')), month);
-  const marine = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'marine', 'history.jsonl')), month);
+  const periodItems = (label: string, records: any[]): any[] => {
+    const result = inPeriod(records, period.start, period.end);
+    if (result.invalidTimestamps > 0) {
+      warnings.push(`${label}: ignored ${result.invalidTimestamps} record(s) with invalid timestamps`);
+    }
+    return result.items;
+  };
+  const earthquakes = periodItems('Earthquake history', readJsonl(join(process.cwd(), 'output', 'alerts', 'earthquake', 'history.jsonl')));
+  const weather = periodItems('Weather history', readJsonl(join(process.cwd(), 'output', 'alerts', 'weather', 'history.jsonl')));
+  const tsunami = periodItems('Tsunami history', readJsonl(join(process.cwd(), 'output', 'alerts', 'tsunami', 'history.jsonl')));
+  const airquality = periodItems('Air-quality history', readJsonl(join(process.cwd(), 'output', 'alerts', 'airquality', 'history.jsonl')));
+  const wildfire = periodItems('Wildfire history', readJsonl(join(process.cwd(), 'output', 'alerts', 'wildfire', 'history.jsonl')));
+  const marine = periodItems('Marine history', readJsonl(join(process.cwd(), 'output', 'alerts', 'marine', 'history.jsonl')));
 
   const newsItems = readBatchItems(paths.news, month);
   const meetingItems = readBatchItems(paths.govMeetings, month);
@@ -118,6 +152,22 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
 
   const coveragePath = join(process.cwd(), 'output', 'domain-coverage.json');
   const coverage = readJson(coveragePath);
+
+  const healthReports = [newsHealth, meetingHealth, youtubeHealth, triplicateHealth, readJson(paths.alertsHealth)];
+  const sourceHealth: SourceHealth[] = healthReports.flatMap(report => {
+    if (!Array.isArray(report?.sources)) return [];
+    return report.sources.filter((source: any) => source && typeof source.source === 'string' &&
+      ['ok', 'empty', 'unavailable', 'stale'].includes(source.status) &&
+      isIsoTimestamp(source.checkedAt) && Number.isInteger(source.itemCount) && source.itemCount >= 0) as SourceHealth[];
+  });
+  if (sourceHealth.length === 0) warnings.push('No source-health artifacts were available for this report');
+  const healthSummary = summarizeSourceHealth(sourceHealth, now.toISOString());
+  const sourceDiscovery = readJson(paths.sourceDiscovery) ?? await buildSourceDiscoveryReport({
+    checkedAt: now.toISOString(),
+    health: sourceHealth,
+    registry: getSourceRegistry(),
+  });
+  if (!existsSync(paths.sourceDiscovery)) warnings.push('Source discovery artifact was not available; report used the in-process registry without a persisted check.');
 
   // ── Build report markdown ────────────────────────────────────
   const lines: string[] = [];
@@ -270,6 +320,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   lines.push(`- **Relevant articles this month**: ${newsCount}`);
   lines.push(`- **Government meeting items this month**: ${meetingItems.length}`);
   lines.push(`- **Curated items this month**: ${curatedItems.length}`);
+  lines.push(`- **Discovered source registry**: ${sourceDiscovery.sourceCount ?? 0} sources (${sourceDiscovery.monitoredCount ?? 0} monitored, ${sourceDiscovery.discoveryOnlyCount ?? 0} discovery-only, ${sourceDiscovery.referenceOnlyCount ?? 0} reference-only)`);
   const healthLine = (label: string, report: any): string => {
     const sources = Array.isArray(report?.sources) ? report.sources : [];
     if (sources.length === 0) return `- **${label} source health**: no health artifact`;
@@ -338,14 +389,27 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   lines.push('');
   lines.push(`- **Report generated**: ${now.toISOString()}`);
   lines.push(`- **Data freshness**: ${manifest?.completedAt ?? 'Scrape not yet run'}`);
+  lines.push(`- **Report status**: ${manifest ? (healthSummary.degraded > 0 || warnings.length > 0 ? 'degraded' : 'ok') : 'unavailable'}`);
   lines.push(`- **News health artifact**: ${existsSync(paths.newsHealth) ? paths.newsHealth : 'not generated'}`);
   lines.push(`- **Meeting health artifact**: ${existsSync(paths.govMeetingsHealth) ? paths.govMeetingsHealth : 'not generated'}`);
   lines.push(`- **YouTube health artifact**: ${existsSync(paths.youtubeHealth) ? paths.youtubeHealth : 'not generated'}`);
   lines.push(`- **Triplicate health artifact**: ${existsSync(paths.triplicateHealth) ? paths.triplicateHealth : 'not generated'}`);
   lines.push(`- **Alert health artifact**: ${existsSync(paths.alertsHealth) ? paths.alertsHealth : 'not generated'}`);
+  lines.push(`- **Source registry artifact**: ${existsSync(paths.sourceRegistry) ? paths.sourceRegistry : 'not generated'}`);
+  lines.push(`- **Source discovery artifact**: ${existsSync(paths.sourceDiscovery) ? paths.sourceDiscovery : 'not generated'}`);
+  if (Array.isArray(sourceDiscovery.coverageGaps) && sourceDiscovery.coverageGaps.length > 0) {
+    lines.push('');
+    lines.push('### Known source-coverage gaps');
+    for (const gap of sourceDiscovery.coverageGaps) lines.push(`- ${gap}`);
+  }
   lines.push('- Run `bun run verify` to check data integrity');
   lines.push('- Run `bun run coverage` to refresh domain coverage');
   lines.push('- Run `bun run readability` to refresh readability metrics');
+  if (warnings.length > 0) {
+    lines.push('');
+    lines.push('### Report warnings');
+    for (const warning of warnings) lines.push(`- ${warning}`);
+  }
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -353,13 +417,60 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
 
   // ── Write to file ────────────────────────────────────────────
   const reportPath = join(REPORTS_DIR, `monthly-${month}.md`);
+  const metadataPath = join(REPORTS_DIR, `monthly-${month}.json`);
+  const reportStatus: MonthlyReportMetadata['status'] = !manifest
+    ? 'unavailable'
+    : healthSummary.degraded > 0 || warnings.length > 0 ? 'degraded' : 'ok';
+  const metadata: MonthlyReportMetadata = {
+    schemaVersion: '1.0.0',
+    reportType: 'monthly-civic-health',
+    period: month,
+    generatedAt: now.toISOString(),
+    periodStart: period.start.toISOString(),
+    periodEnd: period.end.toISOString(),
+    status: reportStatus,
+    metrics: {
+      codeArticles: Object.keys(manifest?.articles ?? {}).length,
+      codeSections: Number(manifest?.sectionCount ?? 0),
+      earthquakes: earthquakes.length,
+      weatherAlerts: weather.length,
+      tsunamiAlerts: tsunami.length,
+      airQualityReadings: airquality.length,
+      wildfireReports: wildfire.length,
+      marineReadings: marine.length,
+      newsItems: newsCount,
+      meetingItems: meetingItems.length,
+      curatedItems: curatedItems.length,
+      discoveredSources: Number(sourceDiscovery.sourceCount ?? 0),
+      monitoredSources: Number(sourceDiscovery.monitoredCount ?? 0),
+      discoveryOnlySources: Number(sourceDiscovery.discoveryOnlyCount ?? 0),
+      referenceOnlySources: Number(sourceDiscovery.referenceOnlyCount ?? 0),
+    },
+    sourceHealth: healthSummary,
+    sourceDiscovery: {
+      registryFingerprint: String(sourceDiscovery.registryFingerprint ?? ''),
+      sourceCount: Number(sourceDiscovery.sourceCount ?? 0),
+      monitoredCount: Number(sourceDiscovery.monitoredCount ?? 0),
+      discoveryOnlyCount: Number(sourceDiscovery.discoveryOnlyCount ?? 0),
+      referenceOnlyCount: Number(sourceDiscovery.referenceOnlyCount ?? 0),
+      coverageGaps: Array.isArray(sourceDiscovery.coverageGaps) ? sourceDiscovery.coverageGaps : [],
+    },
+    artifacts: { markdown: reportPath, metadata: metadataPath },
+    warnings,
+  };
   await writeTextAtomic(reportPath, `${lines.join('\n')}\n`);
+  await writeJsonAtomic(metadataPath, metadata);
+  if (month === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`) {
+    await writeJsonAtomic(paths.latestReportMetadata, metadata);
+  }
 
   logger.info(`Monthly report written to ${reportPath}`, {
     earthquakes: earthquakes.length,
     weather: weather.length,
     tsunami: tsunami.length,
     month,
+    reportStatus,
+    metadataPath,
   });
 
   console.log(`\n✅ Report: ${reportPath}`);

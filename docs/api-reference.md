@@ -98,7 +98,9 @@ Complete reference for all exported functions, interfaces, and constants.
 | `fetchRSSFeed` | `(url: string, source: string) → Promise<NewsItem[]>` | Fetch and parse a single RSS/Atom feed |
 | `normalizeUrl` | `(url: string) → string` | Stable deduplication key with tracking parameters removed |
 | `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
-| `SourceHealth` | `interface` | `ok | empty | unavailable | stale` plus timestamps, count, error, and provenance |
+| `SourceHealth` | `interface` | `ok | empty | unavailable | stale` plus timestamps, count, error, provenance, freshness, and duration |
+| `summarizeSourceHealth` | `source_health.ts` | Aggregate counts that preserve unavailable/stale sources as degraded |
+| `executePipelineStep` | `orchestration.ts` | Capture a stage's status, duration, item count, output paths, and error |
 
 ---
 
@@ -168,6 +170,18 @@ Complete reference for all exported functions, interfaces, and constants.
 | `kmeans` | `analytics.ts` | `(data, k, maxIter?) → {centroids, assignments}` | K-Means clustering |
 | `powerIteration` | `analytics.ts` | `(data, dim, _, iterations?) → {vector, eigenvalue}` | Dominant eigenvector via power iteration |
 | `computeWordLoadings` | `analytics.ts` | `(docs, projections, pcs) → WordLoading[]` | Pearson correlation of terms to PCs |
+| `/api/sources` | `routes.ts` | `GET` | Canonical source registry, automation boundaries, and known health joins |
+| `/api/source-discovery` | `routes.ts` | `GET` | Fingerprinted discovery report, coverage counts, and explicit gaps |
+
+## Source registry (`src/source_registry.ts`)
+
+| Export | Signature | Description |
+| :--- | :--- | :--- |
+| `getSourceRegistry` | `() → SourceDefinition[]` | Return stable, sorted canonical source definitions |
+| `validateSourceRegistry` | `(registry?) → string[]` | Validate IDs, URLs, provenance, uniqueness, and Triplicate policy |
+| `sourceRegistryFingerprint` | `(registry?) → Promise<string>` | SHA-256 fingerprint of the normalized inventory |
+| `buildSourceDiscoveryReport` | `(options?) → Promise<SourceDiscoveryReport>` | Join known monitor health and optional bounded probes without hiding `not-checked` |
+| `writeSourceDiscoveryArtifacts` | `(options?) → Promise<SourceDiscoveryReport>` | Atomically persist registry, discovery, and idempotency artifacts |
 
 ---
 
@@ -180,6 +194,14 @@ Complete reference for all exported functions, interfaces, and constants.
 | `validatePagesSource` | `(indexHtml) → string[]` | Check the static dashboard for API-key/local-service leakage and required data links |
 | `PagesSnapshot` | `interface` | Versioned public snapshot envelope with code, source, alert, report, and policy metadata |
 | `PagesExportResult` | `interface` | Destination, status, generated files, and exported item counts |
+
+### Operational and lineage routes
+
+| Route | Method | Contract |
+| :--- | :--- | :--- |
+| `/api/metadata` | GET | Non-secret build, provider, artifact, and aggregate source-health metadata |
+| `/api/curation/status` | GET | Latest provider/model batch telemetry and retry counts |
+| `/api/report/latest.json` | GET | Machine-readable monthly report period, metrics, warnings, and health |
 
 The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 
@@ -242,7 +264,8 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `SearchResult` | Search result with snippet and score |
 | `ChatMessage` | LLM chat message (role + content) |
 | `RagSource` | Source citation from RAG retrieval |
-| `RagResponse` | Complete RAG response with answer + sources |
+| `RagResponse` | Complete RAG response with answer + sources, query ID, and retrieval/generation lineage |
+| `RagMetadata` | RAG latency, context fingerprint, grounding flag, embedding model, and vector-store metadata |
 | `SourceHealth` | Typed external-source availability/freshness contract |
 | `TitleStats` | Per-title statistics (analytics) |
 | `CodeStats` | Aggregate code statistics (analytics) |

@@ -43,6 +43,9 @@ Hard-coded project constants. Change these to target a different municipality.
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Bounded selected-provider health-check timeout |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
+| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
+| `SOURCE_DISCOVERY_TIMEOUT_MS` | `10000` | Bounded timeout for optional source-discovery probes |
+| `SOURCE_DISCOVERY_LIVE_CHECK` | unset | Set to `1` in scheduled orchestration to probe discovery-only sources; offline runs keep them `not-checked` |
 | `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |
 | `NEWS_DISABLED_SOURCES` | empty | Comma-separated feed names to mark unavailable without fetching |
 | `GOV_MEETINGS_TIMEOUT_MS` | `10000` | Meeting endpoint timeout |

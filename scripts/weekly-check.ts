@@ -29,10 +29,14 @@ import { mkdir, readFile } from "fs/promises";
 import { join } from "path";
 import { paths } from "../src/shared/paths.ts";
 import { writeJsonAtomic } from "../src/shared/source_health.ts";
-import type { SourceHealth } from "../src/types.ts";
+import { writeSourceDiscoveryArtifacts } from "../src/source_registry.ts";
+import { buildPipelineRun, createRunId, executePipelineStep, writePipelineRun } from "../src/shared/orchestration.ts";
+import type { PipelineStepReport, SourceHealth } from "../src/types.ts";
 
 const logger = createLogger("weekly-check");
 const startedAt = new Date().toISOString();
+const runId = createRunId("weekly-check", startedAt);
+const steps: PipelineStepReport[] = [];
 
 logger.info(`=== Weekly Check: ${startedAt} ===`);
 
@@ -42,11 +46,14 @@ await mkdir(join(process.cwd(), "output"), { recursive: true });
 let exitCode = 0;
 
 // 1. Municipal code change detection
-logger.info("Step 1/5: Running municipal code change detection...");
-const report = await runMonitor().catch((err: Error) => {
-  logger.error("Monitor failed", { error: err.message });
-  return null;
+logger.info("Stage 1/8: Running municipal code change detection...");
+const monitorExecution = await executePipelineStep("municipal-code-monitor", () => runMonitor(), {
+  classify: result => result.overallStatus === "error" ? "failed" : result.overallStatus === "changed" ? "degraded" : "ok",
+  outputPaths: [paths.monitorReport],
 });
+steps.push(monitorExecution.report);
+const report = monitorExecution.value;
+if (monitorExecution.report.error) logger.error("Monitor failed", { error: monitorExecution.report.error });
 
 if (!report) {
   exitCode = Math.max(exitCode, 2);
@@ -61,18 +68,19 @@ if (!report) {
 }
 
 // 2. All 8 real-time alert monitors (run concurrently, retain per-task failures)
-logger.info("Step 2/5: Polling all 8 real-time alert feeds...");
-const alertResult = await runAllAlertMonitors().then(
-  sources => ({ status: "fulfilled" as const, value: sources }),
-  reason => ({ status: "rejected" as const, reason }),
-);
-const alertFailures = alertResult.status === "rejected" ? [alertResult] : [];
-const degradedAlerts = alertResult.status === "fulfilled"
-  ? alertResult.value.filter(source => source.status === "unavailable" || source.status === "stale")
-  : [];
+logger.info("Stage 2/8: Polling all 8 real-time alert feeds...");
+const alertExecution = await executePipelineStep("alert-monitors", () => runAllAlertMonitors(), {
+  classify: sources => sources.some(source => source.status === "unavailable" || source.status === "stale") ? "degraded" : "ok",
+  itemCount: sources => sources.length,
+  outputPaths: [paths.alertsHealth, "output/alerts/composite/current.json"],
+});
+steps.push(alertExecution.report);
+const alertSources = alertExecution.value ?? [];
+const alertFailures = alertExecution.report.status === "failed" ? [alertExecution.report] : [];
+const degradedAlerts = alertSources.filter(source => source.status === "unavailable" || source.status === "stale");
 if (alertFailures.length > 0) {
   exitCode = Math.max(exitCode, 2);
-  logger.error(`${alertFailures.length} alert monitor(s) failed`, { errors: alertFailures.map(result => String(result.reason)) });
+  logger.error(`${alertFailures.length} alert monitor(s) failed`, { errors: alertFailures.map(result => result.error ?? "unknown failure") });
 } else if (degradedAlerts.length > 0) {
   exitCode = Math.max(exitCode, 1);
   logger.warn(`${degradedAlerts.length} alert source(s) are unavailable or stale`, {
@@ -83,8 +91,13 @@ if (alertFailures.length > 0) {
 }
 
 // 3. News + meeting monitors (non-fatal on failure)
-logger.info("Step 3/5: Running news and meeting monitors...");
-const feedResults = await Promise.allSettled([monitorNews(), monitorGovMeetings()]);
+logger.info("Stage 3/8: Running news and meeting monitors...");
+const feedExecution = await executePipelineStep("news-and-meeting-monitors", () => Promise.allSettled([monitorNews(), monitorGovMeetings()]), {
+  classify: results => results.some(result => result.status === "rejected") ? "failed" : "ok",
+  outputPaths: [paths.newsHealth, paths.govMeetingsHealth],
+});
+steps.push(feedExecution.report);
+const feedResults = feedExecution.value ?? [];
 const feedFailures = feedResults.filter(result => result.status === "rejected");
 if (feedFailures.length > 0) {
   exitCode = Math.max(exitCode, 2);
@@ -115,18 +128,16 @@ if (degradedFeeds.length > 0) {
 }
 
 // 4. Compute composite alert severity
-logger.info("Step 4/5: Computing composite alert severity and analytics...");
-try {
+logger.info("Stage 4/8: Computing composite alert severity and analytics...");
+const analyticsExecution = await executePipelineStep("alert-analytics", async () => {
   const { buildAlertAnalytics } = await import("../src/alert_analytics.ts");
   const analytics = buildAlertAnalytics();
   logger.info(`📊 Alert analytics: ${analytics.totalEvents} total events, most active: ${analytics.mostActiveType ?? "none"}`);
-
-  if (analytics.mostRecentAlert) {
-    logger.info(`Most recent alert: [${analytics.mostRecentAlert.type}] ${analytics.mostRecentAlert.description}`);
-  }
-} catch (err: any) {
-  logger.warn("Alert analytics failed (non-fatal)", { error: err.message });
-}
+  if (analytics.mostRecentAlert) logger.info(`Most recent alert: [${analytics.mostRecentAlert.type}] ${analytics.mostRecentAlert.description}`);
+  return analytics;
+});
+steps.push(analyticsExecution.report);
+if (analyticsExecution.report.error) logger.warn("Alert analytics failed (non-fatal)", { error: analyticsExecution.report.error });
 logger.info("✅ Composite severity computed");
 
 // 5. Transcript, curation, and report surfaces are part of the same health run.
@@ -134,21 +145,33 @@ logger.info("✅ Composite severity computed");
 // observe their newly written batches and reporting must observe curation's
 // output. Running all four in one Promise.allSettled previously made a healthy
 // run silently report the prior cycle's downstream state.
-logger.info("Step 5/5: Running transcript, curation, and monthly reporting surfaces...");
-const sourceResults = await Promise.allSettled([
-  monitorYouTube(10),
-  monitorTriplicate(),
-]);
-const curationResult = await Promise.allSettled([runCuration()]);
-const reportResult = await Promise.allSettled([generateMonthlyReport()]);
-const downstreamFailures = [
-  ...sourceResults,
-  ...curationResult,
-  ...reportResult,
-].filter(result => result.status === "rejected");
-if (downstreamFailures.length > 0) {
+logger.info("Stages 5–8/8: Running transcript, curation, source discovery, and monthly reporting surfaces...");
+const sourceExecution = await executePipelineStep("transcript-and-reference-monitors", () => Promise.all([monitorYouTube(10), monitorTriplicate()]), {
+  itemCount: results => results.reduce((sum, result) => sum + result.length, 0),
+  outputPaths: [paths.youtubeHealth, paths.triplicateHealth],
+});
+steps.push(sourceExecution.report);
+const curationExecution = await executePipelineStep("llm-curation", () => runCuration(), {
+  itemCount: items => items.length,
+  outputPaths: [paths.curationReport, paths.curated],
+});
+steps.push(curationExecution.report);
+const sourceDiscoveryExecution = await executePipelineStep("source-discovery", () => writeSourceDiscoveryArtifacts({
+  probe: process.env.SOURCE_DISCOVERY_LIVE_CHECK === "1",
+}), {
+  classify: result => result.sources.some(source => source.operationalStatus === "unavailable" || source.operationalStatus === "stale") ? "degraded" : "ok",
+  itemCount: result => result.sourceCount,
+  outputPaths: [paths.sourceRegistry, paths.sourceDiscovery, paths.sourceDiscoverySeen],
+});
+steps.push(sourceDiscoveryExecution.report);
+const reportExecution = await executePipelineStep("monthly-report", () => generateMonthlyReport(), {
+  outputPaths: [paths.reports, paths.latestReportMetadata],
+});
+steps.push(reportExecution.report);
+const failedSteps = steps.filter(step => step.status === "failed");
+if (failedSteps.length > 0) {
   exitCode = Math.max(exitCode, 2);
-  logger.error(`${downstreamFailures.length} downstream health task(s) failed`, { errors: downstreamFailures.map(result => String(result.reason)) });
+  logger.error(`${failedSteps.length} pipeline stage(s) failed`, { errors: failedSteps.map(result => result.error ?? "unknown failure") });
 }
 
 const downstreamHealth = (await Promise.all([
@@ -166,6 +189,9 @@ if (degradedDownstream.length > 0) {
 // Summary
 const completedAt = new Date().toISOString();
 const summary = {
+  schemaVersion: "1.0.0",
+  runId,
+  pipeline: "weekly-check",
   startedAt,
   completedAt,
   monitorStatus: report?.overallStatus ?? "error",
@@ -173,15 +199,20 @@ const summary = {
   degradedAlerts: degradedAlerts.length,
   feedFailures: feedFailures.length,
   degradedFeeds: degradedFeeds.length,
-  downstreamFailures: downstreamFailures.length,
+  downstreamFailures: failedSteps.length,
   degradedDownstream: degradedDownstream.length,
+  stepCount: steps.length,
+  steps: steps.map(step => ({ name: step.name, status: step.status, durationMs: step.durationMs, error: step.error })),
   exitCode,
 };
+const allHealth = [...alertSources, ...feedHealth, ...downstreamHealth];
+const pipelineRun = buildPipelineRun("weekly-check", runId, startedAt, steps, allHealth, exitCode, completedAt);
 logger.info("=== Weekly Check Complete ===", summary);
 
 // Write summary to disk for external tooling
-const summaryPath = join(process.cwd(), "output", "weekly-check-summary.json");
-await writeJsonAtomic(summaryPath, summary);
+const summaryPath = paths.weeklyCheckSummary;
+await writeJsonAtomic(summaryPath, { ...summary, status: pipelineRun.status, sourceHealth: pipelineRun.sourceHealth, metadata: pipelineRun.metadata });
+await writePipelineRun(paths.pipelineRun, pipelineRun);
 
 if (exitCode !== 0) {
   logger.warn(`Exiting with code ${exitCode} — review logs above.`);

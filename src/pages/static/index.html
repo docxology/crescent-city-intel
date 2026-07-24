@@ -41,7 +41,7 @@
     .source.empty::before { background:var(--blue); }
     .source.unavailable::before,.source.stale::before { background:var(--red); }
     .status { font-weight:750; letter-spacing:.04em; }
-    .status.ok { color:var(--green); }.status.empty { color:var(--blue); }.status.unavailable,.status.stale { color:var(--red); }
+    .status.ok { color:var(--green); }.status.empty { color:var(--blue); }.status.unavailable,.status.stale { color:var(--red); }.status.not-checked { color:var(--yellow); }
     table { border-collapse:collapse; width:100%; background:rgba(16,29,49,.9); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
     th,td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--line); vertical-align:top; }
     th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; }
@@ -51,6 +51,23 @@
     footer { border-top:1px solid var(--line); margin-top:34px; padding-top:18px; color:var(--muted); font-size:.82rem; }
     .empty-state { color:var(--muted); border:1px dashed var(--line); border-radius:10px; padding:16px; }
     .error { color:var(--red); }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; }
+    select,.button { border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); padding:9px 11px; font:inherit; }
+    .button { cursor:pointer; }
+    .button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+    .registry-table { overflow:auto; }
+    .registry-table table { min-width:860px; }
+    .pill { display:inline-block; padding:2px 7px; border-radius:999px; border:1px solid var(--line); font-size:.76rem; white-space:nowrap; }
+    .pill.monitored { color:var(--green); }.pill.discovery-only { color:var(--yellow); }.pill.reference-only { color:var(--purple); }
+    .action-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+    .button.secondary { background:transparent; color:var(--muted); }
+    .button[disabled] { cursor:not-allowed; opacity:.55; }
+    .details-panel { margin-top:10px; border:1px solid var(--line); border-radius:10px; background:rgba(6,13,24,.55); padding:14px; }
+    .details-panel pre { margin:10px 0 0; max-height:320px; font-size:.78rem; }
+    .source-select { padding:4px 8px; font-size:.78rem; }
+    th button.sort-button { border:0; background:transparent; color:var(--muted); padding:0; font:inherit; cursor:pointer; text-transform:uppercase; letter-spacing:.06em; }
+    th button.sort-button:hover { color:var(--ink); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   </style>
 </head>
 <body>
@@ -59,7 +76,7 @@
     <h1>Civic intelligence public snapshot</h1>
     <p class="subtle">A static, provenance-preserving export. It is not a live API and does not imply that an unavailable source is calm.</p>
     <nav aria-label="Sections">
-      <a href="#overview">Overview</a><a href="#sources">Source health</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
+      <a href="#overview">Overview</a><a href="#sources">Source health</a><a href="#registry">Source registry</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
     </nav>
   </header>
   <main>
@@ -68,13 +85,37 @@
       <h2>Overview</h2>
       <div id="cards" class="grid"></div>
       <p id="provenance" class="subtle"></p>
+      <div id="metadata" class="banner" style="margin-top:12px"></div>
+      <div class="banner data-contract" style="margin-top:12px">
+        <strong>Structured snapshot outputs</strong>
+        <div class="meta">Download the exact public data envelope or its bounded component artifacts. These files preserve status, timestamps, provenance, and source policy.</div>
+        <div class="action-bar">
+          <a class="button" href="data/snapshot.json" download>Snapshot JSON</a>
+          <a class="button" href="data/source-health.json" download>Health JSON</a>
+          <a class="button" href="data/source-registry.json" download>Registry JSON</a>
+          <a class="button" href="data/source-discovery.json" download>Discovery JSON</a>
+          <button id="download-snapshot" class="button secondary" type="button">Download current envelope</button>
+          <button id="copy-fingerprint" class="button secondary" type="button">Copy registry fingerprint</button>
+          <span id="structured-state" class="meta" role="status"></span>
+        </div>
+      </div>
     </section>
     <section id="sources" class="section">
       <h2>Source health</h2>
       <p class="subtle">Each source retains its operational state, check time, item count, error, and provenance. <a href="data/source-health.json">Download the health artifact</a>.</p>
+      <div class="controls"><label for="health-filter" class="sr-only">Filter source health</label><select id="health-filter"><option value="all">All source states</option><option value="ok">OK</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option></select><button id="refresh" class="button" type="button">Refresh snapshot</button><button id="download-health" class="button secondary" type="button">Download filtered health</button><span id="refresh-state" class="meta"></span></div>
       <div id="health" class="health-grid"></div>
     </section>
-    <section id="news" class="section"><h2>Recent news</h2><div id="news-items" class="items"></div></section>
+    <section id="registry" class="section">
+      <h2>Discovered source registry</h2>
+      <p class="subtle">The registry separates monitored sources from discovery-only coverage and reference-only citations. “Not checked” is an explicit state, never a claim of calm or availability. <a href="data/source-registry.json">registry JSON</a> · <a href="data/source-discovery.json">discovery JSON</a>.</p>
+      <div class="controls"><label for="registry-filter" class="sr-only">Filter source registry</label><input id="registry-filter" type="search" placeholder="Filter source name, kind, region, or URL…" aria-label="Filter source registry"><label for="automation-filter" class="sr-only">Filter source automation</label><select id="automation-filter"><option value="all">All automation states</option><option value="monitored">Monitored</option><option value="discovery-only">Discovery only</option><option value="reference-only">Reference only</option></select><label for="registry-sort" class="sr-only">Sort source registry</label><select id="registry-sort"><option value="name">Sort: name</option><option value="operationalStatus">Sort: operational state</option><option value="automation">Sort: automation</option><option value="kind">Sort: kind</option><option value="region">Sort: region</option></select><button id="registry-sort-direction" class="button secondary" type="button" aria-label="Reverse source registry sort">A → Z</button><button id="download-registry-json" class="button secondary" type="button">Download filtered JSON</button><button id="download-registry-csv" class="button secondary" type="button">Download CSV</button></div>
+      <div id="registry-summary" class="banner"></div>
+      <div id="source-registry" class="registry-table" style="margin-top:10px"></div>
+      <div id="source-detail" class="details-panel" aria-live="polite">Select a source to inspect its complete structured record.</div>
+      <div id="coverage-gaps" class="subtle" style="margin-top:12px"></div>
+    </section>
+    <section id="news" class="section"><h2>Recent news</h2><div class="controls"><label for="content-filter" class="sr-only">Filter public items</label><input id="content-filter" type="search" placeholder="Filter news, meetings, and briefs…" aria-label="Filter news, meetings, and briefs"><button id="download-content" class="button secondary" type="button">Download filtered content</button></div><div id="news-items" class="items"></div></section>
     <section id="meetings" class="section"><h2>Government meetings</h2><div id="meeting-items" class="items"></div></section>
     <section id="alerts" class="section"><h2>Alert monitors</h2><div id="alert-summary"></div><div id="alert-items" class="items"></div></section>
     <section id="curated" class="section"><h2>Source-grounded curation</h2><p class="subtle">Curated briefs are provider-generated summaries, not independent reporting. Triplicate is excluded from curation, embeddings, and training.</p><div id="curated-items" class="items"></div></section>
@@ -86,7 +127,7 @@
     </footer>
   </main>
   <script>
-    const state = { snapshot: null, code: null };
+    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null };
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
     const href = value => /^https?:\/\//i.test(String(value || "")) ? String(value) : "#";
@@ -94,6 +135,11 @@
     const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
     const empty = message => `<div class="empty-state">${esc(message)}</div>`;
     async function load(path) { const response = await fetch(path, { cache:"no-store" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+    function downloadText(filename, text, type) { const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); }
+    function downloadJson(filename, value) { downloadText(filename, `${JSON.stringify(value, null, 2)}\n`, "application/json"); }
+    function csvCell(value) { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
+    function sourceCsv(records) { const columns = ["id","name","kind","automation","operationalStatus","region","authority","canonicalUrl","itemCount","checkedAt","error"]; return [columns.join(","), ...records.map(record => columns.map(column => csvCell(record[column])).join(","))].join("\n") + "\n"; }
+    async function copyValue(value) { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(value); return; } const area = document.createElement("textarea"); area.value = value; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove(); }
     function itemCard(item, kind) {
       const title = esc(item.title || item.videoId || "Untitled");
       const link = href(item.link);
@@ -103,10 +149,44 @@
       const tags = Array.isArray(item.tags) ? item.tags.map(tag => `<span class="tag">${esc(tag)}</span>`).join("") : "";
       return `<article class="item"><h3><a href="${esc(link)}" rel="noopener noreferrer">${title}</a></h3><div class="meta">${source}${when ? ` · ${esc(date(when))}` : ""}</div>${detail ? `<p>${detail}</p>` : ""}${tags}</article>`;
     }
+    function filteredHealth(sources) { return state.healthFilter === "all" ? sources : sources.filter(source => source.status === state.healthFilter); }
     function renderHealth(sources) {
-      $("health").innerHTML = sources.length ? sources.map(source => `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}${source.fetchedAt ? ` · fetched ${esc(date(source.fetchedAt))}` : ""}</div>${source.provenance ? `<div class="meta">${esc(source.provenance)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}${source.error ? `<div class="error">${esc(source.error)}</div>` : ""}</article>`).join("") : empty("No source-health artifact was available for this snapshot.");
+      const filtered = filteredHealth(sources);
+      $("health").innerHTML = filtered.length ? filtered.map(source => `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}${source.fetchedAt ? ` · fetched ${esc(date(source.fetchedAt))}` : ""}${source.ageMs != null ? ` · age ${esc(Math.round(source.ageMs / 3600000))}h` : ""}</div>${source.provenance ? `<div class="meta">${esc(source.provenance)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}${source.error ? `<div class="error">${esc(source.error)}</div>` : ""}</article>`).join("") : empty(state.healthFilter === "all" ? "No source-health artifact was available for this snapshot." : `No sources are ${state.healthFilter}.`);
     }
-    function renderList(id, items, kind, limit = 30) { $(id).innerHTML = items.length ? items.slice(0, limit).map(item => itemCard(item, kind)).join("") : empty(`No ${kind.toLowerCase()} items were available in this snapshot.`); }
+    function renderList(id, items, kind, limit = 30) { const needle = state.contentFilter.trim().toLowerCase(); const filtered = needle ? items.filter(item => JSON.stringify(item).toLowerCase().includes(needle)) : items; $(id).innerHTML = filtered.length ? filtered.slice(0, limit).map(item => itemCard(item, kind)).join("") : empty(needle ? `No ${kind.toLowerCase()} items matched the filter.` : `No ${kind.toLowerCase()} items were available in this snapshot.`); }
+    function renderMetadata(snapshot) {
+      const summary = snapshot.healthSummary || {};
+      const curation = snapshot.report && snapshot.report.curation;
+      const run = snapshot.report && snapshot.report.pipelineRun;
+      const report = snapshot.report && snapshot.report.metadata;
+      const discovery = snapshot.sourceDiscovery || {};
+      $("metadata").innerHTML = `<strong>Lineage and runtime metadata</strong><div class="meta">${esc(summary.total ?? 0)} health records · ${esc(summary.degraded ?? 0)} unavailable/stale · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${run ? `pipeline ${esc(run.status || "unknown")} (${esc(run.runId || "unidentified")})` : "no pipeline manifest"}</div>${curation ? `<div class="meta">Curation: ${esc(curation.provider || "unknown")}/${esc(curation.model || "unknown")} · ${esc(curation.succeededCount ?? 0)} successful · ${esc(curation.retryableCount ?? 0)} retryable</div>` : ""}${report ? `<div class="meta">Report period: ${esc(report.period || "unknown")} · ${esc(report.status || "unknown")}</div>` : ""}`;
+    }
+    function registryRecords(snapshot) {
+      const discovery = snapshot.sourceDiscovery || {};
+      return Array.isArray(discovery.sources) && discovery.sources.length ? discovery.sources : (snapshot.sourceRegistry || []).map(source => ({ ...source, operationalStatus: "not-checked", itemCount: 0 }));
+    }
+    function renderSourceDetail(record) {
+      if (!record) { $("source-detail").innerHTML = "Select a source to inspect its complete structured record."; return; }
+      $("source-detail").innerHTML = `<strong>${esc(record.name)}</strong><div class="meta">${status(record.operationalStatus || "not-checked")} · ${esc(record.canonicalUrl)} · ${esc(record.provenance || "provenance not recorded")}</div><div class="action-bar"><a class="button" href="${esc(href(record.canonicalUrl))}" rel="noopener noreferrer">Open canonical source</a><button id="copy-source-json" class="button secondary" type="button">Copy record JSON</button><span class="meta">${esc(record.error || "No source error recorded")}</span></div><pre>${esc(JSON.stringify(record, null, 2))}</pre>`;
+    }
+    function renderRegistry(snapshot) {
+      const discovery = snapshot.sourceDiscovery || {};
+      const records = registryRecords(snapshot);
+      const needle = state.registryFilter.trim().toLowerCase();
+      const filtered = records.filter(source => {
+        const matchesText = !needle || JSON.stringify(source).toLowerCase().includes(needle);
+        return matchesText && (state.automationFilter === "all" || source.automation === state.automationFilter);
+      });
+      const sortKey = state.registrySort;
+      filtered.sort((left, right) => { const a = String(left[sortKey] ?? "").toLowerCase(); const b = String(right[sortKey] ?? "").toLowerCase(); return (a.localeCompare(b) || String(left.name).localeCompare(String(right.name))) * (state.registryDirection === "asc" ? 1 : -1); });
+      $("registry-summary").innerHTML = `<strong>${esc(discovery.sourceCount ?? records.length)} discovered sources</strong><div class="meta">${esc(discovery.monitoredCount ?? 0)} monitored · ${esc(discovery.discoveryOnlyCount ?? 0)} discovery-only · ${esc(discovery.referenceOnlyCount ?? 0)} reference-only · showing ${esc(filtered.length)} · fingerprint ${esc(String(discovery.registryFingerprint || "").slice(0,16))}</div>`;
+      $("source-registry").innerHTML = filtered.length ? `<table><thead><tr><th>Source</th><th>Coverage</th><th>Operational state</th><th>Region / authority</th><th>Actions</th></tr></thead><tbody>${filtered.map(source => `<tr><td><strong>${esc(source.name)}</strong><div class="meta">${esc(source.id)} · ${esc(source.kind)}</div></td><td><span class="pill ${esc(source.automation)}">${esc(source.automation)}</span>${source.referenceOnly ? `<div class="meta">citation-only</div>` : ""}</td><td>${status(source.operationalStatus || "not-checked")}<div class="meta">${esc(source.itemCount ?? 0)} item(s)${source.error ? ` · ${esc(source.error)}` : ""}</div></td><td>${esc(source.region)} · ${esc(source.authority)}</td><td><button class="button source-select" type="button" data-source-id="${esc(source.id)}">Inspect</button> <a href="${esc(href(source.canonicalUrl))}" rel="noopener noreferrer">open</a></td></tr>`).join("")}</tbody></table>` : empty("No registry sources matched the current filters.");
+      renderSourceDetail(records.find(source => source.id === state.selectedSourceId));
+      const gaps = Array.isArray(discovery.coverageGaps) ? discovery.coverageGaps : [];
+      $("coverage-gaps").innerHTML = gaps.length ? `<strong>Known coverage gaps</strong><ul>${gaps.map(gap => `<li>${esc(gap)}</li>`).join("")}</ul>` : "No coverage gaps recorded.";
+    }
     function renderAlerts(snapshot) {
       const composite = snapshot.alerts && snapshot.alerts.composite;
       $("alert-summary").innerHTML = composite ? `<div class="banner ${String(composite.level || "").toLowerCase()}"><strong>${esc(composite.level || "UNKNOWN")}</strong> — ${esc(composite.reason || "Composite assessment recorded")}<div class="meta">Assessed ${esc(date(composite.assessedAt))}${composite.hasUnavailableMonitors ? " · one or more monitors unavailable" : ""}</div></div>` : empty("No composite alert snapshot was available.");
@@ -121,6 +201,7 @@
         [snapshot.news.length, "News items"],
         [snapshot.meetings.length, "Meeting items"],
         [snapshot.sourceHealth.length, "Health records"],
+        [snapshot.sourceRegistry?.length, "Discovered sources"],
         [snapshot.curated.length, "Curated briefs"],
       ];
       $("cards").innerHTML = cards.map(([value,label]) => `<div class="card"><div class="value">${esc(value ?? "—")}</div><div class="label">${esc(label)}</div></div>`).join("");
@@ -137,7 +218,7 @@
         const matches = needle ? sections.filter(section => [section.number,section.title,section.text].join(" ").toLowerCase().includes(needle)).slice(0,30) : [];
         $("code-results").innerHTML = needle ? (matches.length ? matches.map(section => `<article class="item"><h3>${esc(section.number)} ${esc(section.title)}</h3><div class="meta">${esc(section.articleTitle || "")}</div><p>${esc(String(section.text || "").slice(0,420))}${String(section.text || "").length > 420 ? "…" : ""}</p>${section.articleUrl ? `<a href="${esc(href(section.articleUrl))}">source article</a>` : ""}</article>`).join("") : empty("No code sections matched this query.")) : empty("Enter a search term to search the exported municipal code.");
       };
-      $("code-search").addEventListener("input", event => show(event.target.value));
+      $("code-search").oninput = event => show(event.target.value);
       show("");
     }
     async function start() {
@@ -146,7 +227,7 @@
         state.snapshot = snapshot;
         $("banner").className = `banner ${esc(snapshot.status)}`;
         $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "Some sources are unavailable or stale; inspect Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below."}`;
-        renderCards(snapshot); renderHealth(snapshot.sourceHealth || []); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
+        renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
         if (snapshot.files && snapshot.files.code) { try { renderCode(await load(snapshot.files.code)); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
         $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre>${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
       } catch (error) {
@@ -154,6 +235,21 @@
         $("banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(error.message || error)}. The deployment is not presenting a false-success dashboard.`;
       }
     }
+    $("health-filter").addEventListener("change", event => { state.healthFilter = event.target.value; renderHealth(state.snapshot?.sourceHealth || []); });
+    $("download-health").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-health.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, status: state.snapshot.status, filter: state.healthFilter, sources: filteredHealth(state.snapshot.sourceHealth || []) }); });
+    $("registry-filter").addEventListener("input", event => { state.registryFilter = event.target.value; if (state.snapshot) renderRegistry(state.snapshot); });
+    $("automation-filter").addEventListener("change", event => { state.automationFilter = event.target.value; if (state.snapshot) renderRegistry(state.snapshot); });
+    $("registry-sort").addEventListener("change", event => { state.registrySort = event.target.value; if (state.snapshot) renderRegistry(state.snapshot); });
+    $("registry-sort-direction").addEventListener("click", event => { state.registryDirection = state.registryDirection === "asc" ? "desc" : "asc"; event.currentTarget.textContent = state.registryDirection === "asc" ? "A → Z" : "Z → A"; if (state.snapshot) renderRegistry(state.snapshot); });
+    $("source-registry").addEventListener("click", event => { const button = event.target.closest("[data-source-id]"); if (!button || !state.snapshot) return; state.selectedSourceId = button.dataset.sourceId; renderRegistry(state.snapshot); });
+    $("source-detail").addEventListener("click", async event => { if (!event.target.closest("#copy-source-json") || !state.snapshot) return; const record = registryRecords(state.snapshot).find(source => source.id === state.selectedSourceId); if (!record) return; await copyValue(JSON.stringify(record, null, 2)); event.target.textContent = "Copied"; });
+    $("download-registry-json").addEventListener("click", () => { if (!state.snapshot) return; const records = registryRecords(state.snapshot).filter(source => { const needle = state.registryFilter.trim().toLowerCase(); return (!needle || JSON.stringify(source).toLowerCase().includes(needle)) && (state.automationFilter === "all" || source.automation === state.automationFilter); }); downloadJson("crescent-city-source-registry-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, registryFingerprint: state.snapshot.sourceRegistryFingerprint, filter: state.registryFilter, automation: state.automationFilter, sources: records }); });
+    $("download-registry-csv").addEventListener("click", () => { if (!state.snapshot) return; const records = registryRecords(state.snapshot).filter(source => { const needle = state.registryFilter.trim().toLowerCase(); return (!needle || JSON.stringify(source).toLowerCase().includes(needle)) && (state.automationFilter === "all" || source.automation === state.automationFilter); }); downloadText("crescent-city-source-registry.csv", sourceCsv(records), "text/csv"); });
+    $("content-filter").addEventListener("input", event => { state.contentFilter = event.target.value; if (state.snapshot) { renderList("news-items", state.snapshot.news || [], "News"); renderList("meeting-items", state.snapshot.meetings || [], "Meetings"); renderList("curated-items", state.snapshot.curated || [], "Curation"); } });
+    $("download-content").addEventListener("click", () => { if (!state.snapshot) return; const needle = state.contentFilter.trim().toLowerCase(); const filter = items => items.filter(item => !needle || JSON.stringify(item).toLowerCase().includes(needle)); downloadJson("crescent-city-content-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, query: state.contentFilter, news: filter(state.snapshot.news || []), meetings: filter(state.snapshot.meetings || []), curated: filter(state.snapshot.curated || []) }); });
+    $("download-snapshot").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-snapshot.json", state.snapshot); });
+    $("copy-fingerprint").addEventListener("click", async event => { if (!state.snapshot?.sourceRegistryFingerprint) return; await copyValue(state.snapshot.sourceRegistryFingerprint); event.currentTarget.textContent = "Fingerprint copied"; $("structured-state").textContent = "The registry fingerprint is now in your clipboard."; });
+    $("refresh").addEventListener("click", () => { $("refresh-state").textContent = "Refreshing…"; start().then(() => { $("refresh-state").textContent = `Updated ${new Date().toLocaleTimeString()}`; }).catch(() => { $("refresh-state").textContent = "Refresh failed"; }); });
     start();
   </script>
 </body>

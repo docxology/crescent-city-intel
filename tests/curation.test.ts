@@ -8,7 +8,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm } from "fs/promises";
 import { join } from "path";
-import { tagWithDomains, summarizeItem, type CurationInput } from "../src/curation";
+import { buildCurationEvidence, tagWithDomains, summarizeItem, type CurationInput } from "../src/curation";
 
 const TEST_DIR = join(process.cwd(), "output", "test-curation");
 
@@ -74,5 +74,18 @@ describe("CurationInput/CuratedItem shape", () => {
   test("CurationInput carries a stable id matching the source link", () => {
     const item = makeItem();
     expect(item.id).toBe(item.link);
+  });
+
+  test("evidence builder preserves a citation and fetch provenance", () => {
+    const item = makeItem({ fetchedAt: "2026-07-24T12:00:00.000Z" });
+    const evidence = buildCurationEvidence(item, "fingerprint-1");
+    expect(evidence.inputFingerprint).toBe("fingerprint-1");
+    expect(evidence.citations).toEqual([{
+      url: item.link,
+      label: item.title,
+      source: "news",
+      fetchedAt: item.fetchedAt,
+    }]);
+    expect(evidence.provenance).toContain("fetchedAt=2026-07-24T12:00:00.000Z");
   });
 });

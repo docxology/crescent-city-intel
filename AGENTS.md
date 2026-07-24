@@ -55,6 +55,7 @@ src/
   gov_meeting_monitor.ts # City Council/Planning/Harbor meeting tracker
   youtube_monitor.ts    # YouTube listing/transcript monitor with retryable health
   triplicate_monitor.ts # Reference/citation-only Triplicate monitor
+  source_registry.ts    # Canonical online source inventory and bounded discovery probes
   curation.ts           # Provider-aware, source-grounded news/video curation
   monthly_report.ts     # Monthly civic health report generator
   structured_queries.ts # Legislative history, section compare, semantic similarity
@@ -77,6 +78,7 @@ src/
   shared/
     paths.ts            # Centralized output path constants
     source_health.ts     # Typed source-health contract and atomic artifact writes
+    orchestration.ts     # Durable step/run envelopes and build metadata
     data.ts             # Data loading layer (60s TTL cache)
     porter_stem.ts      # Zero-dep Porter stemmer for BM25
     readability.ts      # Flesch-Kincaid + Gunning Fog scoring
@@ -127,6 +129,21 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
 - Provider-aware Ollama/OpenRouter chat and curation with provenance and retryable failures
 - Fingerprinted Chroma indexing with stale-chunk deletion and corrected streaming context
 - YouTube timeout/retry handling, source-health reporting, monthly-report repairs, and `bun run validate`
+
+## Functional observability pass
+
+- Scheduled runs write `output/state/latest-pipeline-run.json` with stage-level
+  timing, errors, output paths, runtime, commit, and aggregate health.
+- Curation records input fingerprints, prompt version, citations, provider/model
+  metadata, and retryable failures; changed source content can be reprocessed.
+- Reports have paired machine-readable metadata artifacts with UTC period
+  bounds and warnings.
+- RAG responses include query IDs, context fingerprints, grounding flags, and
+  retrieval/provider metadata. Streaming chat supports cancellation.
+- `/api/metadata`, `/api/curation/status`, and `/api/report/latest.json` are
+  documented in OpenAPI and exercised by deterministic tests.
+- The static Pages dashboard provides source-state filters, public-item search,
+  refresh, and visible pipeline/provider/report metadata.
 
 ## What's New in v2.4.0
 

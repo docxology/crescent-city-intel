@@ -84,7 +84,24 @@ state, not a silent fallback.
 2. **Retrieve** top-K similar chunks from ChromaDB via `query()`
 3. **Build context** from retrieved documents with section citations
 4. **Generate** answer via the configured provider with injected context
-5. **Return** answer + sources (with similarity scores) plus provider/model metadata; empty retrieval returns an explicit no-context answer
+5. **Return** answer + sources (with similarity scores) plus provider/model,
+   query ID, context fingerprint, latency, retrieval count, embedding model,
+   Chroma collection, and a `grounded` flag. Empty or malformed retrieval
+   raises a retryable `NoRetrievedContextError`; it is never returned as a
+   successful answer.
+
+Streaming responses emit the same lineage at the final `done` event and accept
+cancellation through the request signal. The local GUI exposes a Cancel
+control, so a user can stop a slow Ollama/OpenRouter request without leaving
+the interface in a false “thinking” state.
+
+### Curation evidence contract
+
+Each curated item includes an `inputFingerprint` (SHA-256 of the stable source
+ID, title, and source text), `promptVersion`, source `citations`, provider and
+model metadata, `summaryStatus`, `retryable`, and bounded source provenance.
+Triplicate is excluded before this pipeline begins and cannot become a
+curation or embedding input through the public snapshot path.
 
 ---
 

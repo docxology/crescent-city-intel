@@ -34,6 +34,7 @@
     "readability": "bun run scripts/run-readability.ts",
     "report": "bun run src/monthly_report.ts",
     "repair-output": "bun run scripts/repair-output.ts",
+    "source-discovery": "bun run scripts/run-source-discovery.ts",
     "pages:export": "bun run scripts/export-pages.ts",
     "pages:seed": "bun run scripts/refresh-pages-data.ts",
     "pages:validate": "bun run scripts/validate-pages.ts",

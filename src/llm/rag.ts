@@ -7,6 +7,7 @@ import { llmConfig } from "./config.js";
 import { appendFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
+import { computeSha256 } from "../utils.js";
 
 // ─── Query logging ────────────────────────────────────────────────
 
@@ -18,7 +19,9 @@ async function logRagQuery(
   answer: string,
   sources: RagSource[],
   latencyMs: number,
-  model: string
+  model: string,
+  queryId: string,
+  provider: string,
 ): Promise<void> {
   const entry = JSON.stringify({
     ts: new Date().toISOString(),
@@ -28,6 +31,8 @@ async function logRagQuery(
     topSource: sources[0]?.sectionNumber ?? null,
     latencyMs,
     model,
+    provider,
+    queryId,
   });
   try {
     if (!existsSync("output")) await mkdir("output", { recursive: true });
@@ -144,10 +149,19 @@ export function buildRagSource(doc: string, meta: Record<string, string>, distan
 
 // ─── RAG pipeline ─────────────────────────────────────────────────
 
+/** Retryable dependency error used when retrieval produced no usable evidence. */
+export class NoRetrievedContextError extends Error {
+  constructor() {
+    super("No retrieved context is available for this question");
+    this.name = "NoRetrievedContextError";
+  }
+}
+
 /** Query the RAG pipeline with a user question */
 export async function ragQuery(userQuestion: string, modelOverride?: string): Promise<RagResponse> {
   const start = Date.now();
   const model = configuredChatModel(modelOverride);
+  const queryId = `rag-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
   // Adaptive topK based on query complexity
   const topK = adaptiveTopK(userQuestion);
@@ -181,14 +195,22 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
   }
 
   const context = contextParts.join("\n---\n");
+  const contextFingerprint = await computeSha256(context);
+  const baseMetadata = {
+    generatedAt: new Date().toISOString(),
+    latencyMs: Date.now() - start,
+    retrievalCount: sources.length,
+    requestedTopK: topK,
+    contextFingerprint,
+    grounded: sources.length > 0 && !!context.trim(),
+    embeddingProvider: "ollama" as const,
+    embeddingModel: llmConfig.embeddingModel,
+    vectorStore: "chroma" as const,
+    collection: llmConfig.collectionName,
+  };
 
   if (sources.length === 0 || !context.trim()) {
-    return {
-      answer: "I could not find indexed municipal-code or meeting content relevant to that question.",
-      sources: [],
-      model,
-      provider: configuredChatProvider(),
-    };
+    throw new NoRetrievedContextError();
   }
 
   // Step 4: Generate answer with context
@@ -200,12 +222,19 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
   const latencyMs = Date.now() - start;
 
   // Log the query asynchronously (non-blocking)
-  void logRagQuery(userQuestion, answer, sources, latencyMs, model);
+  void logRagQuery(userQuestion, answer, sources, latencyMs, model, queryId, configuredChatProvider());
 
   return {
     answer,
     sources,
     model,
     provider: configuredChatProvider(),
+    queryId,
+    metadata: {
+      ...baseMetadata,
+      generatedAt: new Date().toISOString(),
+      latencyMs,
+      grounded: true,
+    },
   };
 }

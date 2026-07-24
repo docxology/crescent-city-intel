@@ -2,6 +2,36 @@
 
 Continuous change detection and civic intelligence gathering for Crescent City.
 
+## Source discovery registry
+
+`src/source_registry.ts` is the single source of truth for online coverage. It
+is intentionally broader than the automated pipelines: each entry has a stable
+ID, normalized canonical URL, authority, region, provenance, discovery citation,
+collection mode, expected cadence, and an automation state:
+
+| State | Meaning |
+|---|---|
+| `monitored` | A configured connector writes typed source health and idempotent data. |
+| `discovery-only` | The source is verified as relevant and stored in the registry, but needs a dedicated connector. |
+| `reference-only` | Metadata/citations may be retained, but content cannot enter curation, embeddings, or training. |
+
+Run `bun run source-discovery` for a deterministic offline inventory and
+`bun run source-discovery -- --check` for bounded live GET probes. Probes never
+replace parser-level validation; an HTTP 200 only proves reachability. The
+registry fingerprint is persisted in `output/state/source-discovery-seen.json`
+so repeated runs are idempotent and changes are reviewable. The durable
+artifacts are `output/source-registry.json` and
+`output/source-discovery.json`. Known gaps remain listed in the report and are
+rendered by the GUI, API, monthly report, and Pages snapshot.
+
+The discovered coverage boundary includes the official City and County sites,
+the joint County/City media hub, Harbor District news/agenda/recording/update/
+procurement pages, Redwood Coast Transit, the airport authority, Redwood
+National and State Parks, Caltrans road conditions, five local/regional RSS
+feeds, eight alert services, the municipal code source, YouTube, and Triplicate
+reference metadata. This is a declared coverage boundary, not a claim that
+every page on the public internet has been found.
+
 ## `src/monitor.ts` — Municipal Code Change Detection
 
 Compares saved scraped data against manifest hashes and TOC section counts to detect upstream changes on ecode360.com.
@@ -195,10 +225,24 @@ bun run src/triplicate_monitor.ts
 
 `bun run curate` reads only news, government-meeting, and successful YouTube
 transcript batches. It records provider/model, source excerpts, citations,
-summary status, and domain tags with atomic writes and retryable provider
-failures. `bun run report [YYYY-MM]` uses period-filtered batches and includes
-news, meeting, YouTube, Triplicate, and alert source-health summaries. Neither
-command re-fetches upstream sources.
+summary status, prompt version, input fingerprints, and retryable provider
+failures with atomic writes. Duplicate historical records are collapsed before
+LLM work, and changed source content is eligible for re-curation. Batch
+telemetry is written to `output/state/curation-report.json`.
+
+`bun run report [YYYY-MM]` uses UTC period bounds rather than string-prefix
+matching, validates timestamps, and emits both
+`output/reports/monthly-YYYY-MM.md` and
+`output/reports/monthly-YYYY-MM.json`. The JSON companion contains period
+boundaries, numeric metrics, warnings, artifact paths, and a typed aggregate
+source-health summary. Malformed records are excluded and reported as
+warnings; they never become fabricated activity.
+
+`bun run weekly-check` writes `output/state/latest-pipeline-run.json` with a
+stable run ID, runtime/commit metadata, every stage's status/duration/error,
+output paths, and aggregate source health. Exit code `1` means degraded
+operational evidence (including unavailable/stale sources); exit code `2`
+means a pipeline stage failed.
 
 ### Tests
 

@@ -37,6 +37,10 @@ describe("public Pages snapshot", () => {
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.status).toBe("degraded");
       expect(snapshot.sourceHealth.map(source => source.status)).toContain("unavailable");
+      expect(snapshot.sourceRegistry.length).toBeGreaterThan(30);
+      expect(snapshot.sourceRegistryFingerprint).toMatch(/^[a-f0-9]{64}$/);
+      expect(snapshot.sourceDiscovery?.sourceCount).toBe(snapshot.sourceRegistry.length);
+      expect(snapshot.sourceDiscovery?.registryFingerprint).toBe(snapshot.sourceRegistryFingerprint);
       expect(snapshot.news).toHaveLength(1);
       expect(snapshot.triplicate[0].usagePolicy).toBe("reference-citation-only; NEVER AI-training input");
       expect(snapshot.publicationPolicy.curationInputs).not.toContain("triplicate");
@@ -53,6 +57,8 @@ describe("public Pages snapshot", () => {
       expect(result.status).toBe("ok");
       expect(await readFile(join(destination, "index.html"), "utf8")).toContain("data/snapshot.json");
       expect(await readFile(join(destination, "data/snapshot.json"), "utf8")).toContain('"schemaVersion": "1.0.0"');
+      expect(await readFile(join(destination, "data/source-registry.json"), "utf8")).toContain("municipal-code-ecode360");
+      expect(await readFile(join(destination, "data/source-discovery.json"), "utf8")).toContain('"coverageGaps"');
       expect(validatePagesSource(await readFile(join(destination, "index.html"), "utf8"))).toEqual([]);
     });
   });

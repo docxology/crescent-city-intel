@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { isIsoTimestamp } from "../src/shared/source_health.ts";
 import { validatePagesSource } from "../src/pages_snapshot.ts";
+import { getSourceRegistry, sourceRegistryFingerprint, validateSourceRegistry } from "../src/source_registry.ts";
 
 type Check = { name: string; args: string[] };
 
@@ -19,14 +20,23 @@ const root = process.cwd();
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as { version: string };
 const openapi = readFileSync(join(root, "openapi.yaml"), "utf-8");
 const readme = readFileSync(join(root, "README.md"), "utf-8");
+const configuration = readFileSync(join(root, "docs", "configuration.md"), "utf-8");
+const llmDocs = readFileSync(join(root, "docs", "modules", "llm.md"), "utf-8");
 const routeSource = readFileSync(join(root, "src", "gui", "routes.ts"), "utf-8");
 const pagesIndex = readFileSync(join(root, "src", "pages", "static", "index.html"), "utf-8");
 const pagesWorkflow = readFileSync(join(root, ".github", "workflows", "pages.yml"), "utf-8");
+
+const registryErrors = validateSourceRegistry();
+if (registryErrors.length > 0) throw new Error(`Source registry contract failed: ${registryErrors.join("; ")}`);
 
 const pagesSourceErrors = validatePagesSource(pagesIndex);
 if (pagesSourceErrors.length > 0) throw new Error(`Pages source contract failed: ${pagesSourceErrors.join("; ")}`);
 for (const requiredWorkflowText of ["actions/upload-pages-artifact", "actions/deploy-pages", "bun run pages:validate", "pages: write", "id-token: write"]) {
   if (!pagesWorkflow.includes(requiredWorkflowText)) throw new Error(`Pages workflow is missing ${requiredWorkflowText}`);
+}
+for (const requiredGuiText of ['id="chat-cancel"', "/api/metadata", "AbortController"]) {
+  const gui = readFileSync(join(root, "src", "gui", "static", "index.html"), "utf-8");
+  if (!gui.includes(requiredGuiText)) throw new Error(`GUI is missing interactivity contract: ${requiredGuiText}`);
 }
 
 if (!openapi.includes(`  version: ${packageJson.version}`)) {
@@ -43,6 +53,13 @@ if (readme.includes("crescent-city-intel-intel-intel.git")) {
 }
 if (readme.includes("httpbin.org")) {
   throw new Error("Repository documentation must not depend on httpbin.org");
+}
+for (const [document, requiredText] of [
+  [configuration, "SOURCE_FRESHNESS_WINDOW_MS"],
+  [llmDocs, "NoRetrievedContextError"],
+  [readme, "bun run source-discovery"],
+] as const) {
+  if (!document.includes(requiredText)) throw new Error(`Documentation is missing required operational contract: ${requiredText}`);
 }
 
 // Keep the published contract from silently drifting away from the route table.
@@ -96,7 +113,22 @@ for (const path of [
   "output/youtube/source-health.json",
   "output/triplicate/source-health.json",
   "output/alerts/source-health.json",
+  "output/weekly-check-summary.json",
+  "output/state/latest-pipeline-run.json",
+  "output/state/curation-report.json",
+  "output/source-registry.json",
+  "output/source-discovery.json",
 ]) parseJsonIfPresent(path);
+
+const registryArtifact = parseJsonIfPresent("output/source-registry.json") as { fingerprint?: string; sources?: unknown[] } | undefined;
+const discoveryArtifact = parseJsonIfPresent("output/source-discovery.json") as { registryFingerprint?: string; sourceCount?: number; sources?: unknown[] } | undefined;
+if (!registryArtifact || !Array.isArray(registryArtifact.sources)) throw new Error("output/source-registry.json is required and must contain sources");
+if (registryArtifact.sources.length !== getSourceRegistry().length) throw new Error("output/source-registry.json is out of sync with the source registry");
+const expectedRegistryFingerprint = await sourceRegistryFingerprint();
+if (registryArtifact.fingerprint !== expectedRegistryFingerprint) throw new Error("output/source-registry.json fingerprint is stale");
+if (!discoveryArtifact || discoveryArtifact.registryFingerprint !== expectedRegistryFingerprint || discoveryArtifact.sourceCount !== registryArtifact.sources.length) {
+  throw new Error("output/source-discovery.json is out of sync with the source registry");
+}
 
 for (const relativePath of [
   "output/news/source-health.json",
@@ -116,6 +148,23 @@ for (const relativePath of [
       throw new Error(`${relativePath} contains an invalid source health record`);
     }
   }
+}
+
+for (const relativePath of ["output/weekly-check-summary.json", "output/state/latest-pipeline-run.json"]) {
+  const report = parseJsonIfPresent(relativePath) as { schemaVersion?: string; runId?: string; status?: string; steps?: unknown[]; sourceHealth?: { degraded?: number } } | undefined;
+  if (!report) continue;
+  if (report.schemaVersion !== "1.0.0" || !report.runId || !["ok", "degraded", "failed"].includes(report.status ?? "") || !Array.isArray(report.steps)) {
+    throw new Error(`${relativePath} is not a valid pipeline-run envelope`);
+  }
+  if (report.sourceHealth && (!Number.isInteger(report.sourceHealth.degraded) || (report.sourceHealth.degraded ?? -1) < 0)) {
+    throw new Error(`${relativePath} contains an invalid source-health summary`);
+  }
+}
+
+for (const reportPath of ["output/state/curation-report.json", "output/reports/latest-metadata.json"]) {
+  const report = parseJsonIfPresent(reportPath) as Record<string, unknown> | undefined;
+  if (!report) continue;
+  if (report.schemaVersion !== "1.0.0") throw new Error(`${reportPath} has an unsupported schema version`);
 }
 
 run({ name: "TypeScript strict check", args: ["bunx", "tsc", "--noEmit"] });

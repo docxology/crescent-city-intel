@@ -13,6 +13,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 - **Data loading**: Use `shared/data.ts` for loading TOC, manifest, articles, and sections.
 - **Pure utilities**: `utils.ts` exports `computeSha256`, `flattenToc`, `shuffle`, `htmlToText`, `csvEscape`, `sanitizeFilename`.
 - **Logger**: Always use `createLogger(module)` from `logger.ts`. Use `log.warn()` — no `log.warning()`.
+- **Source registry**: Add or modify external sources only in `source_registry.ts`; use canonical normalized URLs, discovery citations, explicit automation state, and provenance. A discovery-only source must remain visibly `not-checked` until a connector emits source health.
 
 ## Module Overview
 
@@ -40,6 +41,8 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `legal_parser.ts` | No (pure logic) | `tests/legal_parser.test.ts` |
 | `alert_analytics.ts` | Yes (filesystem) | `tests/alert_analytics.test.ts` |
 | `monthly_report.ts` | Yes (filesystem) | No (integration) |
+| `shared/orchestration.ts` | Yes (filesystem; run metadata) | `tests/orchestration.test.ts` |
+| `source_registry.ts` | Yes (filesystem; optional bounded probes) | `tests/source-registry.test.ts` |
 | `alerts/*` | Yes (various APIs) | `tests/alerts.test.ts`, `tests/new_alerts.test.ts` |
 | `api/middleware.ts` | No (pure logic) | `tests/middleware.test.ts`, `tests/middleware_sliding_window.test.ts` |
 | `gui/*` | Partial | `tests/routes.test.ts`, `tests/routes.integration.test.ts`, `tests/search.test.ts`, `tests/search_enhancements.test.ts`, `tests/analytics.test.ts` |
@@ -68,3 +71,4 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `llm/streaming_rag.ts` | SSE streaming RAG | `createStreamingRagResponse()` |
 | `llm/provider.ts` | Selected-provider routing and bounded preflight | `chatWithProvider()`, `checkChatProvider()` |
 | `shared/source_health.ts` | Typed source-health records and atomic artifact writes | `sourceHealth()`, `writeJsonAtomic()` |
+| `shared/orchestration.ts` | Durable step/run envelopes and runtime metadata | `executePipelineStep()`, `buildPipelineRun()` |

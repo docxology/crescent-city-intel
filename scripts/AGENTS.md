@@ -21,6 +21,7 @@ Every script is runnable directly via `bun run <script-name>`.
 | `run-monitor.ts` | `bun run monitor` | Municipal code change detection (`src/monitor.ts`) |
 | `run-alerts.ts` | `bun run alerts` / `bun run alerts:all` | All 8 alert monitors concurrently + composite severity computation |
 | `run-news.ts` | `bun run news` | RSS news aggregation (`src/news_monitor.ts`) |
+| `run-source-discovery.ts` | `bun run source-discovery [-- --check]` | Canonical source registry and optional bounded reachability probes (`src/source_registry.ts`) |
 | `run-meetings.ts` | `bun run gov-meetings` | Government meeting scraper (`src/gov_meeting_monitor.ts`) |
 | `run-coverage.ts` | `bun run coverage` | Domain coverage analysis |
 | `run-readability.ts` | `bun run readability` | Flesch-Kincaid + Gunning Fog scoring |

@@ -27,6 +27,9 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { paths } from './shared/paths.js';
 import { errorMessage, writeJsonAtomic } from './shared/source_health.js';
+import { createRunId } from './shared/orchestration.js';
+import { computeSha256 } from './utils.js';
+import type { CurationCitation, CurationRunReport } from './types.js';
 
 const logger = createLogger('curation');
 
@@ -73,6 +76,8 @@ export interface CurationInput {
   text: string;
   link?: string;
   fetchedAt: string;
+  /** Explicit source URL used for citations and provenance checks. */
+  sourceUrl?: string;
 }
 
 export interface CuratedItem {
@@ -88,6 +93,11 @@ export interface CuratedItem {
   model: string;
   sourceExcerpt: string;
   provenance: string;
+  inputFingerprint: string;
+  promptVersion: string;
+  citations: CurationCitation[];
+  retryable: boolean;
+  error?: string;
 }
 
 export interface SummaryResult {
@@ -96,6 +106,26 @@ export interface SummaryResult {
   provider: CuratedItem['provider'];
   model: string;
   error?: string;
+  retryable: boolean;
+}
+
+export const CURATION_PROMPT_VERSION = '2026-07-24-grounded-v2';
+
+/** Build deterministic citation/provenance fields before any provider call. */
+export function buildCurationEvidence(item: CurationInput, inputFingerprint: string): {
+  inputFingerprint: string;
+  citations: CurationCitation[];
+  provenance: string;
+} {
+  const sourceUrl = item.sourceUrl ?? item.link;
+  const citations: CurationCitation[] = sourceUrl && /^https?:\/\//i.test(sourceUrl)
+    ? [{ url: sourceUrl, label: item.title, source: item.source, fetchedAt: item.fetchedAt }]
+    : [];
+  return {
+    inputFingerprint,
+    citations,
+    provenance: `${item.source}:${sourceUrl ?? item.id}; fetchedAt=${item.fetchedAt}`,
+  };
 }
 
 // ─── Gather already-fetched items from each source's output/ ─────────────
@@ -237,7 +267,7 @@ export async function summarizeItemDetailed(item: CurationInput): Promise<Summar
       `Title: ${item.title}\n\nSource excerpt:\n${item.text.slice(0, 4000) || '(no article body was supplied by the feed)'}`;
     const summary = await withTimeout(chatWithConfiguredProvider(prompt), SUMMARY_TIMEOUT_MS, `Summary for ${item.id}`);
     if (!summary.trim()) throw new Error('Provider returned an empty summary');
-    return { summary: summary.trim(), status: 'ok', provider, model };
+    return { summary: summary.trim(), status: 'ok', provider, model, retryable: false };
   } catch (err: unknown) {
     logger.warn(`Summary unavailable for item ${item.id}`, { error: errorMessage(err), source: item.source });
     return {
@@ -246,6 +276,7 @@ export async function summarizeItemDetailed(item: CurationInput): Promise<Summar
       provider,
       model,
       error: errorMessage(err),
+      retryable: true,
     };
   }
 }
@@ -289,26 +320,58 @@ export function tagWithDomains(item: CurationInput): string[] {
  */
 export async function runCuration(): Promise<CuratedItem[]> {
   logger.info('=== Starting Crescent City Curation ===');
+  const startedAt = new Date().toISOString();
+  const runId = createRunId('curation', startedAt);
   const releaseLock = await acquireCurationLock();
 
   try {
-
     const idempotency = new IdempotencyStore(CURATION_SEEN_PATH);
     await idempotency.load();
 
     const inputs = await gatherCurationInputs();
-    const toCurate = inputs.filter((item) => !idempotency.has(item.id));
+    // Historical batches can contain the same item more than once. Collapse
+    // before scheduling provider work so one run cannot issue duplicate LLM
+    // requests for an unchanged source record.
+    const uniqueInputs = [...new Map(inputs.map(item => [item.id, item])).values()];
+    const inputFingerprints = new Map<string, string>();
+    for (const item of uniqueInputs) {
+      inputFingerprints.set(item.id, await computeSha256(JSON.stringify({ id: item.id, title: item.title, text: item.text })));
+    }
+    const toCurate = uniqueInputs.filter((item) => {
+      const record = idempotency.get(item.id);
+      // Legacy presence-only records have an empty hash and remain valid. New
+      // records re-run when the source content or grounding prompt changes.
+      if (!record || !record.hash) return !record;
+      return record.hash !== inputFingerprints.get(item.id) || record.meta?.promptVersion !== CURATION_PROMPT_VERSION;
+    });
 
     if (toCurate.length === 0) {
+      const emptyReport: CurationRunReport = {
+        schemaVersion: '1.0.0',
+        runId,
+        startedAt,
+        completedAt: new Date().toISOString(),
+        provider: llmConfig.provider,
+        model: llmConfig.provider === 'openrouter' ? llmConfig.openrouterModel : llmConfig.chatModel,
+        inputCount: uniqueInputs.length,
+        attemptedCount: 0,
+        succeededCount: 0,
+        retryableCount: 0,
+        sourceOnlyCount: 0,
+        outputPath: null,
+        providerChecked: false,
+        providerReachable: false,
+      };
+      await writeJsonAtomic(paths.curationReport, emptyReport);
       logger.info('No new items to curate');
       return [];
     }
 
-  // Check the selected provider once before a batch. Without this guard, an
-  // unreachable OpenRouter endpoint would spend the per-item summary timeout
-  // on every input even though the whole run is already known to be degraded.
-  // Items remain retryable because unavailable summaries are never recorded
-  // as successfully curated below.
+    // Check the selected provider once before a batch. Without this guard, an
+    // unreachable OpenRouter endpoint would spend the per-item summary timeout
+    // on every input even though the whole run is already known to be degraded.
+    // Items remain retryable because unavailable summaries are never recorded
+    // as successfully curated below.
     const providerHealth = await checkChatProvider();
     const providerError = !providerHealth.configured || !providerHealth.reachable
       ? providerHealth.error ?? `${providerHealth.provider} chat provider is unavailable`
@@ -316,45 +379,58 @@ export async function runCuration(): Promise<CuratedItem[]> {
     if (providerError) logger.warn('Curation provider preflight failed; retaining source-only items for retry', { error: providerError });
 
     const curated: CuratedItem[] = [];
+    let succeededCount = 0;
+    let retryableCount = 0;
+    let sourceOnlyCount = 0;
     for (const [i, item] of toCurate.entries()) {
-    // Space out requests when using OpenRouter so a burst of new items
-    // doesn't blow through the free-tier per-minute rate limit and degrade
-    // every item to "summary unavailable" (see openrouterMinRequestIntervalMs
-    // doc comment in llm/config.ts). Ollama has no such external limit.
-    if (i > 0 && !providerError && llmConfig.provider === 'openrouter') {
-      await new Promise((resolve) => setTimeout(resolve, llmConfig.openrouterMinRequestIntervalMs));
-    }
-    const summary = providerError
-      ? {
-          summary: item.text.trim()
-            ? `Source-only excerpt: ${item.text.trim().slice(0, 600)}`
-            : 'Summary unavailable: the source did not provide article text.',
-          status: 'unavailable' as const,
-          provider: providerHealth.provider,
-          model: providerHealth.model,
-          error: providerError,
-        }
-      : await summarizeItemDetailed(item);
-    const tags = tagWithDomains(item);
-    curated.push({
-      id: item.id,
-      source: item.source,
-      title: item.title,
-      link: item.link,
-      summary: summary.summary,
-      tags,
-      curatedAt: new Date().toISOString(),
-      summaryStatus: summary.status,
-      provider: summary.provider,
-      model: summary.model,
-      sourceExcerpt: item.text.slice(0, 600),
-      provenance: `${item.source}:${item.link ?? item.id}`,
-    });
-    // A failed provider call stays retryable. The source-only fallback is
-    // retained as evidence for this run but is not treated as a successful
-    // LLM curation result.
+      // Space out requests when using OpenRouter so a burst of new items
+      // doesn't blow through the free-tier per-minute rate limit and degrade
+      // every item to "summary unavailable". Ollama has no such external limit.
+      if (i > 0 && !providerError && llmConfig.provider === 'openrouter') {
+        await new Promise((resolve) => setTimeout(resolve, llmConfig.openrouterMinRequestIntervalMs));
+      }
+      const summary = providerError
+        ? {
+            summary: item.text.trim()
+              ? `Source-only excerpt: ${item.text.trim().slice(0, 600)}`
+              : 'Summary unavailable: the source did not provide article text.',
+            status: 'unavailable' as const,
+            provider: providerHealth.provider,
+            model: providerHealth.model,
+            error: providerError,
+            retryable: true,
+          }
+        : await summarizeItemDetailed(item);
+      if (summary.status === 'ok') succeededCount++;
+      if (summary.retryable) retryableCount++;
+      if (summary.status === 'source_only') sourceOnlyCount++;
+      const inputFingerprint = inputFingerprints.get(item.id) ?? await computeSha256(item.text);
+      const evidence = buildCurationEvidence(item, inputFingerprint);
+      const tags = tagWithDomains(item);
+      curated.push({
+        id: item.id,
+        source: item.source,
+        title: item.title,
+        link: item.link,
+        summary: summary.summary,
+        tags,
+        curatedAt: new Date().toISOString(),
+        summaryStatus: summary.status,
+        provider: summary.provider,
+        model: summary.model,
+        sourceExcerpt: item.text.slice(0, 600),
+        provenance: evidence.provenance,
+        inputFingerprint: evidence.inputFingerprint,
+        promptVersion: CURATION_PROMPT_VERSION,
+        citations: evidence.citations,
+        retryable: summary.retryable,
+        ...(summary.error ? { error: summary.error } : {}),
+      });
+      // A failed provider call stays retryable. The source-only fallback is
+      // retained as evidence for this run but is not treated as a successful
+      // LLM curation result.
       if (summary.status === 'ok' || summary.status === 'source_only') {
-        idempotency.seen(item.id);
+        idempotency.seen(item.id, inputFingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION });
       }
     }
 
@@ -374,6 +450,25 @@ export async function runCuration(): Promise<CuratedItem[]> {
     await writeJsonAtomic(outPath, [...existing, ...curated]);
 
     await idempotency.save();
+
+    const curationReport: CurationRunReport = {
+      schemaVersion: '1.0.0',
+      runId,
+      startedAt,
+      completedAt: new Date().toISOString(),
+      provider: providerHealth.provider,
+      model: providerHealth.model,
+      inputCount: uniqueInputs.length,
+      attemptedCount: toCurate.length,
+      succeededCount,
+      retryableCount,
+      sourceOnlyCount,
+      outputPath: outPath,
+      providerChecked: true,
+      providerReachable: providerHealth.reachable,
+      ...(providerError ? { providerError } : {}),
+    };
+    await writeJsonAtomic(paths.curationReport, curationReport);
 
     logger.info(`=== Curation Complete: ${curated.length} item(s) curated ===`);
     return curated;

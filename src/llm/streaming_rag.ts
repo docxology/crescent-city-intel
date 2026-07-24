@@ -5,6 +5,7 @@ import { OLLAMA_TIMEOUT_MS } from "../constants.js";
 import { llmConfig } from "./config.js";
 import { configuredChatModel } from "./provider.js";
 import { streamChat as streamOpenRouterChat } from "./openrouter.js";
+import { computeSha256 } from "../utils.js";
 
 const log = createLogger("streaming_rag");
 
@@ -20,6 +21,9 @@ export interface StreamingRagResult {
   model: string;
   latencyMs: number;
   provider: "ollama" | "openrouter";
+  queryId: string;
+  contextFingerprint: string;
+  grounded: boolean;
 }
 
 function event(encoder: TextEncoder, name: string, data: unknown): Uint8Array {
@@ -37,11 +41,13 @@ export function createStreamingRagResponse(
 ): Response {
   const encoder = new TextEncoder();
   const model = configuredChatModel(modelOverride);
+  const queryId = `rag-stream-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
   const requestAbort = new AbortController();
 
   const stream = new ReadableStream({
     async start(controller) {
       const startTime = performance.now();
+      const contextFingerprint = await computeSha256(retrievedContext.context);
       controller.enqueue(event(encoder, "sources", retrievedContext.sources));
 
       if (retrievedContext.sources.length === 0 || !retrievedContext.context.trim()) {
@@ -107,6 +113,9 @@ export function createStreamingRagResponse(
           model,
           latencyMs: performance.now() - startTime,
           provider: llmConfig.provider,
+          queryId,
+          contextFingerprint,
+          grounded: true,
         };
         controller.enqueue(event(encoder, "done", result));
       } catch (error: unknown) {

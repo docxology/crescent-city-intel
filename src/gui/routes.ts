@@ -5,6 +5,8 @@ import { search, getIndexedCount, type PagedSearchResult } from "./search.js";
 import { createLogger } from "../logger.js";
 import { llmConfig } from "../llm/config.js";
 import { paths } from "../shared/paths.js";
+import { summarizeSourceHealth } from "../shared/source_health.js";
+import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
 
 const log = createLogger("routes");
 
@@ -233,6 +235,8 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         sources: result.sources,
         model: result.model,
         provider: result.provider,
+        queryId: result.queryId,
+        metadata: result.metadata,
       });
     } catch (err: any) {
       log.error("[chat] RAG error", { error: err.message });
@@ -267,7 +271,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       log.info(`[chat POST] Query: ${q.substring(0, 80)}`);
       const result = await llm.rag.ragQuery(q, body.model);
-      return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider });
+      return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider, queryId: result.queryId, metadata: result.metadata });
     } catch (err: any) {
       log.error("[chat POST] RAG error", { error: err.message });
       return json({ error: `RAG query failed: ${err.message}` }, dependencyFailureStatus(err.message));
@@ -592,6 +596,19 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/curation/status — last batch metadata, provider state, and retry counts
+  if (path === "/api/curation/status") {
+    const { existsSync, readFileSync } = await import("fs");
+    if (!existsSync(paths.curationReport)) {
+      return json({ status: "unavailable", error: "No curation run metadata. Run: bun run curate" }, 404);
+    }
+    try {
+      return json(JSON.parse(readFileSync(paths.curationReport, "utf8")));
+    } catch (err: any) {
+      return json({ error: `Failed to read curation metadata: ${err.message}` }, 500);
+    }
+  }
+
   // GET /api/monitor/history — historical monitor runs (appended JSONL)
   if (path === "/api/monitor/history") {
     try {
@@ -731,6 +748,95 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/metadata — build, provider, artifact, and source-lineage metadata
+  // GET /api/sources — canonical source inventory plus latest operational joins
+  if (path === "/api/sources") {
+    const { existsSync, readFileSync } = await import("fs");
+    const registry = getSourceRegistry();
+    const sourceHealth: import("../types.js").SourceHealth[] = [];
+    for (const healthPath of [paths.newsHealth, paths.govMeetingsHealth, paths.youtubeHealth, paths.triplicateHealth, paths.alertsHealth]) {
+      if (!existsSync(healthPath)) continue;
+      try {
+        const parsed = JSON.parse(readFileSync(healthPath, "utf8"));
+        if (Array.isArray(parsed.sources)) sourceHealth.push(...parsed.sources);
+      } catch { /* one corrupt diagnostic must not hide the registry */ }
+    }
+    const discovery = existsSync(paths.sourceDiscovery)
+      ? (() => { try { return JSON.parse(readFileSync(paths.sourceDiscovery, "utf8")); } catch { return null; } })()
+      : await buildSourceDiscoveryReport({ health: sourceHealth, registry });
+    const payload = {
+      schemaVersion: "1.0.0",
+      registryFingerprint: await sourceRegistryFingerprint(registry),
+      registry,
+      discovery,
+      sourceHealth: summarizeSourceHealth(sourceHealth),
+    };
+    if (url.searchParams.get("format") === "csv") {
+      const records = Array.isArray(discovery?.sources) ? discovery.sources : registry.map(source => ({ ...source, operationalStatus: "not-checked", itemCount: 0 }));
+      const columns = ["id", "name", "kind", "automation", "operationalStatus", "region", "authority", "canonicalUrl", "itemCount", "checkedAt", "error"];
+      const cell = (value: unknown) => { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; };
+      const csv = [columns.join(","), ...records.map((record: Record<string, unknown>) => columns.map(column => cell(record[column])).join(","))].join("\n") + "\n";
+      return new Response(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": "attachment; filename=crescent-city-source-coverage.csv", "Access-Control-Allow-Origin": "*" } });
+    }
+    return json(payload);
+  }
+
+  // GET /api/source-discovery — compact inventory/coverage report for clients
+  if (path === "/api/source-discovery") {
+    const { existsSync, readFileSync } = await import("fs");
+    if (existsSync(paths.sourceDiscovery)) {
+      try { return jsonWithETag(JSON.parse(readFileSync(paths.sourceDiscovery, "utf8")), req); }
+      catch { return json({ error: "Source discovery artifact is malformed" }, 500); }
+    }
+    return json(await buildSourceDiscoveryReport({ registry: getSourceRegistry() }));
+  }
+
+  if (path === "/api/metadata") {
+    const { existsSync, readFileSync } = await import("fs");
+    const sourceHealth: import("../types.js").SourceHealth[] = [];
+    for (const healthPath of [paths.newsHealth, paths.govMeetingsHealth, paths.youtubeHealth, paths.triplicateHealth, paths.alertsHealth]) {
+      if (!existsSync(healthPath)) continue;
+      try {
+        const parsed = JSON.parse(readFileSync(healthPath, "utf8"));
+        if (Array.isArray(parsed.sources)) sourceHealth.push(...parsed.sources);
+      } catch { /* metadata remains available even if one diagnostic is corrupt */ }
+    }
+    return json({
+      schemaVersion: "1.0.0",
+      generatedAt: new Date().toISOString(),
+      application: {
+        name: "crescent-city-intel",
+        version: process.env.APP_VERSION ?? "2.5.0",
+        commit: process.env.GITHUB_SHA ?? process.env.GIT_COMMIT ?? null,
+        runtime: `bun/${process.versions.bun ?? "unknown"}`,
+      },
+      llm: {
+        provider: llmConfig.provider,
+        chatModel: llmConfig.provider === "openrouter" ? llmConfig.openrouterModel : llmConfig.chatModel,
+        embeddingProvider: "ollama",
+        embeddingModel: llmConfig.embeddingModel,
+        vectorStore: "chroma",
+        collection: llmConfig.collectionName,
+      },
+      artifacts: {
+        weeklySummary: existsSync(paths.weeklyCheckSummary) ? paths.weeklyCheckSummary : null,
+        pipelineRun: existsSync(paths.pipelineRun) ? paths.pipelineRun : null,
+        curation: existsSync(paths.curationReport) ? paths.curationReport : null,
+        reportMetadata: existsSync(paths.latestReportMetadata) ? paths.latestReportMetadata : null,
+        sourceRegistry: existsSync(paths.sourceRegistry) ? paths.sourceRegistry : null,
+        sourceDiscovery: existsSync(paths.sourceDiscovery) ? paths.sourceDiscovery : null,
+      },
+      sourceHealth: summarizeSourceHealth(sourceHealth),
+      sourceCoverage: {
+        registryFingerprint: await sourceRegistryFingerprint(),
+        registryCount: getSourceRegistry().length,
+        monitoredCount: getSourceRegistry().filter(source => source.automation === "monitored").length,
+        discoveryOnlyCount: getSourceRegistry().filter(source => source.automation === "discovery-only").length,
+        referenceOnlyCount: getSourceRegistry().filter(source => source.automation === "reference-only").length,
+      },
+    });
+  }
+
   // GET /api/health — liveness probe with optional composite status
   if (path === "/api/health") {
     const { existsSync, readFileSync } = await import("fs");
@@ -844,6 +950,20 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       });
     } catch (err: any) {
       return json({ error: `Failed to read report: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/report/latest.json — machine-readable metadata for the latest report
+  if (path === "/api/report/latest.json") {
+    const { existsSync, readdirSync, readFileSync } = await import("fs");
+    const reportsDir = "output/reports";
+    if (!existsSync(reportsDir)) return json({ error: "No reports generated. Run: bun run report" }, 404);
+    const files = readdirSync(reportsDir).filter(f => f.startsWith("monthly-") && f.endsWith(".json")).sort().reverse();
+    if (files.length === 0) return json({ error: "No report metadata found" }, 404);
+    try {
+      return jsonWithETag(JSON.parse(readFileSync(`${reportsDir}/${files[0]}`, "utf8")), req);
+    } catch (err: any) {
+      return json({ error: `Failed to read report metadata: ${err.message}` }, 500);
     }
   }
 
@@ -1196,7 +1316,7 @@ function json(data: unknown, status = 200): Response {
 
 /** Provider, vector-store, and network failures are retryable dependencies. */
 function dependencyFailureStatus(message: string): number {
-  return /ollama|openrouter|chroma|provider|request cap|timed? ?out|embedding/i.test(message) ? 503 : 500;
+  return /ollama|openrouter|chroma|provider|request cap|timed? ?out|embedding|retrieved context|index/i.test(message) ? 503 : 500;
 }
 
 

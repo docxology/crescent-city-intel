@@ -8,6 +8,39 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] — functional observability and interaction pass
+
+### Added
+
+- Durable weekly pipeline-run envelopes with run IDs, stage durations,
+  output-path lineage, commit/runtime metadata, and aggregate source health.
+- Machine-readable monthly report companions with UTC period bounds, numeric
+  metrics, warnings, and freshness-aware source summaries.
+- Curation input fingerprints, prompt versioning, explicit citations, retry
+  metadata, duplicate suppression, and changed-source reprocessing.
+- RAG query IDs, context fingerprints, grounding flags, retrieval metadata,
+  and cancellation-aware streaming results.
+- `/api/metadata`, `/api/curation/status`, and `/api/report/latest.json` with
+  matching OpenAPI contracts.
+- Canonical source registry with normalized URLs, provenance, discovery
+  citations, fingerprints, bounded live probes, explicit automation gaps, and
+  persistent idempotency state.
+- `/api/sources` and `/api/source-discovery`, monthly source-coverage metrics,
+  and a Pages source-registry explorer with text/state filters.
+- Added GUI Source Coverage drill-downs, automation/status filters, structured
+  JSON downloads, and explicit coverage-gap rendering.
+- Added Pages source sorting, per-record inspection, fingerprint copying,
+  filtered JSON/CSV downloads, and structured health/content exports.
+- Added `/api/sources?format=csv` and matching OpenAPI documentation for flat
+  downstream source-coverage workflows.
+- Static Pages filtering, refresh controls, shared content search, and
+  pipeline/provider/report metadata panels; local GUI chat cancellation.
+
+### Verification
+
+- Added deterministic orchestration, metadata-route, report-lineage, and GUI
+  interactivity contract tests.
+
 ## [2.5.0] — 2026-07-24
 
 ### Deep functional hardening

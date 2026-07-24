@@ -23,12 +23,31 @@ directory and replaces the exact destination only after all files are ready.
 
 ## Public artifact
 
-The export contains the dashboard, JSON snapshot and source-health artifacts,
+The export contains the dashboard, JSON snapshot, source-health artifact, and
+the fingerprinted source registry/discovery artifacts,
 the municipal code JSON/TOC/manifest plus verification, coverage, and
 readability artifacts when available, recent deduplicated news
 and government meeting items, YouTube video metadata, Triplicate metadata and
 links only, alert current snapshots and composite severity, and the latest
 monthly report.
+
+The dashboard is intentionally interactive despite being static: source health
+can be filtered by `ok`, `empty`, `unavailable`, or `stale`; news, meetings,
+and curated briefs have a shared text filter; the municipal code export has a
+local search box; the source registry can be filtered by automation state and
+text, sorted, inspected row-by-row, and exported as filtered JSON or CSV; and
+a refresh control re-reads the immutable snapshot without requiring a server.
+The overview exposes direct JSON artifact links, a downloadable current
+envelope, and the registry fingerprint. The dashboard also supports copying a
+selected source record and rendering explicit coverage gaps. The overview
+renders pipeline, curation, report, and aggregate health metadata when those
+artifacts exist.
+
+The snapshot carries `healthSummary`, report metadata, the latest pipeline run,
+the source registry/discovery report, and curation telemetry. These fields explain when an item was collected, which
+provider produced a brief, and whether a failure is retryable. The public
+export never exposes prompts, chat history, API keys, request logs, or
+vector-store contents.
 
 It deliberately excludes chat history, request/search/RAG logs, Chroma
 indexes, credentials, and Triplicate article content. The dashboard labels

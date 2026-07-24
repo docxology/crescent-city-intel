@@ -151,6 +151,24 @@ export interface RagResponse {
   sources: RagSource[];
   model: string;
   provider: "ollama" | "openrouter";
+  /** Stable identifier for correlating API responses, logs, and UI feedback. */
+  queryId?: string;
+  /** Generation and retrieval metadata; optional for backwards-compatible artifacts. */
+  metadata?: RagMetadata;
+}
+
+/** Operational metadata attached to a RAG answer. */
+export interface RagMetadata {
+  generatedAt: string;
+  latencyMs: number;
+  retrievalCount: number;
+  requestedTopK: number;
+  contextFingerprint: string;
+  grounded: boolean;
+  embeddingProvider: "ollama";
+  embeddingModel: string;
+  vectorStore: "chroma";
+  collection: string;
 }
 
 // ─── Analytics ───────────────────────────────────────────────────
@@ -250,6 +268,176 @@ export interface SourceHealth {
   httpStatus?: number;
   ageMs?: number;
   provenance?: string;
+  /** Derived freshness state, separate from operational status. */
+  freshness?: "fresh" | "stale" | "unknown";
+  /** Expected maximum age used when freshness was derived, in milliseconds. */
+  freshnessWindowMs?: number;
+  /** Duration of the source check, when measured by the monitor. */
+  durationMs?: number;
+  /** True when the source was intentionally disabled by configuration. */
+  disabled?: boolean;
+}
+
+/** Counts used by orchestration, reports, and the interactive dashboards. */
+export interface SourceHealthSummary {
+  checkedAt: string;
+  total: number;
+  ok: number;
+  empty: number;
+  unavailable: number;
+  stale: number;
+  degraded: number;
+  sources: string[];
+}
+
+/** Stable classification for the source discovery registry. */
+export type SourceKind =
+  | "municipal_code"
+  | "city_official"
+  | "county_official"
+  | "meeting"
+  | "news"
+  | "alert"
+  | "video"
+  | "harbor"
+  | "transportation"
+  | "environment"
+  | "reference";
+
+export type SourceAuthority = "official" | "public_agency" | "journalistic" | "reference";
+export type SourceCollectionMode = "api" | "rss" | "atom" | "html" | "playwright" | "yt-dlp" | "manual";
+export type SourceAutomation = "monitored" | "discovery-only" | "reference-only";
+
+/** One canonical online source in the reviewed Crescent City coverage boundary. */
+export interface SourceDefinition {
+  id: string;
+  name: string;
+  kind: SourceKind;
+  authority: SourceAuthority;
+  region: "Crescent City" | "Del Norte County" | "North Coast" | "California" | "Federal";
+  canonicalUrl: string;
+  endpointUrl?: string;
+  discoveredFrom: string[];
+  collectionMode: SourceCollectionMode;
+  automation: SourceAutomation;
+  enabled: boolean;
+  configuredMonitor?: string;
+  referenceOnly?: boolean;
+  expectedCadence?: string;
+  provenance: string;
+  notes?: string;
+}
+
+/** Registry entry enriched with the latest known operational state, if any. */
+export interface SourceDiscoveryRecord extends SourceDefinition {
+  operationalStatus: SourceHealthStatus | "not-checked";
+  checkedAt?: string;
+  itemCount: number;
+  error?: string;
+  healthSource?: string;
+}
+
+/** Durable inventory and coverage report used by the GUI, Pages, and reports. */
+export interface SourceDiscoveryReport {
+  schemaVersion: "1.0.0";
+  generatedAt: string;
+  scope: string;
+  registryFingerprint: string;
+  previousFingerprint: string | null;
+  changed: boolean;
+  sourceCount: number;
+  monitoredCount: number;
+  discoveryOnlyCount: number;
+  referenceOnlyCount: number;
+  enabledCount: number;
+  countsByKind: Record<string, number>;
+  countsByAuthority: Record<string, number>;
+  coverageGaps: string[];
+  sources: SourceDiscoveryRecord[];
+}
+
+/** One independently observable stage in a pipeline run. */
+export interface PipelineStepReport {
+  name: string;
+  status: "ok" | "degraded" | "failed" | "skipped";
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  itemCount?: number;
+  outputPaths?: string[];
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Durable orchestration envelope written after a weekly or scheduled run. */
+export interface PipelineRunReport {
+  schemaVersion: "1.0.0";
+  runId: string;
+  pipeline: string;
+  status: "ok" | "degraded" | "failed";
+  exitCode: number;
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  steps: PipelineStepReport[];
+  sourceHealth: SourceHealthSummary;
+  metadata: {
+    appVersion: string;
+    commit: string | null;
+    runtime: string;
+    ci: boolean;
+  };
+}
+
+/** Machine-readable report summary paired with the human-readable Markdown report. */
+export interface MonthlyReportMetadata {
+  schemaVersion: "1.0.0";
+  reportType: "monthly-civic-health";
+  period: string;
+  generatedAt: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "ok" | "degraded" | "unavailable";
+  metrics: Record<string, number>;
+  sourceHealth: SourceHealthSummary;
+  sourceDiscovery: {
+    registryFingerprint: string;
+    sourceCount: number;
+    monitoredCount: number;
+    discoveryOnlyCount: number;
+    referenceOnlyCount: number;
+    coverageGaps: string[];
+  };
+  artifacts: { markdown: string; metadata: string };
+  warnings: string[];
+}
+
+/** Citation carried by a curated brief; the brief is not evidence without it. */
+export interface CurationCitation {
+  url: string;
+  label: string;
+  source: "news" | "gov_meetings" | "youtube";
+  fetchedAt: string;
+}
+
+/** Batch-level metadata for LLM curation, safe to expose as operational telemetry. */
+export interface CurationRunReport {
+  schemaVersion: "1.0.0";
+  runId: string;
+  startedAt: string;
+  completedAt: string;
+  provider: "ollama" | "openrouter" | "none";
+  model: string;
+  inputCount: number;
+  attemptedCount: number;
+  succeededCount: number;
+  retryableCount: number;
+  sourceOnlyCount: number;
+  outputPath: string | null;
+  /** False when the run had no work and intentionally skipped provider I/O. */
+  providerChecked?: boolean;
+  providerReachable: boolean;
+  providerError?: string;
 }
 
 // ─── Intelligence Domains ────────────────────────────────────────

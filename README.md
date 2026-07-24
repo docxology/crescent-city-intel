@@ -272,7 +272,9 @@ The RAG pipeline:
 1. Embeds questions via `nomic-embed-text` (768-dim vectors)
 2. Retrieves top-10 most relevant chunks from ChromaDB using cosine similarity
 3. Generates cited answers via `gemma3:4b` with section number references
-4. Logs every query (question, latency, model, top source) to `output/rag-queries.jsonl`
+4. Returns a query ID, grounding flag, context fingerprint, retrieval count,
+   provider/model, embedding model, and Chroma collection; query telemetry is
+   logged to `output/rag-queries.jsonl`
 
 > 🔧 **LLM internals**: [docs/modules/llm.md](docs/modules/llm.md) — config, chunking strategy, embedding pipeline
 
@@ -296,6 +298,26 @@ Aggregates local NorCal news feeds, filtering for Crescent City-relevant content
 bun run news                            # all keywords
 bun run news -- --keywords="tsunami,earthquake,harbor"  # targeted keywords
 ```
+
+### Source discovery and coverage boundary
+
+`src/source_registry.ts` is the authoritative inventory for Crescent City and
+Del Norte County online information. It records canonical URLs, authority,
+region, provenance, collection mode, and whether a source is `monitored`,
+`discovery-only`, or `reference-only`. Discovery-only entries are intentionally
+visible gaps rather than false-success monitors.
+
+```bash
+bun run source-discovery             # deterministic inventory + known health joins
+bun run source-discovery -- --check  # bounded live GET probes; outages are recorded
+```
+
+The idempotent artifacts are `output/source-registry.json`,
+`output/source-discovery.json`, and `output/state/source-discovery-seen.json`.
+Their fingerprint and coverage gaps are included in the local GUI Source Coverage
+workspace, `/api/sources`, `/api/source-discovery`, monthly reports, and GitHub
+Pages exports. The GUI and Pages dashboard can inspect individual records and
+download filtered JSON/CSV envelopes without losing status or provenance.
 
 **Sources**: Times-Standard · Lost Coast Outpost · Humboldt Times · KIEM-TV NBC Eureka · Redwood Voice
 
@@ -417,6 +439,9 @@ The project maps the municipal code to **12 civic intelligence domains**, each c
 | **Readability** | `output/readability.json` | Flesch-Kincaid scores for all sections in the current manifest |
 | **Coverage** | `output/domain-coverage.json` | Domain cross-reference coverage % |
 | **RAG Log** | `output/rag-queries.jsonl` | All RAG queries with latency and sources |
+| **Pipeline run** | `output/state/latest-pipeline-run.json` | Stage-level status, duration, output paths, and source-health summary |
+| **Curation run** | `output/state/curation-report.json` | Provider/model, success counts, fingerprints, and retryable failures |
+| **Report metadata** | `output/reports/monthly-YYYY-MM.json` | Period bounds, numeric metrics, warnings, and health |
 
 > 🔧 **Export details**: [docs/modules/export.md](docs/modules/export.md)
 
@@ -437,6 +462,10 @@ curation, and the latest civic report. It excludes API keys, chat/request/
 search/RAG logs, Chroma data, and Triplicate article content. Triplicate
 metadata is reference/citation-only and is not an input to curation, embeddings,
 or training.
+
+The static dashboard remains interactive without a backend: filter source
+health by state, filter public items by text, search the exported code locally,
+refresh the immutable snapshot, and inspect pipeline/provider/report metadata.
 
 ```bash
 bun run pages:export -- --source output --seed pages-data --output .pages
@@ -610,6 +639,7 @@ bun test tests/search.test.ts   # single file
 | :------ | :---------- |
 | `bun run monitor` | Detect municipal code changes |
 | `bun run news` | Fetch local news RSS (--keywords= flag supported) |
+| `bun run source-discovery` | Inventory canonical sources; add `-- --check` for bounded probes |
 | `bun run gov-meetings` | Scrape city meeting agendas/minutes |
 | `bun run alerts` | Run all alert monitors concurrently |
 | `bun run alerts:tsunami` | Poll NOAA CAP tsunami warnings |
@@ -659,6 +689,12 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/monitor/status` | GET | Latest monitor report |
 | `/api/monitor/history` | GET | Monitor history JSONL |
 | `/api/monitor/alerts` | GET | Aggregated alert status (all 8 monitors) |
+| `/api/metadata` | GET | Build, provider, artifact, and source-lineage metadata |
+| `/api/sources` | GET | Canonical source registry, coverage boundaries, and health joins |
+| `/api/sources?format=csv` | GET | Flat downloadable source coverage table |
+| `/api/source-discovery` | GET | Fingerprinted discovery report and explicit coverage gaps |
+| `/api/curation/status` | GET | Latest curation provider/model and retry metadata |
+| `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
 > 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.5.0)
@@ -678,6 +714,7 @@ All settings support environment variable overrides:
 | `CHAT_MODEL` | `gemma3:4b` | Ollama chat / summarization model |
 | `LLM_PROVIDER` | `ollama` | Chat provider: `ollama` or `openrouter` |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Selected-provider health-check timeout |
+| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
 | `OPENROUTER_API_KEY` | unset | Required only for OpenRouter chat/curation |
 | `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server endpoint |

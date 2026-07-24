@@ -1007,7 +1007,7 @@
     /* ─── Print Stylesheet ─────────────────────────────────────── */
     @media print {
       #header, #sidebar, #chat-panel, #stats-bar, #analytics-overlay,
-      #alerts-panel, #feeds-overlay, #dev-overlay, .summarize-btn, .header-buttons {
+      #alerts-panel, #feeds-overlay, #sources-overlay, #dev-overlay, .summarize-btn, .header-buttons {
         display: none !important;
       }
       #content { width: 100% !important; padding: 0 !important; }
@@ -1029,6 +1029,7 @@
       <button class="btn" id="code-toggle" title="Browse the municipal code">📖 Code</button>
       <button class="btn" id="analytics-toggle" title="Stats, readability, glossary &amp; other code-analysis tools">📊 Code Analytics</button>
       <button class="btn" id="feeds-toggle" title="Curated news, government meetings, YouTube transcripts &amp; the monthly civic report">📰 News &amp; Feeds</button>
+      <button class="btn" id="sources-toggle" title="Canonical source registry, operational state, and structured exports">🧭 Sources</button>
       <button class="btn" id="alerts-toggle" title="Real-time tsunami, earthquake, weather, tide, fishing, air-quality, wildfire &amp; marine monitors">🚨 Alerts</button>
       <button class="btn" id="chat-toggle" title="Ask the RAG-powered assistant about the code or transcripts">💬 Chat</button>
       <button class="btn" id="dev-toggle" title="API explorer &amp; search-usage analytics">🔌 Developer</button>
@@ -1098,6 +1099,7 @@
     <div id="chat-panel">
       <div id="chat-header">
         <h3>Ask about the Code</h3>
+        <button class="btn" id="chat-cancel" type="button" disabled>Cancel</button>
         <button class="btn" id="chat-close">X</button>
       </div>
       <div id="chat-messages">
@@ -1202,6 +1204,37 @@
     </div>
   </div>
 
+  <!-- ─── Sources: canonical coverage and machine-readable state ─── -->
+  <div id="sources-overlay" class="subtab-overlay">
+    <div class="intel-tabs">
+      <button class="intel-tab active" data-tab="sources">🧭 Source Coverage</button>
+      <button class="intel-tab" data-tab="source-json">🧾 Structured Output</button>
+    </div>
+    <div class="intel-content">
+      <div class="intel-panel active" id="intel-sources">
+        <div class="intel-section-header">Canonical online source coverage</div>
+        <p style="color:var(--text-secondary);margin-bottom:12px">Operational state is joined to the canonical registry. “Not checked” is an explicit boundary, not a health claim. Select a row to inspect the full record.</p>
+        <div class="intel-grid" id="source-summary-grid"><p style="color:var(--text-secondary)">Loading source coverage…</p></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0">
+          <input type="search" id="source-filter" placeholder="Filter source, kind, region, or URL" aria-label="Filter source coverage" style="flex:1;min-width:220px">
+          <select id="source-automation-filter" aria-label="Filter source automation"><option value="all">All automation</option><option value="monitored">Monitored</option><option value="discovery-only">Discovery only</option><option value="reference-only">Reference only</option></select>
+          <select id="source-status-filter" aria-label="Filter source status"><option value="all">All statuses</option><option value="ok">OK</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option><option value="not-checked">Not checked</option></select>
+          <button class="btn" id="source-refresh" type="button">Refresh</button>
+          <button class="btn" id="source-download" type="button">Download JSON</button>
+        </div>
+        <div id="source-table" style="overflow:auto"></div>
+        <div id="source-detail" style="margin-top:12px"></div>
+        <div id="source-gaps" style="margin-top:12px"></div>
+      </div>
+      <div class="intel-panel" id="intel-source-json">
+        <div class="intel-section-header">Structured source output</div>
+        <p style="color:var(--text-secondary);margin-bottom:12px">This is the same versioned envelope used by the API and release artifacts. It is safe to copy into downstream analysis without losing fingerprints or explicit unavailable states.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" id="source-json-download" type="button">Download full envelope</button><button class="btn" id="source-json-copy" type="button">Copy JSON</button><span id="source-json-state" style="color:var(--text-secondary)"></span></div>
+        <pre id="source-json-output" style="max-height:620px;overflow:auto;white-space:pre-wrap">Loading…</pre>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── Developer: API/meta tools, not end-user civic content ─── -->
   <div id="dev-overlay" class="subtab-overlay">
     <div class="intel-tabs">
@@ -1238,6 +1271,9 @@
     // State
     let tocData = null;
     let activeGuid = null;
+    let sourceCoverageData = null;
+    let sourceCoverageRecords = [];
+    let sourceSelectedId = null;
     const summaryCache = new Map(); // guid → { summary, model }
 
     // DOM refs
@@ -1248,6 +1284,8 @@
     const chatPanel = document.getElementById("chat-panel");
     const chatMessages = document.getElementById("chat-messages");
     const chatInput = document.getElementById("chat-input");
+    const chatCancel = document.getElementById("chat-cancel");
+    let activeChatController = null;
 
     // Init
     async function init() {
@@ -1639,10 +1677,11 @@
     // toggle button calls it first, so opening one always closes the rest
     // (previously only the old Intelligence tab did this, asymmetrically:
     // opening Analytics or Alerts left Intelligence open behind them).
-    const OVERLAY_TOGGLE_IDS = ['analytics-toggle', 'feeds-toggle', 'alerts-toggle', 'chat-toggle', 'dev-toggle'];
+    const OVERLAY_TOGGLE_IDS = ['analytics-toggle', 'feeds-toggle', 'sources-toggle', 'alerts-toggle', 'chat-toggle', 'dev-toggle'];
     function closeAllOverlays() {
       document.getElementById('analytics-overlay').classList.remove('open');
       document.getElementById('feeds-overlay').classList.remove('open');
+      document.getElementById('sources-overlay').classList.remove('open');
       document.getElementById('dev-overlay').classList.remove('open');
       document.getElementById('alerts-panel').style.display = 'none';
       chatPanel.classList.remove('open');
@@ -1660,14 +1699,19 @@
       }
     });
     document.getElementById("chat-close").addEventListener("click", () => {
+      activeChatController?.abort();
       chatPanel.classList.remove("open");
       document.getElementById("chat-toggle").classList.remove("active");
     });
+    chatCancel.addEventListener("click", () => activeChatController?.abort());
 
     // Chat send
     async function sendChat() {
       const msg = chatInput.value.trim();
       if (!msg) return;
+      activeChatController?.abort();
+      activeChatController = new AbortController();
+      chatCancel.disabled = false;
       chatInput.value = "";
 
       const userDiv = document.createElement("div");
@@ -1690,6 +1734,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ q: msg }),
+          signal: activeChatController.signal,
         });
 
         if (resp.ok && resp.headers.get('Content-Type')?.includes('text/event-stream')) {
@@ -1739,14 +1784,24 @@
             }
           }
           if (sourcesHtml) botDiv.insertAdjacentHTML('beforeend', sourcesHtml);
+          chatCancel.disabled = true;
+          activeChatController = null;
           return;
         }
-      } catch { /* fall through to regular chat */ }
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          answerText.innerHTML = '<span style="color:var(--text-secondary)">Cancelled.</span>';
+          chatCancel.disabled = true;
+          activeChatController = null;
+          return;
+        }
+        /* fall through to regular chat */
+      }
 
       // Fallback: regular /api/chat
       answerText.innerHTML = '<span style="color:var(--text-secondary)">⏳ Thinking...</span>';
       try {
-        const resp = await apiFetch(`/api/chat?q=${encodeURIComponent(msg)}`);
+        const resp = await apiFetch(`/api/chat?q=${encodeURIComponent(msg)}`, { signal: activeChatController.signal });
         const data = await resp.json();
 
         if (data.error) {
@@ -1774,13 +1829,18 @@
 
           chatMessages.appendChild(botDiv);
         }
-      } catch {
-        thinkDiv.remove();
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          answerText.innerHTML = '<span style="color:var(--text-secondary)">Cancelled.</span>';
+          return;
+        }
         const errDiv = document.createElement("div");
         errDiv.className = "chat-msg system";
         errDiv.textContent = "Failed to connect to chat service";
         chatMessages.appendChild(errDiv);
       }
+      chatCancel.disabled = true;
+      activeChatController = null;
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
@@ -2447,6 +2507,70 @@
     // Start
     init();
 
+    // ─── Source coverage and structured output ───────────────────────
+    function sourceStatusLabel(value) {
+      const status = String(value || 'not-checked');
+      const colors = { ok: '#22c55e', empty: '#60a5fa', unavailable: '#ef4444', stale: '#ef4444', 'not-checked': '#eab308' };
+      return `<span style="font-weight:700;color:${colors[status] || '#a1a1aa'}">${escapeHtml(status.toUpperCase())}</span>`;
+    }
+
+    function downloadStructuredJson(filename, value) {
+      const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function filteredSourceCoverageRecords() {
+      const needle = document.getElementById('source-filter').value.trim().toLowerCase();
+      const automation = document.getElementById('source-automation-filter').value;
+      const status = document.getElementById('source-status-filter').value;
+      return sourceCoverageRecords.filter(record => {
+        const matchesText = !needle || JSON.stringify(record).toLowerCase().includes(needle);
+        const matchesAutomation = automation === 'all' || record.automation === automation;
+        const matchesStatus = status === 'all' || (record.operationalStatus || 'not-checked') === status;
+        return matchesText && matchesAutomation && matchesStatus;
+      });
+    }
+
+    function renderSourceCoverage() {
+      const discovery = sourceCoverageData?.discovery || {};
+      const records = filteredSourceCoverageRecords();
+      const summary = document.getElementById('source-summary-grid');
+      summary.innerHTML = `<div class="intel-card"><h4>Total sources</h4><div class="metric">${discovery.sourceCount ?? sourceCoverageRecords.length}</div><div class="label">fingerprint ${escapeHtml(String(discovery.registryFingerprint || sourceCoverageData?.registryFingerprint || '').slice(0, 16))}</div></div><div class="intel-card"><h4>Monitored</h4><div class="metric">${discovery.monitoredCount ?? 0}</div><div class="label">actively joined to health</div></div><div class="intel-card"><h4>Discovery only</h4><div class="metric">${discovery.discoveryOnlyCount ?? 0}</div><div class="label">known, not continuously monitored</div></div><div class="intel-card"><h4>Reference only</h4><div class="metric">${discovery.referenceOnlyCount ?? 0}</div><div class="label">citation boundary</div></div>`;
+      const table = document.getElementById('source-table');
+      table.innerHTML = records.length ? `<table class="intel-table"><thead><tr><th>Source</th><th>Automation</th><th>Status</th><th>Authority / region</th><th>Action</th></tr></thead><tbody>${records.map(record => `<tr><td><strong>${escapeHtml(record.name)}</strong><br><span style="font-size:11px;color:var(--text-secondary)">${escapeHtml(record.id)} · ${escapeHtml(record.kind)}</span></td><td>${escapeHtml(record.automation)}</td><td>${sourceStatusLabel(record.operationalStatus)}<br><span style="font-size:11px;color:var(--text-secondary)">${record.itemCount ?? 0} item(s)${record.error ? ` · ${escapeHtml(record.error)}` : ''}</span></td><td>${escapeHtml(record.authority)} · ${escapeHtml(record.region)}</td><td><button class="btn source-inspect" type="button" data-source-id="${escapeHtmlAttr(record.id)}">Inspect</button> <a href="${escapeHtmlAttr(record.canonicalUrl)}" target="_blank" rel="noopener">open</a></td></tr>`).join('')}</tbody></table>` : '<p style="color:var(--text-secondary)">No sources match the selected filters.</p>';
+      const selected = sourceCoverageRecords.find(record => record.id === sourceSelectedId);
+      document.getElementById('source-detail').innerHTML = selected ? `<div class="intel-card"><h4>${escapeHtml(selected.name)}</h4><div style="color:var(--text-secondary);font-size:12px">${sourceStatusLabel(selected.operationalStatus)} · ${escapeHtml(selected.provenance || 'provenance not recorded')}</div><p style="margin:8px 0"><a href="${escapeHtmlAttr(selected.canonicalUrl)}" target="_blank" rel="noopener">${escapeHtml(selected.canonicalUrl)}</a></p><pre style="white-space:pre-wrap;max-height:360px;overflow:auto">${escapeHtml(JSON.stringify(selected, null, 2))}</pre></div>` : '<p style="color:var(--text-secondary)">Select a source row to inspect its full structured record.</p>';
+      const gaps = Array.isArray(discovery.coverageGaps) ? discovery.coverageGaps : [];
+      document.getElementById('source-gaps').innerHTML = gaps.length ? `<div class="intel-card"><h4>Known coverage gaps</h4><ul>${gaps.map(gap => `<li>${escapeHtml(gap)}</li>`).join('')}</ul></div>` : '';
+    }
+
+    async function loadSourceCoverage() {
+      const table = document.getElementById('source-table');
+      table.innerHTML = '<p style="color:var(--text-secondary)">Loading source coverage…</p>';
+      try {
+        const response = await apiFetch('/api/sources');
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        sourceCoverageData = await response.json();
+        sourceCoverageRecords = sourceCoverageData.discovery?.sources || (sourceCoverageData.registry || []).map(source => ({ ...source, operationalStatus: 'not-checked', itemCount: 0 }));
+        renderSourceCoverage();
+      } catch (error) {
+        table.innerHTML = `<p style="color:#f97316">Source coverage unavailable: ${escapeHtml(error.message || error)}</p>`;
+      }
+    }
+
+    async function loadSourceJson() {
+      if (!sourceCoverageData) await loadSourceCoverage();
+      const output = document.getElementById('source-json-output');
+      output.textContent = sourceCoverageData ? JSON.stringify(sourceCoverageData, null, 2) : 'Source coverage unavailable.';
+    }
+
     // ─── News & Feeds / Developer: shared sub-tab wiring ─────────────
     //
     // Three top-level overlays (Code Analytics, News & Feeds, Developer)
@@ -2466,6 +2590,8 @@
       report: loadReport,
       api: loadApiExplorer,
       search: loadSearchAnalytics,
+      sources: loadSourceCoverage,
+      'source-json': loadSourceJson,
       // stats loads via the Code Analytics toggle-button open handler; compare/
       // history load via their own explicit "Compare"/"Load" button, not on tab-open.
     };
@@ -2488,7 +2614,43 @@
     }
     initTabbedOverlay('analytics-overlay');
     initTabbedOverlay('feeds-overlay');
+    initTabbedOverlay('sources-overlay');
     initTabbedOverlay('dev-overlay');
+
+    document.getElementById('sources-toggle').addEventListener('click', () => {
+      const overlay = document.getElementById('sources-overlay');
+      const wasOpen = overlay.classList.contains('open');
+      closeAllOverlays();
+      if (!wasOpen) {
+        overlay.classList.add('open');
+        document.getElementById('sources-toggle').classList.add('active');
+        if (!tabLoaded.sources) { tabLoaded.sources = true; loadSourceCoverage(); }
+      }
+    });
+
+    document.getElementById('source-filter').addEventListener('input', renderSourceCoverage);
+    document.getElementById('source-automation-filter').addEventListener('change', renderSourceCoverage);
+    document.getElementById('source-status-filter').addEventListener('change', renderSourceCoverage);
+    document.getElementById('source-refresh').addEventListener('click', loadSourceCoverage);
+    document.getElementById('source-table').addEventListener('click', event => {
+      const button = event.target.closest('.source-inspect');
+      if (!button) return;
+      sourceSelectedId = button.dataset.sourceId;
+      renderSourceCoverage();
+    });
+    document.getElementById('source-download').addEventListener('click', () => {
+      if (sourceCoverageData) downloadStructuredJson('crescent-city-source-coverage.json', { ...sourceCoverageData, filteredSources: filteredSourceCoverageRecords() });
+    });
+    document.getElementById('source-json-download').addEventListener('click', () => {
+      if (sourceCoverageData) downloadStructuredJson('crescent-city-source-envelope.json', sourceCoverageData);
+    });
+    document.getElementById('source-json-copy').addEventListener('click', async event => {
+      if (!sourceCoverageData) await loadSourceJson();
+      if (!sourceCoverageData) return;
+      await navigator.clipboard?.writeText(JSON.stringify(sourceCoverageData, null, 2));
+      event.currentTarget.textContent = 'Copied';
+      document.getElementById('source-json-state').textContent = 'Structured source envelope copied.';
+    });
 
     document.getElementById('feeds-toggle').addEventListener('click', () => {
       const overlay = document.getElementById('feeds-overlay');
@@ -2743,6 +2905,7 @@
     // ─ API Explorer ─
     const apiEndpoints = [
       {method:'GET', path:'/api/health', desc:'Health + staleness + alert level'},
+      {method:'GET', path:'/api/metadata', desc:'Build, provider, artifact, and source lineage'},
       {method:'GET', path:'/api/toc', desc:'Table of contents tree'},
       {method:'GET', path:'/api/stats', desc:'Code statistics'},
       {method:'GET', path:'/api/stats/count', desc:'Lightweight section count'},
@@ -2763,6 +2926,8 @@
       {method:'GET', path:'/api/cross-refs/validate', desc:'Cross-reference validation'},
       {method:'GET', path:'/api/search/analytics', desc:'Search term analytics'},
       {method:'GET', path:'/api/report/latest', desc:'Monthly civic health report (Markdown)'},
+      {method:'GET', path:'/api/report/latest.json', desc:'Machine-readable report metadata'},
+      {method:'GET', path:'/api/curation/status', desc:'LLM curation provider and retry metadata'},
       {method:'POST', path:'/api/chat/stream', desc:'Streaming RAG chat (SSE)'},
       {method:'GET', path:'/api/fuzzy?q=harbr', desc:'Fuzzy search suggestions'},
       {method:'GET', path:'/api/openapi.yaml', desc:'OpenAPI 3.0.3 spec'},

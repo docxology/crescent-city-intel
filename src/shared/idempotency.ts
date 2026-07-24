@@ -94,6 +94,11 @@ export class IdempotencyStore {
     return this.records.has(id);
   }
 
+  /** Read a retained record without mutating the store. */
+  get(id: string): IdempotencyRecord | undefined {
+    return this.records.get(id);
+  }
+
   /**
    * Check-and-record in one step. Always records the current observation
    * (new id, or an updated hash/lastSeen for an existing id).

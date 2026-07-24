@@ -533,6 +533,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/curation/status:
+    get:
+      summary: Get the latest curation run metadata
+      description: Returns provider, model, input fingerprint, success, and retryable-failure counts for the latest curation batch.
+      operationId: getCurationStatus
+      tags: [Monitoring, AI / Summarization]
+      responses:
+        '200':
+          description: Curation run metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurationRunReport'
+        '404':
+          description: No curation run has been recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/sections:
     get:
       summary: List sections with hierarchical filters
@@ -725,6 +744,57 @@ paths:
                 properties:
                   count: {type: integer, example: 2194}
         '404': {description: Manifest not found}
+
+  /api/metadata:
+    get:
+      summary: Get build, provider, artifact, and source-lineage metadata
+      description: Returns non-secret runtime metadata and the aggregate source-health summary used to interpret other responses.
+      operationId: getSystemMetadata
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: System metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemMetadata'
+  /api/sources:
+    get:
+      summary: Get the canonical Crescent City source registry and latest joins
+      description: Returns discovered sources, automation boundaries, provenance, and known source-health records. Discovery-only sources are not represented as healthy unless a monitor checked them.
+      operationId: getSourceRegistry
+      tags:
+        - Source Discovery
+      parameters:
+        - name: format
+          in: query
+          required: false
+          description: Set to csv for a downloadable flat source-coverage export; JSON is the default.
+          schema: {type: string, enum: [json, csv], default: json}
+      responses:
+        '200':
+          description: Source registry and discovery report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRegistryResponse'
+            text/csv:
+              schema: {type: string}
+  /api/source-discovery:
+    get:
+      summary: Get the latest source discovery coverage report
+      description: Returns the durable registry fingerprint, coverage counts, gaps, and per-source operational join state.
+      operationId: getSourceDiscovery
+      tags:
+        - Source Discovery
+      responses:
+        '200':
+          description: Source discovery report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceDiscoveryReport'
 
   # ─── v2.0 Intelligence Endpoints ──────────────────────────────────
 
@@ -1129,6 +1199,26 @@ paths:
               schema: {type: string}
         '404': {description: No reports generated}
 
+  /api/report/latest.json:
+    get:
+      summary: Get machine-readable metadata for the latest report
+      description: Returns period bounds, metrics, source-health summary, warnings, and artifact paths for the latest monthly civic health report.
+      operationId: getLatestReportMetadata
+      tags: [Reporting]
+      responses:
+        '200':
+          description: Latest report metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonthlyReportMetadata'
+        '404':
+          description: No report metadata has been generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/search/analytics:
     get:
       summary: Search analytics
@@ -1305,17 +1395,45 @@ components:
           items:
             type: object
             properties:
+              sourceType:
+                type: string
+                enum: [municipal_code, youtube_transcript]
+              sectionGuid:
+                type: string
               sectionNumber:
                 type: string
-              title:
+              sectionTitle:
                 type: string
-              content:
+              snippet:
+                type: string
+              score:
+                type: number
+                format: float
+              videoId:
+                type: string
+              timestamp:
                 type: string
         model:
           type: string
         provider:
           type: string
           enum: [ollama, openrouter]
+        queryId:
+          type: string
+        metadata:
+          type: object
+          required: [generatedAt, latencyMs, retrievalCount, requestedTopK, contextFingerprint, grounded, embeddingProvider, embeddingModel, vectorStore, collection]
+          properties:
+            generatedAt: {type: string, format: date-time}
+            latencyMs: {type: number, minimum: 0}
+            retrievalCount: {type: integer, minimum: 0}
+            requestedTopK: {type: integer, minimum: 0}
+            contextFingerprint: {type: string}
+            grounded: {type: boolean}
+            embeddingProvider: {type: string, enum: [ollama]}
+            embeddingModel: {type: string}
+            vectorStore: {type: string, enum: [chroma]}
+            collection: {type: string}
     ErrorResponse:
       type: object
       properties:
@@ -1323,6 +1441,135 @@ components:
           type: string
         message:
           type: string
+    SourceHealthSummary:
+      type: object
+      required: [checkedAt, total, ok, empty, unavailable, stale, degraded, sources]
+      properties:
+        checkedAt: {type: string, format: date-time}
+        total: {type: integer, minimum: 0}
+        ok: {type: integer, minimum: 0}
+        empty: {type: integer, minimum: 0}
+        unavailable: {type: integer, minimum: 0}
+        stale: {type: integer, minimum: 0}
+        degraded: {type: integer, minimum: 0}
+        sources: {type: array, items: {type: string}}
+    SourceDefinition:
+      type: object
+      required: [id, name, kind, authority, region, canonicalUrl, discoveredFrom, collectionMode, automation, enabled, provenance]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        kind: {type: string}
+        authority: {type: string, enum: [official, public_agency, journalistic, reference]}
+        region: {type: string}
+        canonicalUrl: {type: string, format: uri}
+        endpointUrl: {type: string, format: uri, nullable: true}
+        discoveredFrom: {type: array, items: {type: string, format: uri}}
+        collectionMode: {type: string}
+        automation: {type: string, enum: [monitored, discovery-only, reference-only]}
+        enabled: {type: boolean}
+        configuredMonitor: {type: string, nullable: true}
+        referenceOnly: {type: boolean}
+        expectedCadence: {type: string, nullable: true}
+        provenance: {type: string}
+        notes: {type: string, nullable: true}
+    SourceDiscoveryRecord:
+      allOf:
+        - $ref: '#/components/schemas/SourceDefinition'
+        - type: object
+          required: [operationalStatus, itemCount]
+          properties:
+            operationalStatus: {type: string, enum: [ok, empty, unavailable, stale, not-checked]}
+            checkedAt: {type: string, format: date-time, nullable: true}
+            itemCount: {type: integer, minimum: 0}
+            error: {type: string, nullable: true}
+            healthSource: {type: string, nullable: true}
+    SourceDiscoveryReport:
+      type: object
+      required: [schemaVersion, generatedAt, scope, registryFingerprint, changed, sourceCount, monitoredCount, discoveryOnlyCount, referenceOnlyCount, enabledCount, sources]
+      properties:
+        schemaVersion: {type: string, example: "1.0.0"}
+        generatedAt: {type: string, format: date-time}
+        scope: {type: string}
+        registryFingerprint: {type: string, minLength: 64, maxLength: 64}
+        previousFingerprint: {type: string, nullable: true}
+        changed: {type: boolean}
+        sourceCount: {type: integer, minimum: 0}
+        monitoredCount: {type: integer, minimum: 0}
+        discoveryOnlyCount: {type: integer, minimum: 0}
+        referenceOnlyCount: {type: integer, minimum: 0}
+        enabledCount: {type: integer, minimum: 0}
+        countsByKind: {type: object, additionalProperties: {type: integer}}
+        countsByAuthority: {type: object, additionalProperties: {type: integer}}
+        coverageGaps: {type: array, items: {type: string}}
+        sources: {type: array, items: {$ref: '#/components/schemas/SourceDiscoveryRecord'}}
+    SourceRegistryResponse:
+      type: object
+      required: [schemaVersion, registryFingerprint, registry, discovery, sourceHealth]
+      properties:
+        schemaVersion: {type: string, example: "1.0.0"}
+        registryFingerprint: {type: string}
+        registry: {type: array, items: {$ref: '#/components/schemas/SourceDefinition'}}
+        discovery: {$ref: '#/components/schemas/SourceDiscoveryReport'}
+        sourceHealth: {$ref: '#/components/schemas/SourceHealthSummary'}
+    CurationRunReport:
+      type: object
+      properties:
+        schemaVersion: {type: string, example: "1.0.0"}
+        runId: {type: string}
+        startedAt: {type: string, format: date-time}
+        completedAt: {type: string, format: date-time}
+        provider: {type: string, enum: [ollama, openrouter, none]}
+        model: {type: string}
+        inputCount: {type: integer}
+        attemptedCount: {type: integer}
+        succeededCount: {type: integer}
+        retryableCount: {type: integer}
+        sourceOnlyCount: {type: integer}
+        outputPath: {type: string, nullable: true}
+        providerChecked: {type: boolean}
+        providerReachable: {type: boolean}
+        providerError: {type: string}
+    MonthlyReportMetadata:
+      type: object
+      properties:
+        schemaVersion: {type: string, example: "1.0.0"}
+        reportType: {type: string, example: monthly-civic-health}
+        period: {type: string, pattern: '^\d{4}-\d{2}$'}
+        generatedAt: {type: string, format: date-time}
+        periodStart: {type: string, format: date-time}
+        periodEnd: {type: string, format: date-time}
+        status: {type: string, enum: [ok, degraded, unavailable]}
+        metrics: {type: object, additionalProperties: {type: number}}
+        sourceHealth: {$ref: '#/components/schemas/SourceHealthSummary'}
+        sourceDiscovery:
+          type: object
+          properties:
+            registryFingerprint: {type: string}
+            sourceCount: {type: integer}
+            monitoredCount: {type: integer}
+            discoveryOnlyCount: {type: integer}
+            referenceOnlyCount: {type: integer}
+            coverageGaps: {type: array, items: {type: string}}
+        artifacts: {type: object, properties: {markdown: {type: string}, metadata: {type: string}}}
+        warnings: {type: array, items: {type: string}}
+    SystemMetadata:
+      type: object
+      properties:
+        schemaVersion: {type: string, example: "1.0.0"}
+        generatedAt: {type: string, format: date-time}
+        application: {type: object, properties: {name: {type: string}, version: {type: string}, commit: {type: string, nullable: true}, runtime: {type: string}}}
+        llm: {type: object, properties: {provider: {type: string}, chatModel: {type: string}, embeddingProvider: {type: string}, embeddingModel: {type: string}, vectorStore: {type: string}, collection: {type: string}}}
+        artifacts: {type: object, additionalProperties: {type: string, nullable: true}}
+        sourceHealth: {$ref: '#/components/schemas/SourceHealthSummary'}
+        sourceCoverage:
+          type: object
+          properties:
+            registryFingerprint: {type: string}
+            registryCount: {type: integer}
+            monitoredCount: {type: integer}
+            discoveryOnlyCount: {type: integer}
+            referenceOnlyCount: {type: integer}
     DomainSummary:
       type: object
       properties:

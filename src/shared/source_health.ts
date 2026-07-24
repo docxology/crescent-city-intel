@@ -1,8 +1,14 @@
 import { mkdir, rename, writeFile } from "fs/promises";
 import { dirname } from "path";
-import type { SourceHealth, SourceHealthStatus } from "../types.js";
+import type { SourceHealth, SourceHealthStatus, SourceHealthSummary } from "../types.js";
 
-export const SOURCE_FETCH_TIMEOUT_MS = Number(process.env.SOURCE_FETCH_TIMEOUT_MS ?? "10000");
+function positiveEnvNumber(name: string, fallback: number): number {
+  const value = Number(process.env[name] ?? fallback);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+export const SOURCE_FETCH_TIMEOUT_MS = positiveEnvNumber("SOURCE_FETCH_TIMEOUT_MS", 10000);
+export const DEFAULT_FRESHNESS_WINDOW_MS = positiveEnvNumber("SOURCE_FRESHNESS_WINDOW_MS", 24 * 60 * 60 * 1000);
 
 export function sourceHealth(
   source: string,
@@ -19,9 +25,34 @@ export function sourceHealth(
   };
   if (health.fetchedAt) {
     const ageMs = Date.parse(health.fetchedAt);
-    if (Number.isFinite(ageMs)) health.ageMs = Math.max(0, Date.now() - ageMs);
+    if (Number.isFinite(ageMs)) {
+      health.ageMs = Math.max(0, Date.now() - ageMs);
+      health.freshness = health.ageMs <= (health.freshnessWindowMs ?? DEFAULT_FRESHNESS_WINDOW_MS) ? "fresh" : "stale";
+    } else {
+      health.freshness = "unknown";
+    }
+  } else {
+    health.freshness = "unknown";
   }
   return health;
+}
+
+/** Aggregate source states without hiding unavailable or stale feeds. */
+export function summarizeSourceHealth(
+  sources: SourceHealth[],
+  checkedAt = new Date().toISOString(),
+): SourceHealthSummary {
+  const counts = { ok: 0, empty: 0, unavailable: 0, stale: 0 };
+  for (const source of sources) {
+    if (source.status in counts) counts[source.status] += 1;
+  }
+  return {
+    checkedAt,
+    total: sources.length,
+    ...counts,
+    degraded: counts.unavailable + counts.stale,
+    sources: sources.map(source => source.source).sort(),
+  };
 }
 
 export function errorMessage(error: unknown): string {

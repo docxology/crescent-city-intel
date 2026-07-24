@@ -1,6 +1,9 @@
 # Tests — `tests/`
 
-141 passing unit tests (zero-mock policy). Run: `bun test`
+Deterministic zero-mock tests cover pure logic, local HTTP fixtures, route
+contracts, public artifact boundaries, orchestration metadata, and provider
+degradation. The current total is emitted by Bun and verified by
+`bun run validate`; it is intentionally not duplicated here.
 
 ## Test Suite
 
@@ -16,6 +19,9 @@
 | `search.test.ts` | Full-text search engine | 8 |
 | `analytics.test.ts` | PCA, K-means | 7 |
 | `routes.test.ts` | API route handlers | 7 |
+| `metadata-routes.test.ts` | Metadata, curation-status, and report metadata routes | — |
+| `gui-interactivity.test.ts` | Local/Pages interaction contracts | — |
+| `orchestration.test.ts` | Source-health summaries and durable run envelopes | — |
 | `llm-config.test.ts` | LLM configuration | 8 |
 | `embeddings.test.ts` | Text chunking | 7 |
 | `export.test.ts` | Export formatting | 12 |
@@ -23,7 +29,7 @@
 | `monitor.test.ts` | Monitor report shape | 3 |
 | `news_monitor.test.ts` | RSS monitor error-path | 3 |
 | `gov_meeting_monitor.test.ts` | Meeting monitor + disk | 2 |
-| **Total** | | **141** |
+| **Total** | | Run `bun test` for the current verified total |
 
 ## Running
 

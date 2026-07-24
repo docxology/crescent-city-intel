@@ -83,27 +83,50 @@ actually expects, which broke the news monitor completely in normal use (no
 
 ## `src/gov_meeting_monitor.ts` — Government Meeting Tracker
 
-Scrapes city government website for upcoming agendas and meeting minutes from City Council, Planning Commission, and Harbor Commission.
+Pulls upcoming and recent-past agendas/minutes for City Council, Planning
+Commission, and (when a source exists — see below) Harbor Commission.
 
-### Sources
+### Sources (fixed 2026-07-24)
 
-| Body | URL |
+The old `crescentcity.org/government/{city-council,planning-commission,
+harbor-commission}/agendas` URLs 404 — the city migrated `crescentcity.org`
+to the EvoGov CMS at some point after this module was originally written.
+EvoGov's `/meetings` calendar is rendered client-side (the initial HTML
+contains no meeting data at all), but the widget itself calls a same-origin
+JSON endpoint to populate it. That endpoint — found by capturing real network
+traffic with Playwright against `https://www.crescentcity.org/meetings` — is
+what `fetchGovMeetings()` now calls directly:
+
+```
+GET https://www.crescentcity.org/meetings/get_list
+    ?selected_calendar_ids=685,739,666,670,689
+    &start_date=M/D/YYYY&end_date=M/D/YYYY
+    &search=&sort_order=date_start&current_webpage=meeting
+```
+
+It returns a flat JSON array of meeting objects (`title`, `start_date_short`,
+`agenda_links`, `minute_links`, etc. — see the `EvoGovMeetingItem` interface
+in `gov_meeting_monitor.ts`). City Council and Planning Commission meetings
+both live on the same underlying calendar ("Meetings and Events", id `666`)
+and are distinguished only by matching `title` against the source name, not
+by a separate URL or calendar id — confirmed against a full year of real
+response data.
+
+| Body | How it's identified |
 | :--- | :--- |
-| City Council | `crescentcity.org/government/city-council/agendas` |
-| Planning Commission | `crescentcity.org/government/planning-commission/agendas` |
-| Harbor Commission | `crescentcity.org/government/harbor-commission/agendas` |
+| City Council | `title` contains "City Council" (e.g. "City Council Meeting", "Special City Council Meeting") |
+| Planning Commission | `title` contains "Planning Commission" |
+| Harbor Commission | not present on this endpoint at all — see below |
 
-> **Known limitation (confirmed 2026-07-23)**: all three source URLs above
-> currently 404. The City of Crescent City migrated `crescentcity.org` to a
-> new CMS (evogov.com-based) at some point after this scraper module was
-> written, and the old `/government/*/agendas` URL scheme no longer exists.
-> A live check of `www.crescentcity.org` did not turn up an obvious
-> replacement agenda-portal URL — the one `evogov.com` subdomain link found
-> on the site, `crescentcityca.evogov.com`, does not resolve in DNS and
-> appears to be a dead link on the city's own site too. This is not
-> code-fixable without discovering the city's new agenda-portal URL; until
-> then `monitorGovMeetings()` runs cleanly but returns `[]` (see fix below —
-> it used to crash the caller instead).
+> **Harbor Commission has no known digital agenda source right now**
+> (confirmed 2026-07-24). It doesn't appear anywhere in a full year of the
+> EvoGov feed's `title` values, and its own domain
+> (`crescentcityharbor.com` / `www.crescentcityharbor.com`, linked from this
+> project's own README) no longer resolves in DNS at all. `GOV_SOURCES`
+> keeps a "Harbor Commission" entry pointed at the same EvoGov endpoint so
+> the monitor honestly reports 0 matches every run rather than 404ing —
+> finding a real source (a successor domain, a county/harbor-district
+> portal) needs manual research, not more scraping code.
 
 ### Change Detection
 

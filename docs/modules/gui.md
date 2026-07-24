@@ -102,6 +102,21 @@ Server-side computation of municipal code statistics and PCA embedding projectio
 
 Single-file SPA with no build step.
 
+### Navigation (redesigned 2026-07-24)
+
+Six top-level nav buttons, each a distinct, non-overlapping purpose. Exactly one overlay is ever open at a time — every button calls a shared `closeAllOverlays()` before opening its own, so switching tabs never leaves a stale panel open behind the new one (previously only one of the four buttons did this closing, asymmetrically).
+
+| Tab | Contains | Sub-tabs |
+| :--- | :--- | :--- |
+| 📖 **Code** | Not an overlay — resets to the TOC/section-viewer view (the default landing state) | — |
+| 📊 **Code Analytics** | Tools for analyzing the municipal code itself | Stats & Charts, Readability, Glossary, Cross-Refs, Domains, Compare Sections, Legislative History |
+| 📰 **News & Feeds** | Everything sourced from *outside* the code — the actual "news sources" (RSS, government meeting agendas, YouTube transcripts) | Civic Dashboard, News Feed, Monthly Report |
+| 🚨 **Alerts** | The 8 real-time safety monitors + their timeline (previously the timeline duplicated as a separate Intelligence sub-tab) | — (single panel) |
+| 💬 **Chat** | RAG assistant over the code + transcripts | — |
+| 🔌 **Developer** | Meta/dev-facing tools, not end-user civic content | API Explorer, Search Analytics |
+
+Before this pass, all of Code Analytics/News & Feeds/Developer's content lived flattened under one 12-tab "🧠 Intelligence" button with no grouping — a user had no way to tell, from the tab bar alone, that e.g. the Glossary (a code tool) and the Curated Feed (actual news) were unrelated kinds of content sharing one label.
+
 ### Features
 
 | Feature | Description |

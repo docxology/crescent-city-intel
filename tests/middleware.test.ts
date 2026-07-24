@@ -96,3 +96,41 @@ describe("middleware — path helpers", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("middleware — isTrustedLocalIp (gates whether gui/server.ts hands the real API key to a requester)", () => {
+  test("loopback and private-LAN addresses are trusted", async () => {
+    const { isTrustedLocalIp } = await import("../src/api/middleware.ts");
+    expect(isTrustedLocalIp("127.0.0.1")).toBe(true);
+    expect(isTrustedLocalIp("::1")).toBe(true);
+    expect(isTrustedLocalIp("192.168.1.50")).toBe(true);
+    expect(isTrustedLocalIp("10.0.0.5")).toBe(true);
+  });
+
+  test("a public IP is not trusted", async () => {
+    const { isTrustedLocalIp } = await import("../src/api/middleware.ts");
+    expect(isTrustedLocalIp("203.0.113.42")).toBe(false);
+    expect(isTrustedLocalIp("unknown")).toBe(false);
+  });
+});
+
+describe("middleware — resolveIp", () => {
+  test("proxy headers take priority over the socket fallback", async () => {
+    const { resolveIp } = await import("../src/api/middleware.ts");
+    const req = new Request("http://localhost:3000/api/stats", {
+      headers: { "x-real-ip": "203.0.113.42" },
+    });
+    expect(resolveIp(req, "127.0.0.1")).toBe("203.0.113.42");
+  });
+
+  test("falls back to the socket address when no proxy header is present", async () => {
+    const { resolveIp } = await import("../src/api/middleware.ts");
+    const req = new Request("http://localhost:3000/api/stats");
+    expect(resolveIp(req, "127.0.0.1")).toBe("127.0.0.1");
+  });
+
+  test("falls back to 'unknown' when neither a header nor a socket address is available", async () => {
+    const { resolveIp } = await import("../src/api/middleware.ts");
+    const req = new Request("http://localhost:3000/api/stats");
+    expect(resolveIp(req, undefined)).toBe("unknown");
+  });
+});

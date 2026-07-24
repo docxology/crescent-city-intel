@@ -933,7 +933,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       // Retrieve context from ChromaDB
       const { ollama, chroma } = llm;
-      const ollamaHealthy = await ollama.healthCheck();
+      const ollamaHealthy = await ollama.isOllamaRunning();
       if (!ollamaHealthy) return json({ error: "Ollama is not running" }, 503);
 
       const queryEmbedding = await ollama.embed(q);
@@ -951,6 +951,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const { createStreamingRagResponse } = await import("../llm/streaming_rag.js");
       return createStreamingRagResponse(q, { sources, context }, llmConfig.chatModel);
     } catch (err: any) {
+      log.error(`Streaming chat failed`, { error: err.message });
       return json({ error: `Streaming chat failed: ${err.message}` }, 500);
     }
   }

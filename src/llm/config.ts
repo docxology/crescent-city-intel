@@ -29,6 +29,15 @@ export const llmConfig = {
   /** OpenRouter HTTP timeout in milliseconds */
   openrouterTimeoutMs: Number(process.env.OPENROUTER_TIMEOUT_MS ?? "120000"),
 
+  /** Minimum spacing between sequential OpenRouter requests within one curation
+   *  run. The free-tier default model caps at ~20 req/min account-wide; a
+   *  batch of new items curated back-to-back with no spacing burns through
+   *  that in seconds (confirmed live 2026-07-24: a 34-item batch got a 429
+   *  "Rate limit exceeded: free-models-per-min" on nearly every item after
+   *  the first). Ollama has no such external limit, so this only matters
+   *  when provider=openrouter. */
+  openrouterMinRequestIntervalMs: Number(process.env.OPENROUTER_MIN_REQUEST_INTERVAL_MS ?? "3100"),
+
   /** ChromaDB server URL */
   chromaUrl: process.env.CHROMA_URL ?? "http://localhost:8001",
 

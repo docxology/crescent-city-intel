@@ -3,7 +3,7 @@
 import { handleApiRoute } from "./routes.js";
 import { initSearch } from "./search.js";
 import { createLogger } from "../logger.js";
-import { applyMiddleware } from "../api/middleware.ts";
+import { applyMiddleware, getPrimaryApiKey, resolveIp, isTrustedLocalIp } from "../api/middleware.ts";
 
 const log = createLogger("gui");
 
@@ -33,6 +33,26 @@ async function maybeCompress(res: Response, acceptEncoding: string | null): Prom
   return new Response(compressed, { status: res.status, headers });
 }
 
+/**
+ * Serve index.html, injecting the live API key ONLY for loopback/LAN
+ * requesters so the page's own fetch() calls can authenticate.
+ *
+ * The key is embedded in page source, visible via view-source/devtools to
+ * anyone who loads the URL — fine for the same trust boundary the rate
+ * limiter already grants local traffic, but a real key exposure if handed to
+ * an arbitrary remote visitor on a publicly-deployed instance (this repo
+ * ships a Dockerfile). A remote requester gets the placeholder left
+ * unsubstituted, so `apiFetch()`'s `hasKey` check is false and it falls back
+ * to an unauthenticated fetch — i.e. remote visitors see exactly the
+ * pre-fix behavior (protected panels 401, public ones work), not a leaked key.
+ */
+async function serveIndexHtml(callerIp: string): Promise<Response> {
+  const raw = await Bun.file(`${STATIC_DIR}index.html`).text();
+  const key = isTrustedLocalIp(callerIp) ? getPrimaryApiKey() : "";
+  const html = raw.replace("__CC_API_KEY_INJECT__", key);
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
 // Pre-load search index
 await initSearch();
 
@@ -47,15 +67,20 @@ const server = Bun.serve({
   // Confirmed live: curl to /api/chat hung/dropped every time until this was
   // raised. 120s covers a slow cold-start model load plus generation.
   idleTimeout: 120,
-  async fetch(req) {
+  async fetch(req, server) {
     const url = new URL(req.url);
+    // Real socket address (not a proxy header) — a direct local browser
+    // request never sends x-forwarded-for/x-real-ip, so without this neither
+    // the rate limiter nor the key-injection trust check below can tell it's
+    // loopback traffic. See resolveIp()/isTrustedLocalIp() in api/middleware.ts.
+    const socketIp = server.requestIP(req)?.address;
 
     // API routes — middleware (rate limiting / API key auth) applies only here.
     // It must not run for static asset / SPA requests below: PUBLIC_PATHS and
     // BYPASS_PATHS are both "/api/..."-scoped, so applying it unconditionally
     // (as before) 401'd every page load, including "/" itself.
     if (url.pathname.startsWith("/api/")) {
-      const middlewareResponse = await applyMiddleware(req);
+      const middlewareResponse = await applyMiddleware(req, socketIp);
       if (middlewareResponse !== null) {
         return middlewareResponse;
       }
@@ -63,15 +88,20 @@ const server = Bun.serve({
       return maybeCompress(apiRes, req.headers.get("Accept-Encoding"));
     }
 
+    const callerIp = resolveIp(req, socketIp);
+
     // Static files
-    let filePath = `${STATIC_DIR}${url.pathname === "/" ? "index.html" : url.pathname}`;
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      return serveIndexHtml(callerIp);
+    }
+    const filePath = `${STATIC_DIR}${url.pathname}`;
     const file = Bun.file(filePath);
     if (await file.exists()) {
       return new Response(file);
     }
 
     // SPA fallback
-    return new Response(Bun.file(`${STATIC_DIR}index.html`));
+    return serveIndexHtml(callerIp);
   },
   error(err) {
     // Catch EADDRINUSE (port already in use) and give a helpful message

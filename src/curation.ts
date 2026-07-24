@@ -248,7 +248,14 @@ export async function runCuration(): Promise<CuratedItem[]> {
   }
 
   const curated: CuratedItem[] = [];
-  for (const item of toCurate) {
+  for (const [i, item] of toCurate.entries()) {
+    // Space out requests when using OpenRouter so a burst of new items
+    // doesn't blow through the free-tier per-minute rate limit and degrade
+    // every item to "summary unavailable" (see openrouterMinRequestIntervalMs
+    // doc comment in llm/config.ts). Ollama has no such external limit.
+    if (i > 0 && llmConfig.provider === 'openrouter') {
+      await new Promise((resolve) => setTimeout(resolve, llmConfig.openrouterMinRequestIntervalMs));
+    }
     const summary = await summarizeItem(item);
     const tags = tagWithDomains(item);
     curated.push({

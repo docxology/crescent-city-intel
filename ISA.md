@@ -1,11 +1,11 @@
 ---
 project: crescent-city-intel
-effort: E5
-phase: plan
-progress: 0/0
+effort: E4
+phase: verify
+progress: 76/76
 mode: algorithm
 started: 2026-07-23
-updated: 2026-07-23
+updated: 2026-07-24
 ---
 
 ## Problem
@@ -109,77 +109,100 @@ idempotency store that every monitor — old and new — uses, all verified by r
 ## Criteria
 
 ### Shared idempotency store (foundation — built first, existing monitors migrate onto it)
-- [ ] ISC-1: `src/shared/idempotency.ts` exists exporting a store keyed by stable ID + content hash
-- [ ] ISC-2: Store persists to a JSON file with atomic write (temp file + rename, no partial-write corruption)
-- [ ] ISC-3: Store exposes `has(id)`, `seen(id, hash)` (true if id+hash both match prior), `record(id, hash, meta)`
-- [ ] ISC-4: Store caps retained entries (mirrors existing `news_monitor.ts` 10,000-entry cap) to bound file growth
-- [ ] ISC-5: A migration script reads existing `output/news/seen-ids.json` into the new store format without data loss
-- [ ] ISC-6: A migration script reads the existing gov-meeting in-memory cache's persisted form (if any) into the new store
-- [ ] ISC-7: `news_monitor.ts` is refactored to call the shared store instead of its private `loadSeenIds`/`saveSeenIds`
-- [ ] ISC-8: `gov_meeting_monitor.ts` is refactored to call the shared store instead of `PROCESSED_MEETING_CACHE`
-- [ ] ISC-9: Unit tests cover: first-seen item recorded, re-seen identical item skipped, re-seen changed-content item flagged as changed (not skipped)
-- [ ] ISC-10: Anti: Anti-criterion — re-running any monitor twice against unchanged upstream data produces zero new output files and zero duplicate log entries
-- [ ] ISC-11: Anti: Anti-criterion — the migration does not cause any currently-seen item to be reprocessed as new on first run after migration
+- [x] ISC-1: `src/shared/idempotency.ts` exists exporting a store keyed by stable ID + content hash
+- [x] ISC-2: Store persists to a JSON file with atomic write (temp file + rename, no partial-write corruption)
+- [x] ISC-3: Store exposes `has(id)`, `seen(id, hash)` (true if id+hash both match prior), `record(id, hash, meta)`
+- [x] ISC-4: Store caps retained entries (mirrors existing `news_monitor.ts` 10,000-entry cap) to bound file growth
+- [x] ISC-5: A migration script reads existing `output/news/seen-ids.json` into the new store format without data loss
+- [x] ISC-6: A migration script reads the existing gov-meeting in-memory cache's persisted form (if any) into the new store
+- [x] ISC-7: `news_monitor.ts` is refactored to call the shared store instead of its private `loadSeenIds`/`saveSeenIds`
+- [x] ISC-8: `gov_meeting_monitor.ts` is refactored to call the shared store instead of `PROCESSED_MEETING_CACHE`
+- [x] ISC-9: Unit tests cover: first-seen item recorded, re-seen identical item skipped, re-seen changed-content item flagged as changed (not skipped)
+- [x] ISC-10: Anti: Anti-criterion — re-running any monitor twice against unchanged upstream data produces zero new output files and zero duplicate log entries
+- [x] ISC-11: Anti: Anti-criterion — the migration does not cause any currently-seen item to be reprocessed as new on first run after migration
 
 ### YouTube meeting transcript pipeline
-- [ ] ISC-12: `src/youtube_monitor.ts` lists recent videos from the confirmed channel via `yt-dlp --flat-playlist`
-- [ ] ISC-13: Channel video listing is idempotency-keyed by YouTube video ID through the shared store
-- [ ] ISC-14: For each new video, auto-captions are fetched via `yt-dlp --skip-download --write-auto-sub` with the confirmed working extractor-args
-- [ ] ISC-15: VTT caption output is parsed into plain-text transcript with timestamps preserved per segment
-- [ ] ISC-16: A video with no available captions is recorded as `transcript: unavailable` (not silently dropped, not a crash)
-- [ ] ISC-17: A `yt-dlp` extraction failure (exit code, "not available", or challenge-solving error) is logged distinctly from "no captions" so the two failure modes are distinguishable in output
-- [ ] ISC-18: Transcript output is written to `output/youtube/<video-id>.json` with title, upload date, channel, duration, and transcript segments
-- [ ] ISC-19: Transcript text is chunked using the existing `llmConfig.chunkSize`/`chunkOverlap` convention and indexed into ChromaDB alongside municipal code chunks (or a clearly-labeled sibling collection)
-- [ ] ISC-20: RAG citations distinguish a municipal-code source from a YouTube-transcript source in the response (different citation format/label)
-- [ ] ISC-21: `scripts/run-youtube.ts` entry point + `package.json` `"youtube"` script wired identically to existing `run-news.ts`/`run-meetings.ts` pattern
-- [ ] ISC-22: Unit test covers VTT-to-plain-text parsing against a real captured fixture (the actual VTT sampled live 2026-07-23 from video `5FCYI7rt0_4`, trimmed)
-- [ ] ISC-23: Unit test covers the "no captions available" path using a fixture video with empty subtitle response
-- [ ] ISC-24: Anti: Anti-criterion — a caption-format or extractor-args regression fails loud (non-zero exit / logged error) rather than silently producing zero transcripts that get treated as "no new videos"
+- [x] ISC-12: `src/youtube_monitor.ts` lists recent videos from the confirmed channel via `yt-dlp --flat-playlist`
+- [x] ISC-13: Channel video listing is idempotency-keyed by YouTube video ID through the shared store
+- [x] ISC-14: For each new video, auto-captions are fetched via `yt-dlp --skip-download --write-auto-sub` with the confirmed working extractor-args
+- [x] ISC-15: VTT caption output is parsed into plain-text transcript with timestamps preserved per segment
+- [x] ISC-16: A video with no available captions is recorded as `transcript: unavailable` (not silently dropped, not a crash)
+- [x] ISC-17: A `yt-dlp` extraction failure (exit code, "not available", or challenge-solving error) is logged distinctly from "no captions" so the two failure modes are distinguishable in output
+- [x] ISC-18: Transcript output is written to `output/youtube/<video-id>.json` with title, upload date, channel, duration, and transcript segments
+- [x] ISC-19: Transcript text is chunked using the existing `llmConfig.chunkSize`/`chunkOverlap` convention and indexed into ChromaDB alongside municipal code chunks (or a clearly-labeled sibling collection)
+- [x] ISC-20: RAG citations distinguish a municipal-code source from a YouTube-transcript source in the response (different citation format/label)
+- [x] ISC-21: `scripts/run-youtube.ts` entry point + `package.json` `"youtube"` script wired identically to existing `run-news.ts`/`run-meetings.ts` pattern
+- [x] ISC-22: Unit test covers VTT-to-plain-text parsing against a real captured fixture (the actual VTT sampled live 2026-07-23 from video `5FCYI7rt0_4`, trimmed)
+- [x] ISC-23: Unit test covers the "no captions available" path using a fixture video with empty subtitle response
+- [x] ISC-24: Anti: Anti-criterion — a caption-format or extractor-args regression fails loud (non-zero exit / logged error) rather than silently producing zero transcripts that get treated as "no new videos"
 
 ### Redwood Voice RSS integration
-- [ ] ISC-25: `NEWS_FEEDS` in `news_monitor.ts` gains a `'Redwood Voice': 'https://www.redwoodvoice.org/feed/'` entry
-- [ ] ISC-26: Existing dedup/relevance-filter logic applies to Redwood Voice items with no source-specific branching required (confirms the existing abstraction actually generalizes)
-- [ ] ISC-27: Test fixture captures a real Redwood Voice RSS item shape (title/link/pubDate/description) and asserts it parses identically to the other 4 feeds
-- [ ] ISC-28: `docs/modules/monitoring.md` and `TODO.md` Phase 4.1 updated to reflect Redwood Voice is live, not backlog
+- [x] ISC-25: `NEWS_FEEDS` in `news_monitor.ts` gains a `'Redwood Voice': 'https://www.redwoodvoice.org/feed/'` entry
+- [x] ISC-26: Existing dedup/relevance-filter logic applies to Redwood Voice items with no source-specific branching required (confirms the existing abstraction actually generalizes)
+- [x] ISC-27: Test fixture captures a real Redwood Voice RSS item shape (title/link/pubDate/description) and asserts it parses identically to the other 4 feeds
+- [x] ISC-28: `docs/modules/monitoring.md` and `TODO.md` Phase 4.1 updated to reflect Redwood Voice is live, not backlog
 
 ### Triplicate.com integration (Cloudflare-protected, no RSS)
-- [ ] ISC-29: `src/triplicate_monitor.ts` uses `browser.ts`'s `navigateWithCloudflare`/`newPage` to load the Triplicate homepage/section page
-- [ ] ISC-30: Article links + titles are extracted via cheerio from the rendered page HTML
-- [ ] ISC-31: Extracted items are deduped/idempotency-keyed by normalized URL through the shared store, same as RSS-based news
-- [ ] ISC-32: A Cloudflare-stall or navigation timeout is caught via the existing `scraper_utils.ts` retry/backoff, not left to crash the monitor run
-- [ ] ISC-33: Content stored/indexed carries a `usage: reference-only` tag or code comment noting the robots.txt AI-train restriction is respected (RAG citation, never fine-tuning input)
-- [ ] ISC-34: Anti: Anti-criterion — if Triplicate's Cloudflare bypass stops working (site change), the monitor logs a clear failure rather than silently returning zero articles indistinguishable from "no new articles today"
+- [x] ISC-29: `src/triplicate_monitor.ts` uses `browser.ts`'s `navigateWithCloudflare`/`newPage` to load the Triplicate homepage/section page
+- [x] ISC-30: Article links + titles are extracted via cheerio from the rendered page HTML
+- [x] ISC-31: Extracted items are deduped/idempotency-keyed by normalized URL through the shared store, same as RSS-based news
+- [x] ISC-32: A Cloudflare-stall or navigation timeout is caught via the existing `scraper_utils.ts` retry/backoff, not left to crash the monitor run
+- [x] ISC-33: Content stored/indexed carries a `usage: reference-only` tag or code comment noting the robots.txt AI-train restriction is respected (RAG citation, never fine-tuning input)
+- [x] ISC-34: Anti: Anti-criterion — if Triplicate's Cloudflare bypass stops working (site change), the monitor logs a clear failure rather than silently returning zero articles indistinguishable from "no new articles today"
 
 ### Facebook — decision-gated, not unconditionally built
-- [ ] ISC-35: `## Decisions` records the user's explicit choice among: (a) skip entirely, (b) low-frequency manual/human-reviewed check via the user's own logged-in Interceptor browser session (no automated bot-detection evasion), (c) pursue Meta Graph API Page Public Content Access (requires app review, likely slow/uncertain)
-- [ ] ISC-36: If (b) or (c) chosen, a follow-up scoped build task is created — not built speculatively in this pass
-- [ ] ISC-37: Anti: Anti-criterion — no code in this pass performs automated Facebook scraping that requires defeating bot-detection or holding a scraping session against a personal/non-city-owned login
+- [x] ISC-35: `## Decisions` records the user's explicit choice among: (a) skip entirely, (b) low-frequency manual/human-reviewed check via the user's own logged-in Interceptor browser session (no automated bot-detection evasion), (c) pursue Meta Graph API Page Public Content Access (requires app review, likely slow/uncertain)
+- [x] ISC-36: If (b) or (c) chosen, a follow-up scoped build task is created — not built speculatively in this pass
+- [x] ISC-37: Anti: Anti-criterion — no code in this pass performs automated Facebook scraping that requires defeating bot-detection or holding a scraping session against a personal/non-city-owned login
 
 ### OpenRouter LLM provider
-- [ ] ISC-38: `src/llm/openrouter.ts` implements chat completion against `https://openrouter.ai/api/v1/chat/completions` mirroring `ollama.ts`'s exported function signatures
-- [ ] ISC-39: `llmConfig` gains `provider: 'ollama' | 'openrouter'` (env-driven, default `ollama` — no behavior change for existing users)
-- [ ] ISC-40: `OPENROUTER_API_KEY` is read from env; its absence with `provider=openrouter` fails fast with a clear setup message (mirrors existing Ollama/ChromaDB preflight pattern in `llm/index.ts`)
-- [ ] ISC-41: A per-run token/request cap or cost ceiling config exists so curation cannot run away unbounded against a paid API
-- [ ] ISC-42: `docs/setup.md` environment variable table gains `OPENROUTER_API_KEY` and `LLM_PROVIDER` rows
-- [ ] ISC-43: Unit test covers the OpenRouter request/response shape against a local `pytest-httpserver`-equivalent (real local HTTP fixture server, per repo's no-mocks convention) rather than the live API
-- [ ] ISC-44: Anti: Anti-criterion — no OpenRouter call is made in any test or default code path without the env var explicitly set — no accidental billed calls from `bun test`
+- [x] ISC-38: `src/llm/openrouter.ts` implements chat completion against `https://openrouter.ai/api/v1/chat/completions` mirroring `ollama.ts`'s exported function signatures
+- [x] ISC-39: `llmConfig` gains `provider: 'ollama' | 'openrouter'` (env-driven, default `ollama` — no behavior change for existing users)
+- [x] ISC-40: `OPENROUTER_API_KEY` is read from env; its absence with `provider=openrouter` fails fast with a clear setup message (mirrors existing Ollama/ChromaDB preflight pattern in `llm/index.ts`)
+- [x] ISC-41: A per-run token/request cap or cost ceiling config exists so curation cannot run away unbounded against a paid API
+- [x] ISC-42: `docs/setup.md` environment variable table gains `OPENROUTER_API_KEY` and `LLM_PROVIDER` rows
+- [x] ISC-43: Unit test covers the OpenRouter request/response shape against a local `pytest-httpserver`-equivalent (real local HTTP fixture server, per repo's no-mocks convention) rather than the live API
+- [x] ISC-44: Anti: Anti-criterion — no OpenRouter call is made in any test or default code path without the env var explicitly set — no accidental billed calls from `bun test`
 
 ### Curation pipeline (unifies sources into a reviewable, LLM-summarized feed)
-- [ ] ISC-45: `src/curation.ts` (or `llm/curation.ts`) reads newly-idempotency-recorded items across news/gov-meetings/youtube/triplicate since the last run
-- [ ] ISC-46: Each new item is summarized (1-2 sentences) via the configured provider (Ollama or OpenRouter)
-- [ ] ISC-47: Each summary is tagged with matching intelligence domains (reusing `domains.ts`) where keyword/BM25 overlap crosses a threshold
-- [ ] ISC-48: Curated output is written to `output/curated/<date>.json` (or appended JSONL) with source, summary, tags, and original link/citation
-- [ ] ISC-49: A curation run is itself idempotent — re-running does not re-summarize already-curated items (keyed through the shared store)
-- [ ] ISC-50: GUI gains a route/panel surfacing the curated feed (extends existing `gui/routes.ts` pattern, not a parallel server)
-- [ ] ISC-51: `/api/curated` (or similar) endpoint returns recent curated items as JSON, documented in `openapi.yaml` per existing convention
-- [ ] ISC-52: Anti: Anti-criterion — curation never blocks/fails the underlying monitor run it depends on; a curation-stage failure degrades to "summary unavailable," not a lost item
+- [x] ISC-45: `src/curation.ts` (or `llm/curation.ts`) reads newly-idempotency-recorded items across news/gov-meetings/youtube/triplicate since the last run
+- [x] ISC-46: Each new item is summarized (1-2 sentences) via the configured provider (Ollama or OpenRouter)
+- [x] ISC-47: Each summary is tagged with matching intelligence domains (reusing `domains.ts`) where keyword/BM25 overlap crosses a threshold
+- [x] ISC-48: Curated output is written to `output/curated/<date>.json` (or appended JSONL) with source, summary, tags, and original link/citation
+- [x] ISC-49: A curation run is itself idempotent — re-running does not re-summarize already-curated items (keyed through the shared store)
+- [x] ISC-50: GUI gains a route/panel surfacing the curated feed (extends existing `gui/routes.ts` pattern, not a parallel server)
+- [x] ISC-51: `/api/curated` (or similar) endpoint returns recent curated items as JSON, documented in `openapi.yaml` per existing convention
+- [x] ISC-52: Anti: Anti-criterion — curation never blocks/fails the underlying monitor run it depends on; a curation-stage failure degrades to "summary unavailable," not a lost item
 
 ### Cross-cutting verification
-- [ ] ISC-53: `bun test` passes with 0 failures at a count ≥ the current 489 (new tests added, none broken)
-- [ ] ISC-54: `TODO.md`/`README.md`/`docs/architecture.md` reflect the new source count and pipeline (test count + module count strings updated, matching the existing self-documenting convention)
-- [ ] ISC-55: Every new script is added to `package.json` `"scripts"` following the existing `run-*.ts` naming convention
-- [ ] ISC-56: Anti: Anti-criterion — no new source is added to production monitoring config in a state where a single failing source can crash `scripts/run-monitor.ts`'s combined run for all other sources (isolate failures per-source, matching existing pattern)
-- [ ] ISC-57: Antecedent: local Ollama and ChromaDB are confirmed running before any new-source RAG-indexing step is exercised end-to-end (reuses existing `checkPrerequisites()`)
+- [x] ISC-53: `bun test` passes with 0 failures at a count ≥ the current 489 (new tests added, none broken)
+- [x] ISC-54: `TODO.md`/`README.md`/`docs/architecture.md` reflect the new source count and pipeline (test count + module count strings updated, matching the existing self-documenting convention)
+- [x] ISC-55: Every new script is added to `package.json` `"scripts"` following the existing `run-*.ts` naming convention
+- [x] ISC-56: Anti: Anti-criterion — no new source is added to production monitoring config in a state where a single failing source can crash `scripts/run-monitor.ts`'s combined run for all other sources (isolate failures per-source, matching existing pattern)
+- [x] ISC-57: Antecedent: local Ollama and ChromaDB are confirmed running before any new-source RAG-indexing step is exercised end-to-end (reuses existing `checkPrerequisites()`)
+
+### GUI review + full intelligence-feed verification pass (2026-07-24)
+- [x] ISC-58: The GUI's own served page (`index.html`) authenticates its own `fetch()` calls to non-public `/api/*` endpoints, without weakening the API-key gate for external/non-browser callers
+- [x] ISC-59: A real browser session against every GUI panel (Analytics, Alerts, Chat incl. streaming, Intelligence sub-tabs: Overview/Alert Timeline/Search Analytics/Glossary/Cross-Refs/Legislative History/Compare/Monthly Report/Curated Feed/API Explorer/Domains/Readability) returns 200, not 401/403
+- [x] ISC-60: Direct unauthenticated `curl` against a protected endpoint still returns 401 (the auth gate itself is unchanged — only the browser's own requests were fixed)
+- [x] ISC-61: A direct local browser/`curl` request to the GUI is recognized as loopback traffic by the rate limiter (not bucketed under a shared `"unknown"` IP)
+- [x] ISC-62: `POST /api/chat/stream` returns 200 with a real SSE stream for a real question, not a silent 500
+- [x] ISC-63: Every monitor script (`news`, `gov-meetings`, `youtube`, `triplicate_monitor`, `curate`, `alerts:all` covering all 8 alert types) is run live in this session and its real stdout/output file is inspected, not inherited from a prior session's claim
+- [x] ISC-64: `bun run alerts:all` actually invokes all 8 monitors (not silently no-op on any), and each real monitor's report feeds the composite severity calculation (not a static stub)
+- [x] ISC-65: `monitorGovMeetings()` reaches a live, current data source for City Council and Planning Commission (not a 404'd URL), and honestly reports zero for any source with no known digital agenda location (Harbor Commission) rather than crashing or silently faking data
+- [x] ISC-66: Anti: Anti-criterion — no fix in this pass papers over a real failure with a broader try/catch; every genuine external-service failure (EPA AirNow missing key, CAL FIRE 403, 3 dead news RSS feeds, Harbor Commission's dead domain) is left failing loudly/visibly and documented, not silently absorbed
+- [x] ISC-67: `bun test tests/` passes at the same 538/538 count as the pre-session baseline (0 regressions from any fix)
+
+### GUI navigation clarity refactor (2026-07-24, same-day follow-up)
+- [x] ISC-68: The 6 top-level nav tabs (Code, Code Analytics, News & Feeds, Alerts, Chat, Developer) each have an unambiguous, non-overlapping purpose — no tab's name requires reading its contents to guess what it's for
+- [x] ISC-69: Municipal-code-analysis tools (Stats, Readability, Glossary, Cross-Refs, Domains, Compare, Legislative History) live together under Code Analytics, separated from anything sourced outside the code itself
+- [x] ISC-70: The actual news/civic-feed content (RSS news, government meeting agendas, YouTube transcripts, curated summaries) is promoted to its own top-level "News & Feeds" tab rather than buried as 1-of-12 flat items under a generic "Intelligence" label
+- [x] ISC-71: The Alert Timeline (previously duplicated under both the Alerts tab and an Intelligence sub-tab) exists in exactly one place
+- [x] ISC-72: Developer/meta tooling (API Explorer, Search Analytics) is clearly separated from end-user civic content, not mixed into the same list
+- [x] ISC-73: Opening any one of the 6 top-level tabs closes every other open overlay (previously only 1 of 4 toggle buttons did this, asymmetrically — opening Analytics or Alerts left a stale Intelligence panel open behind them)
+- [x] ISC-74: Anti: Anti-criterion — sub-tab switching within one overlay (e.g. Code Analytics) never affects the active tab/panel state of a different overlay (e.g. Developer), despite reusing the same CSS classes
+- [x] ISC-75: An explicit "Code" nav button exists to return to the default municipal-code browser view — previously there was no button-based way back, only re-toggling whichever overlay happened to be open
+- [x] ISC-76: Anti: Anti-criterion — no top-level tab or sub-tab silently fails to load (every one inspected live returns real data, confirmed via direct DOM state + rendered content, not just that a click handler exists)
 
 ## Test Strategy
 
@@ -193,6 +216,40 @@ idempotency store that every monitor — old and new — uses, all verified by r
 | ISC-38..44 | unit+fixture | OpenRouter request shape against local HTTP fixture server; no live billed calls in tests | `bun test`, `git grep OPENROUTER` in test files confirms no live key required |
 | ISC-45..52 | integration | curated JSON output shape; GUI route returns 200 with expected shape | `bun test`, `curl -i localhost:PORT/api/curated` |
 | ISC-53..57 | gate | full suite + doc string sync + script wiring | `bun test`, `grep` for updated counts | `bun test`, `Grep` |
+| ISC-58..67 | live + regression | real browser/curl proof for GUI fixes; real `bun run <monitor>` for every feed; new unit tests for the two logic fixes (composite-severity mapping, trust-gated key injection) | 549/549 `bun test` (538 baseline + 11 new), 0 regressions; every feed's real stdout inspected this session | `bun test`, `curl`, Claude Browser pane, `git stash` baseline diff |
+
+### Governance (E4 completion gate, R17)
+
+| Field | Value |
+|---|---|
+| `authoritative_baseline` | `bun test tests/` — 538/538 pass, captured before any edit this session (also cross-checked via `git stash` + rerun) |
+| `environment_probe` | `git status -s` (26+ uncommitted files from a prior session, all verified/committed first), `codex --version` (0.144.1, available), Playwright Chromium (missing — installed this session) |
+| `observed_failures` | Frontend never sent API key (401s); rate-limiter loopback bypass never matched direct browser traffic (429s); `/api/chat/stream` 500'd on every call (`ollama.healthCheck` undefined); `alerts:all` silently skipped 2/8 monitors; all 3 gov-meeting URLs 404'd; Playwright browser binary absent |
+| `change_surface_manifest` | `src/api/middleware.ts`, `src/gui/server.ts`, `src/gui/static/index.html`, `src/gui/routes.ts`, `scripts/run-alerts.ts`, `src/gov_meeting_monitor.ts`, `src/curation.ts`, `src/llm/config.ts`, `tests/middleware.test.ts`, `tests/run-alerts.test.ts` (new), `TODO.md`, `docs/modules/monitoring.md`, `ISA.md` |
+| `residue_scan` | `git status -s` clean of stray files after cleanup (removed throwaway `scratch-investigate-meetings.ts`); `git diff --stat` matches the change surface manifest exactly, no unexplained files |
+| `known_bad_case` | Direct `curl` with no `X-API-Key` against `/api/chat` |
+| `pre_result` | `401` before AND after the fix (never fixed — this is the control proving the auth gate itself wasn't weakened) |
+| `post_result` | Same `curl` WITH the correct key → `200`; the GUI's own browser-injected key path (previously untested at all) → `200` end-to-end in a real browser session |
+| `production_entrypoint` | `bun run gui` (`src/gui/server.ts`), `bun run alerts:all`, `bun run gov-meetings`, `bun run news`, `bun run youtube`, `bun run src/triplicate_monitor.ts`, `bun run curate` — all invoked directly, not a wrapper/mock |
+| `coactor_isolation` | N/A — no co-actor detected mid-session; the prior session's uncommitted work was committed as a baseline checkpoint before this session's edits began (R15 precondition) |
+| `owned_paths` | `["src/api/middleware.ts","src/gui/server.ts","src/gui/static/index.html","src/gui/routes.ts","scripts/run-alerts.ts","src/gov_meeting_monitor.ts","src/curation.ts","src/llm/config.ts","tests/middleware.test.ts","tests/run-alerts.test.ts","TODO.md","docs/modules/monitoring.md","ISA.md"]` |
+| `visual_verification` | Claude Browser pane screenshots + `read_network_requests` against a live `bun run gui` instance: homepage, search, Analytics, 8-Monitor Alert Dashboard, streaming Chat (2 real Q&A exchanges with real cited sections), and all 8 Intelligence sub-tabs |
+| `long_pole_command` | `bun run curate` (~17s against a real 34-item OpenRouter batch) |
+| `verifier_failure_count` | 0 (Cato audit — see below) |
+| `final_gate_run_count` | 1 (the `549/549` run reported in `## Verification` is the single definitive post-fix run; intermediate runs during development are not double-counted) |
+| `premise_provenance` | See table below |
+
+### Premise Provenance
+
+| Premise | Generator | Observed At | Evidence Token | Status |
+|---|---|---|---|---|
+| Baseline suite is 538/538 before any edit | `bun test tests/` | 2026-07-24T01:58Z | "538 pass\n 0 fail\n...Ran 538 tests across 43 files" | verified |
+| `ollama.healthCheck` does not exist | `grep -n "^export" src/llm/ollama.ts` | 2026-07-24 (this session) | real exports listed: `embed`, `embedBatch`, `chat`, `listModels`, `isOllamaRunning` — no `healthCheck` | verified |
+| `runTidesMonitor`/`runFishingMonitor` do not exist | `grep -n "^export" src/alerts/noaa_tides.ts src/alerts/cdfw_fishing.ts` | 2026-07-24 (this session) | real exports: `monitorTides`, `monitorFishing` | verified |
+| Gov-meeting URLs 404 | live `bun run gov-meetings` | 2026-07-24T12:42Z (pre-fix) | 3× `"error":"HTTP 404: Not Found"` log lines | verified |
+| EvoGov JSON API is the real data source | Playwright `page.on('response')` capture against `https://www.crescentcity.org/meetings` | 2026-07-24 (this session) | `200 [application/json] GET .../meetings/get_list?...` | verified |
+| Harbor Commission has no findable digital source | (a) EvoGov feed title scan over a full year, (b) `curl -v` DNS resolution check on both harbor domains | 2026-07-24 (this session) | (a) 0 of 31 titles mention "Harbor"; (b) "Could not resolve host: crescentcityharbor.com" and same for `www.` variant | verified |
+| Final suite is 549/549 after all fixes | `bun test tests/` | 2026-07-24T13:03Z | "549 pass\n 0 fail\n...Ran 549 tests across 44 files" | verified |
 
 ## Features
 
@@ -228,10 +285,58 @@ idempotency store that every monitor — old and new — uses, all verified by r
   connectors (YouTube / Redwood Voice / Triplicate / OpenRouter) once the shared store lands,
   since they don't share file targets after that foundation exists. Documented here rather than
   invoked yet because BUILD has not started — PLAN is presenting the architecture for sign-off first.
+- 2026-07-24: Retroactively flipped ISC-1..57 from `[ ]` to `[x]` — the prior session's
+  `## Verification` section already carried real, artifact-backed evidence for all of them (test
+  counts, quoted log lines, live curl checks), but the checkbox markers were never synced to that
+  evidence. This is a status-sync fix, not a new claim; no new evidence was fabricated to justify it.
+- 2026-07-24: Fixed the API-key/rate-limit GUI bugs via **key injection into the served page**
+  (`serveIndexHtml()` + `window.__CC_API_KEY__` + `apiFetch()` wrapper) rather than broadening
+  `PUBLIC_PATHS` to cover the whole GUI surface. TODO.md's own Phase 1.2 note floated both options.
+  Chose key-injection because `tests/middleware.test.ts` already encodes `/api/chat` as the
+  canonical example of a *protected* endpoint (401/403/200 tested explicitly) — broadening
+  `PUBLIC_PATHS` would have silently changed that tested security posture instead of just fixing the
+  frontend's actual bug (never sending the key it already has every right to use, same-origin).
+- 2026-07-24: For `gov_meeting_monitor.ts`, chose to call the EvoGov site's own same-origin JSON API
+  directly (found via Playwright network-capture, not guessed) rather than rewriting the monitor to
+  drive a full Playwright browser like `triplicate_monitor.ts` does. The API is plain JSON over HTTP,
+  no bot-detection to bypass, no JS execution needed at runtime — Playwright was only needed for the
+  one-time *investigation*, not for the shipped monitor.
+- 2026-07-24: Harbor Commission is left un-fixed by design, not by oversight — it has no presence on
+  the city's EvoGov feed (checked a full year of data) and its own domain no longer resolves in DNS.
+  Declared as needing manual research in TODO.md/docs rather than building speculative scraping
+  code against a source that may not exist.
+- 2026-07-24: Installed the missing Playwright Chromium browser binary (`playwright install
+  chromium`) after discovering it wasn't present in this environment — this would have silently
+  broken `triplicate_monitor.ts` and the main ecode360 scraper (both depend on `src/browser.ts`) for
+  anyone running a fresh checkout without having separately run `./run.sh setup`.
 
 ## Changelog
 
-(none yet — this is the initial scaffold; conjecture/refutation/learning entries land as BUILD proceeds)
+- conjectured: the GUI's read-only intel-dashboard panels were broken because individual endpoints
+  were missing from `PUBLIC_PATHS` (TODO.md's own framing, and the pre-existing `/api/curated`
+  one-off patch matched this theory).
+  refuted_by: a full audit of the frontend's 30 `fetch()` call sites against `PUBLIC_PATHS` showed
+  the frontend **never sends an API key at all**, on any call — the gap wasn't "a few endpoints
+  missing from an allowlist," it was the entire non-public surface, including the core section
+  viewer (`/api/article/:guid`, `/api/section/:guid`) and RAG chat, not just dashboard widgets.
+  learned: a security gate added after the frontend was written needs a call-site sweep of the
+  frontend's own requests, not just an allowlist audit — the allowlist was never the wrong shape,
+  the caller was never updated to use the key it needed.
+  criterion_now: ISC-58/ISC-59/ISC-60 (added this session) — verify via a real browser session, not
+  by reading `PUBLIC_PATHS` and reasoning about it.
+- conjectured: `bun run alerts:all` completing with an "All 8 Alert Monitors Complete" log line and
+  a composite severity result meant all 8 monitors had actually run.
+  refuted_by: two of the eight (tides, fishing) were invoked via `m.runXMonitor?.()` — function names
+  that never existed on those modules — wrapped in an empty `.catch(() => {})`. The optional call
+  silently evaluated to `undefined`, no error surfaced anywhere, and the composite calculation fed
+  them static "unavailable" stubs regardless. The log line was honest about the *script* completing,
+  not about which monitors inside it actually did anything.
+  learned: "the wrapper script finished without throwing" is not evidence that every step inside it
+  ran — optional chaining (`?.()`) on a dynamically-imported module member converts a would-be
+  `TypeError: not a function` into total silence, which is more dangerous than a crash.
+  criterion_now: ISC-64 (added this session) — a monitor counts as "running" only when its own
+  distinct log lines/output file are observed this session, never inferred from the orchestrator's
+  own success message.
 
 ## Verification
 
@@ -258,3 +363,53 @@ ISC-53..57 (close-out): docs/README/TODO/setup.md updated (version 2.4.0→2.5.0
 **OpenRouter live integration verified end-to-end with the real user-supplied key** (`sk-or-v1-b41f...`, model `inclusionai/ling-3.0-flash:free`, stored only in gitignored `.env`, confirmed via `git check-ignore -v .env` before writing the secret to disk): a direct `chat()` call returned a real model response; `bun run curate` against real freshly-fetched news items (10 real Redwood Voice articles) produced 10 real, coherent, on-topic LLM summaries with real domain tags in ~8s (vs. ~3.5min for the same volume via local Ollama earlier). Code default for `openrouterModel` changed from `openai/gpt-4o-mini` to the free-tier model so an unset `OPENROUTER_MODEL` never silently incurs cost; `LLM_PROVIDER` code default remains `ollama` (only this user's local `.env` opts into OpenRouter, per the "zero behavior change for other setups" principle from `## Decisions`).
 
 **Full comprehensive live sweep** (2026-07-24, all real, no synthetic data): `bun run news` — 10 new real Redwood Voice items (3 pre-existing feeds — Humboldt Times, KIEM-TV, Times-Standard — are currently unreachable/404; pre-existing breakage, not caused by this session, degraded gracefully as designed). `bun run gov-meetings` — all 3 `crescentcity.org` agenda URLs currently 404 (pre-existing, site URL structure has drifted since these were configured; degraded gracefully, 0 crashes). `bun run src/triplicate_monitor.ts` — correctly found 0 new (all 49 previously-seen articles recognized via the relocated persistent store). `bun run curate` — 10 items curated via live OpenRouter. Full `bun test` — 538/538 pass.
+
+---
+
+## Verification — GUI review + intelligence-feed pass (2026-07-24)
+
+ISC-58..60 (GUI auth fix): `src/api/middleware.ts` (`getPrimaryApiKey()`, `resolveIp()`), `src/gui/server.ts` (`serveIndexHtml()` key injection, `server.requestIP()` threading), `src/gui/static/index.html` (`apiFetch()` wrapper, all 30 call-sites renamed). Live `curl` proof: `GET /api/chat` with no key → `401`; with `X-API-Key: dev-key-12345` → `200`. Live browser proof (Claude Browser pane against `bun run gui` on port 3847): homepage load, BM25 search, Analytics panel (`/api/analytics/stats`, `/api/analytics/embeddings` → both 200), Alerts dashboard (`/api/monitor/alerts`, `/api/alerts/timeline` → both 200, rendering real tsunami/earthquake/weather/tides/fishing/airquality/wildfire/marine data), Chat panel — asked "What are the tsunami evacuation rules?" and "Is Crescent City in a tsunami zone?", got real streamed answers citing real section numbers (§ 15.32.050, § 17.88.040, etc.) via `POST /api/chat/stream → 200`, and every Intelligence sub-tab (Alert Timeline, Search Analytics, Glossary, Cross-Refs, Monthly Report, Curated Feed, Domains, Readability) confirmed 200 via `read_network_requests`. `bun test tests/middleware.test.ts` — 8/8 pass, including the existing tests that assert `/api/chat` still 401s/403s without a valid key (the auth gate itself untouched).
+
+ISC-61 (rate-limit loopback fix): `src/api/middleware.ts` `resolveIp()` now falls back to `server.requestIP(req)`. Live proof: before the fix, a real browser session hit `429 Too Many Requests` on `/api/analytics/embeddings` (10 req/hr limit) after ~2 clicks; after the fix, `for i in 1..15: curl -H "X-API-Key: ..." /api/analytics/embeddings` → 15/15 return `200`, and a reloaded browser session repeating the same panel click also showed `200` in `read_network_requests`.
+
+ISC-62 (chat/stream 500 fix): `src/gui/routes.ts` line ~936, `ollama.healthCheck()` → `ollama.isOllamaRunning()` (confirmed via `grep -n "^export" src/llm/ollama.ts` that `healthCheck` never existed — `tsc --noEmit` had been silently flagging this the whole time: `TS2339: Property 'healthCheck' does not exist`). Also added `log.error` to the catch block (previously a 500 there produced zero server-side log output). Live proof: `curl -X POST .../api/chat/stream` with a real question → `200` with a real SSE stream (`event: sources`, real section citations); confirmed again via the browser chat panel.
+
+ISC-63/64 (all feeds run live, alerts:all fix): Ran every monitor this session with real command output: `bun run alerts:all` (before fix: 6/8 monitors ran, tides+fishing silently no-op'd via `m.runTidesMonitor?.()`/`m.runFishingMonitor?.()` against functions that don't exist — real names are `monitorTides`/`monitorFishing`, confirmed via `grep -n "^export" src/alerts/noaa_tides.ts src/alerts/cdfw_fishing.ts`; after fix: 8/8 monitors run, and `output/alerts/composite/current.json` correctly shows `"level":"WARNING","reason":"Tides: 🔴 High tide 6.8 ft MLLW"` sourced from a real live NOAA prediction, and `"fishing":{"level":"WATCH",...}` — previously the composite always fed static `{available:false}`/`{closureActive:false}` regardless of real conditions). `bun run news` — 12 new real items (2/5 feeds live: Lost Coast Outpost, Redwood Voice; 3 pre-existing dead feeds unrelated to this session). `bun run youtube` — 15/15 real videos transcribed (2,607-3,343 segments each) and indexed into ChromaDB, 0 failures. `bun run src/triplicate_monitor.ts` — 34 new real articles via live Cloudflare bypass (required installing the missing Playwright Chromium binary first — `playwright install chromium`, confirmed via a throwaway Playwright script that initially failed with "Executable doesn't exist" and succeeded after install). `bun run curate` — 34 items curated (all "summary unavailable" from a genuine OpenRouter free-tier 429 from bursting 34 items with no spacing — not a code bug; added `openrouterMinRequestIntervalMs` config + conditional delay in `runCuration()` to prevent recurrence).
+
+ISC-65 (gov-meetings real fix): `bun run gov-meetings` before fix: 0/3 sources reachable, all 404 (`crescentcity.org/government/*/agendas` — confirmed dead via live `curl`). Root cause found via a throwaway Playwright script (`page.on('response')` network capture against `https://www.crescentcity.org/meetings`): the site migrated to the EvoGov CMS; its calendar is JS-rendered but the widget calls a same-origin JSON endpoint (`GET /meetings/get_list?selected_calendar_ids=...`). Rewrote `fetchGovMeetings()` in `src/gov_meeting_monitor.ts` to call that endpoint directly and filter by `title`. Live proof after fix: `bun run gov-meetings` → 6 real items (4 City Council, 2 Planning Commission, 0 Harbor Commission — honest, not a crash), with real agenda PDF links; `curl -sI` against one extracted link (`https://www.crescentcity.org/meetingfiles/100551/agendas/....pdf`) → `HTTP/2 200`, `content-type: application/pdf`, `content-length: 7317004`. Harbor Commission confirmed to have no viable source: absent from a full year of EvoGov `title` values, and `crescentcityharbor.com`/`www.crescentcityharbor.com` both fail DNS resolution (`curl -v`: "Could not resolve host").
+
+ISC-66 (anti-criterion — no silent-catch masking): EPA AirNow (`AIRNOW_API_KEY` unset) and CAL FIRE (`403 Forbidden`, confirmed via direct `curl` with a browser User-Agent that a real WAF still blocks — genuine external block, not a code bug, not attempted to bypass) both fail loudly with a clear logged error and degrade gracefully without crashing the other 6 alert monitors, matching the pre-existing per-source isolation design (ISC-56). The 3 dead news RSS feeds and Harbor Commission's dead domain are documented in TODO.md/docs, not silently absorbed.
+
+ISC-67 (regression gate): `bun test tests/` → `538 pass, 0 fail, 3421 expect() calls, 43 files` — identical count to the pre-session baseline (also 538/538, confirmed via `git stash` + rerun before making any change). `bunx tsc --noEmit` shows the same pre-existing baseline error set (confirmed via `git stash` diff) plus zero new errors from any file touched this session; the one call-site bug this session found via `tsc` (`ollama.healthCheck`) is now fixed and no longer appears.
+
+---
+
+## Verification — Advisor-driven hardening pass (2026-07-24, same session)
+
+Invoked the PAI Advisor (`Inference.ts --level smart`) for a skeptical second opinion before declaring the GUI/feed pass done. It correctly flagged: (1) the injected API key is visible via view-source to ANY requester, a real key-exposure risk on a non-purely-local deployment; (2) no test proved a non-loopback IP still gets rate-limited after the `resolveIp()` fallback; (3) the composite-severity fix rested on one live run, not a regression test; (4) zero new tests were added for any of the 6 bugs fixed. All four addressed:
+
+1. **Key exposure**: extracted `isTrustedLocalIp()` in `src/api/middleware.ts` (same loopback/LAN check the rate limiter already used) and gated `serveIndexHtml()` in `src/gui/server.ts` on it — a remote requester now gets the un-substituted placeholder, never the real key. Verified: `curl` from a real loopback socket → real key in page source; `curl -H "X-Forwarded-For: 203.0.113.42"` → empty string.
+2. **Non-loopback still rate-limited**: `for i in 1..12: curl -H "X-Forwarded-For: 203.0.113.42" ... /api/analytics/embeddings` → requests 1-10 return `200`, 11-12 return `429` — the loopback bypass does not leak to spoofed-remote traffic.
+3. **Composite-severity regression test**: refactored `scripts/run-alerts.ts` to guard its top-level execution behind `if (import.meta.main)` and extracted `buildTidesInput()`/`buildFishingInput()` as exported pure functions (this also fixed a latent testability gap — the script previously ran 8 real network monitors as a side effect of being imported at all). Added `tests/run-alerts.test.ts` — 6 tests covering real-report-in/available-true-out, null-report-in/available-false-out (not a crash), and the fishing closureActive OR-logic across all 4 open/closed combinations.
+4. **New regression tests overall**: `tests/run-alerts.test.ts` (6 tests) + 5 new tests in `tests/middleware.test.ts` (`isTrustedLocalIp`, `resolveIp` proxy-header-priority/socket-fallback/unknown-fallback) = 11 new tests. Full suite: `549 pass, 0 fail, 3441 expect() calls, 44 files` (549 = 538 baseline + 11 new).
+
+Also confirmed via `grep -n playwright run.sh` that `./run.sh setup` already runs `bun x playwright install chromium --with-deps` — the missing-browser-binary issue found earlier this session was this environment being fresh/reset, not an undocumented setup step; no doc change was needed there, only noted for the user's awareness.
+
+---
+
+## Decisions — GUI navigation refactor (2026-07-24)
+
+- Chose a 6-tab flat top-level structure (Code / Code Analytics / News & Feeds / Alerts / Chat / Developer) over keeping a single "Intelligence" mega-tab with better internal labels — the user's actual complaint was that tab NAMES didn't tell you what was inside them, and "Intelligence" as a label was the specific offender (it mixed code-analysis tools, actual news content, dev tooling, and duplicate alert data under one word). Promoting the real groupings to the top level, where a user sees them before clicking anything, directly addresses "each tab is clearer what it does."
+- Assigned each of the 12 old flat Intelligence sub-tabs to a new group by asking "is this a tool for understanding the code itself, or is it about something happening outside the code" — Readability/Glossary/Cross-Refs/Domains/Compare/Legislative-History are unambiguously the former (Code Analytics); Curated-Feed/Monthly-Report are unambiguously the latter (News & Feeds); Search-Analytics/API-Explorer are neither — they're meta/developer tooling, given their own tab so they don't get mistaken for civic content; Alert-Timeline was a straight duplicate of data already in the Alerts tab and was merged, not re-homed.
+- Reused the existing `.intel-tabs`/`.intel-tab`/`.intel-panel` CSS classes across all three tabbed overlays (Code Analytics/News & Feeds/Developer) rather than inventing new per-group class names — this is an internal implementation detail invisible to the user, and reusing proven, already-styled CSS minimized the risk surface of this refactor. The JS tab-switching logic was rewritten to scope its queries to the clicked tab's own overlay (`initTabbedOverlay(overlayId)`), since the old code assumed there was only ever one such tab group document-wide.
+- Found and fixed two real bugs surfaced by testing this refactor, both pre-existing (not introduced by the refactor, but newly visible under more thorough click-through testing than this GUI had received before): (1) only 1 of 4 old toggle buttons closed sibling overlays, so opening Analytics or Alerts left the old Intelligence panel open behind them — fixed with a single shared `closeAllOverlays()` every toggle now calls first; (2) `--header-height` was a hardcoded 56px CSS constant that didn't account for the dynamically-inserted stale-data/alert-level banners, so when a banner was showing, every full-screen overlay's `top: var(--header-height)` positioned it OVER the bottom portion of the real header — making the nav buttons behind it uninteractable while any overlay was open and a banner was showing. Fixed by measuring the header's real rendered bottom edge via `getBoundingClientRect()` and writing that into the CSS variable whenever a banner is inserted.
+
+## Verification — GUI navigation refactor (2026-07-24)
+
+ISC-68..76: Rewrote `src/gui/static/index.html`'s header nav (6 buttons replacing 4), overlay HTML (`#analytics-overlay` gained 7 sub-tabs; `#intel-overlay` split into `#feeds-overlay` [3 sub-tabs] and `#dev-overlay` [2 sub-tabs]; `#alerts-panel` gained the merged timeline inline), and the JS layer (`closeAllOverlays()`, `initTabbedOverlay()`, `TAB_LOADERS` map, rewritten Escape/Ctrl+I/Ctrl+A keyboard shortcuts). `docs/modules/gui.md` gained a Navigation section documenting the new structure.
+
+Live-verified in a real browser session against `bun run gui` (after restarting to pick up the change): every one of the 6 top-level tabs and all 12 sub-tabs (Stats & Charts, Readability, Glossary, Cross-Refs, Domains, Compare Sections, Legislative History, Civic Dashboard, News Feed, Monthly Report, API Explorer, Search Analytics) opened and rendered real data — Readability showed real grade-level distributions, Glossary showed 20 real definitions, Cross-Refs showed real 170-reference resolution stats, Domains showed real 12-domain list, Compare Sections diffed two real sections (0.0% similarity, +2118 word delta), Legislative History showed a real ordinance record, News Feed showed real curated YouTube/gov-meeting items, Monthly Report rendered the real July 2026 civic health report, API Explorer listed real endpoints, Search Analytics showed real query terms including ones I'd searched earlier this session ("permit": 111, "tsunami": 83). Alerts showed the merged 8-monitor grid + timeline in one panel (13 total events, real WARNING-level tide data). Zero console errors across every tab.
+
+Confirmed both newly-found bugs are real and fixed: (1) mutual exclusion — opening Alerts then Analytics via `.click()` correctly set `alerts-panel.style.display` back to `'none'` and removed its active class, verified via direct DOM inspection, not just visual inspection; (2) header-height — `getComputedStyle(document.documentElement).getPropertyValue('--header-height')` read `92px` (up from the hardcoded `56px`) after the WARNING banner rendered, and nav buttons remained clickable with an overlay open and the banner showing, confirmed via `.click()` successfully toggling `feeds-overlay`'s `open` class from that state.
+
+`bun test tests/` — 549/549 pass (unchanged from the prior session's fixes; this refactor touched only the static frontend file plus a doc, no backend/API code).

@@ -7,17 +7,40 @@
  */
 import { createLogger } from './logger.js';
 import { computeSha256, htmlToText } from './utils.js';
-import { DOMParser } from '@xmldom/xmldom';
 import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
 
 const logger = createLogger('gov_meeting_monitor');
 
-// Government meeting sources
+// Government meeting sources.
+//
+// The city migrated its site to the EvoGov CMS at some point after these
+// URLs were first configured; all three 404'd (confirmed live 2026-07-24).
+// EvoGov renders its meeting calendar client-side via JS, but the widget
+// itself calls a same-origin JSON endpoint to populate it — found by
+// capturing network traffic with Playwright against the real
+// https://www.crescentcity.org/meetings page. That endpoint is what
+// fetchGovMeetings() now calls for every source below; City Council and
+// Planning Commission meetings both live on the SAME calendar ("Meetings
+// and Events", id 666) and are distinguished only by `title`, not by a
+// separate URL or calendar id — confirmed by inspecting a full year of
+// real response data (title values included "City Council Meeting",
+// "Special City Council Meeting", "City Council Budget Workshop",
+// "Planning Commission Meeting", among others).
+//
+// Harbor Commission has no presence on this endpoint at all (checked
+// against a full year of titles), and its own domain
+// (crescentcityharbor.com / www.crescentcityharbor.com) no longer resolves
+// in DNS (confirmed live 2026-07-24: "Could not resolve host"). There is
+// currently no known digital source for Harbor Commission agendas — kept
+// here so the filter runs (and honestly returns zero rather than the
+// misleading "unreachable" it would 404 with previously), not because a
+// real source was found. See TODO.md Phase 4.2.
+const EVOGOV_MEETINGS_API = 'https://www.crescentcity.org/meetings/get_list';
 const GOV_SOURCES = {
-  'City Council': 'https://crescentcity.org/government/city-council/agendas',
-  'Planning Commission': 'https://crescentcity.org/government/planning-commission/agendas',
-  'Harbor Commission': 'https://crescentcity.org/government/harbor-commission/agendas'
+  'City Council': EVOGOV_MEETINGS_API,
+  'Planning Commission': EVOGOV_MEETINGS_API,
+  'Harbor Commission': EVOGOV_MEETINGS_API,
 };
 
 /**
@@ -36,32 +59,6 @@ const GOV_SOURCES = {
 const MEETING_CACHE_PATH = join(process.cwd(), 'output', 'state', 'gov-meetings-seen.json');
 const meetingCache = new IdempotencyStore(MEETING_CACHE_PATH, 500);
 
-// Keywords for filtering relevant meeting items
-const MEETING_KEYWORDS = [
-  'agenda',
-  'minutes',
-  'meeting',
-  'resolution',
-  'ordinance',
-  'budget',
-  'tsunami',
-  'harbor',
-  'fishing',
-  'emergency',
-  'evacuation',
-  'zoning',
-  'permit',
-  'development',
-  'infrastructure',
-  'safety',
-  'public hearing',
-  'comment',
-  'vote',
-  'approval',
-  'denial',
-  'continued'
-];
-
 /**
  * Generate a hash for content to detect changes.
  *
@@ -77,160 +74,89 @@ async function generateContentHash(content: string): Promise<string> {
   return computeSha256(content.trim());
 }
 
+/** Raw shape of one item from the EvoGov `/meetings/get_list` JSON endpoint (fields we use only). */
+interface EvoGovMeetingItem {
+  id: number;
+  title: string;
+  description?: string;
+  start_date_short?: string;
+  start_date_day_of_week?: string;
+  agenda_links?: string[];
+  minute_links?: string[];
+}
+
+/** Extract every `href="..."` URL out of an array of raw anchor-tag HTML strings. */
+function extractLinkUrls(htmlAnchors: string[] | undefined): string[] {
+  if (!htmlAnchors) return [];
+  const urls: string[] = [];
+  for (const anchor of htmlAnchors) {
+    const match = anchor.match(/href="([^"]+)"/);
+    // Some agenda/minute links are absolute (evogov's S3 bucket), others are
+    // site-relative ("/meetingfiles/..."); resolve both against the site
+    // origin so every stored URL is directly fetchable/clickable on its own
+    // (confirmed live 2026-07-24: relative links appear alongside absolute
+    // ones in the same response, not just historically).
+    if (match) urls.push(new URL(match[1], "https://www.crescentcity.org").toString());
+  }
+  return urls;
+}
+
+// City Council/Planning Commission/Harbor Commission all read from the same
+// EvoGov endpoint, filtered down by title per source (see GOV_SOURCES
+// comment above). Each GOV_SOURCES entry does its own real fetch here
+// (deliberately not cached across sources) so a bad/unreachable `apiUrl`
+// passed to any single source — including the direct unit tests that pass a
+// nonexistent or 404 URL — always exercises a real fetch of exactly that
+// URL, never stale data left over from a different source's successful call.
+async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]> {
+  // Recent past (catch newly-posted minutes for meetings that already
+  // happened) through upcoming (catch newly-posted agendas).
+  const now = new Date();
+  const start = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const end = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+
+  const url = `${apiUrl}?selected_calendar_ids=685,739,666,670,689&start_date=${fmt(start)}&end_date=${fmt(end)}&search=&sort_order=date_start&current_webpage=meeting`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  return (await response.json()) as EvoGovMeetingItem[];
+}
+
 /**
- * Fetch and parse a government meeting page using proper HTML parsing
+ * Fetch government meetings for one source (City Council / Planning
+ * Commission / Harbor Commission) from the city's EvoGov meetings API,
+ * filtering the shared feed down to items whose title names this source.
  */
 export async function fetchGovMeetings(url: string, sourceName: string): Promise<Array<{title: string, link: string, date: string, content: string, hash: string}>> {
   try {
     logger.info(`Fetching government meetings from ${sourceName}`, { url });
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const htmlText = await response.text();
-    
-    // Parse HTML with DOMParser
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlText, "text/html");
-    
-    // Check for parsing errors
-    if (doc.getElementsByTagName("parsererror").length > 0) {
-      throw new Error('Failed to parse HTML');
-    }
-    
+
+    const allItems = await fetchEvoGovMeetings(url);
+    const matching = allItems.filter(item => item.title.toLowerCase().includes(sourceName.toLowerCase()));
+
     const items: Array<{title: string, link: string, date: string, content: string, hash: string}> = [];
-    const seenLinks = new Set<string>();
-    
-    // Look for common meeting document patterns in the parsed DOM
-    // Pattern 1: Look for links in common containers (lists, tables, divs)
-    const linkElements = doc.getElementsByTagName("a");
-    
-    for (let i = 0; i < linkElements.length; i++) {
-      const linkEl = linkElements[i];
-      const href = linkEl.getAttribute("href");
-      const title = linkEl.textContent?.replace(/\s+/g, ' ').trim() || '';
-      
-      if (!href || !title) continue;
-      
-      // Skip if we've already seen this link in this fetch
-      if (seenLinks.has(href)) continue;
-      seenLinks.add(href);
-      
-      // Check if the title or surrounding text contains meeting keywords
-      const fullText = (title + ' ' + linkEl.parentElement?.textContent?.toLowerCase() || '').toLowerCase();
-      const isMeetingRelated = MEETING_KEYWORDS.some(keyword => 
-        fullText.includes(keyword.toLowerCase())
-      );
-      
-      if (isMeetingRelated) {
-        // Try to extract a date from the title or nearby text
-        let date = '';
-        const datePatterns = [
-          /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/,
-          /\b\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}\b/,
-          /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s\-]\d{1,2},?\s*\d{4}\b/i,
-          /\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s\-]\d{4}\b/i
-        ];
-        
-        const searchText = title + ' ' + (linkEl.parentElement?.textContent || '');
-        for (const pattern of datePatterns) {
-          const match = searchText.match(pattern);
-          if (match) {
-            date = match[0];
-            break;
-          }
-        }
-        
-        // Get some surrounding content for context (limited to avoid huge content)
-        let content = '';
-        const parent = linkEl.parentElement;
-        if (parent) {
-          // Get text content of parent element, limited length
-          content = htmlToText(parent.textContent || '').substring(0, 1000);
-        }
-        
-        // Generate hash for change detection
-        const hashContent = `${title}|${href}|${date}|${content}`;
-        const hash = await generateContentHash(hashContent);
+    for (const item of matching) {
+      const link = `https://www.crescentcity.org/events/${item.id}/`;
+      const date = item.start_date_short ?? item.start_date_day_of_week ?? '';
+      const agendaUrls = extractLinkUrls(item.agenda_links);
+      const minuteUrls = extractLinkUrls(item.minute_links);
+      const descriptionText = htmlToText(item.description ?? '').substring(0, 800);
+      const contentParts = [descriptionText];
+      if (agendaUrls.length) contentParts.push(`Agenda: ${agendaUrls.join(', ')}`);
+      if (minuteUrls.length) contentParts.push(`Minutes: ${minuteUrls.join(', ')}`);
+      const content = contentParts.filter(Boolean).join(' | ');
 
-        items.push({
-          title,
-          link: href.startsWith('http') ? href : new URL(href, url).toString(),
-          date,
-          content,
-          hash
-        });
-      }
+      const hashContent = `${item.title}|${link}|${date}|${content}`;
+      const hash = await generateContentHash(hashContent);
+
+      items.push({ title: item.title, link, date, content, hash });
     }
 
-    // Pattern 2: Look for specific meeting containers (common in government sites)
-    const containers = [
-      ...doc.getElementsByClassName('meeting'),
-      ...doc.getElementsByClassName('agenda'),
-      ...doc.getElementsByClassName('minutes'),
-      ...doc.getElementsByClassName('event'),
-      ...doc.querySelectorAll('.calendar-event'),
-      ...doc.querySelectorAll('[id*="meeting"]'),
-      ...doc.querySelectorAll('[class*="meeting"]')
-    ];
-    
-    for (const container of containers) {
-      const linksInContainer = container.getElementsByTagName('a');
-      for (let i = 0; i < linksInContainer.length; i++) {
-        const linkEl = linksInContainer[i];
-        const href = linkEl.getAttribute("href");
-        const title = linkEl.textContent?.replace(/\s+/g, ' ').trim() || '';
-        
-        if (!href || !title || seenLinks.has(href)) continue;
-        seenLinks.add(href);
-        
-        const fullText = (title + ' ' + container.textContent?.toLowerCase() || '').toLowerCase();
-        const isMeetingRelated = MEETING_KEYWORDS.some(keyword => 
-          fullText.includes(keyword.toLowerCase())
-        );
-        
-        if (isMeetingRelated) {
-          // Extract date
-          let date = '';
-          const datePatterns = [
-            /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/,
-            /\b\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}\b/,
-            /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s\-]\d{1,2},?\s*\d{4}\b/i,
-            /\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\s\-]\d{4}\b/i
-          ];
-          
-          const searchText = title + ' ' + container.textContent;
-          for (const pattern of datePatterns) {
-            const match = searchText.match(pattern);
-            if (match) {
-              date = match[0];
-              break;
-            }
-          }
-          
-          // Get content
-          let content = htmlToText(container.textContent || '').substring(0, 1500);
-          
-          // Generate hash for change detection
-          const hashContent = `${title}|${href}|${date}|${content}`;
-          const hash = await generateContentHash(hashContent);
-          
-          items.push({
-            title,
-            link: href.startsWith('http') ? href : new URL(href, url).toString(),
-            date,
-            content,
-            hash
-          });
-        }
-      }
-    }
-    
     logger.info(`Found ${items.length} meeting-related items from ${sourceName}`, { count: items.length });
     return items;
-    
+
   } catch (error) {
     logger.error(`Failed to fetch government meetings from ${sourceName}`, { error: error.message, url });
     return [];

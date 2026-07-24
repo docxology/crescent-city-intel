@@ -53,6 +53,18 @@ export function reloadApiKeys(): void {
   VALID_API_KEYS = buildValidKeySet();
 }
 
+/**
+ * The key the GUI's own served page should use to authenticate its own fetch()
+ * calls back to this same server. Same-origin browser access to this key is not
+ * a privilege escalation — anyone who can load the page can already reach the
+ * API directly with the same network access (and CORS is wide open besides) —
+ * it just closes the gap where the frontend never sent a key at all (2026-07,
+ * TODO.md Phase 1.2). External API-only callers still need to know/configure it.
+ */
+export function getPrimaryApiKey(): string {
+  return VALID_API_KEYS.values().next().value ?? "";
+}
+
 // ─── Sliding Window Store ─────────────────────────────────────────
 
 /** Map of IP → sorted array of request timestamps within the current window. */
@@ -104,21 +116,49 @@ async function logRequest(
 
 // ─── Middleware functions ─────────────────────────────────────────
 
+/**
+ * Resolve the caller's IP: proxy headers first (for deployments behind a
+ * reverse proxy), falling back to the real socket address Bun observed for
+ * this connection. Without the socket fallback, a browser talking directly
+ * to `bun run gui` (the primary, intended way to use this local-first app)
+ * sends neither header, so every local user collapsed into one shared
+ * "unknown" rate-limit bucket instead of hitting the loopback bypass below —
+ * confirmed live 2026-07-24: a real browser session 429'd on
+ * /api/analytics/embeddings after a handful of clicks.
+ */
+export function resolveIp(req: Request, socketIp?: string): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    req.headers.get("x-real-ip") ??
+    socketIp ??
+    "unknown"
+  );
+}
+
+/**
+ * True for loopback/private-LAN addresses — the same trust boundary the rate
+ * limiter already used. Exported so `gui/server.ts` can reuse it to decide
+ * whether it's safe to hand the real API key to whoever is loading the page
+ * (see `serveIndexHtml()` — a remote/public requester must NOT receive it,
+ * or the key becomes visible via view-source to anyone who can load the URL,
+ * defeating the point of a key on any deployment that isn't purely local).
+ */
+export function isTrustedLocalIp(ip: string): boolean {
+  return ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.");
+}
+
 /** Rate limiting with sliding window algorithm. */
 export function rateLimitMiddleware() {
-  return async (req: Request): Promise<Response | null> => {
+  return async (req: Request, socketIp?: string): Promise<Response | null> => {
     const path = new URL(req.url).pathname;
 
     // Bypass list
     if (BYPASS_PATHS.some(p => path.startsWith(p))) return null;
 
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown";
+    const ip = resolveIp(req, socketIp);
 
     // Skip for loopback / LAN
-    if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.")) {
+    if (isTrustedLocalIp(ip)) {
       return null;
     }
 
@@ -160,7 +200,7 @@ export function rateLimitMiddleware() {
 
 /** API key authentication middleware. */
 export function apiKeyMiddleware() {
-  return async (req: Request): Promise<Response | null> => {
+  return async (req: Request, _socketIp?: string): Promise<Response | null> => {
     const path = new URL(req.url).pathname;
     if (PUBLIC_PATHS.some(p => path.startsWith(p))) return null;
 
@@ -193,13 +233,10 @@ export function apiKeyMiddleware() {
 export function requestLoggingMiddleware() {
   const starts = new Map<string, number>();
 
-  return async (req: Request): Promise<Response | null> => {
+  return async (req: Request, socketIp?: string): Promise<Response | null> => {
     const url = new URL(req.url);
     const method = req.method;
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-      req.headers.get("x-real-ip") ??
-      "local";
+    const ip = resolveIp(req, socketIp) === "unknown" ? "local" : resolveIp(req, socketIp);
 
     const key = `${method}:${url.pathname}:${Date.now()}`;
     starts.set(key, Date.now());
@@ -218,9 +255,9 @@ export function requestLoggingMiddleware() {
  * Returns a Response if any middleware short-circuits (rate limit / auth),
  * or null to continue to the route handler.
  */
-export async function applyMiddleware(req: Request): Promise<Response | null> {
+export async function applyMiddleware(req: Request, socketIp?: string): Promise<Response | null> {
   for (const fn of [requestLoggingMiddleware, rateLimitMiddleware, apiKeyMiddleware]) {
-    const result = await fn()(req);
+    const result = await fn()(req, socketIp);
     if (result !== null) return result;
   }
   return null;

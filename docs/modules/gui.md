@@ -121,6 +121,17 @@ Seven top-level nav buttons, each a distinct, non-overlapping purpose. Exactly o
 
 Before this pass, all of Code Analytics/News & Feeds/Developer's content lived flattened under one 12-tab "🧠 Intelligence" button with no grouping — a user had no way to tell, from the tab bar alone, that e.g. the Glossary (a code tool) and the Curated Feed (actual news) were unrelated kinds of content sharing one label.
 
+### Landing page / welcome directory
+
+The default local GUI view is a welcome linktree rather than a blank code
+browser. It gives visitors direct paths to local news and provider-labeled
+summaries, source coverage and freshness, municipal code, safety alerts,
+analytics, RAG chat, civic reports, developer/API tools, and official City,
+County, media-hub, Harbor, transit, and project links. The landing status line
+reports current source degradation, selected chat provider, alert level, and
+code corpus counts. Each destination opens the existing focused panel, so the
+landing page is navigation rather than a second copy of the data model.
+
 ### Features
 
 | Feature | Description |

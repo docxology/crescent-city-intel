@@ -29,6 +29,10 @@ Versioned by [Semantic Versioning](https://semver.org/).
   and a Pages source-registry explorer with text/state filters.
 - Added GUI Source Coverage drill-downs, automation/status filters, structured
   JSON downloads, and explicit coverage-gap rendering.
+- Reworked the local GUI and public Pages landing views into welcome linktrees
+  with direct paths to local news, source-grounded summaries, source health,
+  municipal code, alerts, analysis, reports, structured data, and official
+  local source hubs.
 - Added Pages source sorting, per-record inspection, fingerprint copying,
   filtered JSON/CSV downloads, and structured health/content exports.
 - Added `/api/sources?format=csv` and matching OpenAPI documentation for flat

@@ -319,6 +319,11 @@ workspace, `/api/sources`, `/api/source-discovery`, monthly reports, and GitHub
 Pages exports. The GUI and Pages dashboard can inspect individual records and
 download filtered JSON/CSV envelopes without losing status or provenance.
 
+The local GUI and public Pages landing views are welcome linktrees: visitors
+can choose local news and source-grounded summaries, source freshness, the
+municipal code, safety alerts, analytics, civic reports, structured downloads,
+or official local source hubs before entering the deeper tools.
+
 **Sources**: Times-Standard · Lost Coast Outpost · Humboldt Times · KIEM-TV NBC Eureka · Redwood Voice
 
 **Filter keywords**: crescent city · del norte · tsunami · harbor · fishing · crabbing · pelican bay · evacuation · wildfire · zoning · ordinance...

@@ -67,20 +67,65 @@
     .source-select { padding:4px 8px; font-size:.78rem; }
     th button.sort-button { border:0; background:transparent; color:var(--muted); padding:0; font:inherit; cursor:pointer; text-transform:uppercase; letter-spacing:.06em; }
     th button.sort-button:hover { color:var(--ink); }
+    .welcome-linktree { padding:8px 0 4px; }
+    .welcome-hero { border:1px solid var(--line); border-radius:16px; padding:24px; background:linear-gradient(135deg,rgba(105,183,255,.16),rgba(16,29,49,.92)); }
+    .welcome-kicker { color:var(--blue); font-size:.76rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin-bottom:9px; }
+    .welcome-hero h2 { font-size:clamp(1.55rem,4vw,2.3rem); margin-bottom:10px; }
+    .welcome-hero p { max-width:760px; color:#c7d4e4; margin:0 0 10px; }
+    .welcome-status { color:var(--muted); font-size:.86rem; }
+    .welcome-section-title { color:var(--muted); font-size:.78rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; margin:18px 0 9px; }
+    .welcome-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+    .welcome-link { display:block; min-height:118px; padding:15px; border:1px solid var(--line); border-radius:11px; background:rgba(16,29,49,.9); color:var(--ink); text-decoration:none; transition:transform .15s ease,border-color .15s ease,background .15s ease; }
+    .welcome-link:hover { transform:translateY(-2px); border-color:var(--blue); background:var(--panel2); }
+    .welcome-link:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+    .welcome-link .icon { display:block; font-size:21px; margin-bottom:7px; }
+    .welcome-link strong { display:block; margin-bottom:4px; }
+    .welcome-link span { display:block; color:var(--muted); font-size:.82rem; line-height:1.45; }
+    .welcome-external { display:flex; flex-wrap:wrap; gap:8px; }
+    .welcome-external a { border:1px solid var(--line); border-radius:999px; padding:7px 10px; color:var(--blue); text-decoration:none; background:rgba(16,29,49,.75); font-size:.82rem; }
+    .welcome-external a:hover { border-color:var(--blue); color:#fff; }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   </style>
 </head>
 <body>
   <header>
     <div class="eyebrow">Crescent City, California</div>
-    <h1>Civic intelligence public snapshot</h1>
-    <p class="subtle">A static, provenance-preserving export. It is not a live API and does not imply that an unavailable source is calm.</p>
+    <h1>Crescent City civic intelligence</h1>
+    <p class="subtle">Welcome to a provenance-preserving public snapshot for local news, public sources, municipal code, alerts, analysis, and source-grounded summaries. It is not a live API and does not imply that an unavailable source is calm.</p>
     <nav aria-label="Sections">
-      <a href="#overview">Overview</a><a href="#sources">Source health</a><a href="#registry">Source registry</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
+      <a href="#welcome">Welcome</a><a href="#overview">Overview</a><a href="#sources">Source health</a><a href="#registry">Source registry</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
     </nav>
   </header>
   <main>
     <div id="banner" class="banner">Loading the latest snapshot…</div>
+    <section id="welcome" class="section">
+      <div class="welcome-linktree">
+        <div class="welcome-hero">
+          <div class="welcome-kicker">Start here</div>
+          <h2>Find the local signal, then follow the evidence.</h2>
+          <p>Choose a destination to explore local reporting, LLM-summarized items with citations, public meeting records, the municipal code, live safety monitors, analytics, and downloadable structured data.</p>
+          <div id="welcome-status" class="welcome-status" role="status">Loading snapshot status…</div>
+        </div>
+        <div class="welcome-section-title">Explore this snapshot</div>
+        <div class="welcome-grid">
+          <a class="welcome-link" href="#news"><span class="icon">📰</span><strong>Local news &amp; summaries</strong><span>News feeds, cited LLM briefs, public meetings, and YouTube records.</span></a>
+          <a class="welcome-link" href="#registry"><span class="icon">🧭</span><strong>Source registry &amp; freshness</strong><span>Canonical sources, automation boundaries, health states, and coverage gaps.</span></a>
+          <a class="welcome-link" href="#code"><span class="icon">📖</span><strong>Municipal code</strong><span>Search the public code export and follow its ecode360 provenance.</span></a>
+          <a class="welcome-link" href="#alerts"><span class="icon">🚨</span><strong>Safety &amp; live alerts</strong><span>Tsunami, earthquake, weather, tides, fishing, air, wildfire, and marine status.</span></a>
+          <a class="welcome-link" href="#report"><span class="icon">📊</span><strong>Analysis &amp; civic report</strong><span>Period metrics, pipeline state, source highlights, warnings, and freshness metadata.</span></a>
+          <a class="welcome-link" href="data/snapshot.json" download><span class="icon">🧾</span><strong>Structured public data</strong><span>Download the snapshot envelope, health, registry, discovery, and report artifacts.</span></a>
+        </div>
+        <div class="welcome-section-title">Official and local source hubs</div>
+        <div class="welcome-external" aria-label="Official source links">
+          <a href="https://www.crescentcity.org/" target="_blank" rel="noopener">City of Crescent City</a>
+          <a href="https://www.co.del-norte.ca.us/" target="_blank" rel="noopener">Del Norte County</a>
+          <a href="https://media.co.del-norte.ca.us/" target="_blank" rel="noopener">County / City media hub</a>
+          <a href="https://www.ccharbor.com/" target="_blank" rel="noopener">Crescent City Harbor</a>
+          <a href="https://redwoodcoasttransit.org/" target="_blank" rel="noopener">Redwood Coast Transit</a>
+          <a href="https://github.com/docxology/crescent-city-intel" target="_blank" rel="noopener">Project &amp; documentation</a>
+        </div>
+      </div>
+    </section>
     <section id="overview" class="section">
       <h2>Overview</h2>
       <div id="cards" class="grid"></div>
@@ -163,6 +208,12 @@
       const discovery = snapshot.sourceDiscovery || {};
       $("metadata").innerHTML = `<strong>Lineage and runtime metadata</strong><div class="meta">${esc(summary.total ?? 0)} health records · ${esc(summary.degraded ?? 0)} unavailable/stale · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${run ? `pipeline ${esc(run.status || "unknown")} (${esc(run.runId || "unidentified")})` : "no pipeline manifest"}</div>${curation ? `<div class="meta">Curation: ${esc(curation.provider || "unknown")}/${esc(curation.model || "unknown")} · ${esc(curation.succeededCount ?? 0)} successful · ${esc(curation.retryableCount ?? 0)} retryable</div>` : ""}${report ? `<div class="meta">Report period: ${esc(report.period || "unknown")} · ${esc(report.status || "unknown")}</div>` : ""}`;
     }
+    function renderWelcome(snapshot) {
+      const summary = snapshot.healthSummary || {};
+      const discovery = snapshot.sourceDiscovery || {};
+      const provider = snapshot.report?.curation?.provider || "provider state in metadata";
+      $("welcome-status").innerHTML = `${status(snapshot.status)} · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${esc(summary.degraded ?? 0)} unavailable/stale health records · curation ${esc(provider)} · generated ${esc(date(snapshot.generatedAt))}`;
+    }
     function registryRecords(snapshot) {
       const discovery = snapshot.sourceDiscovery || {};
       return Array.isArray(discovery.sources) && discovery.sources.length ? discovery.sources : (snapshot.sourceRegistry || []).map(source => ({ ...source, operationalStatus: "not-checked", itemCount: 0 }));
@@ -227,7 +278,7 @@
         state.snapshot = snapshot;
         $("banner").className = `banner ${esc(snapshot.status)}`;
         $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "Some sources are unavailable or stale; inspect Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below."}`;
-        renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
+        renderWelcome(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
         if (snapshot.files && snapshot.files.code) { try { renderCode(await load(snapshot.files.code)); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
         $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre>${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
       } catch (error) {

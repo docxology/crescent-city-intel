@@ -31,7 +31,9 @@ and government meeting items, YouTube video metadata, Triplicate metadata and
 links only, alert current snapshots and composite severity, and the latest
 monthly report.
 
-The dashboard is intentionally interactive despite being static: source health
+The first viewport is a welcome linktree that routes visitors to local news and
+summaries, source registry/health, municipal code, alerts, reports, structured
+downloads, and official local source hubs. The dashboard is intentionally interactive despite being static: source health
 can be filtered by `ok`, `empty`, `unavailable`, or `stale`; news, meetings,
 and curated briefs have a shared text filter; the municipal code export has a
 local search box; the source registry can be filtered by automation state and

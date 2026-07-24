@@ -22,6 +22,9 @@ describe("GUI interactivity contracts", () => {
     expect(html).toContain('id="download-registry-csv"');
     expect(html).toContain('id="source-detail"');
     expect(html).toContain("copy-fingerprint");
+    expect(html).toContain('id="welcome"');
+    expect(html).toContain("Find the local signal");
+    expect(html).toContain("Structured public data");
   });
 
   test("local GUI exposes source coverage drill-down and structured output", async () => {
@@ -32,5 +35,9 @@ describe("GUI interactivity contracts", () => {
     expect(html).toContain('id="source-status-filter"');
     expect(html).toContain("source-json-download");
     expect(html).toContain("filteredSourceCoverageRecords");
+    expect(html).toContain('id="welcome-content"');
+    expect(html).toContain("Local news &amp; summaries");
+    expect(html).toContain("data-welcome-target=\"sources-toggle\"");
+    expect(html).toContain("Official and local source hubs");
   });
 });

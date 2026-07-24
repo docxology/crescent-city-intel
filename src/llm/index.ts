@@ -4,6 +4,7 @@ import { indexAllSections, isIndexed } from "./embeddings.js";
 import { ragQuery } from "./rag.js";
 import { getStats, isChromaRunning, waitForChroma } from "./chroma.js";
 import { isOllamaRunning, listModels } from "./ollama.js";
+import { checkChatProvider } from "./provider.js";
 import { llmConfig } from "./config.js";
 import { createLogger } from "../logger.js";
 import * as readline from "readline";
@@ -156,6 +157,11 @@ async function runQuery() {
 async function runStatus() {
   log.info("=== Crescent City Municipal Code — LLM Status ===");
 
+  const provider = await checkChatProvider();
+  log.info(`Chat provider (${provider.provider}): ${provider.reachable ? "✅ READY" : "❌ UNAVAILABLE"}`);
+  log.info(`  Chat model: ${provider.model}`);
+  if (provider.error) log.warn(`  Provider detail: ${provider.error}`);
+
   const ollama = await isOllamaRunning();
   log.info(`Ollama (${llmConfig.ollamaUrl}): ${ollama ? "✅ RUNNING" : "❌ NOT RUNNING"}`);
 
@@ -164,7 +170,6 @@ async function runStatus() {
       const models = await listModels();
       log.info(`  Models: ${models.join(", ") || "none"}`);
       log.info(`  Embedding model: ${llmConfig.embeddingModel}`);
-      log.info(`  Chat model: ${llmConfig.chatModel}`);
     } catch {}
   }
 

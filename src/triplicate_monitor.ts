@@ -34,6 +34,9 @@ import { withRetry, detectCloudflareStall } from './scraper_utils.js';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { normalizeUrl } from './news_monitor.js';
 import { SCRAPE_TIMEOUT_MS } from './constants.js';
+import { paths } from './shared/paths.js';
+import { sourceHealth, writeJsonAtomic } from './shared/source_health.js';
+import type { SourceHealth } from './types.js';
 
 const logger = createLogger('triplicate_monitor');
 
@@ -284,6 +287,8 @@ export interface MonitorTriplicateOptions {
   sections?: Record<string, string>;
   /** Override the output directory for saved article batches. */
   outputDir?: string;
+  /** Override the source-health artifact path (defaults to output/triplicate/source-health.json). */
+  healthPath?: string;
   /** Retry policy for section fetches. */
   retry?: { maxRetries?: number; baseDelayMs?: number };
 }
@@ -309,6 +314,7 @@ export async function monitorTriplicate(
   const seenPath = opts.seenPath ?? SEEN_ARTICLES_PATH;
   const sections = opts.sections ?? TRIPLICATE_SECTIONS;
   const outputDir = opts.outputDir ?? TRIPLICATE_OUTPUT_DIR;
+  const healthPath = opts.healthPath ?? paths.triplicateHealth;
   const maxRetries = opts.retry?.maxRetries ?? 2;
   const baseDelayMs = opts.retry?.baseDelayMs ?? 2000;
   const sectionCount = Object.keys(sections).length;
@@ -380,6 +386,32 @@ export async function monitorTriplicate(
   } else if (anyFetchSucceeded && totalExtracted > 0) {
     logger.info(`No new Triplicate articles (all ${totalExtracted} extracted already seen)`);
   }
+
+  const health: SourceHealth = !anyFetchSucceeded && anyFetchFailed
+    ? sourceHealth('Del Norte Triplicate', 'unavailable', fetchedAt, {
+      url: Object.values(sections)[0],
+      itemCount: 0,
+      error: 'Every configured section failed to render',
+      provenance: 'Playwright Cloudflare-bypass rendered pages',
+    })
+    : totalExtracted === 0
+      ? sourceHealth('Del Norte Triplicate', 'stale', fetchedAt, {
+        url: Object.values(sections)[0],
+        itemCount: 0,
+        error: 'Rendered pages yielded no article links; selectors or layout may have changed',
+        provenance: 'Playwright Cloudflare-bypass rendered pages',
+      })
+      : sourceHealth('Del Norte Triplicate', anyFetchFailed ? 'stale' : 'ok', fetchedAt, {
+        url: Object.values(sections)[0],
+        fetchedAt,
+        itemCount: totalExtracted,
+        error: anyFetchFailed ? 'One or more configured sections failed to render' : undefined,
+        provenance: 'Playwright Cloudflare-bypass rendered pages; reference/citation only',
+      });
+  await writeJsonAtomic(healthPath, {
+    checkedAt: new Date().toISOString(),
+    sources: [health],
+  });
 
   logger.info('=== Triplicate Monitoring Complete ===');
   return newArticles;

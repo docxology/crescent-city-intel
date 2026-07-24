@@ -13,7 +13,12 @@ let collection: Collection | null = null;
 function getClient(): ChromaClient {
   if (!client) {
     log.info(`Connecting to ChromaDB at ${llmConfig.chromaUrl}`);
-    client = new ChromaClient({ path: llmConfig.chromaUrl });
+    const endpoint = new URL(llmConfig.chromaUrl);
+    client = new ChromaClient({
+      host: endpoint.hostname,
+      port: Number(endpoint.port) || (endpoint.protocol === "https:" ? 443 : 8000),
+      ssl: endpoint.protocol === "https:",
+    });
   }
   return client;
 }
@@ -50,6 +55,22 @@ export async function addDocuments(docs: {
     documents: docs.documents,
     metadatas: docs.metadatas,
   });
+}
+
+/** Return all IDs currently stored, used to remove stale chunks after a rebuild. */
+export async function getDocumentIds(): Promise<string[]> {
+  const coll = await getOrCreateCollection();
+  const count = await coll.count();
+  if (count === 0) return [];
+  const result = await coll.get({ limit: count, include: [] });
+  return result.ids as string[];
+}
+
+/** Delete stale or policy-excluded documents from the collection. */
+export async function deleteDocuments(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const coll = await getOrCreateCollection();
+  await coll.delete({ ids });
 }
 
 /** Query the collection by embedding vector */
@@ -109,4 +130,3 @@ export async function waitForChroma(maxRetries = 3, delayMs = 1000): Promise<boo
   }
   return false;
 }
-

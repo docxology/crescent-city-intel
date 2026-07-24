@@ -38,7 +38,7 @@ This installs Playwright (browser automation) and ChromaDB client.
 bun run scrape
 ```
 
-This launches a visible Chromium browser, bypasses Cloudflare Turnstile, and downloads all 242 articles (2194 sections) from [ecode360.com/CR4919](https://ecode360.com/CR4919). Takes ~10–15 minutes.
+This launches a visible Chromium browser, bypasses Cloudflare Turnstile, and downloads the current article/section manifest from [ecode360.com/CR4919](https://ecode360.com/CR4919). Takes ~10–15 minutes.
 
 **Resume support**: If interrupted, run `bun run scrape` again — it picks up where it left off.
 
@@ -52,7 +52,7 @@ Output: `output/articles/*.json` + `output/toc.json` + `output/manifest.json`
 bun run verify
 ```
 
-Re-computes SHA-256 hashes and cross-references every section against the official TOC. Also re-fetches 5 random pages from the live site to confirm data freshness.
+Re-computes SHA-256 hashes and cross-references every section against the official TOC. It also re-fetches the configured verification sample from the live site to confirm data freshness.
 
 Output: `output/verification-report.json`
 
@@ -73,6 +73,16 @@ Generates four formats:
 | Text | `output/crescent-city-code.txt` |
 | CSV | `output/section-index.csv` |
 
+### Optional: build the public Pages snapshot
+
+```bash
+bun run pages:export -- --source output --output .pages
+bun run pages:validate -- .pages
+```
+
+This produces a static, bounded dashboard. It does not expose the local GUI
+API, credentials, logs, Chroma index, or Triplicate article content.
+
 ---
 
 ## Step 5: Launch Web Viewer
@@ -88,7 +98,7 @@ Open **<http://localhost:3000>** in your browser. Features:
 - 🔍 Instant full-text search
 - 🌗 Dark / Light mode
 - 📊 Analytics dashboard (bar charts, PCA scatter plot, word loadings)
-- ✨ Per-section AI summaries (requires Ollama)
+- ✨ Per-section AI summaries (uses Ollama by default or OpenRouter when selected)
 - 💬 RAG chat with source citations (requires Ollama + ChromaDB)
 
 ---
@@ -152,7 +162,8 @@ The web viewer's chat panel (💬 button) also connects to the RAG pipeline once
 | `bun run chat` | Interactive RAG chat |
 | `bun run query "..."` | Single RAG query |
 | `bun run status` | Check Ollama/ChromaDB/index status |
-| `bun test` | Run tests (538 tests, 43 files) |
+| `bun test` | Run the deterministic test suite |
+| `bun run validate` | Strict TypeScript, tests, contract, and generated-output gate |
 | `bun run monitor` | Detect municipal code changes |
 | `bun run news` | Fetch RSS news (Times-Standard, Lost Coast Outpost, Humboldt Times, KIEM-TV, Redwood Voice) |
 | `bun run youtube` | Pull YouTube meeting transcripts (requires `yt-dlp` on PATH) |
@@ -171,9 +182,10 @@ All optional — defaults work out of the box.
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `CHAT_MODEL` | `gemma3:4b` | Chat model |
 | `OPENROUTER_API_KEY` | `(unset)` | Required only when `LLM_PROVIDER=openrouter` |
-| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | OpenRouter chat model |
+| `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
 | `OPENROUTER_MAX_REQUESTS` | `100` | Max OpenRouter chat requests allowed per run |
-| `CHROMA_URL` | `http://localhost:8000` | ChromaDB server |
+| `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Bounded selected-provider health-check timeout |
+| `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `PORT` | `3000` | GUI server port |
 | `LOG_LEVEL` | `info` | Logger verbosity (debug/info/warn/error) |
 

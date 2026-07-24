@@ -15,7 +15,7 @@ ecode360.com/CR4919
         |
     [Scraper] --- Playwright + Cloudflare bypass
         |
-   output/articles/*.json (242 articles, 2194 sections)
+   output/articles/*.json (counts reported by output/manifest.json)
         |
    [Verifier] --- SHA-256 + TOC cross-reference + live re-fetch
         |
@@ -49,10 +49,13 @@ src/
   scrape.ts             # Scraper orchestrator with resume
   verify.ts             # Verification engine
   export.ts             # Multi-format exporter (JSON, MD, TXT, CSV)
-  domains.ts            # 9 civic intelligence domains with code cross-refs
+  domains.ts            # 12 civic intelligence domains with code cross-refs
   monitor.ts            # Municipal code change detection
-  news_monitor.ts       # RSS news aggregator (4 sources + dedup)
+  news_monitor.ts       # RSS/Atom news aggregator (configured sources + health + dedup)
   gov_meeting_monitor.ts # City Council/Planning/Harbor meeting tracker
+  youtube_monitor.ts    # YouTube listing/transcript monitor with retryable health
+  triplicate_monitor.ts # Reference/citation-only Triplicate monitor
+  curation.ts           # Provider-aware, source-grounded news/video curation
   monthly_report.ts     # Monthly civic health report generator
   structured_queries.ts # Legislative history, section compare, semantic similarity
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
@@ -73,23 +76,27 @@ src/
     coverage.ts         # Domain coverage % with prefix matching
   shared/
     paths.ts            # Centralized output path constants
+    source_health.ts     # Typed source-health contract and atomic artifact writes
     data.ts             # Data loading layer (60s TTL cache)
     porter_stem.ts      # Zero-dep Porter stemmer for BM25
     readability.ts      # Flesch-Kincaid + Gunning Fog scoring
     fuzzy.ts            # Levenshtein fuzzy matching + typo correction
+  pages_snapshot.ts       # Bounded public GitHub Pages snapshot exporter
+  pages/static/            # Static dashboard and 404 fallback for Pages
   gui/
     server.ts           # Bun.serve() HTTP server (port 3000)
-    routes.ts           # 30+ API route handlers
+    routes.ts           # API route handlers (see openapi.yaml for the contract)
     search.ts           # In-memory BM25 full-text search
     analytics.ts        # PCA, K-Means, word loadings
     static/index.html   # Single-page app (no framework)
   llm/
     config.ts           # LLM configuration
+    provider.ts         # Explicit Ollama/OpenRouter chat-provider selection
     ollama.ts           # Ollama API wrapper
     chroma.ts           # ChromaDB client
     embeddings.ts       # Chunking + indexing pipeline
     rag.ts              # RAG pipeline (embed → retrieve → generate)
-    streaming_rag.ts     # SSE streaming RAG (word-by-word)
+    streaming_rag.ts     # Provider-native SSE streaming RAG
     index.ts            # CLI entry point
 scripts/
   weekly-check.ts       # Weekly health check orchestrator
@@ -97,14 +104,27 @@ scripts/
   run-monitor.ts        # Change detection runner
   run-news.ts           # News monitor runner
   run-meetings.ts       # Meeting monitor runner
+  run-youtube.ts        # YouTube monitor runner
+  run-curation.ts       # Grounded curation runner
+  repair-output.ts      # Historical output repair/quarantine utility
+  export-pages.ts       # Build the bounded .pages public snapshot
+  validate-pages.ts     # Validate the generated Pages artifact
+  validate.ts           # Authoritative deterministic release gate
   run-coverage.ts       # Domain coverage orchestrator
   run-readability.ts    # Readability scoring orchestrator
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # 489 tests · 38 files · zero-mock policy
+tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.4.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
 ```
+
+## What's New in v2.5.0
+
+- RSS/Atom feed health envelopes with bounded fetches and normalized deduplication
+- Provider-aware Ollama/OpenRouter chat and curation with provenance and retryable failures
+- Fingerprinted Chroma indexing with stale-chunk deletion and corrected streaming context
+- YouTube timeout/retry handling, source-health reporting, monthly-report repairs, and `bun run validate`
 
 ## What's New in v2.4.0
 
@@ -132,7 +152,7 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.4.0)
 - Integrates with BM25 search as fallback
 
 ### Streaming RAG
-- `POST /api/chat/stream` — Server-Sent Events for word-by-word streaming
+- `POST /api/chat/stream` — Provider-native Server-Sent Events for RAG streaming
 - Sources → tokens → done event structure
 - Same RAG pipeline (Ollama + ChromaDB) with streaming output
 
@@ -169,19 +189,22 @@ bun run alerts:airquality    # NEW
 bun run alerts:wildfire      # NEW
 bun run alerts:marine        # NEW
 bun run monitor              # Municipal code change detection
-bun run news                 # RSS news (4 sources)
+bun run news                 # RSS/Atom news (configured sources)
 bun run gov-meetings         # Government meeting tracker
+bun run youtube              # YouTube listing/transcript monitor
+bun run curate               # Provider-aware grounded curation
 bun run weekly-check         # Full health check + summary
 bun run readability          # Flesch-Kincaid scoring
 bun run coverage             # Domain coverage analysis
 bun run report               # Monthly civic health report
-bun test                     # Run all 489 tests
+bun test                     # Run the deterministic suite
+bun run validate             # Run the authoritative release gate
 ```
 
 ## Testing
 
 ```bash
-bun test                    # 489 tests · 38 files
+bun test                    # Deterministic zero-mock suite
 ```
 
 All tests run offline. Zero-mock policy: real data, real modules.
@@ -192,8 +215,8 @@ All tests run offline. Zero-mock policy: real data, real modules.
 - [Bun](https://bun.sh) v1.0+
 - Playwright (auto-installed via `bun install`)
 - For LLM features:
-  - [Ollama](https://ollama.ai) with `nomic-embed-text` and `gemma3:4b` models
-  - [ChromaDB](https://www.trychroma.com) server running on port 8000
+  - [Ollama](https://ollama.ai) with `nomic-embed-text` for embeddings and `gemma3:4b` for the default local chat provider
+  - [ChromaDB](https://www.trychroma.com) server running on port 8001 locally (Docker uses internal port 8000)
 - For air quality alerts:
   - `AIRNOW_API_KEY` env var (free at [airnowapi.org](https://airnowapi.org))
 
@@ -212,6 +235,6 @@ All tests run offline. Zero-mock policy: real data, real modules.
 - Cloudflare Turnstile timing can vary; scraper may need retries
 - ecode360 content changes not auto-detected (re-scrape to update)
 - CAL FIRE wildfire API (`fire.ca.gov/imap/imapdata/all`) currently returns HTTP 403 Forbidden for all requests, including browser `User-Agent` headers — confirmed 2026-07-23 as an anti-bot/WAF block on CAL FIRE's end, not a parser or response-format issue; the monitor degrades gracefully
-- Government meeting tracker source URLs (`crescentcity.org/government/{city-council,planning-commission,harbor-commission}/agendas`) all 404 as of 2026-07-23 — the city migrated to a new evogov.com-based CMS and no replacement agenda-portal URL was found (the one evogov.com subdomain link on the site does not resolve in DNS); not code-fixable until the new URL is identified. `monitorGovMeetings()` now returns `[]` gracefully rather than crashing.
+- Government meeting tracker uses the live EvoGov JSON endpoint at `crescentcity.org/meetings/get_list`; City Council and Planning Commission were healthy in the 2026-07-24 smoke run, while Harbor Commission has no matching records and is reported as `empty` source health.
 - NDBC buoy data may have gaps (stations go offline for maintenance)
 - AirNow API requires free API key

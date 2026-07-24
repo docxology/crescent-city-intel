@@ -9,7 +9,7 @@
  * yt-dlp dependency is exercised manually via `bun run youtube`, not CI.
  */
 import { describe, expect, test } from "bun:test";
-import { parseVtt, listChannelVideos, type YouTubeVideoListing } from "../src/youtube_monitor";
+import { parseVtt, listChannelVideos, listChannelVideosDetailed, type YouTubeVideoListing } from "../src/youtube_monitor";
 
 // Modeled on the real growing-caption structure observed live 2026-07-23
 // (yt-dlp auto-sub output for a real Crescent City town hall meeting):
@@ -89,6 +89,14 @@ describe("listChannelVideos", () => {
     // degradation path without requiring a live network call to succeed.
     const result = await listChannelVideos("not-a-real-channel-url", 1);
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  test("classifies a listing failure as unavailable source health", async () => {
+    const result = await listChannelVideosDetailed("not-a-real-channel-url", 1);
+    expect(result.videos).toEqual([]);
+    expect(result.health.status).toBe("unavailable");
+    expect(result.health.itemCount).toBe(0);
+    expect(result.health.error).toBeTruthy();
   });
 });
 

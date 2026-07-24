@@ -19,7 +19,7 @@ Hard-coded project constants. Change these to target a different municipality.
 | `MAX_RETRIES` | `3` | Max retry attempts per article |
 | `VERIFY_SAMPLE_SIZE` | `5` | Random re-fetch sample for verification |
 | `EMBED_BATCH_SIZE` | `32` | Chunks per Ollama embedding request |
-| `OLLAMA_TIMEOUT_MS` | `120000` | Ollama request timeout |
+| `OLLAMA_TIMEOUT_MS` | `30000` | Ollama request timeout |
 
 ## Environment Variables
 
@@ -37,7 +37,16 @@ Hard-coded project constants. Change these to target a different municipality.
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API server |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model for embeddings |
 | `CHAT_MODEL` | `gemma3:4b` | Ollama model for chat/summarization |
-| `CHROMA_URL` | `http://localhost:8000` | ChromaDB server |
+| `LLM_PROVIDER` | `ollama` | Chat provider (`ollama` or `openrouter`) |
+| `OPENROUTER_API_KEY` | unset | Required when using OpenRouter |
+| `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
+| `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Bounded selected-provider health-check timeout |
+| `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
+| `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
+| `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |
+| `NEWS_DISABLED_SOURCES` | empty | Comma-separated feed names to mark unavailable without fetching |
+| `GOV_MEETINGS_TIMEOUT_MS` | `10000` | Meeting endpoint timeout |
+| `YT_DLP_TIMEOUT_MS` | `15000` | Maximum time for a YouTube listing/transcript subprocess |
 
 ### API Security
 

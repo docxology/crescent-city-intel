@@ -20,24 +20,50 @@
 import { createLogger } from './logger.js';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { llmConfig } from './llm/config.js';
-import { chat as ollamaChat } from './llm/ollama.js';
-import { chat as openrouterChat } from './llm/openrouter.js';
+import { chatWithProvider, checkChatProvider } from './llm/provider.js';
 import { domains } from './domains.js';
-import { mkdir, writeFile, readFile, readdir } from 'fs/promises';
+import { mkdir, open, readFile, readdir, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { paths } from './shared/paths.js';
+import { errorMessage, writeJsonAtomic } from './shared/source_health.js';
 
 const logger = createLogger('curation');
 
-const CURATED_OUTPUT_DIR = join(process.cwd(), 'output', 'curated');
+const CURATED_OUTPUT_DIR = paths.curated;
 /** Lives under output/state/, NOT output/curated/ — keeps every consumer
  * that lists output/curated/*.json (e.g. GET /api/curated) from having to
  * remember to filter this state file out. */
-const CURATION_SEEN_PATH = join(process.cwd(), 'output', 'state', 'curation-seen.json');
+const CURATION_SEEN_PATH = paths.curationSeen;
+const CURATION_LOCK_PATH = `${CURATION_SEEN_PATH}.lock`;
+const CURATION_LOCK_STALE_MS = 6 * 60 * 60 * 1000;
 
 const NEWS_DIR = join(process.cwd(), 'output', 'news');
 const GOV_MEETINGS_DIR = join(process.cwd(), 'output', 'gov_meetings');
 const YOUTUBE_DIR = join(process.cwd(), 'output', 'youtube');
+
+/** Acquire an exclusive curation-run lock; stale locks from terminated runs are recoverable. */
+async function acquireCurationLock(): Promise<() => Promise<void>> {
+  await mkdir(join(process.cwd(), 'output', 'state'), { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const handle = await open(CURATION_LOCK_PATH, 'wx');
+      await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+      await handle.close();
+      return async () => { await unlink(CURATION_LOCK_PATH).catch(() => undefined); };
+    } catch (error: any) {
+      if (error?.code !== 'EEXIST' || attempt > 0) {
+        throw new Error('A curation run is already in progress; retry after it completes.');
+      }
+      const lockStats = await stat(CURATION_LOCK_PATH).catch(() => null);
+      if (!lockStats || Date.now() - lockStats.mtimeMs <= CURATION_LOCK_STALE_MS) {
+        throw new Error('A curation run is already in progress; retry after it completes.');
+      }
+      await unlink(CURATION_LOCK_PATH).catch(() => undefined);
+    }
+  }
+  throw new Error('Unable to acquire curation run lock');
+}
 
 export interface CurationInput {
   /** Stable id — must match the id each source's own IdempotencyStore uses, so citations line up */
@@ -57,6 +83,19 @@ export interface CuratedItem {
   summary: string;
   tags: string[];
   curatedAt: string;
+  summaryStatus: 'ok' | 'source_only' | 'unavailable';
+  provider: 'ollama' | 'openrouter' | 'none';
+  model: string;
+  sourceExcerpt: string;
+  provenance: string;
+}
+
+export interface SummaryResult {
+  summary: string;
+  status: CuratedItem['summaryStatus'];
+  provider: CuratedItem['provider'];
+  model: string;
+  error?: string;
 }
 
 // ─── Gather already-fetched items from each source's output/ ─────────────
@@ -155,10 +194,7 @@ export async function gatherCurationInputs(): Promise<CurationInput[]> {
 
 async function chatWithConfiguredProvider(prompt: string): Promise<string> {
   const messages = [{ role: 'user' as const, content: prompt }];
-  if (llmConfig.provider === 'openrouter') {
-    return openrouterChat(messages);
-  }
-  return ollamaChat(messages);
+  return chatWithProvider(messages);
 }
 
 /**
@@ -187,18 +223,36 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-export async function summarizeItem(item: CurationInput): Promise<string> {
+export async function summarizeItemDetailed(item: CurationInput): Promise<SummaryResult> {
+  const provider = llmConfig.provider;
+  const model = provider === 'openrouter' ? llmConfig.openrouterModel : llmConfig.chatModel;
+  const sourceExcerpt = item.text.trim().slice(0, 600);
   try {
     const prompt =
       `Summarize the following in 1-2 sentences for a civic-intelligence briefing about ` +
-      `Crescent City, CA. Be factual and concise, no preamble.\n\n` +
-      `Title: ${item.title}\n\nContent:\n${item.text.slice(0, 4000)}`;
+      `Crescent City, CA. Use ONLY facts explicitly present in the source. ` +
+      `Do not infer identities, dates, causes, locations, or agencies. If the ` +
+      `source lacks enough information, say that it is a limited source excerpt. ` +
+      `Be factual and concise, with no preamble.\n\n` +
+      `Title: ${item.title}\n\nSource excerpt:\n${item.text.slice(0, 4000) || '(no article body was supplied by the feed)'}`;
     const summary = await withTimeout(chatWithConfiguredProvider(prompt), SUMMARY_TIMEOUT_MS, `Summary for ${item.id}`);
-    return summary.trim() || '(summary unavailable)';
-  } catch (err: any) {
-    logger.warn(`Summary unavailable for item ${item.id}`, { error: err.message, source: item.source });
-    return '(summary unavailable)';
+    if (!summary.trim()) throw new Error('Provider returned an empty summary');
+    return { summary: summary.trim(), status: 'ok', provider, model };
+  } catch (err: unknown) {
+    logger.warn(`Summary unavailable for item ${item.id}`, { error: errorMessage(err), source: item.source });
+    return {
+      summary: sourceExcerpt ? `Source-only excerpt: ${sourceExcerpt}` : 'Summary unavailable: the source did not provide article text.',
+      status: 'unavailable',
+      provider,
+      model,
+      error: errorMessage(err),
+    };
   }
+}
+
+/** Backwards-compatible string summary API. */
+export async function summarizeItem(item: CurationInput): Promise<string> {
+  return (await summarizeItemDetailed(item)).summary;
 }
 
 // ─── Domain tagging (keyword overlap against src/domains.ts) ─────────────
@@ -235,59 +289,97 @@ export function tagWithDomains(item: CurationInput): string[] {
  */
 export async function runCuration(): Promise<CuratedItem[]> {
   logger.info('=== Starting Crescent City Curation ===');
+  const releaseLock = await acquireCurationLock();
 
-  const idempotency = new IdempotencyStore(CURATION_SEEN_PATH);
-  await idempotency.load();
+  try {
 
-  const inputs = await gatherCurationInputs();
-  const toCurate = inputs.filter((item) => idempotency.seen(item.id).isNew);
+    const idempotency = new IdempotencyStore(CURATION_SEEN_PATH);
+    await idempotency.load();
 
-  if (toCurate.length === 0) {
-    logger.info('No new items to curate');
-    return [];
-  }
+    const inputs = await gatherCurationInputs();
+    const toCurate = inputs.filter((item) => !idempotency.has(item.id));
 
-  const curated: CuratedItem[] = [];
-  for (const [i, item] of toCurate.entries()) {
+    if (toCurate.length === 0) {
+      logger.info('No new items to curate');
+      return [];
+    }
+
+  // Check the selected provider once before a batch. Without this guard, an
+  // unreachable OpenRouter endpoint would spend the per-item summary timeout
+  // on every input even though the whole run is already known to be degraded.
+  // Items remain retryable because unavailable summaries are never recorded
+  // as successfully curated below.
+    const providerHealth = await checkChatProvider();
+    const providerError = !providerHealth.configured || !providerHealth.reachable
+      ? providerHealth.error ?? `${providerHealth.provider} chat provider is unavailable`
+      : undefined;
+    if (providerError) logger.warn('Curation provider preflight failed; retaining source-only items for retry', { error: providerError });
+
+    const curated: CuratedItem[] = [];
+    for (const [i, item] of toCurate.entries()) {
     // Space out requests when using OpenRouter so a burst of new items
     // doesn't blow through the free-tier per-minute rate limit and degrade
     // every item to "summary unavailable" (see openrouterMinRequestIntervalMs
     // doc comment in llm/config.ts). Ollama has no such external limit.
-    if (i > 0 && llmConfig.provider === 'openrouter') {
+    if (i > 0 && !providerError && llmConfig.provider === 'openrouter') {
       await new Promise((resolve) => setTimeout(resolve, llmConfig.openrouterMinRequestIntervalMs));
     }
-    const summary = await summarizeItem(item);
+    const summary = providerError
+      ? {
+          summary: item.text.trim()
+            ? `Source-only excerpt: ${item.text.trim().slice(0, 600)}`
+            : 'Summary unavailable: the source did not provide article text.',
+          status: 'unavailable' as const,
+          provider: providerHealth.provider,
+          model: providerHealth.model,
+          error: providerError,
+        }
+      : await summarizeItemDetailed(item);
     const tags = tagWithDomains(item);
     curated.push({
       id: item.id,
       source: item.source,
       title: item.title,
       link: item.link,
-      summary,
+      summary: summary.summary,
       tags,
       curatedAt: new Date().toISOString(),
+      summaryStatus: summary.status,
+      provider: summary.provider,
+      model: summary.model,
+      sourceExcerpt: item.text.slice(0, 600),
+      provenance: `${item.source}:${item.link ?? item.id}`,
     });
-  }
-
-  await mkdir(CURATED_OUTPUT_DIR, { recursive: true });
-  const dateStamp = new Date().toISOString().slice(0, 10);
-  const outPath = join(CURATED_OUTPUT_DIR, `${dateStamp}.json`);
-
-  // Append to today's file if it already exists (multiple curation runs per day)
-  let existing: CuratedItem[] = [];
-  if (existsSync(outPath)) {
-    try {
-      existing = JSON.parse(await readFile(outPath, 'utf-8'));
-    } catch {
-      existing = [];
+    // A failed provider call stays retryable. The source-only fallback is
+    // retained as evidence for this run but is not treated as a successful
+    // LLM curation result.
+      if (summary.status === 'ok' || summary.status === 'source_only') {
+        idempotency.seen(item.id);
+      }
     }
+
+    await mkdir(CURATED_OUTPUT_DIR, { recursive: true });
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const outPath = join(CURATED_OUTPUT_DIR, `${dateStamp}.json`);
+
+    // Append to today's file if it already exists (multiple curation runs per day)
+    let existing: CuratedItem[] = [];
+    if (existsSync(outPath)) {
+      try {
+        existing = JSON.parse(await readFile(outPath, 'utf-8'));
+      } catch {
+        existing = [];
+      }
+    }
+    await writeJsonAtomic(outPath, [...existing, ...curated]);
+
+    await idempotency.save();
+
+    logger.info(`=== Curation Complete: ${curated.length} item(s) curated ===`);
+    return curated;
+  } finally {
+    await releaseLock();
   }
-  await writeFile(outPath, JSON.stringify([...existing, ...curated], null, 2));
-
-  await idempotency.save();
-
-  logger.info(`=== Curation Complete: ${curated.length} item(s) curated ===`);
-  return curated;
 }
 
 if (import.meta.main) {

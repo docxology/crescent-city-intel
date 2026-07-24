@@ -8,7 +8,13 @@ const log = createLogger("openrouter");
 type OpenRouterRequestOptions = {
   baseUrl?: string;
   apiKey?: string;
+  signal?: AbortSignal;
 };
+
+export interface OpenRouterHealthCheck {
+  reachable: boolean;
+  error?: string;
+}
 
 type OpenRouterChatResponse = {
   choices?: Array<{
@@ -113,6 +119,22 @@ function incrementRequestCount(): void {
   openRouterRequestCount = nextRequestCount;
 }
 
+function buildMessages(messages: ChatMessage[], context?: string): ChatMessage[] {
+  const systemPrompt =
+    "You are a helpful assistant that answers questions about the Crescent City Municipal Code. " +
+    "Use only the provided context to answer. Cite section numbers when possible. " +
+    "If the context doesn't contain enough information, say so.";
+  return [
+    {
+      role: "system",
+      content: context
+        ? `${systemPrompt}\n\nContext from the municipal code:\n${context}`
+        : systemPrompt,
+    },
+    ...messages,
+  ];
+}
+
 /** Chat with the model, optionally injecting context into the system prompt */
 export async function chat(
   messages: ChatMessage[],
@@ -124,20 +146,7 @@ export async function chat(
   incrementRequestCount();
 
   const model = modelOverride ?? llmConfig.openrouterModel;
-  const systemPrompt =
-    "You are a helpful assistant that answers questions about the Crescent City Municipal Code. " +
-    "Use only the provided context to answer. Cite section numbers when possible. " +
-    "If the context doesn't contain enough information, say so.";
-
-  const fullMessages: ChatMessage[] = [
-    {
-      role: "system",
-      content: context
-        ? `${systemPrompt}\n\nContext from the municipal code:\n${context}`
-        : systemPrompt,
-    },
-    ...messages,
-  ];
+  const fullMessages = buildMessages(messages, context);
 
   const base = options?.baseUrl ?? llmConfig.openrouterUrl;
   log.debug(`Chat request to ${model}`, { messageCount: String(fullMessages.length) });
@@ -153,7 +162,9 @@ export async function chat(
       messages: fullMessages,
       max_tokens: llmConfig.openrouterMaxTokens,
     }),
-    signal: AbortSignal.timeout(llmConfig.openrouterTimeoutMs),
+    signal: options?.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(llmConfig.openrouterTimeoutMs)])
+      : AbortSignal.timeout(llmConfig.openrouterTimeoutMs),
   });
 
   if (!resp.ok) {
@@ -166,6 +177,66 @@ export async function chat(
   }
 
   return data.choices[0].message.content;
+}
+
+/** Stream OpenRouter SSE deltas for the provider-aware RAG endpoint. */
+export async function* streamChat(
+  messages: ChatMessage[],
+  context?: string,
+  modelOverride?: string,
+  options?: OpenRouterRequestOptions,
+): AsyncGenerator<string> {
+  const apiKey = resolveApiKey(options?.apiKey);
+  incrementRequestCount();
+  const model = modelOverride ?? llmConfig.openrouterModel;
+  const base = options?.baseUrl ?? llmConfig.openrouterUrl;
+  const response = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: buildMessages(messages, context),
+      max_tokens: llmConfig.openrouterMaxTokens,
+      stream: true,
+    }),
+    signal: options?.signal
+      ? AbortSignal.any([options.signal, AbortSignal.timeout(llmConfig.openrouterTimeoutMs)])
+      : AbortSignal.timeout(llmConfig.openrouterTimeoutMs),
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`OpenRouter streaming request failed (${response.status}): ${await response.text()}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const payload = line.trim();
+      if (!payload.startsWith("data:")) continue;
+      const data = payload.slice(5).trim();
+      if (data === "[DONE]") return;
+      let parsed: any;
+      try {
+        parsed = JSON.parse(data);
+      } catch (error) {
+        log.warn("Skipping malformed OpenRouter stream chunk", { error: String(error) });
+        continue;
+      }
+      if (parsed.error?.message) throw new Error(`OpenRouter stream error: ${parsed.error.message}`);
+      const token = parsed.choices?.[0]?.delta?.content;
+      if (typeof token === "string" && token.length > 0) yield token;
+    }
+  }
 }
 
 /** List available models from OpenRouter */
@@ -195,6 +266,34 @@ export async function listModels(): Promise<string[]> {
 /** Check if OpenRouter has been configured */
 export function isOpenRouterConfigured(): boolean {
   return typeof process.env.OPENROUTER_API_KEY === "string" && process.env.OPENROUTER_API_KEY.trim().length > 0;
+}
+
+/**
+ * Perform a bounded, non-generative OpenRouter preflight. `/models` verifies
+ * the configured URL, credentials, and response shape without consuming a
+ * chat completion or the per-run generation request cap.
+ */
+export async function checkOpenRouterHealth(options: OpenRouterRequestOptions = {}): Promise<OpenRouterHealthCheck> {
+  try {
+    const apiKey = resolveApiKey(options.apiKey);
+    const base = options.baseUrl ?? llmConfig.openrouterUrl;
+    const response = await fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(llmConfig.providerPreflightTimeoutMs)])
+        : AbortSignal.timeout(llmConfig.providerPreflightTimeoutMs),
+    });
+    if (!response.ok) {
+      return { reachable: false, error: `OpenRouter preflight failed (${response.status}): ${(await response.text()).slice(0, 300)}` };
+    }
+    const data = await response.json() as OpenRouterModelsResponse;
+    if (!isOpenRouterModelsResponse(data)) {
+      return { reachable: false, error: "OpenRouter preflight returned an unexpected /models response shape" };
+    }
+    return { reachable: true };
+  } catch (error: unknown) {
+    return { reachable: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 /** Reset the OpenRouter request counter */

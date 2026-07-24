@@ -13,9 +13,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
   actions: read
 
 jobs:
@@ -135,10 +133,10 @@ jobs:
         id: check-data
         run: |
           if [ -f "output/manifest.json" ]; then
-            echo "has_data=true" >> $GITHUB_OUTPUT
+            echo "has_data=true" >> "$GITHUB_OUTPUT"
             echo "✅ Found output/manifest.json — will run verification"
           else
-            echo "has_data=false" >> $GITHUB_OUTPUT
+            echo "has_data=false" >> "$GITHUB_OUTPUT"
             echo "⚠️ No manifest.json found — skipping verification (run bun run scrape first)"
           fi
 

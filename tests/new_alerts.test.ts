@@ -166,4 +166,20 @@ describe("computeAlertSeverity (8-monitor composite)", () => {
     );
     expect(report.monitors.airQuality.level).toBe("WATCH");
   });
+
+  test("unavailable feeds are explicit in the composite report", () => {
+    const report = computeAlertSeverity(
+      { warningCount: 0, watchCount: 0, available: false },
+      { events: [], available: false },
+      { severities: [], count: 0, available: false },
+      { waterLevelFt: null, available: false },
+      { closureActive: false, available: false },
+      { maxAqi: 0, available: false },
+      { incidentCount: 0, hasEvacuationOrders: false, hasLargeFireNearby: false, available: false },
+      { waveHeightFt: null, windSpeedKt: null, available: false },
+    );
+    expect(report.level).toBe("CALM");
+    expect(report.hasUnavailableMonitors).toBe(true);
+    expect(report.reason).toContain("Data unavailable");
+  });
 });

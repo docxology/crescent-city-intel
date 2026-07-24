@@ -37,11 +37,11 @@ afterAll(() => {
 });
 
 describe("GET /api/health", () => {
-  test("returns 200 with {status:'ok'}", async () => {
+  test("returns 200 with a truthful health status", async () => {
     const res = await fetch(`${BASE}/api/health`);
     expect(res.status).toBe(200);
     const body = await res.json() as { status: string; timestamp: string };
-    expect(body.status).toBe("ok");
+    expect(["ok", "degraded"]).toContain(body.status);
     expect(typeof body.timestamp).toBe("string");
   });
 });

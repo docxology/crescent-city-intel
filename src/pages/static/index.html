@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Crescent City civic intelligence — a provenance-preserving static snapshot.">
+  <title>Crescent City Intel — Public Snapshot</title>
+  <style>
+    :root { color-scheme: dark; --bg:#08111f; --panel:#101d31; --panel2:#16263e; --ink:#e8f0fb; --muted:#9fb1c8; --line:#27415f; --blue:#69b7ff; --green:#54d29a; --yellow:#ffd166; --red:#ff7b83; --purple:#c7a2ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(150deg,#07101d,#0b1728 45%,#0e1c30); color:var(--ink); font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    a { color:var(--blue); }
+    header { border-bottom:1px solid var(--line); padding:28px max(20px,calc((100% - 1180px)/2)); background:rgba(8,17,31,.9); }
+    h1,h2,h3 { line-height:1.2; margin:0 0 10px; }
+    h1 { font-size:clamp(1.6rem,4vw,2.5rem); letter-spacing:-.03em; }
+    h2 { font-size:1.25rem; margin-top:28px; }
+    h3 { font-size:1rem; }
+    .eyebrow { color:var(--blue); font-size:.76rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
+    .subtle,.meta { color:var(--muted); font-size:.88rem; }
+    main { max-width:1180px; margin:0 auto; padding:24px 20px 60px; }
+    nav { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 4px; }
+    nav a,.button { border:1px solid var(--line); border-radius:999px; color:var(--ink); padding:7px 12px; text-decoration:none; background:rgba(22,38,62,.75); font-size:.88rem; }
+    nav a:hover,.button:hover { border-color:var(--blue); color:#fff; }
+    .banner { border:1px solid var(--line); border-left:4px solid var(--blue); border-radius:10px; padding:14px 16px; background:rgba(16,29,49,.86); }
+    .banner.degraded { border-left-color:var(--yellow); }
+    .banner.unavailable { border-left-color:var(--red); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
+    .card,.item,.source { background:rgba(16,29,49,.9); border:1px solid var(--line); border-radius:10px; padding:15px; }
+    .card .value { font-size:1.65rem; font-weight:750; color:var(--blue); }
+    .card .label { color:var(--muted); font-size:.83rem; }
+    .section { scroll-margin-top:18px; }
+    .items { display:grid; gap:10px; }
+    .item { border-left:3px solid var(--line); }
+    .item h3 { margin-bottom:5px; }
+    .item p { margin:6px 0 0; color:#c7d4e4; }
+    .item .tag { display:inline-block; margin:4px 4px 0 0; padding:2px 7px; border-radius:999px; background:var(--panel2); color:var(--purple); font-size:.76rem; }
+    .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
+    .source { position:relative; padding-left:18px; }
+    .source::before { content:""; position:absolute; left:7px; top:18px; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+    .source.ok::before { background:var(--green); }
+    .source.empty::before { background:var(--blue); }
+    .source.unavailable::before,.source.stale::before { background:var(--red); }
+    .status { font-weight:750; letter-spacing:.04em; }
+    .status.ok { color:var(--green); }.status.empty { color:var(--blue); }.status.unavailable,.status.stale { color:var(--red); }
+    table { border-collapse:collapse; width:100%; background:rgba(16,29,49,.9); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    th,td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; }
+    tr:last-child td { border-bottom:0; }
+    input { width:min(100%,520px); border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); padding:10px 12px; font:inherit; }
+    pre { white-space:pre-wrap; background:rgba(6,13,24,.8); border:1px solid var(--line); border-radius:10px; padding:16px; max-height:560px; overflow:auto; color:#d7e2f0; }
+    footer { border-top:1px solid var(--line); margin-top:34px; padding-top:18px; color:var(--muted); font-size:.82rem; }
+    .empty-state { color:var(--muted); border:1px dashed var(--line); border-radius:10px; padding:16px; }
+    .error { color:var(--red); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Crescent City, California</div>
+    <h1>Civic intelligence public snapshot</h1>
+    <p class="subtle">A static, provenance-preserving export. It is not a live API and does not imply that an unavailable source is calm.</p>
+    <nav aria-label="Sections">
+      <a href="#overview">Overview</a><a href="#sources">Source health</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
+    </nav>
+  </header>
+  <main>
+    <div id="banner" class="banner">Loading the latest snapshot…</div>
+    <section id="overview" class="section">
+      <h2>Overview</h2>
+      <div id="cards" class="grid"></div>
+      <p id="provenance" class="subtle"></p>
+    </section>
+    <section id="sources" class="section">
+      <h2>Source health</h2>
+      <p class="subtle">Each source retains its operational state, check time, item count, error, and provenance. <a href="data/source-health.json">Download the health artifact</a>.</p>
+      <div id="health" class="health-grid"></div>
+    </section>
+    <section id="news" class="section"><h2>Recent news</h2><div id="news-items" class="items"></div></section>
+    <section id="meetings" class="section"><h2>Government meetings</h2><div id="meeting-items" class="items"></div></section>
+    <section id="alerts" class="section"><h2>Alert monitors</h2><div id="alert-summary"></div><div id="alert-items" class="items"></div></section>
+    <section id="curated" class="section"><h2>Source-grounded curation</h2><p class="subtle">Curated briefs are provider-generated summaries, not independent reporting. Triplicate is excluded from curation, embeddings, and training.</p><div id="curated-items" class="items"></div></section>
+    <section id="code" class="section"><h2>Municipal code snapshot</h2><p id="code-meta" class="subtle"></p><input id="code-search" type="search" placeholder="Search section number, title, or text…" aria-label="Search municipal code"><div id="code-results" class="items" style="margin-top:10px"></div></section>
+    <section id="report" class="section"><h2>Latest civic health report</h2><div id="report-content"></div></section>
+    <footer>
+      <div>Snapshot source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> · Municipal code source: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
+      <div>Public export excludes chat history, request/search/RAG logs, Chroma data, credentials, and Triplicate article content.</div>
+    </footer>
+  </main>
+  <script>
+    const state = { snapshot: null, code: null };
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    const href = value => /^https?:\/\//i.test(String(value || "")) ? String(value) : "#";
+    const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
+    const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
+    const empty = message => `<div class="empty-state">${esc(message)}</div>`;
+    async function load(path) { const response = await fetch(path, { cache:"no-store" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+    function itemCard(item, kind) {
+      const title = esc(item.title || item.videoId || "Untitled");
+      const link = href(item.link);
+      const source = esc(item.source || item.channel || kind);
+      const detail = esc(item.description || item.content || item.summary || "");
+      const when = item.pubDate || item.date || item.uploadDate || item.curatedAt || item.fetchedAt;
+      const tags = Array.isArray(item.tags) ? item.tags.map(tag => `<span class="tag">${esc(tag)}</span>`).join("") : "";
+      return `<article class="item"><h3><a href="${esc(link)}" rel="noopener noreferrer">${title}</a></h3><div class="meta">${source}${when ? ` · ${esc(date(when))}` : ""}</div>${detail ? `<p>${detail}</p>` : ""}${tags}</article>`;
+    }
+    function renderHealth(sources) {
+      $("health").innerHTML = sources.length ? sources.map(source => `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}${source.fetchedAt ? ` · fetched ${esc(date(source.fetchedAt))}` : ""}</div>${source.provenance ? `<div class="meta">${esc(source.provenance)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}${source.error ? `<div class="error">${esc(source.error)}</div>` : ""}</article>`).join("") : empty("No source-health artifact was available for this snapshot.");
+    }
+    function renderList(id, items, kind, limit = 30) { $(id).innerHTML = items.length ? items.slice(0, limit).map(item => itemCard(item, kind)).join("") : empty(`No ${kind.toLowerCase()} items were available in this snapshot.`); }
+    function renderAlerts(snapshot) {
+      const composite = snapshot.alerts && snapshot.alerts.composite;
+      $("alert-summary").innerHTML = composite ? `<div class="banner ${String(composite.level || "").toLowerCase()}"><strong>${esc(composite.level || "UNKNOWN")}</strong> — ${esc(composite.reason || "Composite assessment recorded")}<div class="meta">Assessed ${esc(date(composite.assessedAt))}${composite.hasUnavailableMonitors ? " · one or more monitors unavailable" : ""}</div></div>` : empty("No composite alert snapshot was available.");
+      const current = snapshot.alerts && Array.isArray(snapshot.alerts.current) ? snapshot.alerts.current : [];
+      $("alert-items").innerHTML = current.length ? `<table><thead><tr><th>Monitor</th><th>Level/status</th><th>Summary</th><th>Observed</th></tr></thead><tbody>${current.map(item => `<tr><td>${esc(item.monitor)}</td><td>${status(item.level || item.status || "unknown")}</td><td>${esc(item.summary || item.reason || item.message || "No summary")}</td><td>${esc(date(item.fetchedAt || item.assessedAt || item.timestamp))}</td></tr>`).join("")}</tbody></table>` : empty("No per-monitor current snapshots were available.");
+    }
+    function renderCards(snapshot) {
+      const manifest = snapshot.municipalCode && snapshot.municipalCode.manifest;
+      const cards = [
+        [manifest && manifest.articlePageCount, "Code articles"],
+        [manifest && manifest.sectionCount, "Code sections"],
+        [snapshot.news.length, "News items"],
+        [snapshot.meetings.length, "Meeting items"],
+        [snapshot.sourceHealth.length, "Health records"],
+        [snapshot.curated.length, "Curated briefs"],
+      ];
+      $("cards").innerHTML = cards.map(([value,label]) => `<div class="card"><div class="value">${esc(value ?? "—")}</div><div class="label">${esc(label)}</div></div>`).join("");
+      const commit = snapshot.commit ? ` · commit ${esc(snapshot.commit.slice(0,12))}` : "";
+      $("provenance").innerHTML = `Generated ${esc(date(snapshot.generatedAt))}${commit} · status ${status(snapshot.status)} · <a href="data/snapshot.json">snapshot JSON</a>`;
+    }
+    function renderCode(code) {
+      state.code = code;
+      const articles = code && Array.isArray(code.articles) ? code.articles : [];
+      const sections = articles.flatMap(article => (article.sections || []).map(section => ({ ...section, articleTitle: article.title, articleUrl: article.url })));
+      $("code-meta").textContent = sections.length ? `${articles.length} articles and ${sections.length} sections in this public code export.` : "The municipal code export is not available in this snapshot.";
+      const show = query => {
+        const needle = query.trim().toLowerCase();
+        const matches = needle ? sections.filter(section => [section.number,section.title,section.text].join(" ").toLowerCase().includes(needle)).slice(0,30) : [];
+        $("code-results").innerHTML = needle ? (matches.length ? matches.map(section => `<article class="item"><h3>${esc(section.number)} ${esc(section.title)}</h3><div class="meta">${esc(section.articleTitle || "")}</div><p>${esc(String(section.text || "").slice(0,420))}${String(section.text || "").length > 420 ? "…" : ""}</p>${section.articleUrl ? `<a href="${esc(href(section.articleUrl))}">source article</a>` : ""}</article>`).join("") : empty("No code sections matched this query.")) : empty("Enter a search term to search the exported municipal code.");
+      };
+      $("code-search").addEventListener("input", event => show(event.target.value));
+      show("");
+    }
+    async function start() {
+      try {
+        const snapshot = await load("data/snapshot.json");
+        state.snapshot = snapshot;
+        $("banner").className = `banner ${esc(snapshot.status)}`;
+        $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "Some sources are unavailable or stale; inspect Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below."}`;
+        renderCards(snapshot); renderHealth(snapshot.sourceHealth || []); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
+        if (snapshot.files && snapshot.files.code) { try { renderCode(await load(snapshot.files.code)); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
+        $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre>${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
+      } catch (error) {
+        $("banner").className = "banner unavailable";
+        $("banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(error.message || error)}. The deployment is not presenting a false-success dashboard.`;
+      }
+    }
+    start();
+  </script>
+</body>
+</html>

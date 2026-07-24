@@ -211,9 +211,9 @@ function isCrescentCityRelevant(alert: {
       
       // Handle both polygon and multipolygon geometries
       const coordinates = alert.geometry.coordinates;
-      const polygons = alert.geometry.type === 'MultiPolygon' 
-        ? (coordinates as number[][][]) 
-        : [coordinates as number[][]];
+      const polygons: number[][][][] = alert.geometry.type === 'MultiPolygon'
+        ? (coordinates as unknown as number[][][][])
+        : [coordinates as number[][][]];
       
       for (const polygon of polygons) {
         if (pointInPolygon(point, polygon)) {
@@ -294,7 +294,7 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
   try {
     const response = await fetch(NWS_ALERTS_URL, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel-intel)'
+      'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel)'
       }
     });
     
@@ -404,9 +404,16 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
         warning: advisoryCount.warning
       });
     }
+
+    await mkdir(HISTORY_DIR, { recursive: true });
+    await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
+      fetchedAt: new Date().toISOString(),
+      alerts,
+    }, null, 2));
     
-  } catch (error) {
-    logger.error('Failed to fetch NWS weather alerts', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Failed to fetch NWS weather alerts', { error: String(error) });
+    throw error;
   }
   
   logger.info('=== NWS Weather Alert Monitoring Complete ===');

@@ -1,6 +1,7 @@
 /** RAG pipeline — retrieval-augmented generation for municipal code Q&A */
 import type { ChatMessage, RagResponse, RagSource } from "../types.js";
-import { embed, chat } from "./ollama.js";
+import { embed } from "./ollama.js";
+import { chatWithProvider, configuredChatModel, configuredChatProvider } from "./provider.js";
 import { query } from "./chroma.js";
 import { llmConfig } from "./config.js";
 import { appendFile, mkdir } from "fs/promises";
@@ -115,7 +116,7 @@ function buildCitationUrl(guid: string): string {
  * those property reads silently evaluated to `undefined`).
  */
 export function buildRagSource(doc: string, meta: Record<string, string>, distance: number): RagSource {
-  const score = Math.round((1 - distance) * 1000) / 1000;
+  const score = Math.max(0, Math.min(1, Math.round((1 - distance) * 1000) / 1000));
   const snippet = doc.substring(0, 200);
 
   if (meta.sourceType === "youtube_transcript") {
@@ -146,7 +147,7 @@ export function buildRagSource(doc: string, meta: Record<string, string>, distan
 /** Query the RAG pipeline with a user question */
 export async function ragQuery(userQuestion: string, modelOverride?: string): Promise<RagResponse> {
   const start = Date.now();
-  const model = modelOverride ?? llmConfig.chatModel;
+  const model = configuredChatModel(modelOverride);
 
   // Adaptive topK based on query complexity
   const topK = adaptiveTopK(userQuestion);
@@ -165,9 +166,10 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
   const contextParts: string[] = [];
 
   for (let i = 0; i < results.ids.length; i++) {
-    const doc = results.documents[i];
-    const meta = results.metadatas[i];
-    const distance = results.distances[i];
+    const doc = results.documents[i] ?? "";
+    const meta = results.metadatas[i] ?? {};
+    const distance = results.distances[i] ?? 1;
+    if (!doc.trim()) continue;
 
     const label =
       meta.sourceType === "youtube_transcript"
@@ -180,12 +182,21 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
 
   const context = contextParts.join("\n---\n");
 
+  if (sources.length === 0 || !context.trim()) {
+    return {
+      answer: "I could not find indexed municipal-code or meeting content relevant to that question.",
+      sources: [],
+      model,
+      provider: configuredChatProvider(),
+    };
+  }
+
   // Step 4: Generate answer with context
   const messages: ChatMessage[] = [
     { role: "user", content: userQuestion },
   ];
 
-  const answer = await chat(messages, context, model);
+  const answer = await chatWithProvider(messages, context, model);
   const latencyMs = Date.now() - start;
 
   // Log the query asynchronously (non-blocking)
@@ -194,6 +205,7 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
   return {
     answer,
     sources,
-    model: llmConfig.chatModel,
+    model,
+    provider: configuredChatProvider(),
   };
 }

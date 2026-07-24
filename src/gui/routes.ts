@@ -4,6 +4,7 @@ import { loadToc, loadArticle, loadSection, loadManifest, loadAllSections } from
 import { search, getIndexedCount, type PagedSearchResult } from "./search.js";
 import { createLogger } from "../logger.js";
 import { llmConfig } from "../llm/config.js";
+import { paths } from "../shared/paths.js";
 
 const log = createLogger("routes");
 
@@ -12,14 +13,15 @@ const log = createLogger("routes");
 /** Lazily load LLM modules — returns null if dependencies are unavailable */
 async function loadLlmModules() {
   try {
-    const [rag, ollama, chroma, embeddings, analytics] = await Promise.all([
+    const [rag, ollama, chroma, embeddings, provider, analytics] = await Promise.all([
       import("../llm/rag.js"),
       import("../llm/ollama.js"),
       import("../llm/chroma.js"),
       import("../llm/embeddings.js"),
+      import("../llm/provider.js"),
       import("./analytics.js"),
     ]);
-    return { rag, ollama, chroma, embeddings, analytics };
+    return { rag, ollama, chroma, embeddings, provider, analytics };
   } catch (err: any) {
     log.warn("LLM modules unavailable — chat/analytics/summarize disabled", { error: err.message });
     return null;
@@ -31,7 +33,7 @@ let llmModulesLoaded = false;
 
 /** Get LLM modules, loading once lazily */
 async function getLlm() {
-  if (!llmModulesLoaded) {
+  if (!llmModulesLoaded || !llmModules) {
     llmModules = await loadLlmModules();
     llmModulesLoaded = true;
   }
@@ -206,6 +208,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
 
     try {
+      const provider = await llm.provider.checkChatProvider();
+      if (!provider.configured || !provider.reachable) {
+        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+      }
       const ollama = await llm.ollama.isOllamaRunning();
       if (!ollama) {
         return json({ error: "Ollama is not running. Start it with: ollama serve" }, 503);
@@ -226,15 +232,16 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         answer: result.answer,
         sources: result.sources,
         model: result.model,
+        provider: result.provider,
       });
     } catch (err: any) {
       log.error("[chat] RAG error", { error: err.message });
-      return json({ error: `RAG query failed: ${err.message}` }, 500);
+      return json({ error: `RAG query failed: ${err.message}` }, dependencyFailureStatus(err.message));
     }
   }
   // POST /api/chat — RAG query via JSON body (for longer questions)
   if (path === "/api/chat" && req?.method === "POST") {
-    let body: { q?: string; context?: string } = {};
+    let body: { q?: string; context?: string; model?: string } = {};
     try {
       body = await req.json();
     } catch {
@@ -247,6 +254,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     if (!llm) return json({ error: "LLM modules unavailable" }, 503);
 
     try {
+      const provider = await llm.provider.checkChatProvider();
+      if (!provider.configured || !provider.reachable) {
+        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+      }
       const ollama = await llm.ollama.isOllamaRunning();
       if (!ollama) return json({ error: "Ollama is not running. Start: ollama serve" }, 503);
       const chroma = await llm.chroma.isChromaRunning();
@@ -256,10 +267,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       log.info(`[chat POST] Query: ${q.substring(0, 80)}`);
       const result = await llm.rag.ragQuery(q, body.model);
-      return json({ answer: result.answer, sources: result.sources, model: result.model });
+      return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider });
     } catch (err: any) {
       log.error("[chat POST] RAG error", { error: err.message });
-      return json({ error: `RAG query failed: ${err.message}` }, 500);
+      return json({ error: `RAG query failed: ${err.message}` }, dependencyFailureStatus(err.message));
     }
   }
 
@@ -308,9 +319,9 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ error: "LLM modules unavailable" }, 503);
     }
     try {
-      const ollama = await llm.ollama.isOllamaRunning();
-      if (!ollama) {
-        return json({ error: "Ollama is not running. Start it with: ollama serve" }, 503);
+      const provider = await llm.provider.checkChatProvider();
+      if (!provider.configured || !provider.reachable) {
+        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
       }
 
       const body = req ? await req.json() : {};
@@ -321,7 +332,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       log.info(`[summarize] Summarizing: ${number} — ${title}`);
 
-      const summary = await llm.ollama.chat(
+      const summary = await llm.provider.chatWithProvider(
         [{ role: "user", content: `Summarize the following municipal code section comprehensively.\n\nSection: ${number}: ${title}\n\nText:\n${text.substring(0, 8000)}` }],
         "You are a legal analysis assistant specializing in municipal code. " +
         "Provide a clear, comprehensive summary that covers: " +
@@ -333,7 +344,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       );
 
       log.info(`[summarize] Summary generated for ${number} (${summary.length} chars)`);
-      return json({ summary, model: llmConfig.chatModel });
+      return json({ summary, model: llm.provider.configuredChatModel(), provider: llm.provider.configuredChatProvider() });
     } catch (err: any) {
       log.error("[summarize] Error", { error: err.message });
       return json({ error: `Summarization failed: ${err.message}` }, 500);
@@ -634,6 +645,11 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       } catch { alerts["composite"] = null; }
     }
 
+    if (existsSync(paths.alertsHealth)) {
+      try { alerts["sourceHealth"] = JSON.parse(await readFile(paths.alertsHealth, "utf-8")); }
+      catch { alerts["sourceHealth"] = null; }
+    }
+
     return json({ fetchedAt: new Date().toISOString(), alerts });
   }
 
@@ -718,7 +734,40 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/health — liveness probe with optional composite status
   if (path === "/api/health") {
     const { existsSync, readFileSync } = await import("fs");
-    const health: Record<string, any> = { status: "ok", timestamp: new Date().toISOString() };
+    const health: Record<string, any> = {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      chatProvider: llmConfig.provider,
+      chatModel: llmConfig.provider === "openrouter" ? llmConfig.openrouterModel : llmConfig.chatModel,
+      embeddingProvider: {
+        provider: "ollama",
+        model: llmConfig.embeddingModel,
+        url: llmConfig.ollamaUrl,
+      },
+      vectorStore: {
+        provider: "chroma",
+        collection: llmConfig.collectionName,
+        url: llmConfig.chromaUrl,
+      },
+    };
+
+    try {
+      const llm = await getLlm();
+      if (llm) {
+        const providerHealth = await llm.provider.checkChatProvider();
+        health.providerHealth = providerHealth;
+        if (!providerHealth.configured || !providerHealth.reachable) health.status = "degraded";
+      }
+    } catch (error: unknown) {
+      health.status = "degraded";
+      health.providerHealth = {
+        provider: llmConfig.provider,
+        configured: false,
+        reachable: false,
+        model: llmConfig.provider === "openrouter" ? llmConfig.openrouterModel : llmConfig.chatModel,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
 
     // Include manifest staleness info if available
     const manifestPath = "output/manifest.json";
@@ -744,6 +793,32 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       try {
         health.alertLevel = JSON.parse(readFileSync(compositePath, "utf-8")).level;
       } catch { /* ignore */ }
+    }
+
+    for (const [key, healthPath] of [
+      ["news", paths.newsHealth],
+      ["meetings", paths.govMeetingsHealth],
+      ["youtube", paths.youtubeHealth],
+      ["triplicate", paths.triplicateHealth],
+    ] as const) {
+      if (!existsSync(healthPath)) continue;
+      try {
+        const sourceReport = JSON.parse(readFileSync(healthPath, "utf-8"));
+        health[`${key}Sources`] = sourceReport.sources ?? [];
+        if ((sourceReport.sources ?? []).some((s: any) => s.status === "unavailable" || s.status === "stale")) {
+          health.status = "degraded";
+        }
+      } catch { /* diagnostics never break liveness */ }
+    }
+
+    if (existsSync(paths.alertsHealth)) {
+      try {
+        const alertHealth = JSON.parse(readFileSync(paths.alertsHealth, "utf-8"));
+        health.alertSources = alertHealth.sources ?? [];
+        if ((health.alertSources as any[]).some(s => s.status === "unavailable" || s.status === "stale")) {
+          health.status = "degraded";
+        }
+      } catch { /* diagnostics never break liveness */ }
     }
 
     return json(health);
@@ -785,7 +860,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
           const entry = JSON.parse(line);
           const q = entry.query ?? entry.q ?? "";
           if (q) {
-            const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            const words = q.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
             for (const w of words) {
               termCounts.set(w, (termCounts.get(w) ?? 0) + 1);
             }
@@ -809,7 +884,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const domainId = domainCoverageMatch[1];
       const { computeDomainCoverage } = await import("../domains/coverage.js");
       const report = await computeDomainCoverage();
-      const domain = report.domains?.find((d: any) => d.id === domainId);
+      const domain = report.domains?.find((d: any) => d.domainId === domainId);
       if (!domain) return json({ error: `Domain "${domainId}" not found` }, 404);
       return json({ domain: domainId, ...domain, totalSections: report.totalSections });
     } catch (err: any) {
@@ -933,6 +1008,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       // Retrieve context from ChromaDB
       const { ollama, chroma } = llm;
+      const provider = await llm.provider.checkChatProvider();
+      if (!provider.configured || !provider.reachable) {
+        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+      }
       const ollamaHealthy = await ollama.isOllamaRunning();
       if (!ollamaHealthy) return json({ error: "Ollama is not running" }, 503);
 
@@ -940,19 +1019,26 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const chromaResult = await chroma.query(queryEmbedding, llmConfig.topK);
 
       const { buildRagSource } = await import("../llm/rag.js");
-      const sources: import("../types.js").RagSource[] = chromaResult.documents.map((doc: string, i: number) =>
+      const documents = chromaResult.documents ?? [];
+      if (documents.length === 0) return json({ error: "No retrieved context is available" }, 503);
+      const sources: import("../types.js").RagSource[] = documents.map((doc: string, i: number) =>
         buildRagSource(doc, chromaResult.metadatas?.[i] ?? {}, chromaResult.distances?.[i] ?? 0)
       );
 
-      const context = chromaResult.documents.map((doc: any, i: number) =>
-        `Section ${doc.number ?? "?"}: ${doc.text ?? ""}`
-      ).join("\n\n");
+      const context = documents.map((doc: string, i: number) => {
+        const meta = chromaResult.metadatas?.[i] ?? {};
+        const label = meta.sourceType === "youtube_transcript"
+          ? `[YouTube: ${meta.videoTitle ?? "unknown"} @ ${meta.timestamp ?? "unknown"}]`
+          : `[${meta.sectionNumber ?? "unknown section"}: ${meta.sectionTitle ?? ""}]`;
+        return `${label}\n${doc}`;
+      }).join("\n\n");
 
       const { createStreamingRagResponse } = await import("../llm/streaming_rag.js");
-      return createStreamingRagResponse(q, { sources, context }, llmConfig.chatModel);
-    } catch (err: any) {
-      log.error(`Streaming chat failed`, { error: err.message });
-      return json({ error: `Streaming chat failed: ${err.message}` }, 500);
+      return createStreamingRagResponse(q, { sources, context }, body.model);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error(`Streaming chat failed`, { error: message });
+      return json({ error: `Streaming chat failed: ${message}` }, 500);
     }
   }
 
@@ -1106,6 +1192,11 @@ function json(data: unknown, status = 200): Response {
       "Access-Control-Allow-Origin": "*",
     },
   });
+}
+
+/** Provider, vector-store, and network failures are retryable dependencies. */
+function dependencyFailureStatus(message: string): number {
+  return /ollama|openrouter|chroma|provider|request cap|timed? ?out|embedding/i.test(message) ? 503 : 500;
 }
 
 

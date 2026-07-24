@@ -18,6 +18,9 @@ import { DOMParser } from '@xmldom/xmldom';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
+import { paths } from './shared/paths.js';
+import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
+import type { SourceHealth } from './types.js';
 
 const logger = createLogger('news_monitor');
 
@@ -30,7 +33,13 @@ export const NEWS_FEEDS: Record<string, string> = {
   'Redwood Voice': 'https://www.redwoodvoice.org/feed/',
 };
 
-const NEWS_OUTPUT_DIR = join(process.cwd(), 'output', 'news');
+/** Explicit operator-controlled suppression for feeds known to be retired or blocked. */
+export const NEWS_DISABLED_SOURCES = (process.env.NEWS_DISABLED_SOURCES ?? "")
+  .split(",")
+  .map(source => source.trim())
+  .filter(Boolean);
+
+const NEWS_OUTPUT_DIR = paths.news;
 /** Persistent deduplication index — survives restarts. Lives under
  * output/state/, NOT output/news/, so it never collides with a naive
  * "list output/news/*.json and take the latest" consumer (this exact bug
@@ -38,7 +47,7 @@ const NEWS_OUTPUT_DIR = join(process.cwd(), 'output', 'news');
  * state file was colocated with its batch output — see gov_meeting_monitor.ts).
  * IdempotencyStore.load() transparently migrates the legacy bare string[]
  * shape on first read, so no separate migration step is needed. */
-const SEEN_IDS_PATH = join(process.cwd(), 'output', 'state', 'news-seen-ids.json');
+const SEEN_IDS_PATH = paths.newsSeenIds;
 
 /** Normalize a URL to a stable dedup key (strip tracking params, trailing slash) */
 export function normalizeUrl(url: string): string {
@@ -75,6 +84,14 @@ const CRESCENT_CITY_KEYWORDS = [
   'usgs',
 ];
 
+export interface NewsFeedResult {
+  source: string;
+  items: Array<Omit<NewsItem, 'source' | 'fetchedAt'>>;
+  health: SourceHealth;
+}
+
+type MonitoredFeedResult = NewsFeedResult & { sourceName: string };
+
 export interface NewsItem {
   title: string;
   link: string;
@@ -88,10 +105,11 @@ export interface NewsItem {
  * Fetch and parse a single RSS feed, returning only Crescent City–relevant items.
  * Returns an empty array on any network or parse error (graceful degradation).
  */
-export async function fetchRSSFeed(
+export async function fetchRSSFeedDetailed(
   url: string,
   sourceName: string
-): Promise<Array<Omit<NewsItem, 'source' | 'fetchedAt'>>> {
+): Promise<NewsFeedResult> {
+  const checkedAt = new Date().toISOString();
   try {
     logger.info(`Fetching RSS feed from ${sourceName}`, { url });
 
@@ -99,9 +117,20 @@ export async function fetchRSSFeed(
       headers: {
         'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
       },
+      signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
     });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      return {
+        source: sourceName,
+        items: [],
+        health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+          url,
+          itemCount: 0,
+          httpStatus: response.status,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          provenance: 'RSS/Atom feed fetch',
+        }),
+      };
     }
 
     const xmlText = await response.text();
@@ -116,23 +145,26 @@ export async function fetchRSSFeed(
 
     const items: Array<Omit<NewsItem, 'source' | 'fetchedAt'>> = [];
     const seenLinks = new Set<string>();
-    const itemNodes = xmlDoc.getElementsByTagName('item');
+    const itemNodes = xmlDoc.getElementsByTagName('item').length > 0
+      ? xmlDoc.getElementsByTagName('item')
+      : xmlDoc.getElementsByTagName('entry');
 
     for (let i = 0; i < itemNodes.length; i++) {
       const item = itemNodes[i];
 
       const titleEl = item.getElementsByTagName('title')[0];
       const linkEl = item.getElementsByTagName('link')[0];
-      const pubDateEl = item.getElementsByTagName('pubDate')[0];
-      const descEl = item.getElementsByTagName('description')[0];
+      const pubDateEl = item.getElementsByTagName('pubDate')[0] ?? item.getElementsByTagName('published')[0] ?? item.getElementsByTagName('updated')[0];
+      const descEl = item.getElementsByTagName('description')[0] ?? item.getElementsByTagName('summary')[0] ?? item.getElementsByTagName('content')[0];
 
       if (!titleEl || !linkEl) continue;
 
       const title = titleEl.textContent?.replace(/<[^>]*>/g, '').trim() ?? '';
-      const link = linkEl.textContent?.trim() ?? '';
+      const link = linkEl.getAttribute?.('href')?.trim() || linkEl.textContent?.trim() || '';
 
-      if (!link || seenLinks.has(link)) continue;
-      seenLinks.add(link);
+      const normalizedLink = normalizeUrl(link);
+      if (!normalizedLink || seenLinks.has(normalizedLink)) continue;
+      seenLinks.add(normalizedLink);
 
       const pubDate = pubDateEl?.textContent?.trim() ?? '';
       const content = descEl
@@ -144,6 +176,8 @@ export async function fetchRSSFeed(
       const isRelevant = CRESCENT_CITY_KEYWORDS.some((kw) => haystack.includes(kw));
 
       if (isRelevant) {
+        // Preserve the publisher URL for citations; use normalizedLink only
+        // for deduplication so canonicalization never breaks source links.
         items.push({ title, link, pubDate, content });
       }
     }
@@ -151,14 +185,40 @@ export async function fetchRSSFeed(
     logger.info(`Fetched ${items.length} relevant items from ${sourceName}`, {
       count: items.length,
     });
-    return items;
-  } catch (error: any) {
+    return {
+      source: sourceName,
+      items,
+      health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+        url,
+        fetchedAt: checkedAt,
+        itemCount: items.length,
+        provenance: 'RSS/Atom feed fetch',
+      }),
+    };
+  } catch (error: unknown) {
     logger.error(`Failed to fetch RSS feed from ${sourceName}`, {
-      error: error.message,
+      error: errorMessage(error),
       url,
     });
-    return [];
+    return {
+      source: sourceName,
+      items: [],
+      health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+        url,
+        itemCount: 0,
+        error: errorMessage(error),
+        provenance: 'RSS/Atom feed fetch',
+      }),
+    };
   }
+}
+
+/** Backwards-compatible item-only feed API. Diagnostics are available via the detailed variant. */
+export async function fetchRSSFeed(
+  url: string,
+  sourceName: string,
+): Promise<Array<Omit<NewsItem, 'source' | 'fetchedAt'>>> {
+  return (await fetchRSSFeedDetailed(url, sourceName)).items;
 }
 
 /**
@@ -181,6 +241,13 @@ export async function saveNewsItems(items: NewsItem[]): Promise<string> {
   return filename;
 }
 
+export async function saveNewsHealth(health: SourceHealth[]): Promise<void> {
+  await writeJsonAtomic(paths.newsHealth, {
+    checkedAt: new Date().toISOString(),
+    sources: health,
+  });
+}
+
 /**
  * Main news monitoring function.
  *
@@ -190,31 +257,59 @@ export async function saveNewsItems(items: NewsItem[]): Promise<string> {
  *
  * @param filterKeywords - Optional additional keywords to filter by (combined with defaults via OR)
  */
-export async function monitorNews(filterKeywords?: string[]): Promise<NewsItem[]> {
+export async function monitorNews(
+  filterKeywords?: string[],
+  options: { noDedup?: boolean } = {},
+): Promise<NewsItem[]> {
   logger.info('=== Starting Crescent City News Monitoring ===');
 
-  const effectiveKeywords = filterKeywords
-    ? [...CRESCENT_CITY_KEYWORDS, ...filterKeywords.map(k => k.toLowerCase())]
+  const effectiveKeywords = filterKeywords?.length
+    ? filterKeywords.map(k => k.toLowerCase())
     : CRESCENT_CITY_KEYWORDS;
 
   // Load persistent dedup index (shared store — survives restarts, same file
   // path as the legacy seen-ids.json, transparently migrated on first load)
   const idempotency = new IdempotencyStore(SEEN_IDS_PATH);
-  await idempotency.load();
+  if (!options.noDedup) await idempotency.load();
   const allItems: NewsItem[] = [];
   let newCount = 0;
 
   // Fetch all feeds concurrently
-  const fetchResults = await Promise.all(
-    Object.entries(NEWS_FEEDS).map(async ([sourceName, url]) => {
+  const disabledResults: MonitoredFeedResult[] = Object.entries(NEWS_FEEDS)
+    .filter(([sourceName]) => NEWS_DISABLED_SOURCES.includes(sourceName))
+    .map(([sourceName, url]) => ({
+      sourceName,
+      source: sourceName,
+      items: [],
+      health: sourceHealth(sourceName, 'unavailable', new Date().toISOString(), {
+        url,
+        itemCount: 0,
+        error: 'Feed disabled by NEWS_DISABLED_SOURCES configuration',
+        provenance: 'Operator feed configuration',
+      }),
+    }));
+  const fetchResults: MonitoredFeedResult[] = disabledResults.concat(await Promise.all(
+    Object.entries(NEWS_FEEDS).filter(([sourceName]) => !NEWS_DISABLED_SOURCES.includes(sourceName)).map(async ([sourceName, url]) => {
       try {
-        return { sourceName, items: await fetchRSSFeed(url, sourceName) };
-      } catch (error: any) {
-        logger.error(`Error processing ${sourceName}`, { error: error.message });
-        return { sourceName, items: [] };
+        const result = await fetchRSSFeedDetailed(url, sourceName);
+        return { sourceName, ...result };
+      } catch (error: unknown) {
+        logger.error(`Error processing ${sourceName}`, { error: errorMessage(error) });
+        return {
+          sourceName,
+          source: sourceName,
+          items: [],
+          health: sourceHealth(sourceName, 'unavailable', new Date().toISOString(), {
+            url,
+            error: errorMessage(error),
+            provenance: 'RSS/Atom feed fetch',
+          }),
+        };
       }
     })
-  );
+  ));
+
+  await saveNewsHealth(fetchResults.map(({ health }) => health));
 
   const fetchedAt = new Date().toISOString();
   for (const { sourceName, items } of fetchResults) {
@@ -226,7 +321,7 @@ export async function monitorNews(filterKeywords?: string[]): Promise<NewsItem[]
       }
 
       const key = normalizeUrl(item.link);
-      const { isNew } = idempotency.seen(key); // presence-only dedup, cross-source + cross-run
+      const { isNew } = options.noDedup ? { isNew: true } : idempotency.seen(key); // presence-only dedup, cross-source + cross-run
       if (!isNew) continue;
       newCount++;
       allItems.push({ ...item, source: sourceName, fetchedAt });
@@ -241,7 +336,7 @@ export async function monitorNews(filterKeywords?: string[]): Promise<NewsItem[]
   });
 
   // Persist updated seen-ids
-  if (newCount > 0) {
+  if (newCount > 0 && !options.noDedup) {
     await idempotency.save();
     logger.info(`Added ${newCount} new URL(s) to dedup index (total: ${idempotency.size})`);
   }

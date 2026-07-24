@@ -117,6 +117,9 @@ let loaded = false;
 
 /** Per-section term frequency index: sectionIdx → term → {tf, titleTf, numberMatch} */
 let tfIndex: Array<Map<string, { tf: number; titleTf: number }>> = [];
+/** Stemmed body-token counts cached with the term index; search must not
+ * re-tokenize every section for every query. */
+let bodyLengths: number[] = [];
 /** Inverse document frequency map: term → idf */
 let idfIndex = new Map<string, number>();
 /** Average body length (in tokens) */
@@ -180,6 +183,7 @@ function queryTerms(text: string): string[] {
 function buildIndex(allSections: FlatSection[]): void {
   const N = allSections.length;
   tfIndex = [];
+  bodyLengths = [];
   idfIndex = new Map();
   let totalBodyLen = 0;
 
@@ -190,6 +194,7 @@ function buildIndex(allSections: FlatSection[]): void {
     const bodyTokens = tokenizeAndStem(section.text);
     const titleTokens = tokenizeAndStem(section.title);
     totalBodyLen += bodyTokens.length;
+    bodyLengths.push(bodyTokens.length);
 
     const termMap = new Map<string, { tf: number; titleTf: number }>();
 
@@ -409,7 +414,7 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
     // Heavy boost for section number prefix match
     const numberClean = section.number.replace(/§\s*/, "").trim().toLowerCase();
-    let score = bm25Score(terms, i, tokenizeAndStem(section.text).length);
+    let score = bm25Score(terms, i, bodyLengths[i] ?? 0);
 
     if (numberClean.startsWith(rawQuery.toLowerCase())) score += 20;
 

@@ -17,6 +17,7 @@ queries, legal analysis, and civic intelligence domains.
 | [Scraping](modules/scraping.md) | Browser, TOC, content extraction, and scraper orchestrator |
 | [Verification](modules/verification.md) | SHA-256 integrity checks, section presence, live re-fetch |
 | [Export](modules/export.md) | JSON, Markdown, plain text, and CSV output |
+| [GitHub Pages](modules/pages.md) | Bounded static snapshots, provenance, and deployment workflow |
 | [GUI](modules/gui.md) | Web viewer, API routes, search engine, analytics, alerts dashboard |
 | [LLM](modules/llm.md) | Ollama, ChromaDB, embeddings, RAG pipeline, streaming SSE |
 | [Shared](modules/shared.md) | Paths resolution, data loading, Porter stemmer, readability, fuzzy search |
@@ -29,11 +30,11 @@ queries, legal analysis, and civic intelligence domains.
 
 ## Quick Links
 
-- **Source**: [`src/`](../src/) — 40+ TypeScript modules
+- **Source**: [`src/`](../src/) — TypeScript modules; inspect the tree for the current set
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
-- **Tests**: [`tests/`](../tests/) — 489 tests across 38 files (zero-mock policy)
+- **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.4.0, 45+ endpoints)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.5.0)
 
 ## Updating Docs
 

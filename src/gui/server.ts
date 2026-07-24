@@ -3,7 +3,7 @@
 import { handleApiRoute } from "./routes.js";
 import { initSearch } from "./search.js";
 import { createLogger } from "../logger.js";
-import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp } from "../api/middleware.ts";
+import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp } from "../api/middleware.js";
 
 const log = createLogger("gui");
 

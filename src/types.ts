@@ -150,6 +150,7 @@ export interface RagResponse {
   answer: string;
   sources: RagSource[];
   model: string;
+  provider: "ollama" | "openrouter";
 }
 
 // ─── Analytics ───────────────────────────────────────────────────
@@ -230,6 +231,25 @@ export interface MeetingItem {
   url: string;
   fetchedAt: string;
   hash: string;
+}
+
+// ─── Source health / provenance ─────────────────────────────────
+
+/** Operational state for an external or generated data source. */
+export type SourceHealthStatus = "ok" | "empty" | "unavailable" | "stale";
+
+/** Common health envelope used by feeds, monitors, reports, and the GUI. */
+export interface SourceHealth {
+  source: string;
+  status: SourceHealthStatus;
+  checkedAt: string;
+  fetchedAt?: string;
+  itemCount: number;
+  url?: string;
+  error?: string;
+  httpStatus?: number;
+  ageMs?: number;
+  provenance?: string;
 }
 
 // ─── Intelligence Domains ────────────────────────────────────────

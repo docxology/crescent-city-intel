@@ -1192,7 +1192,7 @@
       </div>
       <div class="intel-panel" id="intel-curated">
         <div class="intel-section-header">News Feed — News, Government Meetings &amp; YouTube Transcripts</div>
-        <p style="color:var(--text-secondary);margin-bottom:12px">LLM-summarized, domain-tagged items from every monitored source (RSS news, city council/planning agendas, YouTube meeting transcripts). Run <code>bun run curate</code> to refresh.</p>
+        <p style="color:var(--text-secondary);margin-bottom:12px">Grounded, provider-labeled items from RSS news, city council/planning agendas, and YouTube meeting transcripts. Triplicate remains reference-only and is not sent to the LLM or embedding index. Run <code>bun run curate</code> to refresh.</p>
         <div id="curated-content"><p style="color:var(--text-secondary)">Loading...</p></div>
       </div>
       <div class="intel-panel" id="intel-report">
@@ -1520,7 +1520,7 @@
         .replace(/\n/g, "<br>");
     }
 
-    /** Summarize a section using Ollama via /api/summarize */
+    /** Summarize a section using the configured chat provider via /api/summarize */
     async function summarizeSection(guid, btnEl) {
       const targetEl = document.getElementById(`summary-${guid}`);
       if (!targetEl) return;
@@ -1546,7 +1546,7 @@
 
       // Show loading
       btnEl.disabled = true;
-      targetEl.innerHTML = '<div class="summary-loading">Generating summary with Ollama...</div>';
+      targetEl.innerHTML = '<div class="summary-loading">Generating summary with the configured provider...</div>';
 
       try {
         const resp = await apiFetch('/api/summarize', {
@@ -2546,10 +2546,18 @@
           const domains = await apiFetch('/api/domains').then(r => r.json());
           html += `<div class="intel-card"><h4>Intelligence Domains</h4><div class="metric">${domains.length || 12}</div><div class="label">civic domains</div></div>`;
         } catch { /* skip */ }
-        // API endpoints
-        html += `<div class="intel-card"><h4>API Endpoints</h4><div class="metric">45+</div><div class="label">OpenAPI 3.0.3 spec</div></div>`;
-        // Version
-        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.5.0</div><div class="label">538 tests passing</div></div>`;
+        // Provider and source-health diagnostics are operational facts, not
+        // inferred from a successful page load.
+        if (health?.chatProvider) {
+          html += `<div class="intel-card"><h4>Chat Provider</h4><div class="metric" style="font-size:18px">${escapeHtml(health.chatProvider)}</div><div class="label">${escapeHtml(health.chatModel || '')}</div></div>`;
+        }
+        for (const [label, sources] of [['News', health?.newsSources], ['Meetings', health?.meetingsSources], ['YouTube', health?.youtubeSources], ['Triplicate', health?.triplicateSources], ['Alerts', health?.alertSources]]) {
+          if (!Array.isArray(sources)) continue;
+          const unavailable = sources.filter(s => s.status === 'unavailable' || s.status === 'stale').length;
+          html += `<div class="intel-card"><h4>${label} Sources</h4><div class="metric">${sources.length - unavailable}/${sources.length}</div><div class="label">${unavailable ? '⚠️ unavailable/stale' : '✅ healthy'}</div></div>`;
+        }
+        html += `<div class="intel-card"><h4>API Contract</h4><div class="metric">v2.5.0</div><div class="label">OpenAPI 3.0.3 · run validate</div></div>`;
+        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.5.0</div><div class="label">deterministic gate: bun run validate</div></div>`;
         grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available</p>';
       } catch (err) {
         grid.innerHTML = '<p style="color:var(--text-secondary)">Failed to load overview</p>';
@@ -2722,7 +2730,7 @@
           const sourceLabel = SOURCE_LABELS[item.source] || escapeHtmlAttr(item.source);
           const tags = (item.tags || []).map(t => '<span class="intel-tab" style="padding:2px 8px;font-size:11px;cursor:default">' + escapeHtmlAttr(t) + '</span>').join(' ');
           html += '<div style="border-bottom:1px solid var(--border);padding:12px 0">'
-            + '<div style="font-size:12px;color:var(--text-secondary)">' + sourceLabel + ' · ' + escapeHtmlAttr(new Date(item.curatedAt).toLocaleString()) + '</div>'
+            + '<div style="font-size:12px;color:var(--text-secondary)">' + sourceLabel + ' · ' + escapeHtmlAttr(new Date(item.curatedAt).toLocaleString()) + ' · ' + escapeHtmlAttr(item.provider || 'source-only') + ' · ' + escapeHtmlAttr(item.summaryStatus || 'legacy') + '</div>'
             + '<div style="font-weight:600;margin:4px 0">' + (item.link ? '<a href="' + escapeHtmlAttr(item.link) + '" target="_blank" rel="noopener">' + escapeHtmlAttr(item.title) + '</a>' : escapeHtmlAttr(item.title)) + '</div>'
             + '<div style="color:var(--text-secondary);margin-bottom:6px">' + escapeHtmlAttr(item.summary) + '</div>'
             + (tags ? '<div>' + tags + '</div>' : '')

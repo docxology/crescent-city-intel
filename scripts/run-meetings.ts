@@ -12,9 +12,24 @@
  */
 import { monitorGovMeetings } from "../src/gov_meeting_monitor.ts";
 import { createLogger } from "../src/logger.ts";
+import { readFile } from "fs/promises";
+import { paths } from "../src/shared/paths.ts";
 
 const logger = createLogger("run-meetings");
 
 logger.info("=== Government Meeting Monitoring ===");
 const items = await monitorGovMeetings();
-logger.info(`Meeting monitor complete: ${items.length} items saved to output/gov_meetings/`);
+let health: Array<{ source: string; status: string }> = [];
+try {
+  const report = JSON.parse(await readFile(paths.govMeetingsHealth, "utf-8")) as { sources?: Array<{ source: string; status: string }> };
+  health = report.sources ?? [];
+} catch { /* monitor already logged the fetch failure */ }
+const degraded = health.filter(source => source.status === "unavailable" || source.status === "stale");
+logger.info(`Meeting monitor complete: ${items.length} item(s) saved to output/gov_meetings/`, {
+  sourceHealth: health.map(source => `${source.source}:${source.status}`),
+});
+if (degraded.length > 0) {
+  logger.warn(`${degraded.length} meeting source(s) are unavailable or stale`, {
+    sources: degraded.map(source => source.source),
+  });
+}

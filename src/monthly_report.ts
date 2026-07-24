@@ -12,17 +12,20 @@
  * Usage: bun run report            (uses current month)
  *        bun run report 2026-02    (specific month)
  *
- * Reads from existing output/alerts/{type}/history.jsonl and news/seen-ids.json.
+ * Reads from existing output/alerts/{type}/history.jsonl and current
+ * news/meetings/curation batch files; source-health artifacts are included.
  * No live network calls — summarizes already-scraped local data.
  */
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createLogger } from './logger.js';
 import { domains } from './domains.js';
+import { paths } from './shared/paths.js';
+import { isIsoTimestamp, writeTextAtomic } from './shared/source_health.js';
 
 const logger = createLogger('monthly-report');
 
-const REPORTS_DIR = join(process.cwd(), 'output', 'reports');
+const REPORTS_DIR = paths.reports;
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -49,8 +52,26 @@ function readJson(filePath: string): any | null {
 function inMonth(records: any[], month: string): any[] {
   return records.filter(r => {
     const ts = r.fetchedAt ?? r.time ?? r.scrapedAt ?? '';
-    return typeof ts === 'string' && ts.startsWith(month);
+    return isIsoTimestamp(ts) && ts.startsWith(month);
   });
+}
+
+function readBatchItems(dir: string, month: string): any[] {
+  if (!existsSync(dir)) return [];
+  const items: any[] = [];
+  for (const file of readdirSync(dir).filter(f => f.endsWith('.json'))) {
+    const batch = readJson(join(dir, file));
+    if (Array.isArray(batch)) {
+      items.push(...batch.filter(item => {
+        const ts = item?.curatedAt ?? item?.fetchedAt ?? '';
+        return isIsoTimestamp(ts) && ts.startsWith(month);
+      }));
+      continue;
+    }
+    if (!batch || !isIsoTimestamp(batch.fetchedAt) || !batch.fetchedAt.startsWith(month)) continue;
+    if (Array.isArray(batch.items)) items.push(...batch.items);
+  }
+  return items;
 }
 
 /** Format a magnitude as M4.2 */
@@ -85,8 +106,15 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const wildfire = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'wildfire', 'history.jsonl')), month);
   const marine = inMonth(readJsonl(join(process.cwd(), 'output', 'alerts', 'marine', 'history.jsonl')), month);
 
-  const seenNews = readJson(join(process.cwd(), 'output', 'news', 'seen-ids.json'));
-  const newsCount = seenNews ? Object.keys(seenNews).length : 0;
+  const newsItems = readBatchItems(paths.news, month);
+  const meetingItems = readBatchItems(paths.govMeetings, month);
+  const curatedItems = readBatchItems(paths.curated, month);
+  const newsCount = newsItems.length;
+
+  const newsHealth = readJson(paths.newsHealth);
+  const meetingHealth = readJson(paths.govMeetingsHealth);
+  const youtubeHealth = readJson(paths.youtubeHealth);
+  const triplicateHealth = readJson(paths.triplicateHealth);
 
   const coveragePath = join(process.cwd(), 'output', 'domain-coverage.json');
   const coverage = readJson(coveragePath);
@@ -239,8 +267,45 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   // ── Section 3: News Summary ───────────────────────────────────
   lines.push('## 📰 News Monitor');
   lines.push('');
-  lines.push(`- **Total tracked articles**: ${newsCount} (cumulative)`);
-  lines.push('- _For detailed article list, see `output/news/seen-ids.json`_');
+  lines.push(`- **Relevant articles this month**: ${newsCount}`);
+  lines.push(`- **Government meeting items this month**: ${meetingItems.length}`);
+  lines.push(`- **Curated items this month**: ${curatedItems.length}`);
+  const healthLine = (label: string, report: any): string => {
+    const sources = Array.isArray(report?.sources) ? report.sources : [];
+    if (sources.length === 0) return `- **${label} source health**: no health artifact`;
+    const counts = sources.reduce((acc: Record<string, number>, source: any) => {
+      const status = source?.status ?? 'unavailable';
+      acc[status] = (acc[status] ?? 0) + 1;
+      return acc;
+    }, {});
+    return `- **${label} source health**: ${Object.entries(counts).map(([status, count]) => `${count} ${status}`).join(', ')}`;
+  };
+  lines.push(healthLine('News', newsHealth));
+  lines.push(healthLine('Meetings', meetingHealth));
+  lines.push(healthLine('YouTube', youtubeHealth));
+  lines.push(healthLine('Triplicate', triplicateHealth));
+  if (newsItems.length > 0) {
+    lines.push('');
+    lines.push('### Recent news');
+    for (const item of newsItems.slice(0, 5)) {
+      lines.push(`- [${item.title}](${item.link}) — ${item.source ?? 'unknown source'}`);
+    }
+  }
+  if (curatedItems.length > 0) {
+    lines.push('');
+    lines.push('### Curated highlights');
+    lines.push('_Provider-generated summaries are source-grounded briefs, not independent reporting. Follow the cited source before relying on a claim._');
+    for (const item of curatedItems.slice(0, 5)) {
+      const summary = String(item.summary ?? item.sourceExcerpt ?? 'No summary available').replace(/\s+/g, ' ').trim();
+      const title = item.link ? `[${item.title ?? 'Untitled'}](${item.link})` : `**${item.title ?? 'Untitled'}**`;
+      const provider = item.provider && item.model ? ` · provider: ${item.provider}/${item.model}` : '';
+      lines.push(`- ${title} — ${summary} · source: ${item.source ?? 'unknown'}${provider}`);
+    }
+  }
+  if (meetingHealth?.sources) {
+    const unavailableMeetings = meetingHealth.sources.filter((s: any) => s.status === 'unavailable').map((s: any) => s.source);
+    if (unavailableMeetings.length) lines.push(`- **Meeting sources unavailable**: ${unavailableMeetings.join(', ')}`);
+  }
   lines.push('');
 
   // ── Section 4: Intelligence Domain Coverage ────────────────────
@@ -273,6 +338,11 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   lines.push('');
   lines.push(`- **Report generated**: ${now.toISOString()}`);
   lines.push(`- **Data freshness**: ${manifest?.completedAt ?? 'Scrape not yet run'}`);
+  lines.push(`- **News health artifact**: ${existsSync(paths.newsHealth) ? paths.newsHealth : 'not generated'}`);
+  lines.push(`- **Meeting health artifact**: ${existsSync(paths.govMeetingsHealth) ? paths.govMeetingsHealth : 'not generated'}`);
+  lines.push(`- **YouTube health artifact**: ${existsSync(paths.youtubeHealth) ? paths.youtubeHealth : 'not generated'}`);
+  lines.push(`- **Triplicate health artifact**: ${existsSync(paths.triplicateHealth) ? paths.triplicateHealth : 'not generated'}`);
+  lines.push(`- **Alert health artifact**: ${existsSync(paths.alertsHealth) ? paths.alertsHealth : 'not generated'}`);
   lines.push('- Run `bun run verify` to check data integrity');
   lines.push('- Run `bun run coverage` to refresh domain coverage');
   lines.push('- Run `bun run readability` to refresh readability metrics');
@@ -282,9 +352,8 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   lines.push('_Report generated by [Crescent City Intelligence Platform](https://github.com/docxology/crescent-city-intel)_');
 
   // ── Write to file ────────────────────────────────────────────
-  mkdirSync(REPORTS_DIR, { recursive: true });
   const reportPath = join(REPORTS_DIR, `monthly-${month}.md`);
-  writeFileSync(reportPath, lines.join('\n'), 'utf-8');
+  await writeTextAtomic(reportPath, `${lines.join('\n')}\n`);
 
   logger.info(`Monthly report written to ${reportPath}`, {
     earthquakes: earthquakes.length,

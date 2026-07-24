@@ -16,6 +16,24 @@ import { createLogger } from "./logger.js";
 
 const log = createLogger("structured_queries");
 
+type SimilarityProfile = { frequencies: Map<string, number>; magnitude: number };
+let similarityProfileSections: FlatSection[] | null = null;
+let similarityProfiles: SimilarityProfile[] = [];
+
+function buildSimilarityProfiles(sections: FlatSection[]): SimilarityProfile[] {
+  if (similarityProfileSections === sections) return similarityProfiles;
+  similarityProfiles = sections.map(section => {
+    const frequencies = new Map<string, number>();
+    for (const word of section.text.toLowerCase().split(/\s+/).filter(w => w.length > 3)) {
+      frequencies.set(word, (frequencies.get(word) ?? 0) + 1);
+    }
+    const magnitude = Math.sqrt([...frequencies.values()].reduce((sum, count) => sum + count * count, 0));
+    return { frequencies, magnitude };
+  });
+  similarityProfileSections = sections;
+  return similarityProfiles;
+}
+
 // ─── Legislative History ────────────────────────────────────────────
 
 export interface LegislativeHistoryEntry {
@@ -185,39 +203,35 @@ export async function findSimilarSections(guid: string, limit: number = 10): Pro
       return [];
     }
 
-    // Build term frequency for target
-    const targetWords = target.text.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    const targetFreq = new Map<string, number>();
-    for (const w of targetWords) {
-      targetFreq.set(w, (targetFreq.get(w) ?? 0) + 1);
-    }
+    const profiles = buildSimilarityProfiles(sections);
+    const targetIndex = sections.indexOf(target);
+    const targetProfile = profiles[targetIndex];
+    if (!targetProfile) return [];
 
     // Score all other sections by term overlap
     const scored: SimilarSection[] = [];
 
-    for (const section of sections) {
+    for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+      const section = sections[sectionIndex];
       if (section.guid === guid) continue;
 
       // Same Title prefix → structural similarity boost
       const sameTitle = section.number.split(".")[0] === target.number.split(".")[0];
 
-      const sectionWords = section.text.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      const sectionFreq = new Map<string, number>();
-      for (const w of sectionWords) {
-        sectionFreq.set(w, (sectionFreq.get(w) ?? 0) + 1);
-      }
+      const sectionProfile = profiles[sectionIndex];
+      if (!sectionProfile) continue;
 
       // Cosine-like similarity
       let dotProduct = 0;
-      for (const [term, freq] of targetFreq) {
-        if (sectionFreq.has(term)) {
-          dotProduct += freq * sectionFreq.get(term)!;
+      for (const [term, freq] of targetProfile.frequencies) {
+        if (sectionProfile.frequencies.has(term)) {
+          dotProduct += freq * sectionProfile.frequencies.get(term)!;
         }
       }
 
-      const magnitude1 = Math.sqrt([...targetFreq.values()].reduce((a, b) => a + b * b, 0));
-      const magnitude2 = Math.sqrt([...sectionFreq.values()].reduce((a, b) => a + b * b, 0));
-      const cosineSim = magnitude1 > 0 && magnitude2 > 0 ? dotProduct / (magnitude1 * magnitude2) : 0;
+      const cosineSim = targetProfile.magnitude > 0 && sectionProfile.magnitude > 0
+        ? dotProduct / (targetProfile.magnitude * sectionProfile.magnitude)
+        : 0;
 
       const score = cosineSim * (sameTitle ? 1.5 : 1.0); // Boost same-title matches
 

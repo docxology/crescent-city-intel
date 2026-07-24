@@ -14,13 +14,17 @@ function setupTestOutput() {
 }
 
 describe("v2.2 New API Endpoints", () => {
-  test("GET /api/health returns status ok with timestamp", async () => {
+  test("GET /api/health returns a truthful status with timestamp", async () => {
     const url = new URL("http://localhost:3000/api/health");
     const resp = await handleApiRoute(url);
     expect(resp.status).toBe(200);
     const data = await resp.json();
-    expect(data.status).toBe("ok");
+    expect(["ok", "degraded"]).toContain(data.status);
     expect(data.timestamp).toBeTruthy();
+    expect(["ollama", "openrouter"]).toContain(data.chatProvider);
+    expect(data.embeddingProvider.provider).toBe("ollama");
+    expect(data.vectorStore.provider).toBe("chroma");
+    expect(data.providerHealth).toBeDefined();
   });
 
   test("GET /api/health includes manifest info when available", async () => {
@@ -41,7 +45,7 @@ describe("v2.2 New API Endpoints", () => {
       scrapedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
       tocNodeCount: 2486,
-      articlePageCount: 242,
+      articlePageCount: 0,
       sectionCount: 2194,
       articles: {},
     };
@@ -51,7 +55,7 @@ describe("v2.2 New API Endpoints", () => {
       const url = new URL("http://localhost:3000/api/health");
       const resp = await handleApiRoute(url);
       const data = await resp.json();
-      expect(data.status).toBe("ok");
+      expect(["ok", "degraded"]).toContain(data.status);
       expect(data.manifest).toBeDefined();
       expect(data.manifest.ageDays).toBeGreaterThanOrEqual(0);
       expect(data.manifest.stale).toBe(false); // just created, not stale

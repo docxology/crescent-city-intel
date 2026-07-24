@@ -9,6 +9,9 @@ import { createLogger } from './logger.js';
 import { computeSha256, htmlToText } from './utils.js';
 import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
+import { paths } from './shared/paths.js';
+import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
+import type { SourceHealth } from './types.js';
 
 const logger = createLogger('gov_meeting_monitor');
 
@@ -117,7 +120,10 @@ async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]>
   const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 
   const url = `${apiUrl}?selected_calendar_ids=685,739,666,670,689&start_date=${fmt(start)}&end_date=${fmt(end)}&search=&sort_order=date_start&current_webpage=meeting`;
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)' },
+    signal: AbortSignal.timeout(Number(process.env.GOV_MEETINGS_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
+  });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
@@ -129,7 +135,13 @@ async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]>
  * Commission / Harbor Commission) from the city's EvoGov meetings API,
  * filtering the shared feed down to items whose title names this source.
  */
-export async function fetchGovMeetings(url: string, sourceName: string): Promise<Array<{title: string, link: string, date: string, content: string, hash: string}>> {
+export interface GovMeetingFetchResult {
+  items: Array<{title: string, link: string, date: string, content: string, hash: string}>;
+  health: SourceHealth;
+}
+
+export async function fetchGovMeetingsDetailed(url: string, sourceName: string): Promise<GovMeetingFetchResult> {
+  const checkedAt = new Date().toISOString();
   try {
     logger.info(`Fetching government meetings from ${sourceName}`, { url });
 
@@ -155,12 +167,33 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
     }
 
     logger.info(`Found ${items.length} meeting-related items from ${sourceName}`, { count: items.length });
-    return items;
+    return {
+      items,
+      health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+        url,
+        fetchedAt: checkedAt,
+        itemCount: items.length,
+        provenance: 'EvoGov meetings JSON endpoint',
+      }),
+    };
 
-  } catch (error) {
-    logger.error(`Failed to fetch government meetings from ${sourceName}`, { error: error.message, url });
-    return [];
+  } catch (error: unknown) {
+    logger.error(`Failed to fetch government meetings from ${sourceName}`, { error: errorMessage(error), url });
+    return {
+      items: [],
+      health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+        url,
+        itemCount: 0,
+        error: errorMessage(error),
+        provenance: 'EvoGov meetings JSON endpoint',
+      }),
+    };
   }
+}
+
+/** Backwards-compatible item-only meeting fetch API. */
+export async function fetchGovMeetings(url: string, sourceName: string): Promise<Array<{title: string, link: string, date: string, content: string, hash: string}>> {
+  return (await fetchGovMeetingsDetailed(url, sourceName)).items;
 }
 
 /**
@@ -191,7 +224,7 @@ export async function saveMeetingItems(items: Array<{title: string, link: string
     newItems: newItems.length,
     changedItems: changedItems.length,
     unchangedItems: unchangedItems.length,
-    itemsBySource: {}, // Will fill below
+    itemsBySource: {} as Record<string, number>,
     items: items
   };
   
@@ -233,11 +266,14 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   await meetingCache.load();
 
   const allItems: GovMeetingItem[] = [];
+  const health: SourceHealth[] = [];
 
   // Fetch from each government source
   for (const [sourceName, url] of Object.entries(GOV_SOURCES)) {
     try {
-      const items = await fetchGovMeetings(url, sourceName);
+      const result = await fetchGovMeetingsDetailed(url, sourceName);
+      health.push(result.health);
+      const items = result.items;
       for (const item of items) {
         // Check for changes
         const changeResult = meetingCache.seen(item.link, item.hash);
@@ -250,13 +286,23 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
           changed: changeResult.changed
         });
       }
-    } catch (error) {
-      logger.error(`Error processing ${sourceName}`, { error: error.message });
+    } catch (error: unknown) {
+      const checkedAt = new Date().toISOString();
+      health.push(sourceHealth(sourceName, 'unavailable', checkedAt, {
+        url,
+        error: errorMessage(error),
+        provenance: 'EvoGov meetings JSON endpoint',
+      }));
+      logger.error(`Error processing ${sourceName}`, { error: errorMessage(error) });
     }
   }
 
   // Persist the updated change-detection index
   await meetingCache.save();
+  await writeJsonAtomic(paths.govMeetingsHealth, {
+    checkedAt: new Date().toISOString(),
+    sources: health,
+  });
 
   // Sort by date (newest first), then by source
   allItems.sort((a, b) => {

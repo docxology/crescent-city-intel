@@ -1,11 +1,16 @@
 /** Indexing pipeline — loads sections, chunks, embeds, and stores in ChromaDB */
 import { loadAllSections } from "../shared/data.js";
 import { embed, embedBatch } from "./ollama.js";
-import { addDocuments, getStats } from "./chroma.js";
+import { addDocuments, deleteDocuments, getDocumentIds, getStats } from "./chroma.js";
 import { llmConfig } from "./config.js";
 import { EMBED_BATCH_SIZE } from "../constants.js";
 import { createLogger } from "../logger.js";
 import type { FlatSection } from "../types.js";
+import { computeSha256 } from "../utils.js";
+import { paths } from "../shared/paths.js";
+import { existsSync } from "fs";
+import { readFile } from "fs/promises";
+import { writeJsonAtomic } from "../shared/source_health.js";
 
 const log = createLogger("embeddings");
 
@@ -57,22 +62,6 @@ export async function indexAllSections(): Promise<void> {
     metadata: Record<string, string>;
   }[] = [];
 
-  // Track which section GUIDs we've already indexed
-  // For incremental indexing: if collection count matches expected, skip
-  const expectedChunkCount = sections.reduce((sum, s) => {
-    const text = `${s.number}: ${s.title}\n${s.text}`;
-    return sum + chunkText(text).length;
-  }, 0);
-
-  if (existingCount >= expectedChunkCount) {
-    log.info(`Collection has ${existingCount} chunks (expected ${expectedChunkCount}) — skipping incremental re-index`);
-    return;
-  }
-
-  if (existingCount > 0) {
-    log.info(`Incremental: re-indexing (have ${existingCount}/${expectedChunkCount} chunks)`);
-  }
-
   for (const section of sections) {
     const text = `${section.number}: ${section.title}\n${section.text}`;
     const chunks = chunkText(text);
@@ -93,10 +82,35 @@ export async function indexAllSections(): Promise<void> {
     }
   }
 
+  const fingerprint = await computeSha256(allChunks.map(chunk => `${chunk.id}\0${chunk.text}`).join("\n"));
+  if (existsSync(paths.indexManifest)) {
+    try {
+      const previous = JSON.parse(await readFile(paths.indexManifest, "utf-8")) as { fingerprint?: string; chunkCount?: number };
+      if (previous.fingerprint === fingerprint && previous.chunkCount === allChunks.length && existingCount === allChunks.length) {
+        log.info(`Index fingerprint ${fingerprint.slice(0, 12)} unchanged — skipping rebuild`);
+        return;
+      }
+    } catch {
+      log.warn("Ignoring unreadable index manifest; rebuilding deterministically");
+    }
+  }
+
+  if (existingCount > 0) {
+    const existingIds = await getDocumentIds();
+    const desiredIds = new Set(allChunks.map(chunk => chunk.id));
+    const staleIds = existingIds.filter(id => !desiredIds.has(id));
+    if (staleIds.length > 0) {
+      await deleteDocuments(staleIds);
+      log.info(`Removed ${staleIds.length} stale index chunks`);
+    }
+    log.info(`Rebuilding index: ${existingCount} existing chunks, ${allChunks.length} desired chunks`);
+  }
+
   log.info(`Total chunks to embed: ${allChunks.length}`);
 
   // Process in batches
   let indexed = 0;
+  const failedIds: string[] = [];
 
   for (let i = 0; i < allChunks.length; i += EMBED_BATCH_SIZE) {
     const batch = allChunks.slice(i, i + EMBED_BATCH_SIZE);
@@ -131,11 +145,23 @@ export async function indexAllSections(): Promise<void> {
           indexed++;
         } catch (e: any) {
           log.error(`Failed to index chunk ${chunk.id}`, { error: e.message });
+          failedIds.push(chunk.id);
         }
       }
     }
   }
 
   const finalStats = await getStats();
+  if (failedIds.length > 0) {
+    throw new Error(`Indexing failed for ${failedIds.length} chunk(s): ${failedIds.slice(0, 5).join(", ")}`);
+  }
+  await writeJsonAtomic(paths.indexManifest, {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    fingerprint,
+    chunkCount: allChunks.length,
+    source: "municipal-code",
+    embeddingModel: llmConfig.embeddingModel,
+  });
   log.info(`Indexing complete: ${finalStats.count} documents in collection`);
 }

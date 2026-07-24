@@ -50,9 +50,11 @@ Fetches RSS feeds from local NorCal news sources, filters for Crescent City-rele
 
 | Source | URL |
 | :--- | :--- |
-| Times-Standard | `times-standard.com/news/rss.xml` |
-| Lost Coast Outpost | `lostcoastoutpost.com/feed` |
-| Humboldt Times | `humboldtcountynews.com/feed` |
+| Times-Standard | `https://www.times-standard.com/news/rss.xml` |
+| Lost Coast Outpost | `https://lostcoastoutpost.com/feed` |
+| Humboldt Times | `https://www.humboldtcountynews.com/feed` |
+| KIEM-TV NBC Eureka | `https://www.kiemtv.com/feed/` |
+| Redwood Voice | `https://www.redwoodvoice.org/feed/` |
 
 ### Keywords
 
@@ -62,13 +64,18 @@ Content is included if it matches any of: `crescent city`, `del norte`, `tsunami
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `monitorNews` | `(filterKeywords?: string[]) → Promise<NewsItem[]>` | Fetch all feeds, deduplicate, filter, save |
+| `monitorNews` | `(filterKeywords?: string[], options?) → Promise<NewsItem[]>` | Fetch all feeds, deduplicate, filter, save, and write per-source health |
+| `fetchRSSFeedDetailed` | `(url, source) → Promise<NewsFeedResult>` | RSS/Atom items plus `ok`/`empty`/`unavailable` health |
 | `fetchRSSFeed` | `(source, url) → Promise<NewsItem[]>` | Parse one RSS feed |
 | `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
 
 ### Output
 
 Saves JSON to `output/news/news-<timestamp>.json`.
+Source diagnostics are written to `output/news/source-health.json`; HTTP,
+timeout, parser, and DNS failures are never represented as an ordinary empty
+feed. `--keywords=a,b` replaces the default relevance list and
+`--no-dedup` is available for controlled replays.
 
 ```bash
 bun run news     # via scripts/run-news.ts
@@ -149,16 +156,54 @@ Saves to `output/gov_meetings/meetings-<timestamp>.json`.
 bun run gov-meetings   # via scripts/run-meetings.ts
 ```
 
-**Fixed 2026-07-23**: `monitorGovMeetings()` previously declared
-`Promise<void>` and never returned its collected items, while
-`scripts/run-meetings.ts` expected an array back — this crashed every run. It
-now correctly returns `Promise<MeetingItem[]>` (gracefully `[]` given the
-source-URL 404s noted above, instead of crashing).
+**Fixed 2026-07-24**: `monitorGovMeetings()` returns its collected items and
+persists per-source health. The live EvoGov endpoint currently returns City
+Council and Planning Commission records; Harbor Commission is retained as an
+explicit `empty` source until a real agenda feed is found.
+
+---
+
+## YouTube meeting transcripts
+
+`src/youtube_monitor.ts` lists the official city channel with `yt-dlp`, pulls
+English auto-captions for unseen videos, parses rolling VTT captions into
+timestamped segments, and indexes successful transcripts in ChromaDB with
+`sourceType: "youtube_transcript"`. Listing, timeout, extraction, and indexing
+failures remain distinguishable and are written to
+`output/youtube/source-health.json` as `unavailable` or `stale`; an empty
+successful channel listing is `empty`. Extraction failures remain retryable.
+
+```bash
+bun run youtube
+```
+
+## Triplicate reference connector
+
+`src/triplicate_monitor.ts` uses the existing Playwright Cloudflare-bypass
+browser to collect article metadata from the Del Norte Triplicate. Every item
+is stamped `usagePolicy: reference-citation-only; NEVER AI-training input`.
+Triplicate is intentionally excluded from LLM curation, embedding indexing, and
+training inputs; it is exposed only as reference metadata/citations. Render
+failures and selector drift are represented in
+`output/triplicate/source-health.json` as `unavailable` or `stale`.
+
+```bash
+bun run src/triplicate_monitor.ts
+```
+
+## Curation and reporting
+
+`bun run curate` reads only news, government-meeting, and successful YouTube
+transcript batches. It records provider/model, source excerpts, citations,
+summary status, and domain tags with atomic writes and retryable provider
+failures. `bun run report [YYYY-MM]` uses period-filtered batches and includes
+news, meeting, YouTube, Triplicate, and alert source-health summaries. Neither
+command re-fetches upstream sources.
 
 ### Tests
 
 ```bash
-bun test tests/monitor.test.ts              # 3 tests
-bun test tests/news_monitor.test.ts         # 3 tests
-bun test tests/gov_meeting_monitor.test.ts  # 3 tests
+bun test tests/monitor.test.ts
+bun test tests/news_monitor.test.ts
+bun test tests/gov_meeting_monitor.test.ts
 ```

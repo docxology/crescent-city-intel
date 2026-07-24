@@ -1,8 +1,11 @@
 /** Configuration for the LLM/RAG module */
 
+const requestedProvider = (process.env.LLM_PROVIDER ?? "ollama").toLowerCase();
+const provider = requestedProvider === "openrouter" ? "openrouter" : "ollama";
+
 export const llmConfig = {
   /** LLM provider selection for chat */
-  provider: (process.env.LLM_PROVIDER ?? "ollama") as "ollama" | "openrouter",
+  provider: provider as "ollama" | "openrouter",
 
   /** Ollama server base URL */
   ollamaUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
@@ -28,6 +31,9 @@ export const llmConfig = {
 
   /** OpenRouter HTTP timeout in milliseconds */
   openrouterTimeoutMs: Number(process.env.OPENROUTER_TIMEOUT_MS ?? "120000"),
+
+  /** Short dependency preflight timeout used by provider health checks */
+  providerPreflightTimeoutMs: Number(process.env.LLM_PREFLIGHT_TIMEOUT_MS ?? "5000"),
 
   /** Minimum spacing between sequential OpenRouter requests within one curation
    *  run. The free-tier default model caps at ~20 req/min account-wide; a

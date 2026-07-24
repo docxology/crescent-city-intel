@@ -1,6 +1,6 @@
 # LLM / RAG Pipeline — `src/llm/`
 
-Ollama-powered embeddings, ChromaDB vector store, and RAG chat for the Crescent City municipal code.
+Ollama-powered embeddings, configurable Ollama/OpenRouter chat, ChromaDB vector store, and RAG chat for the Crescent City municipal code.
 
 ## Prerequisites
 
@@ -31,8 +31,8 @@ chroma run --path chroma_data &
 input question
     → nomic-embed-text (embed)
     → ChromaDB (top-K nearest chunks)
-    → gemma3:4b (generate answer with cited sources)
-    → { answer, sources[] }
+    → configured chat provider/model (generate answer with cited sources)
+    → { answer, sources[], provider, model }
 ```
 
 ## Commands
@@ -51,4 +51,13 @@ bun run status       # show ChromaDB collection stats + Ollama models
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama server |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `CHAT_MODEL` | `gemma3:4b` | Chat model |
-| `CHROMA_URL` | `http://localhost:8000` | ChromaDB server |
+| `LLM_PROVIDER` | `ollama` | Chat provider (`ollama` or `openrouter`) |
+| `OPENROUTER_API_KEY` | unset | Required when using OpenRouter |
+| `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
+| `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
+
+Embeddings remain an explicit Ollama dependency even when `LLM_PROVIDER=openrouter`.
+OpenRouter is used for chat, summarization, curation, and native SSE streaming only;
+there is no implicit hosted embedding fallback. Provider failures return a clear
+unavailable/degraded state, and RAG refuses to return a successful answer without
+valid retrieved context.

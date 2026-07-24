@@ -24,6 +24,8 @@ export interface AlertSeverityReport {
   assessedAt: string;
   /** One-line human-readable reason for the current level */
   reason: string;
+  /** True when one or more source feeds could not be checked. */
+  hasUnavailableMonitors: boolean;
   /** Per-monitor breakdown */
   monitors: {
     tsunami: MonitorStatus;
@@ -44,6 +46,8 @@ export interface MonitorStatus {
   summary: string;
   /** Number of active alerts/events this monitor found */
   count: number;
+  /** Availability is distinct from a calm reading. */
+  availability?: "available" | "unavailable";
 }
 
 export interface TsunamiInput {
@@ -51,11 +55,15 @@ export interface TsunamiInput {
   warningCount: number;
   /** Number of active Tsunami Watch/Advisory CAP events */
   watchCount: number;
+  /** false when the feed could not be checked */
+  available?: boolean;
 }
 
 export interface EarthquakeInput {
   /** Array of nearby earthquakes with magnitude + USGS tsunami flag */
   events: Array<{ magnitude: number; distanceKm: number; tsunami: number; place: string }>;
+  /** false when the feed could not be checked */
+  available?: boolean;
 }
 
 export interface WeatherInput {
@@ -63,6 +71,8 @@ export interface WeatherInput {
   severities: Array<"advisory" | "watch" | "warning">;
   /** Number of active events */
   count: number;
+  /** false when the feed could not be checked */
+  available?: boolean;
 }
 
 export interface TidesInput {
@@ -77,6 +87,8 @@ export interface FishingInput {
   closureActive: boolean;
   /** Optional closure message */
   closureMessage?: string;
+  /** false when the feed could not be checked */
+  available?: boolean;
 }
 
 export interface AirQualityInput {
@@ -93,6 +105,8 @@ export interface WildfireInput {
   hasEvacuationOrders: boolean;
   /** Whether any large fire (>1000 acres, <50% contained) exists nearby */
   hasLargeFireNearby: boolean;
+  /** false when the feed could not be checked */
+  available?: boolean;
 }
 
 export interface MarineInput {
@@ -108,6 +122,9 @@ export interface MarineInput {
  * Assess tsunami monitor severity.
  */
 function assessTsunami(input: TsunamiInput): MonitorStatus {
+  if (input.available === false) {
+    return { level: "CALM", summary: "Tsunami data unavailable", count: 0, availability: "unavailable" };
+  }
   if (input.warningCount > 0) {
     return {
       level: "EMERGENCY",
@@ -129,6 +146,9 @@ function assessTsunami(input: TsunamiInput): MonitorStatus {
  * Assess earthquake monitor severity.
  */
 function assessEarthquake(input: EarthquakeInput): MonitorStatus {
+  if (input.available === false) {
+    return { level: "CALM", summary: "Earthquake data unavailable", count: 0, availability: "unavailable" };
+  }
   const nearbyEvents = input.events.filter((e) => e.distanceKm <= 200);
   if (nearbyEvents.length === 0) {
     return { level: "CALM", summary: "No qualifying earthquakes nearby", count: 0 };
@@ -167,6 +187,9 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
  * Assess NWS weather monitor severity.
  */
 function assessWeather(input: WeatherInput): MonitorStatus {
+  if (input.available === false) {
+    return { level: "CALM", summary: "Weather data unavailable", count: 0, availability: "unavailable" };
+  }
   if (input.count === 0) {
     return { level: "CALM", summary: "No active weather alerts", count: 0 };
   }
@@ -197,7 +220,7 @@ function assessWeather(input: WeatherInput): MonitorStatus {
  */
 function assessTides(input: TidesInput): MonitorStatus {
   if (!input.available || input.waterLevelFt === null) {
-    return { level: "CALM", summary: "Tides data unavailable", count: 0 };
+    return { level: "CALM", summary: "Tides data unavailable", count: 0, availability: "unavailable" };
   }
   if (input.waterLevelFt >= 5.0) {
     return {
@@ -224,6 +247,9 @@ function assessTides(input: TidesInput): MonitorStatus {
  * Assess CDFW fishing monitor severity.
  */
 function assessFishing(input: FishingInput): MonitorStatus {
+  if (input.available === false) {
+    return { level: "CALM", summary: "Fishing data unavailable", count: 0, availability: "unavailable" };
+  }
   if (input.closureActive) {
     return {
       level: "WATCH",
@@ -239,7 +265,7 @@ function assessFishing(input: FishingInput): MonitorStatus {
  */
 function assessAirQuality(input: AirQualityInput): MonitorStatus {
   if (!input.available) {
-    return { level: "CALM", summary: "Air quality data unavailable", count: 0 };
+    return { level: "CALM", summary: "Air quality data unavailable", count: 0, availability: "unavailable" };
   }
   if (input.maxAqi > 200) {
     return {
@@ -266,6 +292,9 @@ function assessAirQuality(input: AirQualityInput): MonitorStatus {
  * Assess CAL FIRE wildfire monitor severity.
  */
 function assessWildfire(input: WildfireInput): MonitorStatus {
+  if (input.available === false) {
+    return { level: "CALM", summary: "Wildfire data unavailable", count: 0, availability: "unavailable" };
+  }
   if (input.incidentCount === 0) {
     return { level: "CALM", summary: "No active wildfires in region", count: 0 };
   }
@@ -295,7 +324,7 @@ function assessWildfire(input: WildfireInput): MonitorStatus {
  */
 function assessMarine(input: MarineInput): MonitorStatus {
   if (!input.available || (input.waveHeightFt === null && input.windSpeedKt === null)) {
-    return { level: "CALM", summary: "Marine buoy data unavailable", count: 0 };
+    return { level: "CALM", summary: "Marine buoy data unavailable", count: 0, availability: "unavailable" };
   }
   if ((input.waveHeightFt ?? 0) >= 15 || (input.windSpeedKt ?? 0) >= 34) {
     return {
@@ -363,10 +392,18 @@ export function computeAlertSeverity(
     }
   }
 
+  const unavailable = Object.entries(monitors)
+    .filter(([, status]) => status.availability === "unavailable")
+    .map(([name]) => name);
+  if (topLevel === "CALM" && unavailable.length > 0) {
+    topReason = `Data unavailable: ${unavailable.join(", ")}`;
+  }
+
   return {
     level: topLevel,
     assessedAt: new Date().toISOString(),
     reason: topReason,
+    hasUnavailableMonitors: unavailable.length > 0,
     monitors,
   };
 }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This directory contains all TypeScript source modules. Every file is a standalone Bun script or shared import. 45 source files across 7 subdirectories.
+This directory contains all TypeScript source modules. Every file is a standalone Bun script or shared import. The current module/file inventory is the source tree itself; use `rg --files src` rather than maintaining a hard-coded count.
 
 ## Key Conventions
 
@@ -23,10 +23,14 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `content.ts` | Yes (network) | `tests/content.test.ts` |
 | `domains.ts` | No | `tests/domains.test.ts`, `tests/domains-extended.test.ts` |
 | `export.ts` | Yes (filesystem) | `tests/export.test.ts` |
+| `pages_snapshot.ts` | Yes (filesystem; static public export) | `tests/pages_snapshot.test.ts` |
 | `gov_meeting_monitor.ts` | Yes (network + filesystem) | `tests/gov_meeting_monitor.test.ts` |
 | `logger.ts` | No | `tests/logger.test.ts` |
 | `monitor.ts` | Yes (filesystem) | `tests/monitor.test.ts` |
 | `news_monitor.ts` | Yes (network + filesystem) | `tests/news_monitor.test.ts` |
+| `youtube_monitor.ts` | Yes (yt-dlp + filesystem) | `tests/youtube_monitor.test.ts` |
+| `triplicate_monitor.ts` | Yes (Playwright + filesystem; reference-only) | `tests/triplicate_monitor.test.ts` |
+| `curation.ts` | Yes (filesystem + configured chat provider) | `tests/curation.test.ts` |
 | `scrape.ts` | Yes (Playwright + network) | No (full integration) |
 | `toc.ts` | Partial | `tests/toc.test.ts` (pure functions) |
 | `types.ts` | No (types only) | N/A |
@@ -39,14 +43,15 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `alerts/*` | Yes (various APIs) | `tests/alerts.test.ts`, `tests/new_alerts.test.ts` |
 | `api/middleware.ts` | No (pure logic) | `tests/middleware.test.ts`, `tests/middleware_sliding_window.test.ts` |
 | `gui/*` | Partial | `tests/routes.test.ts`, `tests/routes.integration.test.ts`, `tests/search.test.ts`, `tests/search_enhancements.test.ts`, `tests/analytics.test.ts` |
-| `llm/*` | Yes (Ollama/ChromaDB) | `tests/llm-config.test.ts`, `tests/embeddings.test.ts` |
-| `shared/*` | Yes (filesystem) | `tests/shared-paths.test.ts`, `tests/shared-data.test.ts`, `tests/fuzzy.test.ts`, `tests/readability-gunning-fog.test.ts` |
+| `llm/*` | Yes (Ollama/OpenRouter/ChromaDB) | `tests/llm-config.test.ts`, `tests/llm-openrouter.test.ts`, `tests/embeddings.test.ts` |
+| `shared/*` | Yes (filesystem) | `tests/shared-paths.test.ts`, `tests/shared-data.test.ts`, `tests/fuzzy.test.ts`, `tests/readability-gunning-fog.test.ts`, `tests/idempotency.test.ts` |
 
 ## Testing Strategy
 
 Unit tests cover all **pure-logic** functions. Integration modules (browser, content, scrape, verify, export, alert monitors) require external services and are tested manually via `bun run`.
 
-Run the full test suite: `bun test` (or `bun test tests/`). 489 tests across 38 files.
+Run the full test suite with `bun test tests/`; use `bun run validate` for the
+authoritative strict TypeScript, test, contract, and generated-output gate.
 
 ## v2.0+ New Modules
 
@@ -61,3 +66,5 @@ Run the full test suite: `bun test` (or `bun test tests/`). 489 tests across 38 
 | `alerts/severity.ts` | 8-monitor composite severity | `computeAlertSeverity()` (expanded from 5 to 8 monitors) |
 | `shared/fuzzy.ts` | Levenshtein fuzzy matching + typo correction | `levenshtein()`, `similarity()`, `fuzzyCorrect()`, `expandQueryFuzzy()` |
 | `llm/streaming_rag.ts` | SSE streaming RAG | `createStreamingRagResponse()` |
+| `llm/provider.ts` | Selected-provider routing and bounded preflight | `chatWithProvider()`, `checkChatProvider()` |
+| `shared/source_health.ts` | Typed source-health records and atomic artifact writes | `sourceHealth()`, `writeJsonAtomic()` |

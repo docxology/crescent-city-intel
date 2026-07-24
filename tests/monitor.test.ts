@@ -2,14 +2,16 @@
  * Tests for monitor.ts
  *
  * Tests pure-logic functions that do NOT require scraped output data.
- * The runMonitor integration test is included but gracefully handles
- * missing output/ directory (returns overallStatus: "error").
+ * The runMonitor integration test is included and gracefully handles
+ * missing output/ directory (returns overallStatus: "error"). A full
+ * repository run can contend with other filesystem-heavy tests, so it has
+ * a bounded integration timeout longer than the default unit-test timeout.
  */
 import { describe, expect, test } from "bun:test";
 import { checkHashes, checkSectionCoverage, runMonitor } from "../src/monitor";
 
 describe("runMonitor", () => {
-  test("returns error status when no scraped data exists", async () => {
+  test("returns an appropriate status when scraped data is absent or present", async () => {
     // In the test environment, output/ may or may not have data.
     // Either way, runMonitor must return a well-shaped MonitorReport.
     const report = await runMonitor();
@@ -26,7 +28,7 @@ describe("runMonitor", () => {
     expect(Array.isArray(report.missingSections)).toBe(true);
     expect(Array.isArray(report.newSections)).toBe(true);
     expect(report.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  });
+  }, 10_000);
 });
 
 describe("checkHashes", () => {

@@ -132,7 +132,7 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
     
     const response = await fetch(NOAA_TSUNAMI_CAP_URL, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel-intel)'
+      'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel)'
       }
     });
     
@@ -170,9 +170,9 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
     logger.info(`Found ${alerts.length} active NOAA tsunami alerts`, { count: alerts.length });
     return alerts;
     
-  } catch (error) {
-    logger.error('Failed to fetch NOAA tsunami CAP alerts', { error: error.message });
-    return [];
+  } catch (error: unknown) {
+    logger.error('Failed to fetch NOAA tsunami CAP alerts', { error: String(error) });
+    throw error;
   }
 }
 
@@ -289,6 +289,12 @@ export async function monitorNOAATsunamiAlerts(): Promise<void> {
   } else {
     logger.info(`Processed ${newAlertsCount} new relevant NOAA tsunami alerts`);
   }
+
+  await mkdir(HISTORY_DIR, { recursive: true });
+  await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
+    fetchedAt: new Date().toISOString(),
+    alerts,
+  }, null, 2));
 
   logger.info('=== NOAA Tsunami Alert Monitoring Complete ===');
 }

@@ -8,6 +8,22 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.5.0] — 2026-07-24
+
+### Deep functional hardening
+
+- Added typed source-health envelopes for RSS/Atom and EvoGov meeting feeds.
+- Added bounded fetches, Atom parsing, normalized deduplication, local HTTP fixtures, and the documented `--no-dedup` flag.
+- Added grounded curation provenance, provider/model fields, atomic output writes, and retryable provider failures.
+- Added current-state report paths, monthly source highlights, malformed marine-history repair, and availability-aware alert composites.
+- Made RAG chat, summarization, streaming, and curation honor the configured Ollama/OpenRouter provider.
+- Added fingerprinted Chroma indexing, stale-chunk deletion, YouTube subprocess timeouts, and retryable extraction failures.
+- Added `bun run validate` / `bun run release:check` as the authoritative strict TypeScript and deterministic release gate.
+- Reconciled OpenAPI v2.5.0, GUI health/provider diagnostics, and current documentation/configuration.
+- Added a least-privilege GitHub Pages workflow with atomic bounded snapshot exports, static code search, downloadable health/provenance artifacts, and explicit exclusion of private/runtime logs and Triplicate article content.
+
+---
+
 ## [2.4.0] — 2026-07-23
 
 ### 🚀 TODO Items Implemented
@@ -335,5 +351,5 @@ None. All existing CLI commands and API endpoints remain compatible.
 
 ---
 
-[0.2.0]: https://github.com/docxology/crescent-city-intel-intel/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/docxology/crescent-city-intel-intel/releases/tag/v0.1.0
+[0.2.0]: https://github.com/docxology/crescent-city-intel/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/docxology/crescent-city-intel/releases/tag/v0.1.0

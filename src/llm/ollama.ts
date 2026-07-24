@@ -70,7 +70,7 @@ export async function chat(
     ...messages,
   ];
 
-  log.debug(`Chat request to ${llmConfig.chatModel}`, { messageCount: String(fullMessages.length) });
+  log.debug(`Chat request to ${model}`, { messageCount: String(fullMessages.length) });
   const resp = await fetch(`${BASE()}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -92,18 +92,18 @@ export async function chat(
 
 /** List available models from Ollama */
 export async function listModels(): Promise<string[]> {
-  const resp = await fetch(`${BASE()}/api/tags`);
+  const resp = await fetch(`${BASE()}/api/tags`, { signal: AbortSignal.timeout(OLLAMA_TIMEOUT_MS) });
   if (!resp.ok) {
     throw new Error(`Ollama listModels failed (${resp.status}): ${await resp.text()}`);
   }
-  const data = await resp.json() as { models: { name: string }[] };
-  return data.models.map((m) => m.name);
+  const data = await resp.json() as { models?: { name?: string }[] };
+  return (data.models ?? []).map((m) => m.name ?? "").filter(Boolean);
 }
 
 /** Check if Ollama is reachable */
-export async function isOllamaRunning(): Promise<boolean> {
+export async function isOllamaRunning(timeoutMs = OLLAMA_TIMEOUT_MS): Promise<boolean> {
   try {
-    const resp = await fetch(`${BASE()}/api/tags`);
+    const resp = await fetch(`${BASE()}/api/tags`, { signal: AbortSignal.timeout(timeoutMs) });
     return resp.ok;
   } catch {
     return false;

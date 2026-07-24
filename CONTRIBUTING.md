@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This project is licensed under **CC
 
 1. Fork and clone the repository
 2. Follow [docs/setup.md](docs/setup.md) to set up your environment
-3. Run `bun test` to verify everything works (489 tests, 0 failures)
+3. Run `bun run validate` to verify strict types, deterministic tests, contracts, and generated state
 
 ## Development Workflow
 
@@ -54,7 +54,7 @@ When modifying source code:
 
 ## Pull Request Guidelines
 
-1. Run `bun test` — all tests must pass
+1. Run `bun run validate` — the authoritative gate must pass
 2. Include tests for new pure-logic functions
 3. Update documentation for any API or behavior changes
 4. Keep commits focused — one logical change per commit

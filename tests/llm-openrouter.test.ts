@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   chat,
+  checkOpenRouterHealth,
+  streamChat,
   getOpenRouterRequestCount,
   resetOpenRouterRequestCount,
 } from "../src/llm/openrouter.ts";
@@ -26,6 +28,15 @@ beforeAll(() => {
       const url = new URL(req.url);
       if (url.pathname === "/chat/completions" && req.method === "POST") {
         requestCount += 1;
+        const body = await req.json() as { stream?: boolean };
+        if (body.stream) {
+          return new Response(
+            'data: {"choices":[{"delta":{"content":"Fixture "}}]}\n\n' +
+            'data: {"choices":[{"delta":{"content":"stream"}}]}\n\n' +
+            "data: [DONE]\n\n",
+            { headers: { "Content-Type": "text/event-stream" } },
+          );
+        }
         return Response.json({
           choices: [
             {
@@ -35,6 +46,10 @@ beforeAll(() => {
             },
           ],
         });
+      }
+
+      if (url.pathname === "/models" && req.method === "GET") {
+        return Response.json({ data: [{ id: "fixture/model" }] });
       }
 
       return new Response("Not found", { status: 404 });
@@ -65,6 +80,18 @@ afterEach(() => {
 });
 
 describe("openrouter chat", () => {
+  test("preflight verifies the configured endpoint without a chat completion", async () => {
+    const health = await checkOpenRouterHealth({ baseUrl, apiKey: "test-key" });
+    expect(health).toEqual({ reachable: true });
+    expect(requestCount).toBe(0);
+  });
+
+  test("preflight reports an unavailable endpoint", async () => {
+    const health = await checkOpenRouterHealth({ baseUrl: `${baseUrl}/missing`, apiKey: "test-key" });
+    expect(health.reachable).toBe(false);
+    expect(health.error).toMatch(/preflight/i);
+  });
+
   test("returns the assistant content from an OpenRouter-shaped response", async () => {
     const response = await chat(messages, undefined, undefined, {
       baseUrl: baseUrl,
@@ -85,6 +112,20 @@ describe("openrouter chat", () => {
 
     expect(requestCount).toBe(0);
     expect(getOpenRouterRequestCount()).toBe(0);
+  });
+
+  test("parses native OpenRouter SSE deltas", async () => {
+    const chunks: string[] = [];
+    for await (const chunk of streamChat(messages, "Grounded context", undefined, {
+      baseUrl,
+      apiKey: "test-key",
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.join("")).toBe("Fixture stream");
+    expect(requestCount).toBe(1);
+    expect(getOpenRouterRequestCount()).toBe(1);
   });
 
   test("throws when the per-run OpenRouter request cap is exceeded", async () => {

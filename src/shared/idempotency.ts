@@ -7,7 +7,7 @@
  *
  * Replaces two prior bespoke implementations:
  * - news_monitor.ts's loadSeenIds/saveSeenIds (a bare string[] of normalized
- *   URLs at output/news/seen-ids.json) — load() transparently recognizes
+ *   URLs at the legacy output/news/seen-ids.json path) — load() transparently recognizes
  *   and migrates that legacy array shape on first read, so no separate
  *   one-shot migration script is needed and no history is lost.
  * - gov_meeting_monitor.ts's PROCESSED_MEETING_CACHE — an in-memory-only

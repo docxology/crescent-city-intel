@@ -16,7 +16,7 @@
 ### v1.4 — Intelligence Layer (2026-03)
 - 9 civic intelligence domains with code cross-references
 - 5 alert monitors (tsunami, earthquake, weather, tides, fishing)
-- RSS news monitor (4 sources)
+- RSS/Atom news monitor (configured sources with per-source health)
 - Government meeting tracker (3 commissions)
 - Flesch-Kincaid readability scoring
 - Domain coverage metrics

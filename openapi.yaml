@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Crescent City Intelligence API
   description: REST API for accessing Crescent City, CA municipal code and intelligence system
-  version: 2.4.0
+  version: 2.5.0
   contact:
     name: Crescent City Intelligence Platform
     url: https://github.com/docxology/crescent-city-intel
@@ -450,6 +450,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/toc/breadcrumb:
+    get:
+      summary: Get a TOC breadcrumb path
+      parameters:
+        - in: query
+          name: guid
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Breadcrumb path, content: { application/json: { schema: { type: object } } } }
+        '400': { description: Missing GUID, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: GUID not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+  /api/domain/{id}/search:
+    get:
+      summary: Search within an intelligence domain
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: q
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Domain search results, content: { application/json: { schema: { type: object } } } }
+        '400': { description: Missing query, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Domain not found, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
   /api/monitor/status:
     get:
       summary: Get last monitoring report
@@ -575,7 +603,7 @@ paths:
   /api/monitor/alerts:
     get:
       summary: Aggregated real-time hazard alert status
-      description: Returns latest status from all 5 monitors (tsunami, earthquake, weather, tides, fishing).
+      description: Returns latest status from all 8 monitors (tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine), including unavailable-source diagnostics.
       operationId: getMonitorAlerts
       tags: [Monitoring, Alerts]
       responses:
@@ -659,6 +687,28 @@ paths:
                 properties:
                   status: {type: string, example: ok}
                   timestamp: {type: string, format: date-time}
+                  chatProvider: {type: string, enum: [ollama, openrouter]}
+                  chatModel: {type: string}
+                  providerHealth:
+                    type: object
+                    properties:
+                      provider: {type: string, enum: [ollama, openrouter]}
+                      configured: {type: boolean}
+                      reachable: {type: boolean}
+                      model: {type: string}
+                      error: {type: string}
+                  embeddingProvider:
+                    type: object
+                    properties:
+                      provider: {type: string, example: ollama}
+                      model: {type: string}
+                      url: {type: string, format: uri}
+                  vectorStore:
+                    type: object
+                    properties:
+                      provider: {type: string, example: chroma}
+                      collection: {type: string}
+                      url: {type: string, format: uri}
   /api/stats/count:
     get:
       summary: Lightweight section count
@@ -1018,7 +1068,7 @@ paths:
   /api/chat/stream:
     post:
       summary: Streaming RAG chat (SSE)
-      description: Server-Sent Events stream for word-by-word RAG answer generation. Sends sources event, token events, and a done event.
+      description: Provider-native Server-Sent Events stream for RAG answer generation. Sends sources, token, done, or error events and preserves citations.
       operationId: streamRagChat
       tags: [LLM]
       requestBody:
@@ -1029,6 +1079,7 @@ paths:
               type: object
               properties:
                 q: {type: string, description: Question to ask}
+                model: {type: string, description: Optional provider-specific chat model override}
       responses:
         '200':
           description: SSE stream (text/event-stream)
@@ -1127,8 +1178,44 @@ paths:
                   totalSections: {type: integer}
         '404': {description: Domain not found}
 
+  /api/alerts/correlation:
+    get:
+      summary: Detect correlated alert sequences
+      responses:
+        '200': { description: Correlated alert events, content: { application/json: { schema: { type: object } } } }
+  /api/ordinal-check:
+    get:
+      summary: Detect municipal code numbering gaps
+      responses:
+        '200': { description: Ordinal gap report, content: { application/json: { schema: { type: object } } } }
+  /api/definitions/conflicts:
+    get:
+      summary: Detect conflicting glossary definitions
+      responses:
+        '200': { description: Definition conflict report, content: { application/json: { schema: { type: object } } } }
+  /api/openapi.yaml:
+    get:
+      summary: Retrieve the implemented OpenAPI contract
+      responses:
+        '200': { description: OpenAPI YAML document, content: { text/yaml: { schema: { type: string } } } }
+  /api/docs:
+    get:
+      summary: Retrieve the API documentation page
+      responses:
+        '200': { description: API documentation HTML, content: { text/html: { schema: { type: string } } } }
 
 components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for accessing protected endpoints
+    apiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+      description: API key for accessing protected endpoints (query parameter variant)
   schemas:
     TocItem:
       type: object
@@ -1226,6 +1313,9 @@ components:
                 type: string
         model:
           type: string
+        provider:
+          type: string
+          enum: [ollama, openrouter]
     ErrorResponse:
       type: object
       properties:
@@ -1404,16 +1494,3 @@ components:
           format: date-time
 security:
   - apiKey: []
-components:
-  securitySchemes:
-    apiKey:
-      type: apiKey
-      in: header
-      name: X-API-Key
-      description: API key for accessing protected endpoints
-    # Alternative API key in query parameter
-    apiKeyQuery:
-      type: apiKey
-      in: query
-      name: api_key
-      description: API key for accessing protected endpoints (query parameter variant)

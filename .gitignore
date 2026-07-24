@@ -1,5 +1,7 @@
 node_modules/
 output/
+.pages/
+.pages-build-*/
 dist/
 chroma_data/
 *.log

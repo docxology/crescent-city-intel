@@ -16,7 +16,7 @@ ecode360.com/CR4919
    │ Scraper  │  Playwright + Cloudflare bypass
    └────┬────┘
         │
-  output/articles/*.json  (242 articles, 2194 sections)
+  output/articles/*.json  (counts from output/manifest.json)
         │
    ┌────▼────┐
    │ Verifier │  SHA-256 + TOC cross-reference + live re-fetch
@@ -34,6 +34,10 @@ ecode360.com/CR4919
 │ BM25│           │+SSE    │
 │+Fuzzy│          └────────┘
 └─────┘
+
+The static public surface is built separately by `pages_snapshot.ts` from a
+bounded allowlist of generated artifacts. It is deployed by GitHub Actions and
+does not connect to the local GUI API, Ollama, or ChromaDB.
 
 Real-Time Intelligence Layer (8 monitors):
 ┌──────────────────────────────────────┐
@@ -63,7 +67,7 @@ Structured Query + Legal Analysis (v2.0):
 Monitoring:
 ┌──────────────────────────────────────┐
 │  monitor.ts          Change detection│
-│  news_monitor.ts     RSS (4 sources) │
+│  news_monitor.ts     RSS/Atom (configured + health)│
 │  gov_meeting_monitor.ts 3 commissions│
 │  monthly_report.ts  Civic health     │
 └──────────────────────────────────────┘
@@ -94,6 +98,15 @@ graph LR
       N[monitor.ts] -->|reads| D
       O[news_monitor.ts] -->|RSS| P[output/news/]
       Q[gov_meeting_monitor.ts] -->|HTML| R[output/gov_meetings/]
+      Y[youtube_monitor.ts] -->|yt-dlp/VTT| Z[output/youtube/]
+      T[triplicate_monitor.ts] -->|Playwright/reference metadata| U[output/triplicate/]
+      V[curation.ts] -->|news + meetings + YouTube only| W[output/curated/]
+      X[monthly_report.ts] -->|period-filtered state| AA[output/reports/]
+      AA --> AB[pages_snapshot.ts] --> AC[GitHub Pages static snapshot]
+      P --> H1[source-health]
+      R --> H1
+      Z --> H1
+      U --> H1
     end
 
     subgraph Alerts
@@ -116,6 +129,8 @@ graph LR
 graph TD
     logger --> types
     types --> constants
+    shared/source_health --> pages_snapshot
+    pages_snapshot --> pages/static
     constants --> shared/paths
     shared/paths --> shared/data
     types --> utils
@@ -167,6 +182,11 @@ src/
   monitor.ts            # Municipal code change detection
   news_monitor.ts       # RSS news aggregation
   gov_meeting_monitor.ts # Government meeting agenda tracker
+  youtube_monitor.ts     # YouTube meeting transcripts + source health
+  triplicate_monitor.ts  # Reference-only Triplicate metadata + citations
+  curation.ts             # Provider-aware news/meeting/YouTube curation
+  monthly_report.ts      # Period-specific civic health report
+  pages_snapshot.ts      # Bounded public GitHub Pages snapshot exporter
   shared/
     paths.ts            # Centralized output path constants
     data.ts             # Data loading layer (loadToc, loadArticle, etc.)
@@ -183,6 +203,9 @@ src/
     embeddings.ts       # Chunk + embed + index pipeline
     rag.ts              # RAG pipeline (embed → retrieve → generate)
     index.ts            # CLI entry point
+  pages/
+    static/index.html   # Static Pages dashboard
+    static/404.html     # Static Pages fallback
   api/
     middleware.ts       # Rate limiting + API key auth + request logging
   alerts/
@@ -197,26 +220,11 @@ scripts/
   run-meetings.ts       # Government meeting monitor script
   run-youtube.ts        # YouTube meeting transcript pipeline script
   run-curation.ts       # LLM curation pipeline script
+  export-pages.ts       # Static Pages exporter
+  validate-pages.ts     # Static Pages artifact validator
   weekly-check.sh       # Legacy bash wrapper (kept for reference)
-tests/                  # 538 tests · 43 files (see tests/AGENTS.md for full per-file breakdown)
-  utils.test.ts         # 62 tests
-  constants.test.ts     # 5 tests
-  constants-extended.test.ts # 10 tests
-  logger.test.ts        # 6 tests
-  toc.test.ts           # 10 tests
-  shared-paths.test.ts  # 10 tests
-  shared-data.test.ts   # 14 tests
-  search.test.ts        # 12 tests
-  analytics.test.ts     # 6 tests
-  llm-config.test.ts    # 8 tests
-  routes.test.ts        # 7 tests
-  embeddings.test.ts    # 7 tests
-  export.test.ts        # 10 tests
-  domains.test.ts       # 15 tests
-  monitor.test.ts       # 3 tests
-  news_monitor.test.ts  # 3 tests
-  gov_meeting_monitor.test.ts # 3 tests
-  # ...and 21 more test files not shown here (38 total; see tests/AGENTS.md)
+tests/                  # Deterministic suite discovered by Bun (run bun run validate)
+  *.test.ts             # Module, route, provider, feed, alert, and integration tests
 docs/                   # This documentation
 output/                 # Scraped data (gitignored)
 ```

@@ -153,7 +153,8 @@ fuzzy corrections are returned in `fuzzyCorrections` field.
 
 ## Streaming RAG (`src/llm/streaming_rag.ts`)
 
-Server-Sent Events for word-by-word RAG answer streaming.
+Provider-native Server-Sent Events for RAG answer streaming, with source
+citation events and cancellation-aware timeouts.
 
 - `POST /api/chat/stream` — SSE endpoint
 

@@ -1,6 +1,6 @@
 # TODO — Crescent City Intelligence Platform
 
-> Upcoming development backlog · v2.5.0 · 538 tests passing · 51 source modules · 43 test files
+> Upcoming development backlog · v2.5.0 · validation counts are reported by `bun run validate`
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix)
 >
@@ -72,13 +72,13 @@
 
 ### 4.5 Curation Pipeline (✅ shipped 2026-07-23)
 - ✅ **`src/curation.ts`** / `bun run curate`: LLM-summarizes + domain-tags new items across news/gov-meetings/youtube via the configured provider (Ollama default, OpenRouter opt-in). `/api/curated` + GUI "Curated Feed" tab.
-- 🟡 **Triplicate not yet wired into curation**: `gatherCurationInputs()` covers news/gov_meetings/youtube; adding Triplicate is a small follow-up (same `gatherXItems()` pattern).
+- ✅ **Triplicate excluded from curation by policy**: `gatherCurationInputs()` intentionally covers only news/gov_meetings/youtube. Triplicate metadata remains reference/citation-only and is excluded from LLM curation, embeddings, and training inputs.
 - ✅ **OpenRouter default model/cap**: default model is `inclusionai/ling-3.0-flash:free` (free tier, changed from the original `openai/gpt-4o-mini` placeholder so an unset `OPENROUTER_MODEL` never silently incurs cost), cap 100 req/run.
 - ✅ **Curation burned through the free-tier rate limit on any real batch (found + fixed 2026-07-24)**: summarizing items back-to-back with zero spacing hit OpenRouter's free-model ~20 req/min cap within seconds on anything but a tiny batch — confirmed live: a 34-item batch (fresh Triplicate + YouTube + gov-meetings items from a single verification pass) got a 429 on every item after the first. Added `llmConfig.openrouterMinRequestIntervalMs` (default 3100ms, env-overridable via `OPENROUTER_MIN_REQUEST_INTERVAL_MS`) and a conditional delay in `runCuration()`'s loop — only when `provider=openrouter`; Ollama has no external rate limit so its path is untouched.
 - 🟢 **Facebook**: deliberately not built this pass — no sanctioned automated-access path for a hobby project (ToS prohibits scraping; Graph API Page Public Content Access needs Meta App Review). Revisit only if a real content gap surfaces that no other source covers.
 
 ### 4.3 Municipal Code Change Monitor
-- 🟢 **`--full-rescrape` flag**: bypass resume, re-fetch all 242 articles
+- 🟢 **`--full-rescrape` flag**: bypass resume and re-fetch every article in the current TOC
 - 🟡 **Change notification**: webhook/email notification when municipal code changes detected
 - 🟡 **Section diff storage**: unified diff at `output/diffs/` when re-scraped section differs
 - 🟡 **ecode360 change feed**: monitor sitemap.xml or Last-Modified headers
@@ -213,7 +213,7 @@
 - 🟢 **`tests/content-fixture.test.ts`**: section extraction from fixture HTML strings
 - 🟡 **Coverage gate**: `bun test --coverage` with minimum threshold (target: 60%)
 - 🟢 **NDBC parser unit test**: test `parseNdbcLine()` with fixture data
-- 🟢 **CAL FIRE API mock test**: test `classifyWildfireSeverity()` with various incident arrays
+- 🟢 **CAL FIRE fixture expansion**: add local HTTP failure/response fixtures around the existing `classifyWildfireSeverity()` coverage when the monitor parser is expanded
 
 ### 11.2 OpenAPI & CI
 - 🟢 **Generate TypeScript client** from openapi.yaml using `openapi-typescript` or `orval`
@@ -259,4 +259,4 @@
 
 ---
 
-_Last updated: July 2026 · v2.5.0 · 538 tests passing · 51 source modules · 43 test files_
+_Last updated: July 2026 · v2.5.0 · run `bun run validate` for current test and contract counts_

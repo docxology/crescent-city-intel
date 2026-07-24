@@ -153,7 +153,7 @@ async function fetchUSGSOverlayEarthquakes(): Promise<Array<{
     
     const response = await fetch(USGS_EARTHQUAKE_URL, {
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel-intel)'
+        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel)'
       }
     });
     
@@ -174,7 +174,7 @@ async function fetchUSGSOverlayEarthquakes(): Promise<Array<{
         const coords = feature.geometry.coordinates;
         const longitude = coords[0];
         const latitude = coords[1];
-        const depth = coords.length >= 3 ? coords[2] : null;
+        const depth = coords.length >= 3 ? (coords[2] ?? null) : null;
         
         const distanceKm = haversineDistance(
           CRESCENT_CITY_LAT, CRESCENT_CITY_LNG,
@@ -204,9 +204,9 @@ async function fetchUSGSOverlayEarthquakes(): Promise<Array<{
     logger.info(`Found ${earthquakes.length} earthquakes meeting criteria (M${MIN_MAGNITUDE}+ within ${SEARCH_RADIUS_KM}km)`, { count: earthquakes.length });
     return earthquakes;
     
-  } catch (error) {
-    logger.error('Failed to fetch USGS earthquake data', { error: error.message });
-    return [];
+  } catch (error: unknown) {
+    logger.error('Failed to fetch USGS earthquake data', { error: String(error) });
+    throw error;
   }
 }
 
@@ -326,6 +326,12 @@ export async function monitorUSGSEarthquakeAlerts(): Promise<void> {
   } else {
     logger.info(`Processed ${newEarthquakesCount} new relevant USGS earthquakes`);
   }
+
+  await mkdir(HISTORY_DIR, { recursive: true });
+  await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
+    fetchedAt: new Date().toISOString(),
+    events: earthquakes,
+  }, null, 2));
   
   logger.info('=== USGS Earthquake Alert Monitoring Complete ===');
 }

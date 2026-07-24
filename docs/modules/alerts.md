@@ -2,7 +2,9 @@
 
 Real-time natural hazard and environmental monitoring for Crescent City, CA.
 8 independent monitors feed a composite severity scoring system and
-unified alert analytics timeline.
+unified alert analytics timeline. Each run also writes the typed
+`output/alerts/source-health.json` artifact so unavailable feeds cannot be
+mistaken for calm readings.
 
 ## Monitor Inventory
 

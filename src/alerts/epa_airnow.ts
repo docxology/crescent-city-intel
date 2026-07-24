@@ -29,6 +29,12 @@ const AIRNOW_API_URL = "https://www.airnowapi.org/aq/observation/zipCode/current
 const HISTORY_DIR = join(process.cwd(), "output", "alerts", "airquality");
 const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
 const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+let lastAirQualityError: string | undefined;
+
+/** Return the most recent failure without changing the monitor's null-result contract. */
+export function getLastAirQualityError(): string | undefined {
+  return lastAirQualityError;
+}
 
 export type AirQualityLevel = "GOOD" | "MODERATE" | "UNHEALTHY_SENSITIVE" | "UNHEALTHY" | "VERY_UNHEALTHY" | "HAZARDOUS";
 
@@ -169,6 +175,7 @@ export async function fetchAirQuality(apiKey?: string): Promise<AirQualityReport
 /** Main monitor entry point */
 export async function runAirQualityMonitor(): Promise<AirQualityReport | null> {
   logger.info("Checking air quality for Crescent City (ZIP 95531)");
+  lastAirQualityError = undefined;
 
   try {
     const report = await fetchAirQuality();
@@ -184,7 +191,8 @@ export async function runAirQualityMonitor(): Promise<AirQualityReport | null> {
 
     return report;
   } catch (err: any) {
-    logger.error("Failed to fetch air quality data", { error: err.message });
+    lastAirQualityError = err instanceof Error ? err.message : String(err);
+    logger.error("Failed to fetch air quality data", { error: lastAirQualityError });
     return null;
   }
 }

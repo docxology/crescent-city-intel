@@ -178,10 +178,14 @@ describe('monitorTriplicate', () => {
       fetchHtml,
       seenPath,
       outputDir,
+      healthPath: join(workDir, 'source-health.json'),
       sections: singleSection,
       retry: fastRetry,
     });
     expect(first).toHaveLength(3);
+    const health = JSON.parse(await readFile(join(workDir, 'source-health.json'), 'utf-8'));
+    expect(health.sources[0].status).toBe('ok');
+    expect(health.sources[0].itemCount).toBe(3);
     for (const item of first) {
       expect(item.usagePolicy).toBe(TRIPLICATE_USAGE_POLICY);
       expect(item.section).toBe('News');
@@ -192,6 +196,7 @@ describe('monitorTriplicate', () => {
       fetchHtml,
       seenPath,
       outputDir,
+      healthPath: join(workDir, 'source-health.json'),
       sections: singleSection,
       retry: fastRetry,
     });
@@ -227,11 +232,12 @@ describe('monitorTriplicate', () => {
     let threw = false;
     try {
       result = await monitorTriplicate({
-        fetchHtml: throwingFetch,
-        seenPath,
-        outputDir,
-        sections: singleSection,
-        retry: fastRetry,
+      fetchHtml: throwingFetch,
+      seenPath,
+      outputDir,
+      healthPath: join(workDir, 'source-health.json'),
+      sections: singleSection,
+      retry: fastRetry,
       });
     } catch {
       threw = true;
@@ -239,6 +245,8 @@ describe('monitorTriplicate', () => {
 
     expect(threw).toBe(false);
     expect(result).toEqual([]);
+    const health = JSON.parse(await readFile(join(workDir, 'source-health.json'), 'utf-8'));
+    expect(health.sources[0].status).toBe('unavailable');
 
     // A hard failure must not create a "success" output batch — the distinct
     // failure is logged, not silently persisted as an empty result.
@@ -256,10 +264,13 @@ describe('monitorTriplicate', () => {
       fetchHtml: async () => NO_ARTICLES_HTML,
       seenPath,
       outputDir,
+      healthPath: join(workDir, 'source-health.json'),
       sections: singleSection,
       retry: fastRetry,
     });
     expect(result).toEqual([]);
+    const health = JSON.parse(await readFile(join(workDir, 'source-health.json'), 'utf-8'));
+    expect(health.sources[0].status).toBe('stale');
   });
 
   test('recovers via bounded retry when the first fetch attempt fails', async () => {

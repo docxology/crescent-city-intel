@@ -17,6 +17,8 @@
  */
 import { monitorNews } from "../src/news_monitor.ts";
 import { createLogger } from "../src/logger.ts";
+import { readFile } from "fs/promises";
+import { paths } from "../src/shared/paths.ts";
 
 const logger = createLogger("run-news");
 
@@ -26,11 +28,25 @@ const keywordsArg = args.find(a => a.startsWith("--keywords="));
 const filterKeywords = keywordsArg
   ? keywordsArg.replace("--keywords=", "").split(",").map(k => k.trim()).filter(Boolean)
   : undefined;
+const noDedup = args.includes("--no-dedup");
 
 logger.info("=== Local News Monitoring ===");
 if (filterKeywords) {
   logger.info(`Filtering with custom keywords: ${filterKeywords.join(", ")}`);
 }
 
-const items = await monitorNews(filterKeywords);
-logger.info(`News monitoring complete: ${items.length} relevant items saved to output/news/`);
+const items = await monitorNews(filterKeywords, { noDedup });
+let health: Array<{ source: string; status: string }> = [];
+try {
+  const report = JSON.parse(await readFile(paths.newsHealth, "utf-8")) as { sources?: Array<{ source: string; status: string }> };
+  health = report.sources ?? [];
+} catch { /* monitor already logged the fetch failure */ }
+const degraded = health.filter(source => source.status === "unavailable" || source.status === "stale");
+logger.info(`News monitoring complete: ${items.length} new relevant item(s) saved to output/news/`, {
+  sourceHealth: health.map(source => `${source.source}:${source.status}`),
+});
+if (degraded.length > 0) {
+  logger.warn(`${degraded.length} news source(s) are unavailable or stale`, {
+    sources: degraded.map(source => source.source),
+  });
+}

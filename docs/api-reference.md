@@ -94,8 +94,11 @@ Complete reference for all exported functions, interfaces, and constants.
 | Export | Signature | Description |
 | :--- | :--- | :--- |
 | `monitorNews` | `() → Promise<NewsItem[]>` | Fetch all RSS feeds, deduplicate, filter, save to `output/news/` |
-| `fetchRSSFeed` | `(source: string, url: string) → Promise<NewsItem[]>` | Fetch and parse a single RSS feed |
+| `fetchRSSFeedDetailed` | `(url: string, source: string) → Promise<NewsFeedResult>` | Fetch RSS/Atom and return items plus typed source health |
+| `fetchRSSFeed` | `(url: string, source: string) → Promise<NewsItem[]>` | Fetch and parse a single RSS/Atom feed |
+| `normalizeUrl` | `(url: string) → string` | Stable deduplication key with tracking parameters removed |
 | `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
+| `SourceHealth` | `interface` | `ok | empty | unavailable | stale` plus timestamps, count, error, and provenance |
 
 ---
 
@@ -110,11 +113,25 @@ Complete reference for all exported functions, interfaces, and constants.
 
 ---
 
+## YouTube and Triplicate monitors
+
+| Export | Module | Description |
+| :--- | :--- | :--- |
+| `listChannelVideos` | `youtube_monitor.ts` | List recent official-channel videos |
+| `listChannelVideosDetailed` | `youtube_monitor.ts` | Video listing plus typed source health |
+| `parseVtt` | `youtube_monitor.ts` | Collapse rolling auto-caption cues into timestamped segments |
+| `monitorYouTube` | `youtube_monitor.ts` | Idempotent transcript extraction and Chroma indexing |
+| `monitorTriplicate` | `triplicate_monitor.ts` | Reference-only Playwright metadata collection with retryable health states |
+| `extractArticles` | `triplicate_monitor.ts` | Defensive same-host article-link extraction |
+| `TRIPLICATE_USAGE_POLICY` | `triplicate_monitor.ts` | Machine-readable citation-only/no-training policy tag |
+
+---
+
 ## Domains (`src/domains.ts`)
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `domains` | `IntelligenceDomain[]` | All 5 intelligence domains (const) |
+| `domains` | `IntelligenceDomain[]` | Configured intelligence domains (const) |
 | `getDomainById` | `(id: string) → IntelligenceDomain \| undefined` | Look up domain by ID slug |
 | `getDomainSummaries` | `() → DomainSummary[]` | Lightweight list (no topics) |
 | `searchDomains` | `(query: string) → IntelligenceDomain[]` | Full-text search across domain names, descriptions, tags |
@@ -154,6 +171,20 @@ Complete reference for all exported functions, interfaces, and constants.
 
 ---
 
+## Public Pages Snapshot (`src/pages_snapshot.ts`)
+
+| Export | Signature | Description |
+| :--- | :--- | :--- |
+| `buildPagesSnapshot` | `(outputDir?, generatedAt?) → Promise<PagesSnapshot>` | Read bounded public data and preserve source health/provenance |
+| `exportPagesSnapshot` | `(options?) → Promise<PagesExportResult>` | Atomically build the static `.pages/` artifact |
+| `validatePagesSource` | `(indexHtml) → string[]` | Check the static dashboard for API-key/local-service leakage and required data links |
+| `PagesSnapshot` | `interface` | Versioned public snapshot envelope with code, source, alert, report, and policy metadata |
+| `PagesExportResult` | `interface` | Destination, status, generated files, and exported item counts |
+
+The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
+
+---
+
 ## API Middleware (`src/api/middleware.ts`)
 
 | Function | Signature | Description |
@@ -177,11 +208,15 @@ Complete reference for all exported functions, interfaces, and constants.
 | Function | Module | Signature | Description |
 | :--- | :--- | :--- | :--- |
 | `llmConfig` | `config.ts` | Object | All config properties |
+| `configuredChatProvider` | `provider.ts` | `() → "ollama" | "openrouter"` | Selected chat provider |
+| `chatWithProvider` | `provider.ts` | `(messages, context?) → Promise<string>` | Provider-dispatched chat completion |
+| `checkChatProvider` | `provider.ts` | `() → Promise<ProviderHealth>` | Selected-provider preflight and model metadata |
+| `checkOpenRouterHealth` | `openrouter.ts` | `(options?) → Promise<OpenRouterHealthCheck>` | Bounded non-generative `/models` preflight |
 | `embed` | `ollama.ts` | `(text) → Promise<number[]>` | Single text embedding via Ollama |
 | `embedBatch` | `ollama.ts` | `(texts) → Promise<number[][]>` | Batch embedding |
 | `chat` | `ollama.ts` | `(messages, context?) → Promise<string>` | Chat completion |
 | `listModels` | `ollama.ts` | `() → Promise<string[]>` | Available Ollama models |
-| `isOllamaRunning` | `ollama.ts` | `() → Promise<boolean>` | Ollama health check |
+| `isOllamaRunning` | `ollama.ts` | `(timeoutMs?) → Promise<boolean>` | Bounded Ollama health check |
 | `getOrCreateCollection` | `chroma.ts` | `() → Promise<Collection>` | Singleton ChromaDB collection |
 | `addDocuments` | `chroma.ts` | `(docs) → Promise<void>` | Upsert documents |
 | `query` | `chroma.ts` | `(embedding, topK?) → Promise<{ids, documents, metadatas, distances}>` | Semantic search |
@@ -208,6 +243,7 @@ Complete reference for all exported functions, interfaces, and constants.
 | `ChatMessage` | LLM chat message (role + content) |
 | `RagSource` | Source citation from RAG retrieval |
 | `RagResponse` | Complete RAG response with answer + sources |
+| `SourceHealth` | Typed external-source availability/freshness contract |
 | `TitleStats` | Per-title statistics (analytics) |
 | `CodeStats` | Aggregate code statistics (analytics) |
 | `EmbeddingPoint` | Single point in PCA projection |

@@ -20,7 +20,12 @@ describe("fetchGovMeetings", () => {
   });
 
   test("returns empty array on HTTP 404", async () => {
-    const result = await fetchGovMeetings("https://httpbin.org/status/404", "TestSource");
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => new Response("not found", { status: 404 }),
+    });
+    const result = await fetchGovMeetings(`http://localhost:${server.port}/missing`, "TestSource");
+    server.stop();
     expect(Array.isArray(result)).toBe(true);
     expect(result).toHaveLength(0);
   });
@@ -46,7 +51,9 @@ describe("saveMeetingItems", () => {
     const dir = join(process.cwd(), "output", "gov_meetings");
     expect(existsSync(dir)).toBe(true);
 
-    const files = (await readdir(dir)).filter((f) => f.endsWith(".json"));
+    const files = (await readdir(dir)).filter((f) =>
+      f.startsWith("gov_meetings-") && f.endsWith(".json")
+    );
     expect(files.length).toBeGreaterThanOrEqual(1);
 
     // Read the most recently written file and verify shape

@@ -33,6 +33,11 @@
     "coverage": "bun run scripts/run-coverage.ts",
     "readability": "bun run scripts/run-readability.ts",
     "report": "bun run src/monthly_report.ts",
+    "repair-output": "bun run scripts/repair-output.ts",
+    "pages:export": "bun run scripts/export-pages.ts",
+    "pages:validate": "bun run scripts/validate-pages.ts",
+    "validate": "bun run scripts/validate.ts",
+    "release:check": "bun run validate",
     "test": "bun test tests/"
   },
   "dependencies": {

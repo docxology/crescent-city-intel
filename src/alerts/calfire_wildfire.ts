@@ -30,6 +30,12 @@ const SEARCH_RADIUS_KM = 150;
 const HISTORY_DIR = join(process.cwd(), "output", "alerts", "wildfire");
 const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
 const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+let lastWildfireError: string | undefined;
+
+/** Return the most recent failure without changing the monitor's null-result contract. */
+export function getLastWildfireError(): string | undefined {
+  return lastWildfireError;
+}
 
 export type WildfireSeverity = "NONE" | "ADVISORY" | "WARNING" | "EMERGENCY";
 
@@ -178,6 +184,7 @@ export async function fetchWildfireIncidents(): Promise<WildfireIncident[]> {
 
 export async function runWildfireMonitor(): Promise<WildfireReport | null> {
   logger.info("Checking CAL FIRE incidents for Del Norte region");
+  lastWildfireError = undefined;
 
   try {
     const incidents = await fetchWildfireIncidents();
@@ -213,7 +220,8 @@ export async function runWildfireMonitor(): Promise<WildfireReport | null> {
 
     return report;
   } catch (err: any) {
-    logger.error("Failed to fetch CAL FIRE data", { error: err.message });
+    lastWildfireError = err instanceof Error ? err.message : String(err);
+    logger.error("Failed to fetch CAL FIRE data", { error: lastWildfireError });
     return null;
   }
 }

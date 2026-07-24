@@ -11,7 +11,7 @@
  * the URL is unreachable in a test environment.
  */
 import { describe, expect, test, afterAll, beforeAll } from "bun:test";
-import { fetchRSSFeed, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
+import { fetchRSSFeed, fetchRSSFeedDetailed, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
 
 // Helper: build a minimal RSS XML string
 function buildRSS(items: Array<{ title: string; link: string; pubDate?: string; description?: string }>): string {
@@ -38,10 +38,45 @@ describe("fetchRSSFeed", () => {
   });
 
   test("returns empty array on HTTP 404", async () => {
-    // A real HTTP call to a URL that returns 404
-    const result = await fetchRSSFeed("https://httpbin.org/status/404", "TestSource");
+    // Use a real local HTTP server so the deterministic suite does not depend
+    // on a public service or its network latency.
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => new Response("not found", { status: 404 }),
+    });
+    const result = await fetchRSSFeed(`http://localhost:${server.port}/missing`, "TestSource");
+    server.stop();
     expect(Array.isArray(result)).toBe(true);
     expect(result).toHaveLength(0);
+  });
+
+  test("reports an unavailable source instead of collapsing failure into empty", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => new Response("temporarily unavailable", { status: 503 }),
+    });
+    const result = await fetchRSSFeedDetailed(`http://localhost:${server.port}/feed`, "UnavailableSource");
+    server.stop();
+    expect(result.items).toHaveLength(0);
+    expect(result.health.status).toBe("unavailable");
+    expect(result.health.httpStatus).toBe(503);
+    expect(result.health.error).toContain("HTTP 503");
+  });
+
+  test("parses Atom entries and normalizes tracking parameters", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
+        <entry><title>Crescent City harbor update</title>
+        <link href="https://example.com/story/?utm_source=test" />
+        <updated>2026-07-24T12:00:00Z</updated><summary>Harbor emergency planning.</summary></entry>
+      </feed>`, { headers: { "Content-Type": "application/atom+xml" } }),
+    });
+    const result = await fetchRSSFeed(`http://localhost:${server.port}/feed`, "AtomSource");
+    server.stop();
+    expect(result).toHaveLength(1);
+    expect(result[0].link).toBe("https://example.com/story/?utm_source=test");
+    expect(result[0].content).toContain("Harbor emergency planning");
   });
 });
 

@@ -43,11 +43,11 @@ print_banner() {
   echo -e "${BOLD}${CYAN}"
   cat << 'EOF'
   ╔══════════════════════════════════════════════════════════════════╗
-  ║   🌊  Crescent City Intelligence Platform   v2.4.0             ║
+  ║   🌊  Crescent City Intelligence Platform   v2.5.0             ║
   ║   Scrape · Verify · Export · View · Chat · Stream · Monitor     ║
   ╠══════════════════════════════════════════════════════════════════╣
   ║   City of Crescent City, CA  |  41.76°N 124.20°W               ║
-  ║   Del Norte County  |  242 Articles  |  2,194 Code Sections     ║
+  ║   Del Norte County  |  Counts from output/manifest.json        ║
   ╚══════════════════════════════════════════════════════════════════╝
 EOF
   echo -e "${RESET}"
@@ -115,9 +115,9 @@ run_setup() {
 
 # ─── Tests ────────────────────────────────────────────────────────────────────
 run_tests() {
-  step "Running test suite (235 tests · 21 files · zero-mock policy)..."
+  step "Running authoritative validation gate (strict types · tests · contracts)..."
   echo ""
-  if bun test tests/; then
+  if bun run validate; then
     echo ""
     ok "All tests passed!"
   else
@@ -131,7 +131,7 @@ run_tests() {
 run_pipeline() {
   step "Full pipeline: Scrape → Verify → Export"
   warn "This requires a browser and internet connection."
-  warn "Scraping 242 articles takes ~15-20 minutes. Resume supported."
+  warn "Scraping the current municipal-code manifest takes ~15-20 minutes. Resume supported."
   echo ""
   read -rp "  Continue? [y/N] " confirm
   [[ "$confirm" =~ ^[Yy]$ ]] || return 0
@@ -206,7 +206,7 @@ run_monitor_menu() {
   print_banner
   echo -e "${BOLD}  📡 Monitoring & Alerts (8 monitors)${RESET}\n"
   echo -e "  ${BOLD}[1]${RESET}  🔍 Code change detection"
-  echo -e "  ${BOLD}[2]${RESET}  📰 News RSS (4 sources — Times-Standard, Lost Coast, Humboldt, KIEM-TV)"
+  echo -e "  ${BOLD}[2]${RESET}  📰 News RSS/Atom (configured sources + source health)"
   echo -e "  ${BOLD}[3]${RESET}  🏛️  Government meetings (City Council, Planning, Harbor Commission)"
   echo -e "  ${BOLD}[4]${RESET}  🌊 NOAA tides (station 9419750 — 48h predictions)"
   echo -e "  ${BOLD}[5]${RESET}  🦀 CDFW crab season + marine bulletins"
@@ -416,15 +416,15 @@ show_status() {
   fi
 
   # News
-  if [ -f "output/news/seen-ids.json" ]; then
+  if [ -f "output/state/news-seen-ids.json" ]; then
     local news_count
-    news_count=$(python3 -c "import json; print(len(json.load(open('output/news/seen-ids.json'))))" 2>/dev/null || echo "?")
+    news_count=$(python3 -c "import json; print(len(json.load(open('output/state/news-seen-ids.json'))))" 2>/dev/null || echo "?")
     ok "News dedup: ${news_count} seen items"
   fi
 
   # Tests
   echo ""
-  info "Run option [T] to run the full test suite (235 tests)"
+  info "Run option [T] to run the authoritative validation gate"
 }
 
 # ─── Quick Open API Endpoints ─────────────────────────────────────────────────
@@ -483,8 +483,8 @@ main_menu() {
   print_banner
   echo -e "  ${BOLD}SETUP & DATA PIPELINE${RESET}"
   echo -e "  ${BOLD}[1]${RESET}  🔧 Setup (install dependencies + Playwright)"
-  echo -e "  ${BOLD}[2]${RESET}  🧪 Run test suite (235 tests · zero-mock)"
-  echo -e "  ${BOLD}[3]${RESET}  🕷️  Scrape municipal code (242 articles, resumable)"
+  echo -e "  ${BOLD}[2]${RESET}  🧪 Run validation gate (strict types · tests · contracts)"
+  echo -e "  ${BOLD}[3]${RESET}  🕷️  Scrape municipal code (manifest-driven, resumable)"
   echo -e "  ${BOLD}[4]${RESET}  ✅ Verify data integrity (SHA-256 + TOC cross-ref)"
   echo -e "  ${BOLD}[5]${RESET}  📦 Export (JSON · Markdown · TXT · CSV)"
   echo ""
@@ -516,8 +516,8 @@ run_full_pipeline() {
   echo ""
   warn "This will:"
   echo "  1. Install dependencies"
-  echo "  2. Run 235 tests"
-  echo "  3. Scrape 242 articles from ecode360.com (~15-20 min)"
+  echo "  2. Run the validation gate"
+  echo "  3. Scrape the current ecode360.com manifest (~15-20 min)"
   echo "  4. Verify data integrity"
   echo "  5. Export to JSON/Markdown/TXT/CSV"
   echo "  6. Launch web viewer"

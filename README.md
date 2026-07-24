@@ -11,7 +11,7 @@
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Bun-v1.0+-black?logo=bun" alt="Bun"></a>
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
-    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-538_passing-brightgreen" alt="Tests"></a>
+    <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
     <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.5.0-orange" alt="Version"></a>
   </p>
 </p>
@@ -30,6 +30,7 @@
 - [📊 Analytics & Readability](#-analytics--readability)
 - [🧭 Intelligence Domains](#-intelligence-domains)
 - [📦 Export Formats](#-export-formats)
+- [🌐 GitHub Pages Snapshot](#-github-pages-snapshot)
 - [🔒 Integrity Guarantees](#-integrity-guarantees)
 - [📂 Project Structure](#-project-structure)
 - [📚 Municipal Code Structure](#-municipal-code-structure)
@@ -104,15 +105,16 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 
 | Stage | Description | Tests | Docs |
 | :---- | :---------- | :---: | :--: |
-| 🕷️ **Scrape** | Downloads all **242 articles** (2,194 sections) via Playwright with Cloudflare bypass | ✓ | [→](docs/modules/scraping.md) |
-| ✅ **Verify** | SHA-256 integrity checks + TOC cross-reference + live re-fetch sampling | 11 | [→](docs/modules/verification.md) |
+| 🕷️ **Scrape** | Downloads the complete current article/section manifest via Playwright with Cloudflare bypass | ✓ | [→](docs/modules/scraping.md) |
+| ✅ **Verify** | SHA-256 integrity checks + TOC cross-reference + live re-fetch sampling | ✓ | [→](docs/modules/verification.md) |
 | 📦 **Export** | JSON · Markdown · plain text · CSV index | ✓ | [→](docs/modules/export.md) |
-| 🖥️ **View** | Web viewer: TOC, BM25 search, analytics dashboard, dark/light mode | 8 | [→](docs/modules/gui.md) |
-| 💬 **Chat** | Ollama or OpenRouter RAG with ChromaDB vector store · source citations (municipal code + YouTube transcripts) · RAG query logging | ✓ | [→](docs/modules/llm.md) |
-| 📡 **Monitor** | Municipal code change detection + RSS news (5 sources) + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare) | 5 | [→](docs/modules/monitoring.md) |
+| 🖥️ **View** | Web viewer: TOC, BM25 search, analytics dashboard, dark/light mode | ✓ | [→](docs/modules/gui.md) |
+| 💬 **Chat** | Ollama or OpenRouter chat with Ollama embeddings + ChromaDB · source citations (municipal code + YouTube transcripts) · RAG query logging | ✓ | [→](docs/modules/llm.md) |
+| 📡 **Monitor** | Municipal code change detection + RSS/Atom news + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare), with per-source health | ✓ | [→](docs/modules/monitoring.md) |
 | 📰 **Curate** | LLM summarization + domain tagging across news/meetings/YouTube, idempotent, provider-agnostic | ✓ | [→](docs/modules/monitoring.md) |
-| 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing | 13 | [→](docs/modules/alerts.md) |
-| 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | 14 | [→](docs/modules/gui.md) |
+| 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing · EPA AirNow · CAL FIRE · NDBC marine | ✓ | [→](docs/modules/alerts.md) |
+| 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | ✓ | [→](docs/modules/gui.md) |
+| 🌐 **Publish** | Bounded static snapshot for GitHub Pages with source health and provenance | ✓ | [→](docs/modules/pages.md) |
 
 ---
 
@@ -121,7 +123,7 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 ```mermaid
 flowchart LR
     A["🌐 ecode360.com/CR4919"] -->|Playwright + CF bypass| B["🕷️ Scraper"]
-    B --> C["📄 output/articles/*.json\n(242 files · 2,194 sections)"]
+    B --> C["📄 output/articles/*.json\n(manifest-driven counts)"]
     C --> D["✅ Verifier\nSHA-256 + TOC + live re-fetch"]
     D --> E["📦 Exporter"]
     E --> F["JSON · MD · TXT · CSV"]
@@ -130,7 +132,7 @@ flowchart LR
 
     subgraph Intelligence["⚡ Real-Time Intelligence Layer"]
         J["📡 Code Monitor"] --> K["monitor-history.jsonl"]
-        L["📰 News Monitor\n4 RSS sources"] --> M["output/news/seen-ids.json"]
+        L["📰 News Monitor\nconfigured RSS/Atom sources"] --> M["output/news/source-health.json"]
         N["🏛️ Meeting Tracker\n3 commissions"] --> O["output/gov_meetings/"]
         P["🌊 NOAA Tides\nStation 9419750"] --> Q["output/tides/"]
         R["🌊 NOAA Tsunami\nCAP alerts"] --> S["output/alerts/tsunami/"]
@@ -154,15 +156,15 @@ flowchart LR
 | :--- | :------ | :------ |
 | [Bun](https://bun.sh) | v1.0+ | `curl -fsSL https://bun.sh/install \| bash` |
 | [Playwright](https://playwright.dev) | auto | `bun x playwright install chromium` |
-| [Ollama](https://ollama.ai) | any | [ollama.ai/download](https://ollama.ai/download) — for RAG chat only |
+| [Ollama](https://ollama.ai) | any | [ollama.ai/download](https://ollama.ai/download) — embeddings and default local chat; still required for retrieval when OpenRouter handles chat |
 | [ChromaDB](https://trychroma.com) | any | `pip install chromadb` — for RAG chat only |
 
 ### Install & Run
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/docxology/crescent-city-intel-intel-intel.git
-cd crescent-city
+git clone https://github.com/docxology/crescent-city-intel.git
+cd crescent-city-intel
 bun install
 
 # 2. Run the full pipeline: scrape → verify → export
@@ -199,14 +201,14 @@ Menu sections:
 | **Setup & Data Pipeline** | Install deps · Run tests · Scrape · Verify · Export |
 | **Web Interface** | Launch GUI → browser · Test 12 API endpoints live |
 | **AI / RAG** | Index ChromaDB · Interactive chat · Single query · Status · Pull models |
-| **Monitoring & Alerts** | Code monitor · News (4 RSS) · Gov meetings · Tides · Fishing · Tsunami · Earthquake · Weather · All alerts · Weekly check |
+| **Monitoring & Alerts** | Code monitor · News (configured RSS/Atom feeds) · Gov meetings · Tides · Fishing · Tsunami · Earthquake · Weather · All alerts · Weekly check |
 | **Analytics** | Readability scoring · Domain coverage · JSON summary views · RAG query log |
 | **Full Pipeline** | Auto: Setup → Test → Scrape → Verify → Export → GUI in one shot |
 
 The API tester (`option 7`) live-checks 12 endpoints and reports HTTP status codes:
 
 ```
-  /api/health                    HTTP 200  keys:status,timestamp
+  /api/health                    HTTP 200  server/provider/source health
   /api/domains                   HTTP 200  array len=6
   /api/search?q=tsunami&limit=3  HTTP 200  keys:query,total,offset,limit,count
   /api/domains/coverage          HTTP 200  keys:computedAt,totalSections,...
@@ -222,15 +224,15 @@ Launch with `bun run gui` → open **<http://localhost:3000>**:
 
 | Feature | Description |
 | :------ | :---------- |
-| 📋 **TOC Tree** | Collapsible table of contents with all 17 titles, 242 articles, 2,194 sections |
+| 📋 **TOC Tree** | Collapsible table of contents with manifest-driven titles, articles, and sections |
 | 📖 **Section Viewer** | Formatted legal text with legislative history and cross-references |
 | 🔍 **BM25 Search** | Full-text search with Porter stemming, title-scoped filters, `<mark>` highlight, pagination |
 | 🌗 **Dark / Light Mode** | Toggle between themes, persisted in `localStorage` |
-| ✨ **AI Summaries** | Per-section legal summaries generated on-demand via Ollama |
+| ✨ **AI Summaries** | Per-section legal summaries generated on-demand via the configured chat provider |
 | 💬 **RAG Chat** | Natural-language questions answered with cited code sections (GET & POST) |
 | 📊 **Analytics Dashboard** | Bar charts (sections/words per Title) · PCA scatter plot · K-Means · word loadings |
 | 📈 **Readability** | Flesch-Kincaid grade level for every section; hardest/easiest ranking |
-| 🧭 **Domains Panel** | 6 intelligence domains — each cross-referenced to specific code sections |
+| 🧭 **Domains Panel** | 12 intelligence domains — each cross-referenced to specific code sections |
 | 📡 **Monitor Status** | Live view of latest change-detection report + alert aggregation |
 | 🌊 **Tides & Alerts** | Current NOAA CO-OPS tide predictions and hazard alert status |
 
@@ -249,7 +251,7 @@ chroma run --path chroma_data &
 ollama pull nomic-embed-text    # embeddings
 ollama pull gemma3:4b           # chat / summarization
 
-# Index all 2,194 sections into ChromaDB
+# Index every section in the current scrape into ChromaDB
 bun run index
 
 # Interactive chat session
@@ -286,16 +288,16 @@ Detects upstream changes on ecode360.com by comparing SHA-256 hashes and section
 bun run monitor         # check for changes → output/monitor-history.jsonl
 ```
 
-### News Monitor (4 RSS Sources)
+### News Monitor (configured RSS/Atom sources)
 
-Aggregates local NorCal news feeds, filtering for Crescent City-relevant content. Uses persistent deduplication across runs via `output/news/seen-ids.json`.
+Aggregates local NorCal news feeds, filtering for Crescent City-relevant content. Uses persistent deduplication across runs via `output/state/news-seen-ids.json` and writes per-source health diagnostics.
 
 ```bash
 bun run news                            # all keywords
 bun run news -- --keywords="tsunami,earthquake,harbor"  # targeted keywords
 ```
 
-**Sources**: Times-Standard · Lost Coast Outpost · Humboldt Times · **KIEM-TV NBC Eureka**
+**Sources**: Times-Standard · Lost Coast Outpost · Humboldt Times · KIEM-TV NBC Eureka · Redwood Voice
 
 **Filter keywords**: crescent city · del norte · tsunami · harbor · fishing · crabbing · pelican bay · evacuation · wildfire · zoning · ordinance...
 
@@ -373,7 +375,7 @@ bun run readability        # score all sections → output/readability.json
 
 ### Domain Coverage Metrics
 
-Compute what percentage of all 2,194 sections are cross-referenced by each of the 6 intelligence domains.
+Compute what percentage of the current manifest's sections is cross-referenced by each of the 12 intelligence domains.
 
 ```bash
 bun run coverage           # → output/domain-coverage.json
@@ -384,7 +386,7 @@ bun run coverage           # → output/domain-coverage.json
 
 ## 🧭 Intelligence Domains
 
-The project maps the municipal code to **6 civic intelligence domains**, each cross-referenced to specific sections with external resource links:
+The project maps the municipal code to **12 civic intelligence domains**, each cross-referenced to specific sections with external resource links:
 
 | Domain | Icon | Key Topics | Key Code Titles |
 | :----- | :--- | :--------- | :-------------- |
@@ -408,15 +410,41 @@ The project maps the municipal code to **6 civic intelligence domains**, each cr
 
 | Format | Output | Description |
 | :----- | :----- | :---------- |
-| **JSON** | `output/crescent-city-code.json` | All 2,194 sections with full metadata, GUIDs, hashes |
+| **JSON** | `output/crescent-city-code.json` | All sections in the current manifest with metadata, GUIDs, and hashes |
 | **Markdown** | `output/markdown/` | Organized by Title/Chapter with cross-links |
 | **Text** | `output/crescent-city-code.txt` | Plain text corpus for NLP/LLM training |
 | **CSV** | `output/section-index.csv` | Section index with GUIDs for cross-referencing |
-| **Readability** | `output/readability.json` | Flesch-Kincaid scores for all sections |
+| **Readability** | `output/readability.json` | Flesch-Kincaid scores for all sections in the current manifest |
 | **Coverage** | `output/domain-coverage.json` | Domain cross-reference coverage % |
 | **RAG Log** | `output/rag-queries.jsonl` | All RAG queries with latency and sources |
 
 > 🔧 **Export details**: [docs/modules/export.md](docs/modules/export.md)
+
+---
+
+## 🌐 GitHub Pages Snapshot
+
+The repository publishes a static snapshot from `.github/workflows/pages.yml`.
+Configured public target: <https://docxology.github.io/crescent-city-intel/>.
+The workflow runs the deterministic release gate, collects the live monitors,
+and exports `.pages/` with provenance-aware source health. A source outage
+makes the snapshot `degraded` or `unavailable`; it is never rendered as an
+unexplained calm state.
+
+The public artifact includes the municipal-code export when present, source
+health, recent news and meeting items, alert snapshots, source-grounded
+curation, and the latest civic report. It excludes API keys, chat/request/
+search/RAG logs, Chroma data, and Triplicate article content. Triplicate
+metadata is reference/citation-only and is not an input to curation, embeddings,
+or training.
+
+```bash
+bun run pages:export -- --source output --output .pages
+bun run pages:validate -- .pages
+```
+
+See [the Pages module guide](docs/modules/pages.md) for deployment triggers,
+artifact boundaries, and local preview instructions.
 
 ---
 
@@ -447,9 +475,9 @@ src/
   scrape.ts             # Scraper orchestrator with resume
   verify.ts             # Verification engine
   export.ts             # Multi-format exporter (JSON, MD, TXT, CSV)
-  domains.ts            # 6 civic intelligence domains with code cross-refs
+  domains.ts            # 12 civic intelligence domains with code cross-refs
   monitor.ts            # Municipal code change detection
-  news_monitor.ts       # RSS news aggregator (4 sources + persistent dedup)
+  news_monitor.ts       # RSS/Atom news aggregator (configured sources + health + persistent dedup)
   gov_meeting_monitor.ts # City Council/Planning/Harbor meeting tracker
   alerts/
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
@@ -460,7 +488,7 @@ src/
   api/
     middleware.ts       # Sliding-window rate limiter · API key auth · request log
   domains/
-    coverage.ts         # Domain coverage % with prefix matching across 2,194 sections
+    coverage.ts         # Domain coverage % with prefix matching across the current manifest
   shared/
     paths.ts            # Centralized output path constants
     data.ts             # Data loading layer (60s TTL cache, parallel, actionable errors)
@@ -468,7 +496,7 @@ src/
     readability.ts      # Flesch-Kincaid Grade Level + Reading Ease scoring
   gui/
     server.ts           # Bun.serve() HTTP server (port 3000)
-    routes.ts           # All /api/* route handlers (20+ endpoints)
+    routes.ts           # All /api/* route handlers (see openapi.yaml)
     search.ts           # In-memory BM25 full-text search (stemmed, paginated)
     analytics.ts        # PCA, K-Means, word loadings analytics
     static/index.html   # Single-page app (no framework, no build step)
@@ -488,7 +516,7 @@ scripts/
   run-coverage.ts       # Domain coverage analysis orchestrator
   run-readability.ts    # Readability scoring orchestrator
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # 538 tests · 43 files · zero-mock policy
+tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
 openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
@@ -498,7 +526,7 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
 
 ## 📚 Municipal Code Structure
 
-The **Crescent City Code of Ordinances** covers **17 titles** across **242 articles** with **2,194 sections**:
+The **Crescent City Code of Ordinances** is served from the current scraped manifest, including its titles, articles, and sections:
 
 <details>
 <summary><strong>📜 View all 17 titles + appendices</strong></summary>
@@ -532,55 +560,20 @@ The **Crescent City Code of Ordinances** covers **17 titles** across **242 artic
 ## 🧪 Test Suite
 
 ```
-538 pass · 0 fail · 3421 expect() calls · 43 test files
-Zero-mock policy: all tests use real functions, real data structures, no stubs
+Run `bun run validate` for the current pass/fail result. The suite uses real
+functions and local HTTP fixtures; external live smoke checks are separate.
 ```
 
-| Test File | Module | Tests |
-| :-------- | :----- | :---: |
-| `utils.test.ts` | Hash, flatten, chunk, groupBy, truncate, sleep, retry, deepEqual | 62 |
-| `utils_normalization.test.ts` | Unicode normalization, section length outliers | 17 |
-| `toc.test.ts` | Article pages, sections, TOC summary | 10 |
-| `shared-paths.test.ts` | All output path constants | 10 |
-| `shared-data.test.ts` | Data loading, loadSection, loadMonitorReport, TTL cache | 14 |
-| `constants.test.ts` | Project constants | 5 |
-| `constants-extended.test.ts` | Configurable constants + env overrides | 10 |
-| `llm-config.test.ts` | LLM configuration values | 8 |
-| `search.test.ts` | BM25 search · pagination · titleFilter · highlight · typeFilter | 12 |
-| `search_enhancements.test.ts` | Stop words, synonyms, severity | 25 |
-| `analytics.test.ts` | PCA, K-Means, word loadings | 6 |
-| `routes.test.ts` | API route handlers | 7 |
-| `routes.integration.test.ts` | Real server integration | 15 |
-| `embeddings.test.ts` | Text chunking for embeddings | 7 |
-| `export.test.ts` | CSV, Markdown, filename formatting | 10 |
-| `content.test.ts` | htmlToText · Porter stemmer · Flesch-Kincaid readability | 14 |
-| `content-fixture.test.ts` | HTML parsing, section structure, SHA-256 determinism | 8 |
-| `domains.test.ts` | Intelligence domains data + search + getDomainSummaries | 15 |
-| `domains-extended.test.ts` | New domains, search edge cases | 13 |
-| `middleware.test.ts` | Sliding-window rate limiter · API key auth · bypass paths | 8 |
-| `middleware_sliding_window.test.ts` | Sliding-window edge cases | 5 |
-| `alerts.test.ts` | NOAA tides constants · CDFW crab season · module imports | 9 |
-| `new_alerts.test.ts` | AQI, CAL FIRE wildfire, NDBC marine severity | 22 |
-| `verify.test.ts` | computeSha256 · manifest structure · data TTL cache · coverage | 13 |
-| `monitor.test.ts` | Monitor report types + validation | 3 |
-| `news_monitor.test.ts` | RSS news monitor + dedup | 3 |
-| `gov_meeting_monitor.test.ts` | Government meeting tracker | 3 |
-| `scraper_utils.test.ts` | Scraper resume/manifest utilities | 18 |
-| `comprehensive-edges.test.ts` | All v2 modules — boundary + edge cases | 48 |
-| `fuzzy.test.ts` | Levenshtein, fuzzy correction | 18 |
-| `legal_parser.test.ts` | Citations, definitions, ordinance parsing | 15 |
-| `structured_queries.test.ts` | Legislative history, section compare, similarity | 12 |
-| `readability-gunning-fog.test.ts` | Gunning Fog readability scoring | 6 |
-| `alert_analytics.test.ts` | Unified alert timeline + per-type stats | 8 |
-| `v2-endpoints.test.ts` | v2.2 API endpoints — health, report, search analytics | 9 |
-| `v2-endpoints-extended.test.ts` | v2.3+ API endpoints — additional edge cases | 6 |
-| `ndbc-parser.test.ts` | NDBC line parsing, unit conversions, severity | 9 |
-| `logger.test.ts` | Structured logger levels + output | 6 |
+The test matrix is intentionally generated by the test runner rather than
+duplicated here. This prevents documentation from claiming stale per-file
+counts as modules evolve. Run `bun test` for the authoritative total and
+`bun run validate` for the complete release gate.
 
 Run tests:
 
 ```bash
-bun test              # all 538 tests
+bun test              # deterministic suite
+bun run validate      # strict TypeScript + tests + contract/output checks
 bun test tests/search.test.ts   # single file
 ```
 
@@ -603,8 +596,8 @@ bun test tests/search.test.ts   # single file
 
 | Command | Description |
 | :------ | :---------- |
-| `bun run index` | Index 2,194 sections into ChromaDB |
-| `bun run chat` | Interactive RAG chat (Ollama) |
+| `bun run index` | Index every section in the current scrape into ChromaDB |
+| `bun run chat` | Interactive RAG chat (configured provider; Ollama by default) |
 | `bun run query "..."` | Single RAG query |
 | `bun run status` | Check Ollama / ChromaDB / index status |
 
@@ -623,6 +616,8 @@ bun test tests/search.test.ts   # single file
 | `bun run alerts:fishing` | CDFW crab season + marine bulletins |
 | `bun run weekly-check` | Full weekly health check + summary report |
 | `bun run cron-setup` | Install weekly-check as OS scheduled job |
+| `bun run pages:export` | Build a bounded static snapshot from `output/` |
+| `bun run pages:validate` | Validate snapshot schema, health truthfulness, and public boundaries |
 
 ### Analysis
 
@@ -630,7 +625,7 @@ bun test tests/search.test.ts   # single file
 | :------ | :---------- |
 | `bun run readability` | Flesch-Kincaid scoring → `output/readability.json` |
 | `bun run coverage` | Domain coverage % → `output/domain-coverage.json` |
-| `bun test` | Run all 538 tests |
+| `bun test` | Run the deterministic test suite |
 
 ---
 
@@ -647,7 +642,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/sections?title=8&chapter=04` | GET | Hierarchical section listing |
 | `/api/chat?q=...` | GET | RAG query (short questions) |
 | `/api/chat` | POST | RAG query (`{q}` JSON body, long questions) |
-| `/api/summarize` | POST | Ollama section summarizer |
+| `/api/summarize` | POST | Configured-provider section summarizer |
 | `/api/stats` | GET | Scrape statistics |
 | `/api/domains` | GET | All 12 intelligence domains |
 | `/api/domain/:id` | GET | Domain detail with topic cross-refs |
@@ -676,8 +671,12 @@ All settings support environment variable overrides:
 | `LOG_LEVEL` | `info` | Logger verbosity (`debug`, `info`, `warn`, `error`) |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model for RAG |
-| `CHAT_MODEL` | `gemma3:4b` | Chat / summarization model |
-| `CHROMA_URL` | `http://localhost:8000` | ChromaDB server endpoint |
+| `CHAT_MODEL` | `gemma3:4b` | Ollama chat / summarization model |
+| `LLM_PROVIDER` | `ollama` | Chat provider: `ollama` or `openrouter` |
+| `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Selected-provider health-check timeout |
+| `OPENROUTER_API_KEY` | unset | Required only for OpenRouter chat/curation |
+| `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
+| `CHROMA_URL` | `http://localhost:8001` | ChromaDB server endpoint |
 | `CRESCENT_CITY_API_KEY` | `dev-key-12345` | API key (comma-separated for multiple) |
 | `RATE_LIMIT_MS` | `2000` | Min ms between requests to ecode360 (scraper) |
 | `SCRAPE_TIMEOUT_MS` | `60000` | Playwright page navigation timeout |
@@ -702,9 +701,10 @@ All settings support environment variable overrides:
 | 💬 [LLM](docs/modules/llm.md) | Ollama, ChromaDB, embeddings, RAG pipeline |
 | 🔗 [Shared](docs/modules/shared.md) | Path resolution, data loading, porter stemmer, readability |
 | 📝 [Logger](docs/modules/logger.md) | Structured logging, LOG_LEVEL |
-| 🧭 [Domains](docs/modules/domains.md) | 6 civic intelligence domains, coverage metrics |
-| 📡 [Monitoring](docs/modules/monitoring.md) | Code change, news (4 sources), meeting monitors |
-| 🚨 [Alerts](docs/modules/alerts.md) | NOAA tides+tsunami, USGS, NWS, CDFW monitors |
+| 🧭 [Domains](docs/modules/domains.md) | 12 civic intelligence domains, coverage metrics |
+| 📡 [Monitoring](docs/modules/monitoring.md) | Code change, configured news sources, meetings, YouTube, Triplicate, curation |
+| 🚨 [Alerts](docs/modules/alerts.md) | All 8 monitors with availability-aware severity |
+| 🌐 [GitHub Pages](docs/modules/pages.md) | Static snapshot export and deployment |
 | 🔐 [API Middleware](docs/modules/api.md) | Sliding-window rate limiting, API key auth |
 
 ---
@@ -712,14 +712,14 @@ All settings support environment variable overrides:
 ## ⚠️ Known Limitations
 
 - **Cloudflare Turnstile** — scraper runs non-headless Chromium; timing can vary; re-run if stuck
-- **6 "part" and 17 "subarticle"** intermediate TOC nodes aren't scrapable pages — their child sections are collected recursively
+- Intermediate `part` and `subarticle` TOC nodes are not themselves scrapable pages; their child sections are collected recursively
 - **Content changes** on ecode360 are not auto-detected — re-scrape and re-run `bun run verify` to refresh
-- **LLM answer quality** depends on the Ollama model — larger models (e.g., `llama3:8b`) give better results than `gemma3:4b`
+- **Local LLM answer quality** depends on the Ollama chat model — larger models (e.g., `llama3:8b`) give better results than `gemma3:4b`; OpenRouter quality depends on the selected remote model
 - **Rate-limit in-memory store** resets on server restart — not suitable for multi-instance deployments without shared cache (e.g., Redis)
 - **CDFW crab season** is estimated by regulatory calendar — check [CDFW North Coast bulletins](https://wildlife.ca.gov/regions/1) for emergency closures (domoic acid, whale entanglement)
 - **Tsunami monitor** fetches active CAP alerts — no historical data without archiving
 - **CAL FIRE wildfire API** (`fire.ca.gov/imap/imapdata/all`) currently returns HTTP 403 Forbidden for all requests, including browser `User-Agent` headers — this is an anti-bot/WAF block on CAL FIRE's end (confirmed 2026-07-23), not a code bug or response-format change; the monitor degrades gracefully with no incidents reported
-- **Government meeting tracker** — all three `crescentcity.org/government/{city-council,planning-commission,harbor-commission}/agendas` source URLs now 404 (confirmed 2026-07-23). The city migrated to a new evogov.com-based CMS at some point after this module was written, and no obvious replacement agenda-portal URL was found (the one evogov.com subdomain link on the city's site, `crescentcityca.evogov.com`, does not resolve in DNS either). Not code-fixable until the new URL is identified; `monitorGovMeetings()` now returns `[]` gracefully instead of crashing
+- **Government meeting tracker** — the legacy commission agenda URLs are retired. The monitor now uses the city's live EvoGov JSON endpoint (`crescentcity.org/meetings/get_list`); City Council and Planning Commission items were live in the 2026-07-24 smoke run, while Harbor Commission currently has no matching records and remains explicitly `empty` in source health.
 
 ---
 

@@ -6,10 +6,14 @@ Centralized configuration for LLM services, with environment variable overrides.
 
 | Property | Default | Env Var | Description |
 |----------|---------|---------|-------------|
-| `ollamaUrl` | `http://localhost:11434` | `OLLAMA_URL` | Ollama API base URL |
+| `provider` | `ollama` | `LLM_PROVIDER` | Chat provider (`ollama` or `openrouter`) |
+| `ollamaUrl` | `http://localhost:11434` | `OLLAMA_URL` | Ollama embedding/chat API base URL |
 | `embeddingModel` | `nomic-embed-text` | `EMBEDDING_MODEL` | Model for embeddings |
 | `chatModel` | `gemma3:4b` | `CHAT_MODEL` | Model for chat/summarization |
-| `chromaUrl` | `http://localhost:8000` | `CHROMA_URL` | ChromaDB server URL |
+| `openrouterUrl` | `https://openrouter.ai/api/v1` | `OPENROUTER_URL` | OpenRouter API base URL |
+| `openrouterModel` | `inclusionai/ling-3.0-flash:free` | `OPENROUTER_MODEL` | OpenRouter chat model |
+| `providerPreflightTimeoutMs` | `5000` | `LLM_PREFLIGHT_TIMEOUT_MS` | Bounded provider health check |
+| `chromaUrl` | `http://localhost:8001` | `CHROMA_URL` | ChromaDB server URL |
 | `collectionName` | `crescent-city-code` | — | ChromaDB collection name |
 | `chunkSize` | `1500` | — | Characters per text chunk |
 | `chunkOverlap` | `150` | — | Overlap between chunks |
@@ -25,9 +29,19 @@ Centralized configuration for LLM services, with environment variable overrides.
 | `embedBatch` | `(texts) → Promise<number[][]>` | Batch embedding via `/api/embed` with multiple inputs |
 | `chat` | `(messages, context?) → Promise<string>` | Chat completion via `/api/chat` (non-streaming). Injects system prompt with optional context. |
 | `listModels` | `() → Promise<string[]>` | List available models via `/api/tags` |
-| `isOllamaRunning` | `() → Promise<boolean>` | Health check via `/api/tags` |
+| `isOllamaRunning` | `(timeoutMs?) → Promise<boolean>` | Bounded health check via `/api/tags` |
 
 ---
+
+## Provider behavior
+
+Ollama is the default local chat provider. Setting `LLM_PROVIDER=openrouter`
+routes chat, section summarization, and curation through OpenRouter while
+Ollama remains required for embeddings. The GUI and CLI report the selected
+provider/model separately from the embedding dependency. The OpenRouter
+preflight checks the non-generative `/models` endpoint without consuming a chat
+completion; an unset key or unreachable endpoint is an explicit unavailable
+state, not a silent fallback.
 
 ## `src/llm/chroma.ts` — ChromaDB Client
 
@@ -46,7 +60,7 @@ Centralized configuration for LLM services, with environment variable overrides.
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `isIndexed` | `() → Promise<boolean>` | Check if collection has documents. |
-| `indexAllSections` | `() → Promise<void>` | Load all sections, chunk, embed, and store in ChromaDB. |
+| `indexAllSections` | `() → Promise<void>` | Load all sections, fingerprint content, remove stale chunks, embed, and store in ChromaDB. |
 
 ### Chunking Strategy
 
@@ -69,8 +83,8 @@ Centralized configuration for LLM services, with environment variable overrides.
 1. **Embed** question via `embed()`
 2. **Retrieve** top-K similar chunks from ChromaDB via `query()`
 3. **Build context** from retrieved documents with section citations
-4. **Generate** answer via `chat()` with injected context
-5. **Return** answer + sources (with similarity scores)
+4. **Generate** answer via the configured provider with injected context
+5. **Return** answer + sources (with similarity scores) plus provider/model metadata; empty retrieval returns an explicit no-context answer
 
 ---
 

@@ -27,6 +27,9 @@ import { chunkText } from './llm/embeddings.js';
 import { embedBatch } from './llm/ollama.js';
 import { addDocuments } from './llm/chroma.js';
 import { llmConfig } from './llm/config.js';
+import { paths } from './shared/paths.js';
+import { sourceHealth, errorMessage, writeJsonAtomic } from './shared/source_health.js';
+import type { SourceHealth } from './types.js';
 
 const logger = createLogger('youtube_monitor');
 
@@ -39,6 +42,7 @@ const YOUTUBE_OUTPUT_DIR = join(process.cwd(), 'output', 'youtube');
  * that lists output/youtube/*.json (e.g. curation.ts's gatherYouTubeItems)
  * from having to remember to filter this state file out. */
 const SEEN_VIDEOS_PATH = join(process.cwd(), 'output', 'state', 'youtube-seen-videos.json');
+const YT_DLP_TIMEOUT_MS = Number(process.env.YT_DLP_TIMEOUT_MS ?? '15000');
 
 /**
  * yt-dlp player-client extractor args required to avoid YouTube's current
@@ -56,6 +60,11 @@ export interface YouTubeVideoListing {
   id: string;
   title: string;
   uploadDate: string; // yt-dlp %(upload_date)s (YYYYMMDD), or 'NA' if unknown
+}
+
+export interface YouTubeListingResult {
+  videos: YouTubeVideoListing[];
+  health: SourceHealth;
 }
 
 export interface TranscriptSegment {
@@ -87,12 +96,29 @@ export interface YouTubeTranscript {
 async function runYtDlp(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   try {
     const proc = Bun.spawn(['yt-dlp', ...args], { stdout: 'pipe', stderr: 'pipe' });
-    const [stdout, stderr] = await Promise.all([
+    type Completed = { stdout: string; stderr: string; exitCode: number };
+    const completed = Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
-    ]);
-    const exitCode = await proc.exited;
-    return { stdout, stderr, exitCode };
+      proc.exited,
+    ]).then(([stdout, stderr, exitCode]) => ({ stdout, stderr, exitCode } satisfies Completed));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<Completed>((resolve) => {
+      timer = setTimeout(() => {
+        // Kill immediately and resolve independently of pipe closure. Some
+        // yt-dlp failure paths leave a descendant holding stdout/stderr open;
+        // waiting for those streams would defeat the timeout contract.
+        try { proc.kill(9); } catch { /* process already exited */ }
+        resolve({
+          stdout: '',
+          stderr: `yt-dlp timed out after ${YT_DLP_TIMEOUT_MS}ms`,
+          exitCode: -2,
+        });
+      }, YT_DLP_TIMEOUT_MS);
+    });
+    const result = await Promise.race([completed, timedOut]);
+    if (timer) clearTimeout(timer);
+    return result;
   } catch (err: any) {
     // yt-dlp not on PATH, or spawn failure
     return { stdout: '', stderr: err.message ?? String(err), exitCode: -1 };
@@ -104,6 +130,40 @@ export async function listChannelVideos(
   channelUrl: string = YOUTUBE_CHANNEL_URL,
   limit = 15
 ): Promise<YouTubeVideoListing[]> {
+  return (await listChannelVideosDetailed(channelUrl, limit)).videos;
+}
+
+/** List videos with an explicit source-health outcome for operators and reports. */
+export async function listChannelVideosDetailed(
+  channelUrl: string = YOUTUBE_CHANNEL_URL,
+  limit = 15,
+): Promise<YouTubeListingResult> {
+  const checkedAt = new Date().toISOString();
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(channelUrl);
+  } catch {
+    return {
+      videos: [],
+      health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+        url: channelUrl,
+        itemCount: 0,
+        error: 'Invalid YouTube channel URL',
+        provenance: 'yt-dlp channel listing',
+      }),
+    };
+  }
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    return {
+      videos: [],
+      health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+        url: channelUrl,
+        itemCount: 0,
+        error: `Unsupported channel URL protocol: ${parsedUrl.protocol}`,
+        provenance: 'yt-dlp channel listing',
+      }),
+    };
+  }
   const { stdout, exitCode, stderr } = await runYtDlp([
     '--flat-playlist',
     '--playlist-end', String(limit),
@@ -113,10 +173,18 @@ export async function listChannelVideos(
 
   if (exitCode !== 0) {
     logger.error('yt-dlp channel listing failed', { exitCode, stderr: stderr.slice(0, 500) });
-    return [];
+    return {
+      videos: [],
+      health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+        url: channelUrl,
+        itemCount: 0,
+        error: stderr.trim().slice(0, 500) || `yt-dlp exited with code ${exitCode}`,
+        provenance: 'yt-dlp channel listing',
+      }),
+    };
   }
 
-  return stdout
+  const videos = stdout
     .trim()
     .split('\n')
     .filter(Boolean)
@@ -125,6 +193,16 @@ export async function listChannelVideos(
       return { id: id ?? '', title: title ?? '', uploadDate: uploadDate || 'NA' };
     })
     .filter((v) => v.id);
+
+  return {
+    videos,
+    health: sourceHealth('YouTube', videos.length > 0 ? 'ok' : 'empty', checkedAt, {
+      url: channelUrl,
+      fetchedAt: checkedAt,
+      itemCount: videos.length,
+      provenance: 'yt-dlp channel listing',
+    }),
+  };
 }
 
 /**
@@ -236,7 +314,14 @@ export async function extractTranscript(
     return { ...base, status: 'unavailable', segments: [], fullText: '' };
   }
 
-  const vttContent = await readFile(vttPath, 'utf-8');
+  let vttContent: string;
+  try {
+    vttContent = await readFile(vttPath, 'utf-8');
+  } catch (error) {
+    logger.error(`Failed to read captions for video ${video.id}`, { error: String(error) });
+    await unlink(vttPath).catch(() => {});
+    return { ...base, status: 'extraction_failed', segments: [], fullText: '' };
+  }
   const segments = parseVtt(vttContent);
   const fullText = segments.map((s) => s.text).join(' ');
 
@@ -323,13 +408,15 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
   const idempotency = new IdempotencyStore(SEEN_VIDEOS_PATH);
   await idempotency.load();
 
-  const videos = await listChannelVideos(YOUTUBE_CHANNEL_URL, limit);
+  const listing = await listChannelVideosDetailed(YOUTUBE_CHANNEL_URL, limit);
+  const videos = listing.videos;
   const results: YouTubeTranscript[] = [];
   let newCount = 0;
+  let extractionFailures = 0;
+  let indexingFailures = 0;
 
   for (const video of videos) {
-    const { isNew } = idempotency.seen(video.id, '', { title: video.title, uploadDate: video.uploadDate });
-    if (!isNew) continue;
+    if (idempotency.has(video.id)) continue;
     newCount++;
 
     const transcript = await extractTranscript(video);
@@ -341,20 +428,44 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
     if (transcript.status === 'ok') {
       const indexed = await indexYouTubeTranscript(transcript).catch((err: any) => {
         logger.error(`Failed to index transcript for video ${video.id}`, { error: err.message });
+        indexingFailures++;
         return 0;
       });
+      if (indexed > 0) idempotency.seen(video.id, '', { title: video.title, uploadDate: video.uploadDate, status: 'ok' });
       logger.info(`Transcribed video ${video.id}: ${video.title}`, {
         segments: transcript.segments.length,
         chunksIndexed: indexed,
       });
-    } else {
+    } else if (transcript.status === 'unavailable') {
+      // No captions is a terminal source fact; extraction failures remain
+      // retryable so a transient yt-dlp/YouTube challenge is not lost.
+      idempotency.seen(video.id, '', { title: video.title, uploadDate: video.uploadDate, status: transcript.status });
       logger.warn(`Video ${video.id} transcript ${transcript.status}`, { title: video.title });
+    } else {
+      extractionFailures++;
+      logger.error(`Video ${video.id} transcript extraction failed; leaving it retryable`, { title: video.title });
     }
   }
 
   if (newCount > 0) {
     await idempotency.save();
   }
+
+  const health: SourceHealth = listing.health.status === 'unavailable'
+    ? listing.health
+    : extractionFailures > 0 || indexingFailures > 0
+      ? sourceHealth('YouTube', 'stale', new Date().toISOString(), {
+        url: YOUTUBE_CHANNEL_URL,
+        fetchedAt: listing.health.fetchedAt,
+        itemCount: videos.length,
+        error: `${extractionFailures} transcript extraction failure(s), ${indexingFailures} indexing failure(s)`,
+        provenance: 'yt-dlp listing plus transcript/index pipeline',
+      })
+      : listing.health;
+  await writeJsonAtomic(paths.youtubeHealth, {
+    checkedAt: new Date().toISOString(),
+    sources: [health],
+  });
 
   logger.info(`=== YouTube Monitoring Complete: ${newCount} new video(s) processed ===`);
   return results;

@@ -41,4 +41,9 @@ describe("llmConfig", () => {
         expect(llmConfig.topK).toBeGreaterThan(0);
         expect(llmConfig.topK).toBe(10);
     });
+
+    test("provider preflight timeout is bounded and positive", () => {
+        expect(llmConfig.providerPreflightTimeoutMs).toBeGreaterThan(0);
+        expect(llmConfig.providerPreflightTimeoutMs).toBeLessThanOrEqual(30_000);
+    });
 });

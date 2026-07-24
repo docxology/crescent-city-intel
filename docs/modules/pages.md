@@ -7,9 +7,14 @@ Bun GUI: GitHub Pages cannot reach the local API, Ollama, or ChromaDB.
 ## Build locally
 
 ```bash
-bun run pages:export -- --source output --output .pages
+bun run pages:export -- --source output --seed pages-data --output .pages
 bun run pages:validate -- .pages
 ```
+
+`pages-data/` is a tracked, reviewed public seed containing the last verified
+municipal-code JSON, TOC, and manifest. Refresh it after a successful scrape,
+verification, and export with `bun run pages:seed`; live source-health and
+monitor artifacts still come from the current deployment run.
 
 The generated `.pages/` directory can be previewed with any static server, for
 example `cd .pages && python3 -m http.server 4173`, then open
@@ -19,7 +24,8 @@ directory and replaces the exact destination only after all files are ready.
 ## Public artifact
 
 The export contains the dashboard, JSON snapshot and source-health artifacts,
-the municipal code JSON/TOC/manifest when available, recent deduplicated news
+the municipal code JSON/TOC/manifest plus verification, coverage, and
+readability artifacts when available, recent deduplicated news
 and government meeting items, YouTube video metadata, Triplicate metadata and
 links only, alert current snapshots and composite severity, and the latest
 monthly report.

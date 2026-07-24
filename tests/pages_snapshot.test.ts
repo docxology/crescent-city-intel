@@ -34,7 +34,7 @@ describe("public Pages snapshot", () => {
       await put(root, "alerts/source-health.json", { sources: [{ source: "Fixture Alert", status: "empty", checkedAt: "2026-07-24T00:00:00Z", itemCount: 0 }] });
       await put(root, "alerts/composite/current.json", { level: "WARNING", assessedAt: "2026-07-24T00:00:00Z", reason: "Fixture" });
 
-      const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z");
+      const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.status).toBe("degraded");
       expect(snapshot.sourceHealth.map(source => source.status)).toContain("unavailable");
       expect(snapshot.news).toHaveLength(1);
@@ -59,7 +59,7 @@ describe("public Pages snapshot", () => {
 
   test("does not manufacture availability when output is missing", async () => {
     await withFixture(async root => {
-      const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z");
+      const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.status).toBe("unavailable");
       expect(snapshot.municipalCode.available).toBe(false);
       expect(snapshot.sourceHealth).toEqual([]);

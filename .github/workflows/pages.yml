@@ -49,7 +49,7 @@ jobs:
         continue-on-error: true
 
       - name: Export public Pages snapshot
-        run: bun run pages:export -- --source output --output .pages
+        run: bun run pages:export -- --source output --seed pages-data --output .pages
 
       - name: Validate public Pages snapshot
         run: bun run pages:validate -- .pages

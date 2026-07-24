@@ -76,7 +76,8 @@ Generates four formats:
 ### Optional: build the public Pages snapshot
 
 ```bash
-bun run pages:export -- --source output --output .pages
+bun run pages:seed
+bun run pages:export -- --source output --seed pages-data --output .pages
 bun run pages:validate -- .pages
 ```
 

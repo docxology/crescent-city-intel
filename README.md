@@ -439,9 +439,12 @@ metadata is reference/citation-only and is not an input to curation, embeddings,
 or training.
 
 ```bash
-bun run pages:export -- --source output --output .pages
+bun run pages:export -- --source output --seed pages-data --output .pages
 bun run pages:validate -- .pages
 ```
+
+`pages-data/` is the reviewed public seed for the municipal-code snapshot;
+refresh it after a verified scrape with `bun run pages:seed`.
 
 See [the Pages module guide](docs/modules/pages.md) for deployment triggers,
 artifact boundaries, and local preview instructions.
@@ -617,6 +620,7 @@ bun test tests/search.test.ts   # single file
 | `bun run weekly-check` | Full weekly health check + summary report |
 | `bun run cron-setup` | Install weekly-check as OS scheduled job |
 | `bun run pages:export` | Build a bounded static snapshot from `output/` |
+| `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
 | `bun run pages:validate` | Validate snapshot schema, health truthfulness, and public boundaries |
 
 ### Analysis

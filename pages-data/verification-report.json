@@ -1,0 +1,3443 @@
+{
+  "verifiedAt": "2026-07-23T21:41:15.262Z",
+  "municipality": "Crescent City, CA",
+  "overallStatus": "pass",
+  "totalArticles": 245,
+  "passedArticles": 245,
+  "failedArticles": 0,
+  "totalExpectedSections": 2194,
+  "totalFoundSections": 2194,
+  "missingSections": [],
+  "results": [
+    {
+      "guid": "44236160",
+      "title": "Ch 1.04: GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236191",
+      "title": "Ch 1.08: CITY CLASSIFICATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236195",
+      "title": "Ch 1.12: DATUM PLANE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236199",
+      "title": "Ch 1.16: GENERAL PENALTY",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236207",
+      "title": "Ch 1.20: CLAIMS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236217",
+      "title": "Ch 1.24: ADMINISTRATIVE CITATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 15,
+        "foundSections": 15,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236316",
+      "title": "Ch 2.04: CITY COUNCIL",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236333",
+      "title": "Ch 2.08: CITY MANAGER",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 23,
+        "foundSections": 23,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236367",
+      "title": "Ch 2.12: CITY ATTORNEY",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236377",
+      "title": "Ch 2.14: OFFICE OF THE CITY CLERK",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236383",
+      "title": "Ch 2.16: FINANCE DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236388",
+      "title": "Ch 2.20: DIRECTOR OF FINANCE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236397",
+      "title": "Ch 2.24: PUBLIC WORKS DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236399",
+      "title": "Ch 2.28: PLANNING COMMISSION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236411",
+      "title": "Ch 2.30: PLANNING DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236416",
+      "title": "Ch 2.32: HOUSING COMMISSION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236433",
+      "title": "Ch 2.36: EMERGENCY ORGANIZATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236468",
+      "title": "Ch 2.40: POLICE DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236478",
+      "title": "Ch 2.41: CHIEF OF POLICE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236484",
+      "title": "Ch 2.46: FIRE DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236489",
+      "title": "Ch 2.47: FIRE CHIEF",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236497",
+      "title": "Ch 2.50: PARKS AND RECREATION DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236502",
+      "title": "Ch 2.52: DIRECTOR OF PARKS AND RECREATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236511",
+      "title": "Ch 3.04: BUDGET",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236518",
+      "title": "Ch 3.08: TRANSFER OF TAX FUNCTIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236523",
+      "title": "Ch 3.12: REAL PROPERTY TRANSFER TAX",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236551",
+      "title": "Ch 3.16: SALES AND USE TAX",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 18,
+        "foundSections": 18,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236585",
+      "title": "Ch 3.20: TRANSIENT OCCUPANCY TAX",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236640",
+      "title": "Ch 3.24: GAS TAX STREET IMPROVEMENT FUND",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236644",
+      "title": "Ch 3.30: TRANSACTIONS AND USE TAX",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 18,
+        "foundSections": 18,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236699",
+      "title": "Ch 5.04: GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236712",
+      "title": "Ch 5.08: ADMINISTRATIVE PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 18,
+        "foundSections": 18,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236745",
+      "title": "Ch 5.12: PROCEDURE FOR OBTAINING LICENSE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236761",
+      "title": "Ch 5.16: LICENSE TAXES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236772",
+      "title": "Ch 5.20: ENFORCEMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236784",
+      "title": "Ch 5.24: TAXICABS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236880",
+      "title": "Ch 5.28: AMBULANCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 15,
+        "foundSections": 15,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236920",
+      "title": "Ch 5.32: CABLE TELEVISION SYSTEMS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 72,
+        "foundSections": 72,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237114",
+      "title": "Ch 5.36: BINGO",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237126",
+      "title": "Ch 5.40: CARDROOMS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 23,
+        "foundSections": 23,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237178",
+      "title": "Ch 5.44: MOBILE VENDORS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237239",
+      "title": "Ch 5.45: SIDEWALK VENDORS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237302",
+      "title": "Ch 5.48: ANIMAL-DRAWN CONVEYANCE LICENSES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237354",
+      "title": "Ch 5.52: FILMING OPERATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237365",
+      "title": "Ch 5.100: DOWNTOWN PARKING AND BUSINESS IMPROVEMENT DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237409",
+      "title": "Ch 6.04: DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237417",
+      "title": "Ch 6.08: ANIMAL CONTROL",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237449",
+      "title": "Ch 6.09: FEEDING PIGEONS AND SEAGULLS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237459",
+      "title": "Ch 8.04: GARBAGE AND REFUSE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 12,
+        "foundSections": 12,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237482",
+      "title": "Ch 8.08: NUISANCES GENERALLY",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 26,
+        "foundSections": 26,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237627",
+      "title": "Ch 8.12: ABANDONED VEHICLES AS NUISANCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237646",
+      "title": "Ch 8.16: HAZARDOUS MATERIALS DISCLOSURE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237725",
+      "title": "Ch 8.18: NOISE REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237797",
+      "title": "Ch 8.20: SHOPPING CARTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237868",
+      "title": "Ch 8.22: FIREWORKS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237912",
+      "title": "Ch 8.24: SOCIAL HOST ORDINANCE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237980",
+      "title": "Ch 8.30: COST RECOVERY FOR EMERGENCY RESPONSE SERVICES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44237984",
+      "title": "Ch 8.32: ORGANIC WASTE DISPOSAL REDUCTION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 14,
+        "foundSections": 14,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238182",
+      "title": "Ch 8.36: REGULATION OF TOBACCO RETAILERS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "46612342",
+      "title": "Ch 8.40: REGULATION OF NITROUS OXIDE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238235",
+      "title": "Ch 9.04: CURFEW",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238241",
+      "title": "Ch 9.05: ENTERTAINMENT FOR MINORS PROHIBITED IN CERTAIN DISTRICTS WHEN",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238258",
+      "title": "Ch 9.07: OPEN CONTAINERS OF ALCOHOLIC BEVERAGES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238261",
+      "title": "Ch 9.08: DISCHARGE OF WEAPONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238263",
+      "title": "Ch 9.12: TRESPASS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238265",
+      "title": "Ch 9.15: LODGING IN PUBLIC PLACES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238280",
+      "title": "Ch 9.16: CAMPING WITHIN CITY LIMITS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238305",
+      "title": "Ch 9.17: SMOKING PROHIBITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238420",
+      "title": "Ch 9.18: PROHIBITED SOLICITATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238485",
+      "title": "Ch 10.04: DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 16,
+        "foundSections": 16,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238502",
+      "title": "Ch 10.08: ENFORCEMENT AND OBEDIENCE TO TRAFFIC REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238522",
+      "title": "Ch 10.10: PARKING ENFORCEMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238592",
+      "title": "Ch 10.12: TRAFFIC CONTROL DEVICES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238607",
+      "title": "Ch 10.16: TURNING MOVEMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238612",
+      "title": "Ch 10.20: ONE-WAY STREETS AND ALLEYS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238614",
+      "title": "Ch 10.24: STOPPING, STANDING AND PARKING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 23,
+        "foundSections": 23,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238675",
+      "title": "Ch 10.28: DISABLED PARKING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238685",
+      "title": "Ch 10.32: LOADING AND UNLOADING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238709",
+      "title": "Ch 10.36: SPECIAL STOPS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238715",
+      "title": "Ch 10.40: PEDESTRIANS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238719",
+      "title": "Ch 10.44: MISCELLANEOUS DRIVING RULES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238731",
+      "title": "Ch 10.48: SPEED LIMITS ON CERTAIN STREETS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238736",
+      "title": "Ch 10.52: RESTRICTED USE OF CERTAIN STREETS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238746",
+      "title": "Ch 10.56: ABANDONED VEHICLES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 19,
+        "foundSections": 19,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238796",
+      "title": "Ch 10.60: IMPOUNDED VEHICLES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238864",
+      "title": "Ch 12.04: CURBS, GUTTERS AND SIDEWALKS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238890",
+      "title": "Ch 12.08: EXCAVATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238892",
+      "title": "Ch 12.12: STREET NUMBERING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238902",
+      "title": "Ch 12.16: WEEDS AND REFUSE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 17,
+        "foundSections": 17,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238930",
+      "title": "Ch 12.20: PARK REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238980",
+      "title": "Ch 12.24: WATERFRONT REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44238992",
+      "title": "Ch 12.28: UNDERGROUND UTILITIES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 25,
+        "foundSections": 25,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239049",
+      "title": "Ch 12.30: THE DESIGNATION AND USAGE OF SKATE PARKS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239039",
+      "title": "Ch 12.32: PROHIBITION OF WHEELED DEVICES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239066",
+      "title": "Ch 12.34: PUBLIC TREES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239094",
+      "title": "Ch 12.36: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239191",
+      "title": "Ch 12.40: PARKING REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239216",
+      "title": "Ch 12.44: SMALL WIRELESS FACILITIES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 13,
+        "foundSections": 13,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "46612453",
+      "title": "Ch 12.46: PUMP TRACK REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239328",
+      "title": "Ch 13.04: WATER DEPARTMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239340",
+      "title": "Ch 13.08: DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 27,
+        "foundSections": 27,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239368",
+      "title": "Ch 13.12: WATER SERVICE REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 46,
+        "foundSections": 46,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239505",
+      "title": "Ch 13.13: DELINQUENT WATER AND/OR SEWER CHARGES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239520",
+      "title": "Ch 13.14: CROSS-CONNECTION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239528",
+      "title": "Ch 13.16: WATER SERVICE RATES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239530",
+      "title": "Ch 13.17: WATER CONSERVATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 14,
+        "foundSections": 14,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239557",
+      "title": "Ch 13.20: ADMINISTRATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239564",
+      "title": "Ch 13.24: SEWER SERVICE REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239583",
+      "title": "Ch 13.28: SEWER EXTENSIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 16,
+        "foundSections": 16,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239614",
+      "title": "Ch 13.30: SEWER CHARGES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239624",
+      "title": "Ch 13.32: SEWER EXTENSION REVOLVING FUND",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44239629",
+      "title": "Ch 13.40: INDUSTRIAL PRETREATMENT REQUIREMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 72,
+        "foundSections": 72,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240131",
+      "title": "Ch 13.50: PASS THROUGH OF WATER AND SEWER CHARGES TO RESIDENTIAL TENANTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240148",
+      "title": "Ch 14.04: GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240197",
+      "title": "Ch 14.08: PUBLIC PROJECTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240239",
+      "title": "Ch 14.12: GOODS AND NON-PROFESSIONAL SERVICES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240298",
+      "title": "Ch 14.16: PROFESSIONAL SERVICES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240326",
+      "title": "Ch 14.20: FEDERAL PROCUREMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 12,
+        "foundSections": 12,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240377",
+      "title": "Ch 14.24: BID PROTEST PROCEDURES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240389",
+      "title": "Ch 14.28: EXCEPTIONS TO PROCUREMENT RULES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240401",
+      "title": "Ch 14.32: SURPLUS SUPPLIES AND EQUIPMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240406",
+      "title": "Ch 15.04: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240412",
+      "title": "Ch 15.08: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240414",
+      "title": "Ch 15.12: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240418",
+      "title": "Ch 15.16: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240422",
+      "title": "Ch 15.20: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240439",
+      "title": "Ch 15.24: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 0,
+        "foundSections": 0,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240452",
+      "title": "Ch 15.28: WATERFRONT BUILDING DEVELOPMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240464",
+      "title": "Ch 15.32: FLOOD DAMAGE PREVENTION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240721",
+      "title": "Ch 15.36: PERMITS FOR ELECTRIC VEHICLE CHARGING STATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240747",
+      "title": "Ch 15.40: SMALL RESIDENTIAL ROOFTOP SOLAR ENERGY SYSTEMS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272637",
+      "title": "15.100: CALIFORNIA BUILDING CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272652",
+      "title": "15.104: CALIFORNIA RESIDENTIAL CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272662",
+      "title": "15.108: CALIFORNIA ELECTRICAL CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272664",
+      "title": "15.112: CALIFORNIA MECHANICAL CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272666",
+      "title": "15.116: CALIFORNIA PLUMBING CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272668",
+      "title": "15.120: CALIFORNIA ENERGY CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272670",
+      "title": "15.124: CALIFORNIA HISTORICAL BUILDING CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272672",
+      "title": "15.128: CALIFORNIA FIRE CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272677",
+      "title": "15.132: CALIFORNIA EXISTING BUILDING CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272679",
+      "title": "15.136: CALIFORNIA GREEN BUILDING STANDARDS CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "47272681",
+      "title": "15.140: INTERNATIONAL PROPERTY MAINTENANCE CODE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240784",
+      "title": "Ch 16.04: GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240790",
+      "title": "Ch 16.08: DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240797",
+      "title": "Ch 16.12: ADMINISTRATIVE PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240818",
+      "title": "Ch 16.16: TENTATIVE MAPS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 17,
+        "foundSections": 17,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240864",
+      "title": "Ch 16.20: PARCEL MAPS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240875",
+      "title": "Ch 16.24: FINAL MAPS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240922",
+      "title": "Ch 16.28: REGULATIONS FOR DESIGN, FACILITIES AND EASEMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240968",
+      "title": "Ch 16.32: REVERSION TO ACREAGE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44240993",
+      "title": "Ch 16.34: LOT LINE ADJUSTMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241007",
+      "title": "Ch 16.36: IMPROVEMENT SECURITY",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241012",
+      "title": "Ch 16.40: ENFORCEMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241016",
+      "title": "Ch 17.02: GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241040",
+      "title": "Ch 17.04: DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 105,
+        "foundSections": 105,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241148",
+      "title": "Ch 17.06: ADMINISTRATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241170",
+      "title": "Ch 17.08: DISTRICT CLASSIFICATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241193",
+      "title": "Ch 17.10: R-1 LOW DENSITY RESIDENTIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241233",
+      "title": "Ch 17.14: R-2 MODERATE DENSITY RESIDENTIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241272",
+      "title": "Ch 17.16: R-3 HIGH DENSITY RESIDENTIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241321",
+      "title": "Ch 17.18: R-P RESIDENTIAL-PROFESSIONAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241370",
+      "title": "Ch 17.20: C-1 DOWNTOWN BUSINESS DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241431",
+      "title": "Ch 17.22: C-2 GENERAL COMMERCIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241478",
+      "title": "Ch 17.23: CW WATERFRONT COMMERCIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241529",
+      "title": "Ch 17.24: HS HIGHWAY SERVICE DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241564",
+      "title": "Ch 17.26: C-M COMMERCIAL MANUFACTURING DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241637",
+      "title": "Ch 17.28: M MANUFACTURING DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241723",
+      "title": "Ch 17.30: M-P INDUSTRIAL PERFORMANCE DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 18,
+        "foundSections": 18,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241787",
+      "title": "Ch 17.31: NR NATURAL RESOURCES DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241815",
+      "title": "Ch 17.32: O OPEN SPACE DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241843",
+      "title": "Ch 17.33: PUBLIC FACILITY OR PF DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241876",
+      "title": "Ch 17.34: PUD PLANNED UNIT DEVELOPMENT OVERLAY DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 20,
+        "foundSections": 20,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44241912",
+      "title": "Ch 17.35: ACCESSORY DWELLING UNITS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 15,
+        "foundSections": 15,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242034",
+      "title": "Ch 17.36: SPECIFIC PLANS AND REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242046",
+      "title": "Ch 17.39: SIGNS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 20,
+        "foundSections": 20,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242411",
+      "title": "Ch 17.40: FENCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242431",
+      "title": "Ch 17.41: LANDSCAPING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242794",
+      "title": "Ch 17.42: OFF-STREET PARKING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 18,
+        "foundSections": 18,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242940",
+      "title": "Ch 17.43: LANDSCAPING STANDARDS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44242989",
+      "title": "Ch 17.44: HEIGHT AND AREA EXCEPTIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243004",
+      "title": "Ch 17.46: SITE PLAN AND ARCHITECTURAL REVIEW",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243040",
+      "title": "Ch 17.48: SPECIAL ZONING USES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243175",
+      "title": "Ch 17.50: NONCONFORMING USES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243220",
+      "title": "Ch 17.52: TEMPORARY USES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243228",
+      "title": "Ch 17.54: USE PERMITS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "46612481",
+      "title": "Ch 17.55: RECREATIONAL VEHICLES ON RESIDENTIAL PROPERTY",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243242",
+      "title": "Ch 17.56: VARIANCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243256",
+      "title": "Ch 17.58: AMENDMENTS AND REZONING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243279",
+      "title": "Ch 17.59: BED AND BREAKFAST ESTABLISHMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 14,
+        "foundSections": 14,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243326",
+      "title": "Ch 17.60: COASTAL ZONE GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243340",
+      "title": "Ch 17.61: COASTAL ZONE DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 112,
+        "foundSections": 112,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243467",
+      "title": "Ch 17.62: COASTAL ZONE ADMINISTRATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243490",
+      "title": "Ch 17.63: COASTAL ZONE DISTRICT CLASSIFICATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243513",
+      "title": "Ch 17.64: CZ-R1 COASTAL ZONE LOW DENSITY RESIDENTIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243552",
+      "title": "Ch 17.65: CZ-R1B COASTAL ZONE LOW-DENSITY RESIDENTIAL-BEACH DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243585",
+      "title": "Ch 17.68: CZ-C2 COASTAL ZONE GENERAL COMMERCIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243612",
+      "title": "Ch 17.69: CZ-HS COASTAL ZONE HIGHWAY SERVICE DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243654",
+      "title": "Ch 17.70: HARBOR-RELATED DISTRICT CZ-HR COASTAL ZONE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243681",
+      "title": "Ch 17.70A: CZ-HD COASTAL ZONE HARBOR DEPENDENT DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243713",
+      "title": "Ch 17.71: CZ-O COASTAL ZONE OPEN SPACE DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243746",
+      "title": "Ch 17.72: CZ-NR COASTAL ZONE NATURAL RESOURCES DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243771",
+      "title": "Ch 17.73: CZ-CW COASTAL ZONE WATERFRONT COMMERCIAL DISTRICT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 9,
+        "foundSections": 9,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44243812",
+      "title": "Ch 17.74: COASTAL ZONE SIGNS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 18,
+        "foundSections": 18,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244139",
+      "title": "Ch 17.75: COASTAL ZONE FENCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244159",
+      "title": "Ch 17.76: COASTAL ZONE OFF-STREET PARKING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 17,
+        "foundSections": 17,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244301",
+      "title": "Ch 17.77: COASTAL ZONE SPECIFIC PLANS AND REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244313",
+      "title": "Ch 17.78: COASTAL ZONE HEIGHT AND AREA EXCEPTIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244326",
+      "title": "Ch 17.79: SITE PLAN AND ARCHITECTURAL REVIEW",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244362",
+      "title": "Ch 17.80: COASTAL ZONE NONCONFORMING USES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244393",
+      "title": "Ch 17.81: COASTAL ZONE AMENDMENTS AND REZONING",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 8,
+        "foundSections": 8,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244415",
+      "title": "Ch 17.82: COASTAL ZONE USE PERMITS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244433",
+      "title": "Ch 17.83: SPECIAL ZONING USES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244547",
+      "title": "Ch 17.84: COASTAL ZONE COASTAL DEVELOPMENT PERMITS AND APPEALS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 17,
+        "foundSections": 17,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244763",
+      "title": "Ch 17.84A: COASTAL RESOURCE PROTECTION PUBLIC ACCESS AND RECREATIONAL OPPORTUNITIES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 12,
+        "foundSections": 12,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44244942",
+      "title": "Ch 17.84B: CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES WATER QUALITY",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245023",
+      "title": "Ch 17.84C: CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES BIOLOGICAL RESOURCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245177",
+      "title": "Ch 17.84D: CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES PROTECTION OF SOIL RESOURCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245196",
+      "title": "Ch 17.84F: CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES VISUAL RESOURCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245224",
+      "title": "Ch 17.84G: CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES NATURAL AND MAN-MADE HAZARDS AVOIDANCE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245315",
+      "title": "Ch 17.85: VARIANCES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 5,
+        "foundSections": 5,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245329",
+      "title": "Ch 17.86: COASTAL ZONE WATERFRONT DEVELOPMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 3,
+        "foundSections": 3,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245373",
+      "title": "Ch 17.87: PUBLIC TREES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245401",
+      "title": "Ch 17.88: STORM WATER QUALITY MANAGEMENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 31,
+        "foundSections": 31,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245526",
+      "title": "Ch 17.89: BED AND BREAKFAST ESTABLISHMENTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 14,
+        "foundSections": 14,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245572",
+      "title": "Ch 17.90: SALE OF ALCOHOLIC BEVERAGES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245640",
+      "title": "Ch 17.91: SALE OF TOBACCO PRODUCTS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 10,
+        "foundSections": 10,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245675",
+      "title": "Ch 17.92: REASONABLE ACCOMMODATION",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245701",
+      "title": "Ch 17.93: STANDARDS FOR MARIJUANA",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 6,
+        "foundSections": 6,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245729",
+      "title": "Ch 17.94: CANNABIS CULTIVATION FOR PERSONAL OR MEDICAL USE",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 12,
+        "foundSections": 12,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44245805",
+      "title": "Ch 17.95: COMMERCIAL CANNABIS REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 20,
+        "foundSections": 20,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246011",
+      "title": "§ A-100: PURPOSE AND INTENT",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246013",
+      "title": "§ A-200: GENERAL PROVISIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246098",
+      "title": "§ A-210: PERSONNEL RULES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 11,
+        "foundSections": 11,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246242",
+      "title": "§ A-250: EMPLOYER-EMPLOYEE REPRESENTATION RULES",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246382",
+      "title": "Art B-II: USE OF PUBLIC SEWERS REQUIRED",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 7,
+        "foundSections": 7,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246393",
+      "title": "Art B-III: ADMINISTRATIVE REGULATIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246395",
+      "title": "Art B-IV: PERMITS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 27,
+        "foundSections": 27,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246441",
+      "title": "Art B-V: SEWER EXTENSIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 17,
+        "foundSections": 17,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246473",
+      "title": "Art B-VI: SEWER EXTENSION REVOLVING FUND",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 4,
+        "foundSections": 4,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246478",
+      "title": "Art B-IX: DESIGN STANDARDS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 2,
+        "foundSections": 2,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246587",
+      "title": "B-X: (RESERVED)",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246516",
+      "title": "Art B-XI: DEFINITIONS",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44236141",
+      "title": "Ttl SR: Statutory References for California Cities",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 14,
+        "foundSections": 14,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246595",
+      "title": "Ttl CRT: Cross Reference Table",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    },
+    {
+      "guid": "44246598",
+      "title": "Ttl OL: Ordinance List and Disposition Table",
+      "status": "pass",
+      "checks": {
+        "fileExists": true,
+        "sha256Match": true,
+        "sectionCountMatch": true,
+        "expectedSections": 1,
+        "foundSections": 1,
+        "allSectionsPresent": true,
+        "missingSections": []
+      }
+    }
+  ]
+}

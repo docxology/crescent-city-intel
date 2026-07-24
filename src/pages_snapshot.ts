@@ -56,6 +56,9 @@ export interface PagesSnapshot {
     code: string | null;
     toc: string | null;
     manifest: string | null;
+    verification: string | null;
+    coverage: string | null;
+    readability: string | null;
     report: string | null;
     sourceHealth: string;
   };
@@ -345,18 +348,26 @@ function snapshotStatus(health: SourceHealth[], codeAvailable: boolean): PagesSn
   return "ok";
 }
 
-export async function buildPagesSnapshot(outputDir = "output", generatedAt = new Date().toISOString()): Promise<PagesSnapshot> {
+export async function buildPagesSnapshot(
+  outputDir = "output",
+  generatedAt = new Date().toISOString(),
+  seedDir = "pages-data",
+): Promise<PagesSnapshot> {
   const resolvedOutput = resolve(outputDir);
-  const manifest = await readJson<JsonRecord>(join(resolvedOutput, "manifest.json"));
-  const verification = await readJson<JsonRecord>(join(resolvedOutput, "verification-report.json"));
-  const coverage = await readJson<JsonRecord>(join(resolvedOutput, "domain-coverage.json"));
-  const readability = await readJson<JsonRecord>(join(resolvedOutput, "readability.json"));
+  const resolvedSeed = resolve(seedDir);
+  async function readFirstJson<T>(filename: string): Promise<T | null> {
+    return await readJson<T>(join(resolvedOutput, filename)) ?? await readJson<T>(join(resolvedSeed, filename));
+  }
+  const manifest = await readFirstJson<JsonRecord>("manifest.json");
+  const verification = await readFirstJson<JsonRecord>("verification-report.json");
+  const coverage = await readFirstJson<JsonRecord>("domain-coverage.json");
+  const readability = await readFirstJson<JsonRecord>("readability.json");
   const health = await collectHealth(resolvedOutput);
   const alerts = await collectCurrentAlerts(resolvedOutput);
   const reportPath = (await listFiles(join(resolvedOutput, "reports"), name => name.startsWith("monthly-") && name.endsWith(".md"))).at(-1) ?? null;
   const monthly = reportPath ? await readFile(reportPath, "utf8").catch(() => null) : null;
   const weeklySummary = await readJson<JsonRecord>(join(resolvedOutput, "weekly-check-summary.json"));
-  const codeAvailable = await readJson<unknown>(join(resolvedOutput, "crescent-city-code.json")) !== null;
+  const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
     collectBatchItems(join(resolvedOutput, "news"), "news-", normalizeNews),
@@ -391,8 +402,11 @@ export async function buildPagesSnapshot(outputDir = "output", generatedAt = new
     report: { monthly, weeklySummary },
     files: {
       code: codeAvailable ? "data/code.json" : null,
-      toc: (await readJson<unknown>(join(resolvedOutput, "toc.json"))) !== null ? "data/toc.json" : null,
+      toc: (await readFirstJson<unknown>("toc.json")) !== null ? "data/toc.json" : null,
       manifest: manifest ? "data/manifest.json" : null,
+      verification: verification ? "data/verification-report.json" : null,
+      coverage: coverage ? "data/domain-coverage.json" : null,
+      readability: readability ? "data/readability.json" : null,
       report: monthly ? "data/report.md" : null,
       sourceHealth: "data/source-health.json",
     },
@@ -418,10 +432,11 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-export async function exportPagesSnapshot(options: { outputDir?: string; destination?: string; generatedAt?: string } = {}): Promise<PagesExportResult> {
+export async function exportPagesSnapshot(options: { outputDir?: string; destination?: string; generatedAt?: string; seedDir?: string } = {}): Promise<PagesExportResult> {
   const destination = resolve(options.destination ?? ".pages");
   const generatedAt = options.generatedAt ?? new Date().toISOString();
-  const snapshot = await buildPagesSnapshot(options.outputDir ?? "output", generatedAt);
+  const seedDir = options.seedDir ?? "pages-data";
+  const snapshot = await buildPagesSnapshot(options.outputDir ?? "output", generatedAt, seedDir);
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
@@ -435,13 +450,20 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     files.push("data/snapshot.json", "data/source-health.json");
 
     const sourceRoot = resolve(options.outputDir ?? "output");
+    const seedRoot = resolve(seedDir);
+    async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
+      return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);
+    }
     const optionalCopies: Array<[string, string]> = [
       ["crescent-city-code.json", "data/code.json"],
       ["toc.json", "data/toc.json"],
       ["manifest.json", "data/manifest.json"],
+      ["verification-report.json", "data/verification-report.json"],
+      ["domain-coverage.json", "data/domain-coverage.json"],
+      ["readability.json", "data/readability.json"],
     ];
     for (const [source, target] of optionalCopies) {
-      if (await copyIfPresent(join(sourceRoot, source), join(temporary, target))) files.push(target);
+      if (await copyFirstPresent(source, join(temporary, target))) files.push(target);
     }
     if (snapshot.report.monthly !== null) {
       await writeFile(join(temporary, "data/report.md"), snapshot.report.monthly, "utf8");

@@ -35,6 +35,7 @@
     "report": "bun run src/monthly_report.ts",
     "repair-output": "bun run scripts/repair-output.ts",
     "pages:export": "bun run scripts/export-pages.ts",
+    "pages:seed": "bun run scripts/refresh-pages-data.ts",
     "pages:validate": "bun run scripts/validate-pages.ts",
     "validate": "bun run scripts/validate.ts",
     "release:check": "bun run validate",

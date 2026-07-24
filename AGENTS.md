@@ -108,6 +108,7 @@ scripts/
   run-curation.ts       # Grounded curation runner
   repair-output.ts      # Historical output repair/quarantine utility
   export-pages.ts       # Build the bounded .pages public snapshot
+  refresh-pages-data.ts # Refresh the verified tracked municipal-code seed
   validate-pages.ts     # Validate the generated Pages artifact
   validate.ts           # Authoritative deterministic release gate
   run-coverage.ts       # Domain coverage orchestrator
@@ -116,6 +117,7 @@ scripts/
 tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
+pages-data/             # Reviewed public seed artifacts for static Pages
 openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
 ```
 

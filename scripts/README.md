@@ -14,6 +14,7 @@ Thin TypeScript orchestrators for the Crescent City pipeline. All business logic
 | `run-youtube.ts` | `bun run youtube` | YouTube transcript extraction/indexing with retryable failures |
 | `run-curation.ts` | `bun run curate` | Provider-aware grounded curation with provenance |
 | `export-pages.ts` | `bun run pages:export` | Build a bounded static GitHub Pages snapshot |
+| `refresh-pages-data.ts` | `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
 | `validate-pages.ts` | `bun run pages:validate` | Validate the static snapshot and publication boundaries |
 | `validate.ts` | `bun run validate` | Strict TypeScript, deterministic tests, and output checks |
 

@@ -1,0 +1,189 @@
+{
+  "computedAt": "2026-07-24T18:38:56.072Z",
+  "totalSections": 2194,
+  "coveredSections": 21,
+  "overallCoveragePct": 0.96,
+  "domains": [
+    {
+      "domainId": "housing-homelessness",
+      "domainName": "Housing & Homelessness",
+      "referencedSectionNumbers": [
+        "10.04",
+        "12.04",
+        "13.04",
+        "13.12",
+        "15.04",
+        "15.08",
+        "16.04",
+        "17.04",
+        "17.12",
+        "17.56",
+        "17.60",
+        "2.04",
+        "8.04",
+        "8.08",
+        "9.04"
+      ],
+      "referencedCount": 12,
+      "coveragePct": 0.55
+    },
+    {
+      "domainId": "tourism-recreation",
+      "domainName": "Tourism & Recreation",
+      "referencedSectionNumbers": [
+        "12.04",
+        "13.04",
+        "17.04",
+        "2.04",
+        "5.04",
+        "5.08",
+        "8.08",
+        "9.04"
+      ],
+      "referencedCount": 8,
+      "coveragePct": 0.36
+    },
+    {
+      "domainId": "demographics-social",
+      "domainName": "Demographics & Social Indicators",
+      "referencedSectionNumbers": [
+        "10.04",
+        "13.04",
+        "17.60",
+        "2.04",
+        "5.04",
+        "5.08",
+        "8.04",
+        "9.04"
+      ],
+      "referencedCount": 8,
+      "coveragePct": 0.36
+    },
+    {
+      "domainId": "business-development",
+      "domainName": "Business Development",
+      "referencedSectionNumbers": [
+        "12.04",
+        "13.04",
+        "17.04",
+        "17.08",
+        "5.04",
+        "5.08",
+        "5.12"
+      ],
+      "referencedCount": 7,
+      "coveragePct": 0.32
+    },
+    {
+      "domainId": "public-safety",
+      "domainName": "Public Safety",
+      "referencedSectionNumbers": [
+        "10.04",
+        "10.08",
+        "10.12",
+        "17.04",
+        "5.04",
+        "9.04",
+        "9.08"
+      ],
+      "referencedCount": 7,
+      "coveragePct": 0.32
+    },
+    {
+      "domainId": "education-youth",
+      "domainName": "Education & Youth",
+      "referencedSectionNumbers": [
+        "10.04",
+        "10.20",
+        "12.04",
+        "2.04",
+        "5.04",
+        "8.08",
+        "9.04"
+      ],
+      "referencedCount": 7,
+      "coveragePct": 0.32
+    },
+    {
+      "domainId": "environmental-protection",
+      "domainName": "Environmental Protection",
+      "referencedSectionNumbers": [
+        "13.04",
+        "15.04",
+        "16.04",
+        "17.04",
+        "17.08",
+        "8.04"
+      ],
+      "referencedCount": 5,
+      "coveragePct": 0.23
+    },
+    {
+      "domainId": "event-planning",
+      "domainName": "Event Planning",
+      "referencedSectionNumbers": [
+        "12.04",
+        "17.04",
+        "5.04",
+        "8.04",
+        "9.04"
+      ],
+      "referencedCount": 5,
+      "coveragePct": 0.23
+    },
+    {
+      "domainId": "climate-environment",
+      "domainName": "Climate & Environment",
+      "referencedSectionNumbers": [
+        "13.04",
+        "15.04",
+        "17.04",
+        "17.08",
+        "8.04",
+        "8.08"
+      ],
+      "referencedCount": 5,
+      "coveragePct": 0.23
+    },
+    {
+      "domainId": "public-health-safety",
+      "domainName": "Public Health & Safety",
+      "referencedSectionNumbers": [
+        "2.04",
+        "5.04",
+        "5.12",
+        "8.04",
+        "9.04"
+      ],
+      "referencedCount": 5,
+      "coveragePct": 0.23
+    },
+    {
+      "domainId": "emergency-management",
+      "domainName": "Emergency Management",
+      "referencedSectionNumbers": [
+        "13.04",
+        "15.04",
+        "2.04",
+        "8.04",
+        "9.04"
+      ],
+      "referencedCount": 4,
+      "coveragePct": 0.18
+    },
+    {
+      "domainId": "harbor-marine-operations",
+      "domainName": "Harbor & Marine Operations",
+      "referencedSectionNumbers": [
+        "13.04",
+        "13.08",
+        "13.12",
+        "15.08",
+        "2.44",
+        "5.12"
+      ],
+      "referencedCount": 4,
+      "coveragePct": 0.18
+    }
+  ]
+}

@@ -27,6 +27,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
       LOG_LEVEL: info
       SOURCE_DISCOVERY_LIVE_CHECK: "1"
+      PAGES_BUILD: "1"
 
     steps:
       - name: Checkout repository

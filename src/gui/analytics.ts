@@ -4,6 +4,7 @@
  */
 import { loadAllArticles, loadAllSections } from "../shared/data.js";
 import type { ArticlePage, FlatSection } from "../types.js";
+import { readFile } from "fs/promises";
 import { getOrCreateCollection, isChromaRunning, getStats } from "../llm/chroma.js";
 import { flattenToc } from "../utils.js";
 import { loadToc } from "../shared/data.js";
@@ -43,10 +44,52 @@ export interface CodeStats {
     shortestSections: { number: string; title: string; words: number; guid: string }[];
 }
 
+type StatsArticle = Pick<ArticlePage, "title"> & {
+    sections: Array<Pick<FlatSection, "guid" | "number" | "title" | "text">>;
+};
+
+/**
+ * Pages builds have a reviewed consolidated municipal-code seed but no local
+ * `output/articles/` directory. Use it for analytics when the live corpus is
+ * absent, while keeping normal local runs on the scraped article files.
+ */
+async function loadAnalyticsArticles(): Promise<StatsArticle[]> {
+    const liveArticles = await loadAllArticles();
+    if (liveArticles.length > 0) return liveArticles;
+    try {
+        const seedPath = process.env.CODE_SEED_PATH ?? "pages-data/crescent-city-code.json";
+        const parsed = JSON.parse(await readFile(seedPath, "utf8")) as { articles?: unknown };
+        if (!Array.isArray(parsed.articles)) return [];
+        return parsed.articles.flatMap(item => {
+            if (!item || typeof item !== "object") return [];
+            const article = item as Record<string, unknown>;
+            const title = typeof article.title === "string" ? article.title : "";
+            if (!title || !Array.isArray(article.sections)) return [];
+            const sections = article.sections.flatMap(section => {
+                if (!section || typeof section !== "object") return [];
+                const value = section as Record<string, unknown>;
+                if (typeof value.guid !== "string" || typeof value.number !== "string" || typeof value.title !== "string") return [];
+                return [{
+                    guid: value.guid,
+                    number: value.number,
+                    title: value.title,
+                    text: typeof value.text === "string" ? value.text : "",
+                }];
+            });
+            return [{ title, sections }];
+        });
+    } catch {
+        return [];
+    }
+}
+
 /** Compute aggregate statistics about the municipal code */
 export async function getCodeStats(): Promise<CodeStats> {
-    const articles = await loadAllArticles();
-    const sections = await loadAllSections();
+    const liveArticles = await loadAllArticles();
+    const articles = liveArticles.length > 0 ? liveArticles : await loadAnalyticsArticles();
+    const sections = liveArticles.length > 0
+        ? await loadAllSections()
+        : articles.flatMap(article => article.sections.map(section => ({ ...section, articleTitle: article.title })));
 
     // Per-title aggregation
     const titleMap = new Map<string, TitleStats>();

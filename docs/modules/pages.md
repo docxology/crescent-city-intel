@@ -32,6 +32,14 @@ links only, alert current snapshots and composite severity, the shared
 `analytics-overview.json` when the pipeline has generated it, and the latest
 monthly report.
 
+In the GitHub Actions build, `PAGES_BUILD=1` makes collection explicitly
+seed-aware: when the runner has no local scraped `output/toc.json` and
+`output/manifest.json`, the live municipal-code change monitor is recorded as
+`not-run` and the reviewed `pages-data/` seed remains the code baseline.
+Analytics uses that same reviewed seed for code counts. A local-only provider
+such as Ollama may therefore be `unavailable` in the public build while the
+deterministic analytics summary and its provenance still export normally.
+
 The first viewport is a welcome linktree that routes visitors to local news and
 summaries, source registry/health, municipal code, alerts, reports, structured
 downloads, and official local source hubs. The dashboard is intentionally interactive despite being static: source health

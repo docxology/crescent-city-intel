@@ -26,6 +26,7 @@ import { runCuration } from "../src/curation.ts";
 import { generateMonthlyReport } from "../src/monthly_report.ts";
 import { writeAnalyticsOverview } from "../src/analytics_backend.ts";
 import { createLogger } from "../src/logger.ts";
+import { existsSync } from "fs";
 import { mkdir, readFile } from "fs/promises";
 import { join } from "path";
 import { paths } from "../src/shared/paths.ts";
@@ -48,9 +49,27 @@ let exitCode = 0;
 
 // 1. Municipal code change detection
 logger.info("Stage 1/8: Running municipal code change detection...");
-const monitorExecution = await executePipelineStep("municipal-code-monitor", () => runMonitor(), {
+const pagesSeedMode = process.env.PAGES_BUILD === "1" && (!existsSync(paths.toc) || !existsSync(paths.manifest));
+const monitorExecution = await executePipelineStep("municipal-code-monitor", async () => {
+  if (pagesSeedMode) {
+    const seedReport = {
+      timestamp: new Date().toISOString(),
+      articlesChecked: 0,
+      hashMismatches: [],
+      missingSections: [],
+      newSections: [],
+      overallStatus: "clean" as const,
+      summary: "Live code monitor not run in Pages seed mode; reviewed pages-data is the export baseline.",
+    };
+    await writeJsonAtomic(paths.monitorReport, seedReport);
+    logger.info("✅ Municipal code: live monitor skipped in Pages seed mode; reviewed seed will be exported");
+    return seedReport;
+  }
+  return runMonitor();
+}, {
   classify: result => result.overallStatus === "error" ? "failed" : result.overallStatus === "changed" ? "degraded" : "ok",
   outputPaths: [paths.monitorReport],
+  ...(pagesSeedMode ? { metadata: { mode: "pages-seed", liveCodeMonitor: "not-run" } } : {}),
 });
 steps.push(monitorExecution.report);
 const report = monitorExecution.value;
@@ -170,7 +189,9 @@ const reportExecution = await executePipelineStep("monthly-report", () => genera
 });
 steps.push(reportExecution.report);
 const overviewExecution = await executePipelineStep("analytics-overview", () => writeAnalyticsOverview({ summarize: true }), {
-  classify: overview => overview.status === "unavailable" ? "failed" : overview.status === "degraded" || overview.llm.status === "unavailable" ? "degraded" : "ok",
+  // A provider outage is retained in the analytics LLM envelope and falls
+  // back to the deterministic summary; it is not a failed pipeline stage.
+  classify: overview => overview.status === "unavailable" ? "failed" : overview.status === "degraded" ? "degraded" : "ok",
   outputPaths: [paths.analyticsOverview],
   metadata: { contract: "shared-local-pages", promptVersion: "2026-07-24-analytics-overview-v1" },
 });

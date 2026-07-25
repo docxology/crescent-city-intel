@@ -18,7 +18,6 @@ export const DEFAULT_FRESHNESS_WINDOW_MS = positiveEnvNumber("SOURCE_FRESHNESS_W
  * unavailable coverage record rather than silently shrinking the denominator.
  */
 export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string; monitor: string }> = [
-  { source: "Times-Standard", url: "https://www.times-standard.com/wp-json/wp/v2/posts?per_page=50&_fields=id,date,link,title,excerpt,content", monitor: "news" },
   { source: "Lost Coast Outpost", url: "https://lostcoastoutpost.com/feed", monitor: "news" },
   { source: "Humboldt County official news", url: "https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml", monitor: "news" },
   { source: "KIEM-TV NBC Eureka", url: "https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc", monitor: "news" },

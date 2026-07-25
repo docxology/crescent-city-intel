@@ -41,7 +41,7 @@ describe("orchestration and metadata contracts", () => {
     ], checkedAt);
     expect(completed).toHaveLength(EXPECTED_SOURCE_HEALTH.length);
     expect(completed.find(source => source.source === "NOAA Tsunami")?.status).toBe("empty");
-    const missing = completed.find(source => source.source === "Times-Standard");
+    const missing = completed.find(source => source.source === "Lost Coast Outpost");
     expect(missing?.status).toBe("unavailable");
     expect(missing?.error).toContain("No news source-health record");
   });

@@ -380,7 +380,7 @@ None. All existing CLI commands and API endpoints remain compatible.
 - Basic in-memory full-text keyword search
 - NOAA tsunami, USGS earthquake, NWS weather alert monitors
 - Municipal code change detection
-- RSS news monitor (Times-Standard, Lost Coast Outpost, Humboldt Times)
+- RSS news monitor for local and civic North Coast sources
 - Government meeting tracker (City Council, Planning Commission, Harbor Commission)
 - Analytics dashboard: PCA scatter plot, K-Means clustering, word loadings
 - Per-section Ollama summarization

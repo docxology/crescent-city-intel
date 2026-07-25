@@ -18,7 +18,7 @@ All API endpoints return JSON with CORS headers (`Access-Control-Allow-Origin: *
 
 LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade gracefully: if the selected chat provider, Ollama embeddings, or ChromaDB are unavailable they return `503 Service Unavailable` rather than crashing. `/api/health` reports dependency status separately from `sourceCoverage`, which contains present/missing counts and named source records. An unavailable feed is never rendered as calm, and a missing feed does not make liveness `degraded` by itself.
 
-The GUI uses the same 19-source health contract as the Pages exporter. If a
+The GUI uses the same 18-source health contract as the Pages exporter. If a
 monitor has not emitted a health record, `/api/health`, `/api/metadata`, and
 `/api/sources` expose a named unavailable coverage record rather than treating
 the missing row as evidence that the source was checked.

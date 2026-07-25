@@ -11,7 +11,7 @@
  * the URL is unreachable in a test environment.
  */
 import { describe, expect, test, afterAll, beforeAll } from "bun:test";
-import { fetchRSSFeed, fetchRSSFeedDetailed, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
+import { fetchRSSFeed, fetchRSSFeedDetailed, isActiveNewsSource, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
 
 // Helper: build a minimal RSS XML string
 function buildRSS(items: Array<{ title: string; link: string; pubDate?: string; description?: string }>): string {
@@ -88,12 +88,25 @@ describe("NewsItem shape", () => {
       link: "https://example.com/article",
       pubDate: "Mon, 18 Mar 2026 12:00:00 GMT",
       content: "A tsunami warning was issued for the Del Norte coast.",
-      source: "Times-Standard",
+      source: "Redwood Voice",
       fetchedAt: new Date().toISOString(),
     };
     expect(item.title).toBeTruthy();
     expect(item.source).toBeTruthy();
     expect(item.fetchedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe("configured news source boundary", () => {
+  test("keeps the feed set local/civic-specific and excludes retired broad coverage", () => {
+    expect(Object.keys(NEWS_FEEDS)).toEqual([
+      "Lost Coast Outpost",
+      "Humboldt County official news",
+      "KIEM-TV NBC Eureka",
+      "Redwood Voice",
+      "North Coast Journal",
+    ]);
+    expect(isActiveNewsSource("Times-Standard")).toBe(false);
   });
 });
 

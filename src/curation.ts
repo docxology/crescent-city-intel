@@ -26,6 +26,7 @@ import { mkdir, open, readFile, readdir, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { paths } from './shared/paths.js';
+import { isActiveNewsSource } from './news_monitor.js';
 import { errorMessage, writeJsonAtomic } from './shared/source_health.js';
 import { createRunId } from './shared/orchestration.js';
 import { computeSha256 } from './utils.js';
@@ -178,13 +179,33 @@ async function readJsonFilesInDir(dir: string): Promise<any[]> {
   return parsed;
 }
 
+/** Remove visible summaries whose upstream item is no longer in the active inputs. */
+async function pruneCuratedArtifacts(activeIds: Set<string>): Promise<void> {
+  if (!existsSync(CURATED_OUTPUT_DIR)) return;
+  const files = (await readdir(CURATED_OUTPUT_DIR)).filter(file => file.endsWith('.json')).sort();
+  for (const file of files) {
+    const path = join(CURATED_OUTPUT_DIR, file);
+    try {
+      const parsed = JSON.parse(await readFile(path, 'utf-8'));
+      if (!Array.isArray(parsed)) continue;
+      const retained = parsed.filter(item => {
+        const id = typeof item?.id === 'string' ? item.id : typeof item?.link === 'string' ? item.link : '';
+        return activeIds.has(id);
+      });
+      if (retained.length !== parsed.length) await writeJsonAtomic(path, retained);
+    } catch (error: any) {
+      logger.warn(`Skipping curated-artifact pruning for ${file}`, { error: error.message });
+    }
+  }
+}
+
 /** Gather news items from every output/news/*.json batch file. */
 async function gatherNewsItems(): Promise<CurationInput[]> {
   const batches = await readJsonFilesInDir(NEWS_DIR);
   const out: CurationInput[] = [];
   for (const batch of batches) {
     for (const item of batch.items ?? []) {
-      if (!item.link || !item.title) continue;
+      if (!item.link || !item.title || !isActiveNewsSource(item.source)) continue;
       out.push({
         id: item.link,
         source: 'news',
@@ -395,6 +416,7 @@ export async function runCuration(): Promise<CuratedItem[]> {
           || a.title.localeCompare(b.title))
         .map(item => [item.id, item] as const),
     ).values()].sort((a, b) => a.id.localeCompare(b.id));
+    await pruneCuratedArtifacts(new Set(uniqueInputs.map(item => item.id)));
     const inputFingerprints = new Map<string, string>();
     for (const item of uniqueInputs) {
       const provider = llmConfig.provider;

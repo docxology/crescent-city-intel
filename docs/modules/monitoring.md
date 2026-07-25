@@ -80,7 +80,6 @@ Fetches RSS feeds from local NorCal news sources, filters for Crescent City-rele
 
 | Source | URL |
 | :--- | :--- |
-| Times-Standard | `https://www.times-standard.com/wp-json/wp/v2/posts` (RSS fallback) |
 | Lost Coast Outpost | `https://lostcoastoutpost.com/feed` |
 | Humboldt County official news | `https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml` |
 | KIEM-TV NBC Eureka | `https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc` (HTML fallback) |

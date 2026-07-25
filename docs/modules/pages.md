@@ -72,7 +72,7 @@ not converted into a calm result. The snapshot reports present versus missing
 checks and lists the missing names and reasons; ordinary source gaps do not
 reclassify an otherwise complete static export as `degraded`.
 
-The exporter completes the 19-source operational health contract before
+The exporter completes the 18-source operational health contract before
 writing `data/snapshot.json`. If a monitor crashes or omits its health file,
 the absent source is emitted as a named synthetic `unavailable` coverage
 record, so the denominator cannot silently shrink. A monitor that reached a

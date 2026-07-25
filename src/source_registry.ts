@@ -162,11 +162,6 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
     provenance: "California Department of Transportation road-condition service used for US 101 and North Coast access.",
   }),
   source({
-    id: "news-times-standard", name: "Times-Standard", kind: "news", authority: "journalistic", region: "North Coast",
-    canonicalUrl: "https://www.times-standard.com/", endpointUrl: "https://www.times-standard.com/wp-json/wp/v2/posts?per_page=50&_fields=id,date,link,title,excerpt,content", discoveredFrom: ["https://www.times-standard.com/"], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "news:Times-Standard", expectedCadence: "daily", provenance: "WordPress REST news monitor with RSS fallback.",
-  }),
-  source({
     id: "news-lost-coast-outpost", name: "Lost Coast Outpost", kind: "news", authority: "journalistic", region: "North Coast",
     canonicalUrl: "https://lostcoastoutpost.com/feed", discoveredFrom: ["https://lostcoastoutpost.com/"], collectionMode: "rss", automation: "monitored", enabled: true,
     configuredMonitor: "news:Lost Coast Outpost", expectedCadence: "daily", provenance: "RSS/Atom news monitor.",
@@ -175,7 +170,7 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
     id: "news-humboldt-county", name: "Humboldt County official news", kind: "county_official", authority: "official", region: "North Coast",
     canonicalUrl: "https://humboldtgov.org/CivicAlerts.aspx", endpointUrl: "https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml", discoveredFrom: ["https://humboldtgov.org/", "https://humboldtgov.org/rss.aspx"], collectionMode: "rss", automation: "monitored", enabled: true,
     configuredMonitor: "news:Humboldt County official news", expectedCadence: "daily", provenance: "Official Humboldt County News Flash RSS feed; current civic notices and public-safety releases.",
-    notes: "The historical Humboldt Times was folded into the Times-Standard in 1967 and has no current standalone feed.",
+    notes: "The historical Humboldt Times has no current standalone feed; this official county feed covers current civic notices.",
   }),
   source({
     id: "news-kiem", name: "KIEM-TV NBC Eureka", kind: "news", authority: "journalistic", region: "North Coast",

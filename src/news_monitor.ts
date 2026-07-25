@@ -26,11 +26,7 @@ const logger = createLogger('news_monitor');
 
 /** RSS feed URLs for local news sources covering the NorCal coast */
 export const NEWS_FEEDS: Record<string, string> = {
-  'Times-Standard': 'https://www.times-standard.com/news/rss.xml',
   'Lost Coast Outpost': 'https://lostcoastoutpost.com/feed',
-  // The historical Humboldt Times was folded into the Times-Standard in 1967;
-  // this current official county feed preserves Humboldt civic coverage
-  // without pretending that the retired publication still has a live feed.
   'Humboldt County official news': 'https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml',
   // KIEM now publishes under the Redwood News brand on TownNews.
   'KIEM-TV NBC Eureka': 'https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc',
@@ -38,15 +34,12 @@ export const NEWS_FEEDS: Record<string, string> = {
   'North Coast Journal': 'https://www.northcoastjournal.com/feed/',
 };
 
-/** Current machine-readable fallbacks for feeds whose legacy endpoint retired. */
-export const NEWS_FEED_FALLBACKS: Record<string, string[]> = {
-  'Times-Standard': [
-    'https://www.times-standard.com/wp-json/wp/v2/posts?per_page=50&_fields=id,date,link,title,excerpt,content',
-  ],
-};
+/** True only for sources currently configured for automated news collection. */
+export function isActiveNewsSource(source: unknown): source is string {
+  return typeof source === 'string' && Object.hasOwn(NEWS_FEEDS, source);
+}
 
 /** Explicit operator-controlled suppression for feeds known to be retired or blocked. */
-/** HTML fallbacks for publishers whose RSS endpoint is intermittently rate-limited. */
 export const NEWS_HTML_FALLBACKS: Record<string, string> = {
   'KIEM-TV NBC Eureka': 'https://www.redwoodnews.tv/news/',
 };
@@ -129,65 +122,6 @@ export interface NewsItem {
   fetchedAt: string;
 }
 
-function renderedText(value: unknown): string {
-  if (!value || typeof value !== 'object') return '';
-  const rendered = (value as { rendered?: unknown }).rendered;
-  return typeof rendered === 'string' ? rendered : '';
-}
-
-/** Parse the WordPress REST envelope used by the current Times-Standard site. */
-function parseWordPressItems(payload: unknown): Array<Omit<NewsItem, 'source' | 'fetchedAt'>> {
-  if (!Array.isArray(payload)) return [];
-  return payload.flatMap(entry => {
-    if (!entry || typeof entry !== 'object') return [];
-    const record = entry as Record<string, unknown>;
-    const title = htmlToText(renderedText(record.title)).trim();
-    const link = typeof record.link === 'string' ? record.link.trim() : '';
-    if (!title || !link) return [];
-    const pubDate = typeof record.date === 'string' ? record.date : '';
-    const content = htmlToText(renderedText(record.content) || renderedText(record.excerpt)).substring(0, 500);
-    return [{ title, link, pubDate, content }];
-  });
-}
-
-async function fetchWordPressFallback(
-  url: string,
-  sourceName: string,
-  checkedAt: string,
-): Promise<NewsFeedResult> {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
-    },
-    signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
-  });
-  if (!response.ok) {
-    return {
-      source: sourceName,
-      items: [],
-      health: sourceHealth(sourceName, 'unavailable', checkedAt, {
-        url,
-        itemCount: 0,
-        httpStatus: response.status,
-        error: `HTTP ${response.status}: ${response.statusText}`,
-        provenance: 'WordPress REST fallback',
-      }),
-    };
-  }
-  const items = parseWordPressItems(await response.json());
-  return {
-    source: sourceName,
-    items,
-    health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
-      url,
-      fetchedAt: checkedAt,
-      itemCount: items.length,
-      provenance: 'WordPress REST fallback for retired RSS endpoint',
-    }),
-  };
-}
-
 /**
  * Fetch and parse a single RSS feed, returning only Crescent City–relevant items.
  * Returns an empty array on any network or parse error (graceful degradation).
@@ -256,15 +190,6 @@ export async function fetchRSSFeedDetailed(
         } catch (fallbackError) {
           logger.warn(`HTML listing fallback failed for ${sourceName}`, { error: errorMessage(fallbackError) });
         }
-      }
-      const fallbackUrl = NEWS_FEED_FALLBACKS[sourceName]?.[0];
-      if (fallbackUrl) {
-        logger.warn(`Primary feed unavailable for ${sourceName}; trying machine-readable fallback`, {
-          primaryUrl: url,
-          fallbackUrl,
-          httpStatus: response.status,
-        });
-        return await fetchWordPressFallback(fallbackUrl, sourceName, checkedAt);
       }
       return {
         source: sourceName,
@@ -349,22 +274,6 @@ export async function fetchRSSFeedDetailed(
         return await fetchHtmlNewsFallback(htmlFallbackUrl, sourceName, checkedAt);
       } catch (fallbackError) {
         logger.warn(`HTML listing fallback failed for ${sourceName}`, { error: errorMessage(fallbackError) });
-      }
-    }
-    const fallbackUrl = NEWS_FEED_FALLBACKS[sourceName]?.[0];
-    if (fallbackUrl) {
-      try {
-        logger.warn(`Primary feed failed for ${sourceName}; trying machine-readable fallback`, {
-          primaryUrl: url,
-          fallbackUrl,
-          error: errorMessage(error),
-        });
-        return await fetchWordPressFallback(fallbackUrl, sourceName, checkedAt);
-      } catch (fallbackError) {
-        logger.error(`Fallback feed failed for ${sourceName}`, {
-          fallbackUrl,
-          error: errorMessage(fallbackError),
-        });
       }
     }
     logger.error(`Failed to fetch RSS feed from ${sourceName}`, {

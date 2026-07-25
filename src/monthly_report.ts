@@ -23,6 +23,7 @@ import { domains } from './domains.js';
 import { paths } from './shared/paths.js';
 import { completeSourceHealth, isIsoTimestamp, summarizeSourceHealth, writeJsonAtomic, writeTextAtomic } from './shared/source_health.js';
 import { buildSourceDiscoveryReport, getSourceRegistry } from './source_registry.js';
+import { isActiveNewsSource } from './news_monitor.js';
 import type { MonthlyReportMetadata, SourceHealth } from './types.js';
 
 const logger = createLogger('monthly-report');
@@ -86,13 +87,14 @@ export function inPeriod(records: any[], start: Date, end: Date): { items: any[]
   return { items, invalidTimestamps };
 }
 
-function readBatchItems(dir: string, month: string): any[] {
+function readBatchItems(dir: string, month: string, include: (item: any) => boolean = () => true): any[] {
   if (!existsSync(dir)) return [];
   const items: any[] = [];
   for (const file of readdirSync(dir).filter(f => f.endsWith('.json'))) {
     const batch = readJson(join(dir, file));
     if (Array.isArray(batch)) {
       items.push(...batch.filter(item => {
+        if (!include(item)) return false;
         const ts = item?.curatedAt ?? item?.fetchedAt ?? item?.pubDate ?? item?.date ?? '';
         const parsed = Date.parse(ts);
         return Number.isFinite(parsed) && new Date(parsed).toISOString().startsWith(month);
@@ -100,7 +102,7 @@ function readBatchItems(dir: string, month: string): any[] {
       continue;
     }
     if (!batch || !isIsoTimestamp(batch.fetchedAt) || !batch.fetchedAt.startsWith(month)) continue;
-    if (Array.isArray(batch.items)) items.push(...batch.items);
+    if (Array.isArray(batch.items)) items.push(...batch.items.filter(include));
   }
   return items;
 }
@@ -140,7 +142,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const wildfire = periodItems('Wildfire history', readJsonl(join(process.cwd(), 'output', 'alerts', 'wildfire', 'history.jsonl')));
   const marine = periodItems('Marine history', readJsonl(join(process.cwd(), 'output', 'alerts', 'marine', 'history.jsonl')));
 
-  const newsItems = readBatchItems(paths.news, month);
+  const newsItems = readBatchItems(paths.news, month, item => isActiveNewsSource(item?.source));
   const meetingItems = readBatchItems(paths.govMeetings, month);
   const curatedItems = readBatchItems(paths.curated, month);
   const newsCount = newsItems.length;

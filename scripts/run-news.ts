@@ -3,8 +3,8 @@
  * scripts/run-news.ts — Thin orchestrator: local news RSS monitoring.
  *
  * Imports and runs the news monitoring pipeline from src/news_monitor.ts.
- * Fetches current Times-Standard, North Coast, Humboldt County, Redwood News,
- * and Redwood Voice feeds (with bounded API/HTML fallbacks)
+ * Fetches current local/civic North Coast, Humboldt County, Redwood News,
+ * and Redwood Voice feeds (with bounded HTML fallback where needed)
  * and saves relevant items to output/news/.
  *
  * Usage:

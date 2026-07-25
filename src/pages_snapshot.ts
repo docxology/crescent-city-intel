@@ -13,6 +13,7 @@ import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealt
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { runtimeMetadata } from "./shared/orchestration.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
+import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
@@ -251,6 +252,7 @@ async function collectBatchItems(
   directory: string,
   prefix: string,
   normalizer: (item: JsonRecord) => JsonRecord | null,
+  include: (item: JsonRecord) => boolean = () => true,
 ): Promise<JsonRecord[]> {
   const files = await listFiles(directory, name => name.startsWith(prefix) && name.endsWith(".json"));
   const batches: JsonRecord[] = [];
@@ -258,7 +260,7 @@ async function collectBatchItems(
     const parsed = await readJson<unknown>(path);
     if (!isRecord(parsed) || !Array.isArray(parsed.items)) continue;
     for (const item of parsed.items) {
-      if (isRecord(item)) {
+      if (isRecord(item) && include(item)) {
         const normalized = normalizer(item);
         if (normalized) batches.push(normalized);
       }
@@ -410,7 +412,7 @@ export async function buildPagesSnapshot(
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
-    collectBatchItems(join(resolvedOutput, "news"), "news-", normalizeNews),
+    collectBatchItems(join(resolvedOutput, "news"), "news-", normalizeNews, item => isActiveNewsSource(item.source)),
     collectBatchItems(join(resolvedOutput, "gov_meetings"), "gov_meetings-", normalizeMeeting),
     collectYouTube(join(resolvedOutput, "youtube")),
     collectTriplicate(join(resolvedOutput, "triplicate")),

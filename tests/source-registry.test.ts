@@ -37,10 +37,10 @@ describe("source discovery registry", () => {
     const report = await buildSourceDiscoveryReport({
       registry,
       checkedAt: "2026-07-24T00:00:00.000Z",
-      health: [sourceHealth("Times-Standard", "ok", "2026-07-24T00:00:00.000Z", { itemCount: 2 })],
+      health: [sourceHealth("Lost Coast Outpost", "ok", "2026-07-24T00:00:00.000Z", { itemCount: 2 })],
     });
     expect(report.sourceCount).toBe(registry.length);
-    expect(report.sources.find(source => source.id === "news-times-standard")?.operationalStatus).toBe("ok");
+    expect(report.sources.find(source => source.id === "news-lost-coast-outpost")?.operationalStatus).toBe("ok");
     expect(report.sources.find(source => source.id === "harbor-news")?.operationalStatus).toBe("not-checked");
     expect(report.sources.find(source => source.id === "triplicate-home-reference")?.referenceOnly).toBe(true);
     expect(report.coverageGaps.length).toBeGreaterThan(0);

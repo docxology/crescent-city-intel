@@ -14,6 +14,7 @@ import { getCodeStats, type CodeStats } from "./gui/analytics.js";
 import { llmConfig } from "./llm/config.js";
 import { checkChatProvider, chatWithProvider, configuredChatModel } from "./llm/provider.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
+import { isActiveNewsSource } from "./news_monitor.js";
 import { paths } from "./shared/paths.js";
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { computeSha256, truncateText } from "./utils.js";
@@ -164,7 +165,7 @@ function normalizeItem(item: JsonRecord, fallbackSource: string): OverviewItem |
   };
 }
 
-async function collectBatchItems(directory: string, fallbackSource: string): Promise<OverviewItem[]> {
+async function collectBatchItems(directory: string, fallbackSource: string, include: (item: JsonRecord) => boolean = () => true): Promise<OverviewItem[]> {
   if (!existsSync(directory)) return [];
   try {
     const files = (await readdir(directory)).filter(file => file.endsWith(".json")).sort();
@@ -176,7 +177,7 @@ async function collectBatchItems(directory: string, fallbackSource: string): Pro
         : isRecord(parsed)
           ? (Array.isArray(parsed.items) ? parsed.items : [parsed])
           : [];
-      for (const item of batch) if (isRecord(item)) {
+      for (const item of batch) if (isRecord(item) && include(item)) {
         const normalized = normalizeItem(item, fallbackSource);
         if (normalized) items.push(normalized);
       }
@@ -282,7 +283,7 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
     ? discovery
     : await buildSourceDiscoveryReport({ checkedAt: generatedAt, health, registry });
   const [news, meetings, youtube, curatedItems] = await Promise.all([
-    collectBatchItems(paths.news, "News"),
+    collectBatchItems(paths.news, "News", item => isActiveNewsSource(item.source)),
     collectBatchItems(paths.govMeetings, "Government meetings"),
     collectYouTubeItems(),
     collectCuratedItems(),

@@ -80,8 +80,11 @@ source and found no matching records remains `empty` and therefore present.
 
 ## Deployment
 
-The workflow runs on pushes to `main`, a weekly schedule, and manual dispatch.
-It runs `bun run validate`, then `bun run weekly-check` with source outages
+The repository Pages source must be configured as `GitHub Actions` (not the
+legacy `main` branch root) so that the artifact produced by this workflow is
+the site that visitors receive. The workflow runs on pushes to `main`, a
+weekly schedule, and manual dispatch. It runs `bun run validate`, then
+`bun run weekly-check` with source outages
 allowed to remain visible in the output, followed by `pages:export` and
 `pages:validate`. GitHub Pages is deployed through the official Pages artifact
 and deployment actions with only `contents: read`, `pages: write`, and

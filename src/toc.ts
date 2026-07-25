@@ -7,6 +7,7 @@ import type { TocNode } from "./types.js";
 import { navigateWithCloudflare } from "./browser.js";
 import { BASE_URL, MUNICIPALITY_CODE } from "./constants.js";
 import { flattenToc } from "./utils.js";
+import { isTocShapeValid } from "./scraper_utils.js";
 
 /**
  * Fetch the complete table of contents by navigating to the code page
@@ -20,17 +21,22 @@ export async function fetchToc(page: Page): Promise<TocNode> {
     (resp) => resp.url().includes(`/toc/${MUNICIPALITY_CODE}`) && resp.status() === 200,
     { timeout: 60_000 }
   );
+  // Mark the response promise handled immediately so a navigation failure
+  // cannot leave a delayed timeout rejection unhandled.
+  void tocPromise.catch(() => undefined);
 
-  await navigateWithCloudflare(page, `${BASE_URL}/${MUNICIPALITY_CODE}`);
+  try {
+    await navigateWithCloudflare(page, `${BASE_URL}/${MUNICIPALITY_CODE}`);
 
-  const tocResponse = await tocPromise;
-  tocData = (await tocResponse.json()) as TocNode;
-
-  if (!tocData) {
-    throw new Error("Failed to capture TOC data from API");
+    const tocResponse = await tocPromise;
+    tocData = (await tocResponse.json()) as TocNode;
+    if (!isTocShapeValid(tocData)) {
+      throw new Error("ecode360 returned a malformed or empty TOC payload");
+    }
+    return tocData;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error(String(error));
   }
-
-  return tocData;
 }
 
 // Re-export flattenToc from utils for backward compatibility

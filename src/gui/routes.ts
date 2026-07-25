@@ -5,8 +5,9 @@ import { search, getIndexedCount, type PagedSearchResult } from "./search.js";
 import { createLogger } from "../logger.js";
 import { llmConfig } from "../llm/config.js";
 import { paths } from "../shared/paths.js";
-import { summarizeSourceHealth } from "../shared/source_health.js";
+import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, summarizeSourceHealth } from "../shared/source_health.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
+import { buildAnalyticsOverview, readAnalyticsOverview } from "../analytics_backend.js";
 
 const log = createLogger("routes");
 
@@ -179,6 +180,20 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return jsonWithETag(statsData, req);
     } catch {
       return json({ error: "Manifest not found. Run the scraper first." }, 404);
+    }
+  }
+
+  // GET /api/analytics/overview — shared deterministic analytics envelope.
+  // Prefer the durable weekly artifact; a read-only fallback keeps the local
+  // GUI useful before the first scheduled run without invoking an LLM from a
+  // GET request.
+  if (path === "/api/analytics/overview") {
+    try {
+      const overview = await readAnalyticsOverview() ?? await buildAnalyticsOverview();
+      return jsonWithETag(overview, req);
+    } catch (err: any) {
+      log.error("[analytics] Overview error", { error: err.message });
+      return json({ error: `Failed to build analytics overview: ${err.message}` }, 500);
     }
   }
 
@@ -761,15 +776,16 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         if (Array.isArray(parsed.sources)) sourceHealth.push(...parsed.sources);
       } catch { /* one corrupt diagnostic must not hide the registry */ }
     }
+    const completeHealth = completeSourceHealth(sourceHealth);
     const discovery = existsSync(paths.sourceDiscovery)
       ? (() => { try { return JSON.parse(readFileSync(paths.sourceDiscovery, "utf8")); } catch { return null; } })()
-      : await buildSourceDiscoveryReport({ health: sourceHealth, registry });
+      : await buildSourceDiscoveryReport({ health: completeHealth, registry });
     const payload = {
       schemaVersion: "1.0.0",
       registryFingerprint: await sourceRegistryFingerprint(registry),
       registry,
       discovery,
-      sourceHealth: summarizeSourceHealth(sourceHealth),
+      sourceHealth: summarizeSourceHealth(completeHealth),
     };
     if (url.searchParams.get("format") === "csv") {
       const records = Array.isArray(discovery?.sources) ? discovery.sources : registry.map(source => ({ ...source, operationalStatus: "not-checked", itemCount: 0 }));
@@ -801,6 +817,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         if (Array.isArray(parsed.sources)) sourceHealth.push(...parsed.sources);
       } catch { /* metadata remains available even if one diagnostic is corrupt */ }
     }
+    const completeHealth = completeSourceHealth(sourceHealth);
     return json({
       schemaVersion: "1.0.0",
       generatedAt: new Date().toISOString(),
@@ -821,12 +838,13 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       artifacts: {
         weeklySummary: existsSync(paths.weeklyCheckSummary) ? paths.weeklyCheckSummary : null,
         pipelineRun: existsSync(paths.pipelineRun) ? paths.pipelineRun : null,
+        analyticsOverview: existsSync(paths.analyticsOverview) ? paths.analyticsOverview : null,
         curation: existsSync(paths.curationReport) ? paths.curationReport : null,
         reportMetadata: existsSync(paths.latestReportMetadata) ? paths.latestReportMetadata : null,
         sourceRegistry: existsSync(paths.sourceRegistry) ? paths.sourceRegistry : null,
         sourceDiscovery: existsSync(paths.sourceDiscovery) ? paths.sourceDiscovery : null,
       },
-      sourceHealth: summarizeSourceHealth(sourceHealth),
+      sourceHealth: summarizeSourceHealth(completeHealth),
       sourceCoverage: {
         registryFingerprint: await sourceRegistryFingerprint(),
         registryCount: getSourceRegistry().length,
@@ -911,9 +929,6 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       try {
         const sourceReport = JSON.parse(readFileSync(healthPath, "utf-8"));
         health[`${key}Sources`] = sourceReport.sources ?? [];
-        if ((sourceReport.sources ?? []).some((s: any) => s.status === "unavailable" || s.status === "stale")) {
-          health.status = "degraded";
-        }
       } catch { /* diagnostics never break liveness */ }
     }
 
@@ -921,11 +936,22 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       try {
         const alertHealth = JSON.parse(readFileSync(paths.alertsHealth, "utf-8"));
         health.alertSources = alertHealth.sources ?? [];
-        if ((health.alertSources as any[]).some(s => s.status === "unavailable" || s.status === "stale")) {
-          health.status = "degraded";
-        }
       } catch { /* diagnostics never break liveness */ }
     }
+
+    const allSourceHealth = [
+      health.newsSources,
+      health.meetingsSources,
+      health.youtubeSources,
+      health.triplicateSources,
+      health.alertSources,
+    ].flatMap(rows => Array.isArray(rows) ? rows : []) as import("../types.js").SourceHealth[];
+    const completeHealth = completeSourceHealth(allSourceHealth);
+    const expectedMonitor = new Map(EXPECTED_SOURCE_HEALTH.map(expected => [expected.source, expected.monitor]));
+    for (const monitor of ["news", "meetings", "youtube", "triplicate", "alerts"] as const) {
+      health[`${monitor === "alerts" ? "alert" : monitor}Sources`] = completeHealth.filter(source => expectedMonitor.get(source.source) === monitor);
+    }
+    health.sourceCoverage = summarizeSourceHealth(completeHealth);
 
     return json(health);
   }

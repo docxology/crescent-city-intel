@@ -40,9 +40,13 @@ describe("GET /api/health", () => {
   test("returns 200 with a truthful health status", async () => {
     const res = await fetch(`${BASE}/api/health`);
     expect(res.status).toBe(200);
-    const body = await res.json() as { status: string; timestamp: string };
+    const body = await res.json() as { status: string; timestamp: string; sourceCoverage: { present: number; missing: number; coveragePercent: number; coverageStatus: string } };
     expect(["ok", "degraded"]).toContain(body.status);
     expect(typeof body.timestamp).toBe("string");
+    expect(typeof body.sourceCoverage.present).toBe("number");
+    expect(typeof body.sourceCoverage.missing).toBe("number");
+    expect(typeof body.sourceCoverage.coveragePercent).toBe("number");
+    expect(["complete", "partial", "none"]).toContain(body.sourceCoverage.coverageStatus);
   });
 });
 

@@ -31,15 +31,13 @@ AQI classification:
 Fetches active wildfire incidents from CAL FIRE for Del Norte County and
 surrounding areas (Siskiyou, Humboldt, Trinity).
 
-**Data sources**: `fire.ca.gov/imap/imapdata/all`
+**Data source**: `https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false`
 **Output**: `output/alerts/wildfire/current.json` + `history.jsonl`
 **API endpoint**: `GET /api/alerts/wildfire`
 
-> **Known issue (confirmed 2026-07-23)**: this endpoint currently returns
-> HTTP 403 Forbidden for all requests, including browser `User-Agent`
-> headers — an anti-bot/WAF block on CAL FIRE's side, not a parser bug. The
-> monitor degrades gracefully (no incidents reported) until CAL FIRE's WAF
-> policy changes or an alternate data source is adopted.
+> The retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked. The
+> current official incident JSON endpoint is used instead; a successful query
+> with no matching regional incidents is emitted as `empty`, not unavailable.
 
 Tracked per incident: acres burned, containment %, evacuation orders/warnings,
 structures threatened/destroyed, distance from Crescent City (Haversine).

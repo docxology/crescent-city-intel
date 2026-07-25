@@ -55,7 +55,18 @@ export async function navigateWithCloudflare(
 
   // Wait for Cloudflare Turnstile challenge to resolve
   await page.waitForFunction(
-    () => !document.title.includes("Just a moment"),
+    () => {
+      const title = document.title.toLowerCase();
+      const body = document.body?.innerText?.slice(0, 2000).toLowerCase() ?? "";
+      const challengeWidgetVisible = [...document.querySelectorAll("#challenge-running, .cf-chl-widget")].some((element) => {
+        const style = getComputedStyle(element);
+        return style.display !== "none" && style.visibility !== "hidden" && (element as HTMLElement).offsetWidth > 0;
+      });
+      return !title.includes("just a moment")
+        && !body.includes("checking your browser")
+        && !body.includes("verify you are human")
+        && !challengeWidgetVisible;
+    },
     { timeout }
   );
 
@@ -76,4 +87,3 @@ export async function newPage(): Promise<Page> {
 
   return page;
 }
-

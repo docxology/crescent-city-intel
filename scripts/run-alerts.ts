@@ -23,8 +23,8 @@
 import { monitorNOAATsunamiAlerts } from "../src/alerts/noaa_tsunami.ts";
 import { monitorUSGSEarthquakeAlerts } from "../src/alerts/usgs_earthquake.ts";
 import { monitorNWSWeatherAlerts } from "../src/alerts/nws_weather.ts";
-import { getLastAirQualityError, runAirQualityMonitor } from "../src/alerts/epa_airnow.ts";
-import { getLastWildfireError, runWildfireMonitor } from "../src/alerts/calfire_wildfire.ts";
+import { AIRNOW_PUBLIC_KML_URL, getLastAirQualityError, runAirQualityMonitor } from "../src/alerts/epa_airnow.ts";
+import { CALFIRE_API_URL, getLastWildfireError, runWildfireMonitor } from "../src/alerts/calfire_wildfire.ts";
 import { runMarineMonitor } from "../src/alerts/ndbc_marine.ts";
 import { monitorTides, type TideReport } from "../src/alerts/noaa_tides.ts";
 import { monitorFishing, type FishingReport } from "../src/alerts/cdfw_fishing.ts";
@@ -71,7 +71,9 @@ export function buildFishingInput(report: FishingReport | null): FishingInput {
 if (import.meta.main) {
   const health = await runAllAlertMonitors();
   if (health.some(source => source.status === "unavailable" || source.status === "stale")) {
-    process.exitCode = 1;
+    logger.info("Alert monitors completed with coverage gaps; source states are recorded in output/alerts/source-health.json", {
+      missingSources: health.filter(source => source.status === "unavailable" || source.status === "stale").map(source => source.source),
+    });
   }
 }
 
@@ -197,7 +199,7 @@ const compositeInput = {
   fishing: fishingInput,
   airQuality: {
     maxAqi: airquality?.maxAqi ?? 0,
-    available: isFreshCurrent(airquality),
+    available: isFreshCurrent(airquality) && Array.isArray(airquality?.readings) && airquality.readings.length > 0,
   },
   wildfire: {
     incidentCount: wildfire?.totalIncidents ?? 0,
@@ -236,16 +238,17 @@ const monitorDefinitions: Array<{
   index: number;
   report: any | null;
   itemCount: number;
+  url: string;
   provenance: string;
 }> = [
-  { source: "NOAA Tsunami", index: 0, report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, provenance: "NOAA CAP alerts" },
-  { source: "USGS Earthquake", index: 1, report: earthquake, itemCount: earthquake?.events?.length ?? 0, provenance: "USGS GeoJSON feed" },
-  { source: "NWS Weather", index: 2, report: weather, itemCount: weather?.alerts?.length ?? 0, provenance: "NWS active alerts" },
-  { source: "NOAA Tides", index: 6, report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, provenance: "NOAA CO-OPS station 9419750" },
-  { source: "CDFW Fishing", index: 7, report: fishingReport, itemCount: fishingReport?.bulletins?.length ?? 0, provenance: "CDFW North Coast bulletins" },
-  { source: "EPA AirNow", index: 3, report: airquality, itemCount: airquality?.readings?.length ?? 0, provenance: "EPA AirNow ZIP 95531" },
-  { source: "CAL FIRE Wildfire", index: 4, report: wildfire, itemCount: wildfire?.incidents?.length ?? 0, provenance: "CAL FIRE incident feed" },
-  { source: "NDBC Marine", index: 5, report: marine, itemCount: marine?.observations?.length ?? 0, provenance: "NDBC monitored buoys" },
+  { source: "NOAA Tsunami", index: 0, report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?event=Tsunami+Warning&area=CA", provenance: "NOAA CAP alerts" },
+  { source: "USGS Earthquake", index: 1, report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", provenance: "USGS GeoJSON feed" },
+  { source: "NWS Weather", index: 2, report: weather, itemCount: weather?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?zone=CAZ006", provenance: "NWS active alerts" },
+  { source: "NOAA Tides", index: 6, report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", provenance: "NOAA CO-OPS station 9419750" },
+  { source: "CDFW Fishing", index: 7, report: fishingReport, itemCount: fishingReport?.bulletins?.length ?? 0, url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", provenance: "CDFW North Coast bulletins" },
+  { source: "EPA AirNow", index: 3, report: airquality, itemCount: airquality?.readings?.length ?? 0, url: airquality?.provider === "airnow-public-kml" ? AIRNOW_PUBLIC_KML_URL : "https://www.airnowapi.org/aq/observation/zipCode/current/", provenance: airquality?.provider === "airnow-public-kml" ? "EPA AirNow public KML; keyed ZIP API fallback not required" : "EPA AirNow ZIP 95531 API" },
+  { source: "CAL FIRE Wildfire", index: 4, report: wildfire, itemCount: wildfire?.incidents?.length ?? 0, url: CALFIRE_API_URL, provenance: "CAL FIRE current active-incident JSON feed" },
+  { source: "NDBC Marine", index: 5, report: marine, itemCount: marine?.observations?.length ?? 0, url: "https://www.ndbc.noaa.gov/data/realtime2/", provenance: "NDBC monitored buoys" },
 ];
 
 const alertSources: SourceHealth[] = monitorDefinitions.map(definition => {
@@ -268,6 +271,7 @@ const alertSources: SourceHealth[] = monitorDefinitions.map(definition => {
     checkedAt,
     ...(fetchedAt ? { fetchedAt } : {}),
     itemCount: definition.itemCount,
+    url: definition.url,
     ...(error ? { error } : {}),
     provenance: definition.provenance,
     ...(fetchedAt ? { ageMs: Math.max(0, Date.now() - Date.parse(fetchedAt)) } : {}),

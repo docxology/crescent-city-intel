@@ -57,6 +57,11 @@ export interface ScrapeManifest {
   tocNodeCount: number;
   articlePageCount: number;
   sectionCount: number;
+  /** Fingerprint and provenance for the TOC that defined this run. */
+  tocFingerprint?: string;
+  tocFetchedAt?: string;
+  tocSource?: "live" | "cached";
+  lastRunAt?: string;
   /** Map of article guid → ArticlePage metadata (without rawHtml) */
   articles: Record<string, {
     guid: string;
@@ -65,6 +70,7 @@ export interface ScrapeManifest {
     sectionCount: number;
     sha256: string;
     filePath: string;
+    lastScrapedAt?: string;
   }>;
 }
 
@@ -286,6 +292,17 @@ export interface SourceHealthSummary {
   empty: number;
   unavailable: number;
   stale: number;
+  /** Sources reached successfully, including sources with no matching items. */
+  present: number;
+  /** Sources whose current state could not be established. */
+  missing: number;
+  /** Percentage of source checks with an established current state. */
+  coveragePercent: number;
+  /** Human-readable aggregate coverage state; not a pipeline failure state. */
+  coverageStatus: "complete" | "partial" | "none";
+  presentSources: string[];
+  missingSources: string[];
+  /** Backwards-compatible alias for unavailable + stale. Prefer `missing`. */
   degraded: number;
   sources: string[];
 }

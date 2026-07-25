@@ -18,7 +18,7 @@ Comprehensive project documentation covering architecture, all src/ modules, API
 
 | File | Covers |
 | :--- | :--- |
-| `scraping.md` | `browser.ts`, `toc.ts`, `content.ts`, `scrape.ts` |
+| `scraping.md` | `browser.ts`, `toc.ts`, `content.ts`, `scrape.ts`, `scraper_utils.ts` |
 | `verification.md` | `verify.ts` |
 | `export.md` | `export.ts` |
 | `gui.md` | `server.ts`, `routes.ts`, `search.ts`, `analytics.ts` |

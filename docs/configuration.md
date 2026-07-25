@@ -14,9 +14,9 @@ Hard-coded project constants. Change these to target a different municipality.
 | `ARTICLES_DIR` | `output/articles` | Per-article JSON storage |
 | `RATE_LIMIT_MS` | `2000` | Default ms between scrape requests (env-overridable) |
 | `SCRAPE_TIMEOUT_MS` | `60000` | Cloudflare wait timeout (env-overridable) |
-| `CLOUDFLARE_WAIT_MS` | `3000` | Extra wait after Cloudflare resolves |
-| `SPA_RENDER_MS` | `2000` | SPA render settle time |
-| `MAX_RETRIES` | `3` | Max retry attempts per article |
+| `CLOUDFLARE_WAIT_MS` | `2000` | Extra wait after Cloudflare resolves |
+| `SPA_RENDER_MS` | `1500` | SPA render settle time |
+| `MAX_RETRIES` | `3` | Additional retries after the initial article attempt |
 | `VERIFY_SAMPLE_SIZE` | `5` | Random re-fetch sample for verification |
 | `EMBED_BATCH_SIZE` | `32` | Chunks per Ollama embedding request |
 | `OLLAMA_TIMEOUT_MS` | `30000` | Ollama request timeout |
@@ -39,8 +39,14 @@ Hard-coded project constants. Change these to target a different municipality.
 | `CHAT_MODEL` | `gemma3:4b` | Ollama model for chat/summarization |
 | `LLM_PROVIDER` | `ollama` | Chat provider (`ollama` or `openrouter`) |
 | `OPENROUTER_API_KEY` | unset | Required when using OpenRouter |
+| `OPENROUTER_URL` | `https://openrouter.ai/api/v1` | OpenRouter API base URL |
 | `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
+| `OPENROUTER_MAX_TOKENS` | `1024` | Maximum tokens per OpenRouter completion |
+| `OPENROUTER_MAX_REQUESTS` | `100` | Per-process OpenRouter request cap |
+| `OPENROUTER_TIMEOUT_MS` | `120000` | OpenRouter request timeout |
+| `OPENROUTER_MIN_REQUEST_INTERVAL_MS` | `3100` | Minimum spacing between OpenRouter requests |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Bounded selected-provider health-check timeout |
+| `CURATION_SUMMARY_TIMEOUT_MS` | `15000` | Maximum time for one source summary before source-only fallback |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
 | `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
@@ -64,6 +70,9 @@ Hard-coded project constants. Change these to target a different municipality.
 | :--- | :--- | :--- |
 | `RATE_LIMIT_MS` | `2000` | Inter-request delay |
 | `SCRAPE_TIMEOUT_MS` | `60000` | Cloudflare wait timeout |
+| `CLOUDFLARE_WAIT_MS` | `2000` | Extra wait after the challenge clears |
+| `SPA_RENDER_MS` | `1500` | Wait for ecode360 SPA content to settle |
+| `MAX_RETRIES` | `3` | Additional retries after the initial article attempt |
 
 ## LLM Tuning Parameters (`src/llm/config.ts`)
 

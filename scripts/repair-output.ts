@@ -67,9 +67,8 @@ async function migrateLegacyWeeklySummary(): Promise<void> {
   const startedAt = validTimestamp(legacy.startedAt, migratedAt);
   const completedAt = validTimestamp(legacy.completedAt, migratedAt);
   const exitCode = typeof legacy.exitCode === "number" ? legacy.exitCode : 1;
-  const degradedCount = ["degradedAlerts", "degradedFeeds", "degradedDownstream"]
-    .reduce((total, key) => total + (typeof legacy[key] === "number" ? legacy[key] as number : 0), 0);
-  const status = exitCode >= 2 ? "failed" : exitCode === 1 || degradedCount > 0 ? "degraded" : "ok";
+  // Legacy source-gap counters describe coverage, not a failed pipeline.
+  const status = exitCode >= 2 ? "failed" : "ok";
   const stepStatus = status === "failed" ? "failed" : status === "degraded" ? "degraded" : "ok";
   const runId = createRunId("weekly-check-legacy", startedAt);
   const sources = (await Promise.all([

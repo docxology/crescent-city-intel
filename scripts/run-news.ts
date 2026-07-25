@@ -3,7 +3,8 @@
  * scripts/run-news.ts — Thin orchestrator: local news RSS monitoring.
  *
  * Imports and runs the news monitoring pipeline from src/news_monitor.ts.
- * Fetches Times-Standard, Lost Coast Outpost, Humboldt Times, and KIEM-TV feeds
+ * Fetches current Times-Standard, North Coast, Humboldt County, Redwood News,
+ * and Redwood Voice feeds (with bounded API/HTML fallbacks)
  * and saves relevant items to output/news/.
  *
  * Usage:
@@ -41,12 +42,12 @@ try {
   const report = JSON.parse(await readFile(paths.newsHealth, "utf-8")) as { sources?: Array<{ source: string; status: string }> };
   health = report.sources ?? [];
 } catch { /* monitor already logged the fetch failure */ }
-const degraded = health.filter(source => source.status === "unavailable" || source.status === "stale");
+const missing = health.filter(source => source.status === "unavailable" || source.status === "stale");
 logger.info(`News monitoring complete: ${items.length} new relevant item(s) saved to output/news/`, {
   sourceHealth: health.map(source => `${source.source}:${source.status}`),
 });
-if (degraded.length > 0) {
-  logger.warn(`${degraded.length} news source(s) are unavailable or stale`, {
-    sources: degraded.map(source => source.source),
+if (missing.length > 0) {
+  logger.warn(`${missing.length} news source(s) are unavailable or stale; this is recorded as a coverage gap, not a failed run`, {
+    sources: missing.map(source => source.source),
   });
 }

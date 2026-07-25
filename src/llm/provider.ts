@@ -5,6 +5,12 @@ import { chat as openrouterChat, checkOpenRouterHealth, isOpenRouterConfigured }
 
 export type ChatProvider = "ollama" | "openrouter";
 
+export interface ChatRequestOptions {
+  signal?: AbortSignal;
+  /** Override the default municipal-code system prompt for other bounded tasks. */
+  systemPrompt?: string;
+}
+
 export function configuredChatProvider(): ChatProvider {
   return llmConfig.provider;
 }
@@ -18,11 +24,12 @@ export async function chatWithProvider(
   messages: ChatMessage[],
   context?: string,
   modelOverride?: string,
+  options?: ChatRequestOptions,
 ): Promise<string> {
   if (llmConfig.provider === "openrouter") {
-    return openrouterChat(messages, context, modelOverride);
+    return openrouterChat(messages, context, modelOverride, options);
   }
-  return ollamaChat(messages, context, modelOverride);
+  return ollamaChat(messages, context, modelOverride, options);
 }
 
 export interface ProviderHealth {

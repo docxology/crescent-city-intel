@@ -267,6 +267,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/analytics/overview:
+    get:
+      summary: Get the shared cross-surface analytics overview
+      description: Returns the deterministic evidence envelope used by the local GUI and the public Pages export, including source boundaries, alert signals, content counts, pipeline metadata, and optional provider-labeled executive summarization.
+      operationId: getAnalyticsOverview
+      tags:
+        - Analytics
+      responses:
+        '200':
+          description: Analytics overview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, generatedAt, inputFingerprint, status, headline, summary, metrics, signals, llm]
+                properties:
+                  schemaVersion: {type: string, example: "1.0.0"}
+                  generatedAt: {type: string, format: date-time}
+                  inputFingerprint: {type: string, minLength: 64, maxLength: 64}
+                  status: {type: string, enum: [ok, degraded, unavailable]}
+                  headline: {type: string}
+                  summary: {type: string}
+                  metrics: {type: object}
+                  signals: {type: array, items: {type: object}}
+                  llm: {type: object}
+        '500':
+          description: Analytics overview could not be built
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/analytics/embeddings:
     get:
       summary: Get embedding projections for visualization

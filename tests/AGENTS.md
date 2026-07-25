@@ -28,6 +28,8 @@ bun test --watch      # Watch mode
 | `llm-openrouter.test.ts` | `src/llm/openrouter.ts` — local chat, SSE, cap, and preflight fixtures |
 | `search*.test.ts` | `src/gui/search.ts` — BM25, stop words, synonyms, and severity |
 | `analytics.test.ts` | `src/gui/analytics.ts` — PCA and K-means |
+| `analytics-backend.test.ts` | `src/analytics_backend.ts` — shared overview stability, signals, and small-index analytics |
+| `manuscript.test.ts` | `src/manuscript_variables.ts` — publication values derive from the analytics envelope |
 | `routes*.test.ts` | `src/gui/routes.ts` — route contracts and real server integration |
 | `gui-server.test.ts` | `src/gui/server.ts` — trusted local API-key injection boundary |
 | `embeddings.test.ts` | `src/llm/embeddings.ts` — deterministic chunking |
@@ -44,7 +46,7 @@ bun test --watch      # Watch mode
 | `ndbc-parser.test.ts` | `src/alerts/ndbc_marine.ts` — line parsing, units, and severity |
 | `run-alerts.test.ts` | `scripts/run-alerts.ts` — real report-to-severity mappings |
 | `comprehensive-edges.test.ts` | Cross-module boundary and edge cases |
-| `scraper_utils.test.ts` | `src/scrape.ts` / `src/browser.ts` — resume and manifest utilities |
+| `scraper_utils.test.ts` | `src/scraper_utils.ts` — TOC/artifact validation, retry, and manifest utilities |
 | `fuzzy.test.ts` | `src/shared/fuzzy.ts` — Levenshtein and typo correction |
 | `legal_parser.test.ts` | `src/legal_parser.ts` — citations, definitions, and ordinances |
 | `structured_queries.test.ts` | `src/structured_queries.ts` — legislative history and similarity |

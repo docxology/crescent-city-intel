@@ -32,7 +32,7 @@ export const CLOUDFLARE_WAIT_MS = envInt("CLOUDFLARE_WAIT_MS", 2000);
 /** Wait for SPA content render after navigation (ms) — env: SPA_RENDER_MS */
 export const SPA_RENDER_MS = envInt("SPA_RENDER_MS", 1500);
 
-/** Maximum retry attempts for failed articles — env: MAX_RETRIES */
+/** Additional retries after the initial article attempt — env: MAX_RETRIES */
 export const MAX_RETRIES = envInt("MAX_RETRIES", 3);
 
 // ─── Verifier configuration ─────────────────────────────────────

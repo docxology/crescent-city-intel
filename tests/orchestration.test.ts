@@ -4,7 +4,7 @@ import {
   createRunId,
   executePipelineStep,
 } from "../src/shared/orchestration.ts";
-import { sourceHealth, summarizeSourceHealth } from "../src/shared/source_health.ts";
+import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, sourceHealth, summarizeSourceHealth } from "../src/shared/source_health.ts";
 
 describe("orchestration and metadata contracts", () => {
   test("source health derives freshness without changing operational status", () => {
@@ -20,7 +20,7 @@ describe("orchestration and metadata contracts", () => {
     expect(health.freshnessWindowMs).toBe(60_000);
   });
 
-  test("summary counts unavailable and stale sources as degraded", () => {
+  test("summary distinguishes present coverage from missing sources", () => {
     const sources = [
       sourceHealth("Healthy", "ok", new Date().toISOString(), { itemCount: 1 }),
       sourceHealth("Empty", "empty", new Date().toISOString()),
@@ -28,8 +28,22 @@ describe("orchestration and metadata contracts", () => {
       sourceHealth("Old", "stale", new Date().toISOString(), { error: "fixture" }),
     ];
     const summary = summarizeSourceHealth(sources, "2026-07-24T12:00:00.000Z");
-    expect(summary).toMatchObject({ total: 4, ok: 1, empty: 1, unavailable: 1, stale: 1, degraded: 2 });
+    expect(summary).toMatchObject({ total: 4, ok: 1, empty: 1, unavailable: 1, stale: 1, present: 2, missing: 2, coveragePercent: 50, coverageStatus: "partial", degraded: 2 });
+    expect(summary.presentSources).toEqual(["Empty", "Healthy"]);
+    expect(summary.missingSources).toEqual(["Down", "Old"]);
     expect(summary.sources).toEqual(["Down", "Empty", "Healthy", "Old"]);
+  });
+
+  test("completion names absent monitor records without changing empty semantics", () => {
+    const checkedAt = "2026-07-24T12:00:00.000Z";
+    const completed = completeSourceHealth([
+      sourceHealth("NOAA Tsunami", "empty", checkedAt),
+    ], checkedAt);
+    expect(completed).toHaveLength(EXPECTED_SOURCE_HEALTH.length);
+    expect(completed.find(source => source.source === "NOAA Tsunami")?.status).toBe("empty");
+    const missing = completed.find(source => source.source === "Times-Standard");
+    expect(missing?.status).toBe("unavailable");
+    expect(missing?.error).toContain("No news source-health record");
   });
 
   test("pipeline step preserves duration and retryable failure evidence", async () => {
@@ -49,7 +63,7 @@ describe("orchestration and metadata contracts", () => {
     expect(failure.report.error).toBe("retry me");
   });
 
-  test("run envelope is degraded when source health is unavailable", () => {
+  test("run envelope remains operational when a source is unavailable", () => {
     const startedAt = "2026-07-24T12:00:00.000Z";
     const report = buildPipelineRun(
       "fixture",
@@ -67,8 +81,10 @@ describe("orchestration and metadata contracts", () => {
       "2026-07-24T12:00:01.000Z",
     );
     expect(report.schemaVersion).toBe("1.0.0");
-    expect(report.status).toBe("degraded");
+    expect(report.status).toBe("ok");
     expect(report.sourceHealth.degraded).toBe(1);
+    expect(report.sourceHealth.present).toBe(0);
+    expect(report.sourceHealth.missing).toBe(1);
     expect(report.metadata.runtime).toContain("bun/");
   });
 });

@@ -253,7 +253,9 @@ All tests run offline. Zero-mock policy: real data, real modules.
 
 - Cloudflare Turnstile timing can vary; scraper may need retries
 - ecode360 content changes not auto-detected (re-scrape to update)
-- CAL FIRE wildfire API (`fire.ca.gov/imap/imapdata/all`) currently returns HTTP 403 Forbidden for all requests, including browser `User-Agent` headers — confirmed 2026-07-23 as an anti-bot/WAF block on CAL FIRE's end, not a parser or response-format issue; the monitor degrades gracefully
+- CAL FIRE's retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked; the monitor now uses the current official incident JSON endpoint (`incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false`) and reports a successful no-match regional result as `empty`
+- News fallbacks: Times-Standard uses its WordPress REST API when the retired RSS path fails; KIEM/NBC 3 is collected from the current Redwood News/TownNews RSS feed with bounded retry and HTML listing fallback; the historical Humboldt Times has no current standalone feed and is represented by explicit current Humboldt County official-news coverage instead
+- Source gaps are coverage metadata, not pipeline failure: `ok` and `empty` count as present; `unavailable` and `stale` count as missing. GUI, Pages, analytics, and pipeline envelopes expose present/missing counts, percentage coverage, names, and reasons.
 - Government meeting tracker uses the live EvoGov JSON endpoint at `crescentcity.org/meetings/get_list`; City Council and Planning Commission were healthy in the 2026-07-24 smoke run, while Harbor Commission has no matching records and is reported as `empty` source health.
 - NDBC buoy data may have gaps (stations go offline for maintenance)
 - AirNow API requires free API key

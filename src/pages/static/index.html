@@ -105,6 +105,7 @@
           <h2>Find the local signal, then follow the evidence.</h2>
           <p>Choose a destination to explore local reporting, LLM-summarized items with citations, public meeting records, the municipal code, live safety monitors, analytics, and downloadable structured data.</p>
           <div id="welcome-status" class="welcome-status" role="status">Loading snapshot status…</div>
+          <div id="welcome-summary" class="banner" style="margin-top:14px">Loading the current analytical signal…</div>
         </div>
         <div class="welcome-section-title">Explore this snapshot</div>
         <div class="welcome-grid">
@@ -131,6 +132,7 @@
       <div id="cards" class="grid"></div>
       <p id="provenance" class="subtle"></p>
       <div id="metadata" class="banner" style="margin-top:12px"></div>
+      <div id="overview-summary" class="banner" style="margin-top:12px"></div>
       <div class="banner data-contract" style="margin-top:12px">
         <strong>Structured snapshot outputs</strong>
         <div class="meta">Download the exact public data envelope or its bounded component artifacts. These files preserve status, timestamps, provenance, and source policy.</div>
@@ -139,6 +141,7 @@
           <a class="button" href="data/source-health.json" download>Health JSON</a>
           <a class="button" href="data/source-registry.json" download>Registry JSON</a>
           <a class="button" href="data/source-discovery.json" download>Discovery JSON</a>
+          <span id="analytics-download"></span>
           <button id="download-snapshot" class="button secondary" type="button">Download current envelope</button>
           <button id="copy-fingerprint" class="button secondary" type="button">Copy registry fingerprint</button>
           <span id="structured-state" class="meta" role="status"></span>
@@ -206,13 +209,35 @@
       const run = snapshot.report && snapshot.report.pipelineRun;
       const report = snapshot.report && snapshot.report.metadata;
       const discovery = snapshot.sourceDiscovery || {};
-      $("metadata").innerHTML = `<strong>Lineage and runtime metadata</strong><div class="meta">${esc(summary.total ?? 0)} health records · ${esc(summary.degraded ?? 0)} unavailable/stale · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${run ? `pipeline ${esc(run.status || "unknown")} (${esc(run.runId || "unidentified")})` : "no pipeline manifest"}</div>${curation ? `<div class="meta">Curation: ${esc(curation.provider || "unknown")}/${esc(curation.model || "unknown")} · ${esc(curation.succeededCount ?? 0)} successful · ${esc(curation.retryableCount ?? 0)} retryable</div>` : ""}${report ? `<div class="meta">Report period: ${esc(report.period || "unknown")} · ${esc(report.status || "unknown")}</div>` : ""}`;
+      const analytics = snapshot.analytics;
+      $("metadata").innerHTML = `<strong>Lineage and runtime metadata</strong><div class="meta">${esc(summary.present ?? (summary.total ?? 0) - (summary.missing ?? summary.degraded ?? 0))}/${esc(summary.total ?? 0)} source checks present · ${esc(summary.coveragePercent ?? 0)}% coverage · ${esc(summary.missing ?? summary.degraded ?? 0)} unavailable/stale · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${run ? `pipeline ${esc(run.status || "unknown")} (${esc(run.runId || "unidentified")})` : "no pipeline manifest"}</div>${curation ? `<div class="meta">Curation: ${esc(curation.provider || "unknown")}/${esc(curation.model || "unknown")} · ${esc(curation.succeededCount ?? 0)} successful · ${esc(curation.retryableCount ?? 0)} retryable</div>` : ""}${report ? `<div class="meta">Report period: ${esc(report.period || "unknown")} · ${esc(report.status || "unknown")}</div>` : ""}${analytics ? `<div class="meta">Analytics fingerprint: ${esc(analytics.inputFingerprint.slice(0, 16))}… · executive summary ${esc(analytics.llm.status)} via ${esc(analytics.llm.provider)}/${esc(analytics.llm.model)}</div>` : ""}`;
+    }
+
+    function renderAnalytics(snapshot) {
+      const overview = snapshot.analytics;
+      if (!overview) {
+        $("welcome-summary").innerHTML = "<strong>Analytical overview unavailable.</strong><div class=\"meta\">Inspect Source health and the pipeline artifacts before interpreting this snapshot.</div>";
+        $("overview-summary").innerHTML = "<strong>No shared analytics artifact was published.</strong> Run the weekly pipeline or `bun run analytics` before exporting Pages.";
+        return;
+      }
+      const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 5) : [];
+      const healthSummary = snapshot.healthSummary || {};
+      const metadataLine = document.querySelector("#metadata .meta");
+      if (metadataLine) metadataLine.textContent = `${healthSummary.present ?? (healthSummary.total ?? 0) - (healthSummary.missing ?? healthSummary.degraded ?? 0)}/${healthSummary.total ?? 0} source checks present · ${healthSummary.coveragePercent ?? 0}% coverage · ${healthSummary.missing ?? healthSummary.degraded ?? 0} unavailable/stale · ${snapshot.sourceDiscovery?.sourceCount ?? snapshot.sourceRegistry?.length ?? 0} discovered sources`;
+      const signalHtml = signals.length ? `<ul>${signals.map(signal => `<li><strong>${esc(signal.title)}</strong> — ${esc(signal.detail)} <span class=\"meta\">Next: ${esc(signal.nextStep)}</span></li>`).join("")}</ul>` : "<div class=\"meta\">No warning signals were recorded. Empty feeds remain distinct from unavailable feeds.</div>";
+      $("welcome-summary").innerHTML = `<strong>${esc(overview.headline)}</strong><div style=\"margin-top:6px\">${esc(overview.summary)}</div><div class=\"meta\" style=\"margin-top:8px\">${esc(overview.llm.status === "ok" ? `LLM summary · ${overview.llm.provider}/${overview.llm.model}` : `Deterministic summary · LLM ${overview.llm.status}`)} · evidence ${esc(overview.inputFingerprint.slice(0, 16))}…</div>`;
+      $("overview-summary").innerHTML = `<strong>${esc(overview.entryPoint.title)}</strong><div style=\"margin-top:6px\">${esc(overview.entryPoint.startHere)}</div><div class=\"meta\" style=\"margin-top:6px\">${esc(overview.entryPoint.interpretation)}</div><div class=\"grid\" style=\"margin-top:12px\"><div><strong>${esc(overview.metrics.code.sections)}</strong><div class=\"meta\">code sections</div></div><div><strong>${esc(overview.metrics.content.curated)}</strong><div class=\"meta\">LLM briefs</div></div><div><strong>${esc(overview.metrics.alerts.totalEvents)}</strong><div class=\"meta\">alert events</div></div><div><strong>${esc(overview.metrics.sources.missing)}</strong><div class=\"meta\">unavailable/stale</div></div></div><div style=\"margin-top:12px\">${signalHtml}</div>`;
+      $("analytics-download").innerHTML = snapshot.files?.analyticsOverview ? `<a class=\"button\" href=\"${esc(snapshot.files.analyticsOverview)}\" download>Analytics JSON</a>` : "";
     }
     function renderWelcome(snapshot) {
       const summary = snapshot.healthSummary || {};
       const discovery = snapshot.sourceDiscovery || {};
       const provider = snapshot.report?.curation?.provider || "provider state in metadata";
-      $("welcome-status").innerHTML = `${status(snapshot.status)} · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${esc(summary.degraded ?? 0)} unavailable/stale health records · curation ${esc(provider)} · generated ${esc(date(snapshot.generatedAt))}`;
+      $("welcome-status").innerHTML = `${status(snapshot.status)} · ${esc(discovery.sourceCount ?? snapshot.sourceRegistry?.length ?? 0)} discovered sources · ${esc(summary.present ?? (summary.total ?? 0) - (summary.missing ?? summary.degraded ?? 0))}/${esc(summary.total ?? 0)} source checks present (${esc(summary.coveragePercent ?? 0)}%); ${esc(summary.missing ?? summary.degraded ?? 0)} unavailable/stale · curation ${esc(provider)} · generated ${esc(date(snapshot.generatedAt))}`;
+      const sourceMetrics = snapshot.analytics?.metrics?.sources;
+      const overviewGrid = document.querySelector("#overview-summary .grid");
+      const sourceCard = overviewGrid?.lastElementChild;
+      if (sourceCard && sourceMetrics) sourceCard.innerHTML = `<strong>${esc(sourceMetrics.present ?? (sourceMetrics.total - (sourceMetrics.missing ?? sourceMetrics.degraded ?? 0)))}/${esc(sourceMetrics.total)}</strong><div class="meta">source checks present · ${esc(sourceMetrics.coveragePercent ?? 0)}% · ${esc(sourceMetrics.missing ?? sourceMetrics.degraded ?? 0)} missing</div>`;
     }
     function registryRecords(snapshot) {
       const discovery = snapshot.sourceDiscovery || {};
@@ -277,8 +302,8 @@
         const snapshot = await load("data/snapshot.json");
         state.snapshot = snapshot;
         $("banner").className = `banner ${esc(snapshot.status)}`;
-        $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "Some sources are unavailable or stale; inspect Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below."}`;
-        renderWelcome(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
+        $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "The export pipeline reported a failure; inspect pipeline metadata and Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below; empty is a successful check with no matching records."}`;
+        renderWelcome(snapshot); renderAnalytics(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
         if (snapshot.files && snapshot.files.code) { try { renderCode(await load(snapshot.files.code)); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
         $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre>${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
       } catch (error) {

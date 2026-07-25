@@ -2,6 +2,7 @@
 import type { ChatMessage } from "../types.js";
 import { llmConfig } from "./config.js";
 import { createLogger } from "../logger.js";
+import type { ChatRequestOptions } from "./provider.js";
 
 const log = createLogger("openrouter");
 
@@ -9,6 +10,7 @@ type OpenRouterRequestOptions = {
   baseUrl?: string;
   apiKey?: string;
   signal?: AbortSignal;
+  systemPrompt?: string;
 };
 
 export interface OpenRouterHealthCheck {
@@ -119,8 +121,8 @@ function incrementRequestCount(): void {
   openRouterRequestCount = nextRequestCount;
 }
 
-function buildMessages(messages: ChatMessage[], context?: string): ChatMessage[] {
-  const systemPrompt =
+function buildMessages(messages: ChatMessage[], context?: string, systemPromptOverride?: string): ChatMessage[] {
+  const systemPrompt = systemPromptOverride ??
     "You are a helpful assistant that answers questions about the Crescent City Municipal Code. " +
     "Use only the provided context to answer. Cite section numbers when possible. " +
     "If the context doesn't contain enough information, say so.";
@@ -140,13 +142,13 @@ export async function chat(
   messages: ChatMessage[],
   context?: string,
   modelOverride?: string,
-  options?: OpenRouterRequestOptions
+  options?: OpenRouterRequestOptions & ChatRequestOptions,
 ): Promise<string> {
   const apiKey = resolveApiKey(options?.apiKey);
   incrementRequestCount();
 
   const model = modelOverride ?? llmConfig.openrouterModel;
-  const fullMessages = buildMessages(messages, context);
+  const fullMessages = buildMessages(messages, context, options?.systemPrompt);
 
   const base = options?.baseUrl ?? llmConfig.openrouterUrl;
   log.debug(`Chat request to ${model}`, { messageCount: String(fullMessages.length) });

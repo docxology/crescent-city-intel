@@ -73,7 +73,7 @@ export async function getCodeStats(): Promise<CodeStats> {
     const titleBreakdown = [...titleMap.values()].sort((a, b) => {
         const aNum = parseInt(a.title.replace(/\D/g, ""), 10) || 999;
         const bNum = parseInt(b.title.replace(/\D/g, ""), 10) || 999;
-        return aNum - bNum;
+        return aNum - bNum || a.title.localeCompare(b.title);
     });
 
     // Section word counts for top/bottom lists
@@ -83,7 +83,7 @@ export async function getCodeStats(): Promise<CodeStats> {
         guid: s.guid,
         words: s.text.split(/\s+/).filter(Boolean).length,
     }));
-    sectionWords.sort((a, b) => b.words - a.words);
+    sectionWords.sort((a, b) => b.words - a.words || a.number.localeCompare(b.number) || a.guid.localeCompare(b.guid));
 
     const totalWords = sectionWords.reduce((s, x) => s + x.words, 0);
 
@@ -192,8 +192,9 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
     // Compute top N principal components via power iteration
     const pcs: { vector: Float64Array; eigenvalue: number }[] = [];
     let currentData = centered;
+    const pcCount = Math.min(NUM_PCS, dim, Math.max(1, n));
 
-    for (let k = 0; k < NUM_PCS; k++) {
+    for (let k = 0; k < pcCount; k++) {
         const pc = powerIteration(currentData, dim, null); // Deflation handled by update step below
         pcs.push(pc);
 
@@ -220,8 +221,8 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
 
     // Scan PC1 (index 0) and PC2 (index 1) range
     for (const scores of projectionScores) {
-        const x = scores[0];
-        const y = scores[1];
+        const x = scores[0] ?? 0;
+        const y = scores[1] ?? 0;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -231,12 +232,12 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
     const rangeY = maxY - minY || 1;
 
     // Perform K-Means clustering
-    const k = 6;
+    const k = Math.min(6, Math.max(1, n));
     const { assignments } = kmeans(projectionScores, k);
 
     const points: EmbeddingPoint[] = projectionScores.map((scores, i) => ({
-        x: (scores[0] - minX) / rangeX * 2 - 1, // Default X (PC1)
-        y: (scores[1] - minY) / rangeY * 2 - 1, // Default Y (PC2)
+        x: ((scores[0] ?? 0) - minX) / rangeX * 2 - 1, // Default X (PC1)
+        y: ((scores[1] ?? 0) - minY) / rangeY * 2 - 1, // Default Y (PC2)
         projections: scores,
         guid: metas[i]?.sectionGuid ?? "",
         sectionNumber: metas[i]?.sectionNumber ?? "",
@@ -261,14 +262,16 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
 
 export function kmeans(data: number[][], k: number, maxIter = 50): { centroids: number[][]; assignments: number[] } {
     const n = data.length;
-    const dim = data[0].length;
+    if (n === 0 || k <= 0) return { centroids: [], assignments: [] };
+    const dim = data[0]?.length ?? 0;
+    if (dim === 0) return { centroids: [], assignments: Array(n).fill(0) };
+    const clusterCount = Math.min(Math.max(1, Math.floor(k)), n);
 
-    // Initialize centroids (kmeans++ style would be better, but random sample is okay for now)
-    // We'll deterministically pick evenly spaced points to be stable
+    // Initialize centroids with evenly spaced observations for a stable run.
     const centroids: number[][] = [];
-    const step = Math.floor(n / k);
-    for (let i = 0; i < k; i++) {
-        centroids.push([...data[i * step]]);
+    const step = Math.max(1, Math.floor(n / clusterCount));
+    for (let i = 0; i < clusterCount; i++) {
+        centroids.push([...data[Math.min(i * step, n - 1)]]);
     }
 
     const assignments = new Uint8Array(n);
@@ -285,7 +288,7 @@ export function kmeans(data: number[][], k: number, maxIter = 50): { centroids: 
             let bestCluster = 0;
             const point = data[i];
 
-            for (let j = 0; j < k; j++) {
+            for (let j = 0; j < clusterCount; j++) {
                 // Euclidean distance squared
                 let dist = 0;
                 const centroid = centroids[j];
@@ -307,8 +310,8 @@ export function kmeans(data: number[][], k: number, maxIter = 50): { centroids: 
         }
 
         // Update centroids
-        const sums = Array.from({ length: k }, () => new Float64Array(dim));
-        const counts = new Int32Array(k);
+        const sums = Array.from({ length: clusterCount }, () => new Float64Array(dim));
+        const counts = new Int32Array(clusterCount);
 
         for (let i = 0; i < n; i++) {
             const cluster = assignments[i];
@@ -319,7 +322,7 @@ export function kmeans(data: number[][], k: number, maxIter = 50): { centroids: 
             }
         }
 
-        for (let j = 0; j < k; j++) {
+        for (let j = 0; j < clusterCount; j++) {
             if (counts[j] > 0) {
                 for (let d = 0; d < dim; d++) {
                     centroids[j][d] = sums[j][d] / counts[j];
@@ -354,10 +357,13 @@ export function powerIteration(
 ): { vector: Float64Array; eigenvalue: number } {
     const n = data.length;
 
-    // Initialize random unit vector
+    if (data.length === 0 || dim <= 0) return { vector: new Float64Array(Math.max(0, dim)), eigenvalue: 0 };
+
+    // A deterministic start keeps identical embedding indexes identical.
     let v = new Float64Array(dim);
-    for (let j = 0; j < dim; j++) v[j] = Math.random() - 0.5;
+    for (let j = 0; j < dim; j++) v[j] = j % 2 === 0 ? 1 : -1;
     let n_v = norm(v);
+    if (n_v === 0) return { vector: v, eigenvalue: 0 };
     for (let j = 0; j < dim; j++) v[j] /= n_v;
 
     let eigenvalue = 0;
@@ -377,9 +383,18 @@ export function powerIteration(
         }
 
         eigenvalue = norm(v_new);
-        if (eigenvalue === 0) break;
+        if (eigenvalue === 0) {
+            v.fill(0);
+            break;
+        }
 
         for (let j = 0; j < dim; j++) v[j] = v_new[j] / eigenvalue;
+    }
+
+    // Eigenvectors have an arbitrary sign; canonicalize it for stable axes.
+    const firstNonZero = Array.from(v).find(value => Math.abs(value) > 1e-12);
+    if (firstNonZero !== undefined && firstNonZero < 0) {
+        for (let j = 0; j < dim; j++) v[j] *= -1;
     }
 
     return { vector: v, eigenvalue };
@@ -411,7 +426,7 @@ export function computeWordLoadings(
     pcs: any[] // Needed? No, just the scores
 ): WordLoading[] {
     const n = docs.length;
-    if (n === 0) return [];
+    if (n === 0 || projections.length === 0 || !projections[0]?.length) return [];
 
     // Build vocabulary: count term occurrences across docs
     const vocab = new Map<string, number>(); // word → doc count

@@ -16,7 +16,12 @@ Lightweight `Bun.serve()` server on port 3000 (configurable via `PORT` env var).
 
 All API endpoints return JSON with CORS headers (`Access-Control-Allow-Origin: *`).
 
-LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade gracefully: if the selected chat provider, Ollama embeddings, or ChromaDB are unavailable they return `503 Service Unavailable` rather than crashing. `/api/health` reports `ok` or `degraded`, runs a bounded selected-provider preflight, exposes chat/embedding/vector-store metadata, and includes per-source health; an unavailable feed is never rendered as calm.
+LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade gracefully: if the selected chat provider, Ollama embeddings, or ChromaDB are unavailable they return `503 Service Unavailable` rather than crashing. `/api/health` reports dependency status separately from `sourceCoverage`, which contains present/missing counts and named source records. An unavailable feed is never rendered as calm, and a missing feed does not make liveness `degraded` by itself.
+
+The GUI uses the same 19-source health contract as the Pages exporter. If a
+monitor has not emitted a health record, `/api/health`, `/api/metadata`, and
+`/api/sources` expose a named unavailable coverage record rather than treating
+the missing row as evidence that the source was checked.
 
 ### Endpoints
 
@@ -34,6 +39,7 @@ LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade
 | GET | `/api/sources` | Canonical source registry and discovery joins; add `?format=csv` for a flat download |
 | GET | `/api/source-discovery` | Fingerprinted source coverage report and explicit gaps |
 | GET | `/api/chat?q=...` | RAG query (requires Ollama + ChromaDB) |
+| GET | `/api/analytics/overview` | Shared deterministic cross-surface overview: current signal, source gaps, alerts, content counts, pipeline metadata, and optional LLM executive summary |
 | GET | `/api/analytics/stats` | Code statistics (word counts, title breakdown) |
 | GET | `/api/analytics/embeddings` | PCA projection of embedding vectors |
 | POST | `/api/summarize` | AI-generated section summary body: `{text, number, title}` |
@@ -77,7 +83,18 @@ Results sorted by total match count descending.
 
 ## `src/gui/analytics.ts` — Analytics Engine
 
-Server-side computation of municipal code statistics and PCA embedding projections.
+Server-side computation of municipal code statistics and PCA embedding projections. PCA starts and K-Means initialization are deterministic, including small or partially indexed collections, so repeated exports are comparable.
+
+## `src/analytics_backend.ts` — Shared Overview
+
+`bun run analytics` writes `output/state/analytics-overview.json`. The weekly
+pipeline writes the same artifact after monitors, curation, source discovery,
+and reporting complete. It is the canonical entry point for interpretation:
+deterministic metrics and warning signals remain available when the selected
+LLM provider is unavailable, while a successful executive summary records its
+provider, model, prompt version, and evidence fingerprint. Unavailable and
+stale sources are explicit warnings; empty alert feeds are never rewritten as
+calm.
 
 ### Exports
 

@@ -6,6 +6,7 @@ import {
   exportPagesSnapshot,
   validatePagesSource,
 } from "../src/pages_snapshot.ts";
+import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
 
 async function put(root: string, relative: string, value: unknown): Promise<void> {
   const path = join(root, relative);
@@ -35,8 +36,11 @@ describe("public Pages snapshot", () => {
       await put(root, "alerts/composite/current.json", { level: "WARNING", assessedAt: "2026-07-24T00:00:00Z", reason: "Fixture" });
 
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
-      expect(snapshot.status).toBe("degraded");
+      expect(snapshot.status).toBe("ok");
+      expect(snapshot.healthSummary.present).toBe(1);
+      expect(snapshot.healthSummary.missing).toBeGreaterThan(1);
       expect(snapshot.sourceHealth.map(source => source.status)).toContain("unavailable");
+      expect(snapshot.healthSummary.missingSources).toContain("Times-Standard");
       expect(snapshot.sourceRegistry.length).toBeGreaterThan(30);
       expect(snapshot.sourceRegistryFingerprint).toMatch(/^[a-f0-9]{64}$/);
       expect(snapshot.sourceDiscovery?.sourceCount).toBe(snapshot.sourceRegistry.length);
@@ -68,8 +72,19 @@ describe("public Pages snapshot", () => {
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.status).toBe("unavailable");
       expect(snapshot.municipalCode.available).toBe(false);
-      expect(snapshot.sourceHealth).toEqual([]);
+      expect(snapshot.sourceHealth.length).toBeGreaterThan(0);
+      expect(snapshot.healthSummary.missing).toBe(snapshot.sourceHealth.length);
       expect(snapshot.files.code).toBeNull();
+    });
+  });
+
+  test("keeps a genuine pipeline failure distinct from source coverage gaps", async () => {
+    await withFixture(async root => {
+      await put(root, "crescent-city-code.json", { articles: [] });
+      await put(root, "state/latest-pipeline-run.json", { status: "failed", runId: "fixture-run" });
+      const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
+      expect(snapshot.status).toBe("degraded");
+      expect(snapshot.healthSummary.missing).toBe(EXPECTED_SOURCE_HEALTH.length);
     });
   });
 });

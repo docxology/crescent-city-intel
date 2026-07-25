@@ -18,9 +18,9 @@
  *   bun run curate
  */
 import { createLogger } from './logger.js';
-import { IdempotencyStore } from './shared/idempotency.js';
+import { IdempotencyStore, type IdempotencyRecord } from './shared/idempotency.js';
 import { llmConfig } from './llm/config.js';
-import { chatWithProvider, checkChatProvider } from './llm/provider.js';
+import { chatWithProvider, checkChatProvider, configuredChatModel, type ChatProvider } from './llm/provider.js';
 import { domains } from './domains.js';
 import { mkdir, open, readFile, readdir, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -109,7 +109,40 @@ export interface SummaryResult {
   retryable: boolean;
 }
 
+/** Only a successful, lineage-complete summary may suppress future work. */
+export function isCurationRecordComplete(
+  record: IdempotencyRecord | undefined,
+  expectedHash: string,
+  provider: ChatProvider,
+  model: string,
+): boolean {
+  return Boolean(
+    record?.hash
+      && record.hash === expectedHash
+      && record.meta?.promptVersion === CURATION_PROMPT_VERSION
+      && record.meta?.provider === provider
+      && record.meta?.model === model
+      && record.meta?.summaryStatus === 'ok',
+  );
+}
+
+/** Deterministically replace visible records by source id without append-only duplicates. */
+export function mergeCuratedItems(existing: CuratedItem[], incoming: CuratedItem[]): CuratedItem[] {
+  const replacements = new Map<string, CuratedItem>();
+  for (const item of incoming) replacements.set(item.id, item);
+  return [...existing.filter(item => !replacements.has(item.id)), ...replacements.values()];
+}
+
 export const CURATION_PROMPT_VERSION = '2026-07-24-grounded-v2';
+const SUMMARY_MAX_CHARS = 900;
+const CURATION_SYSTEM_PROMPT =
+  'You are a source-grounded civic-news editor. Summarize only the supplied public source excerpt. ' +
+  'Do not answer municipal-code questions, infer missing facts, add a cause, identify a person, or invent a date, location, agency, or outcome. ' +
+  'Return plain text in at most two concise sentences with no heading, bullets, markdown, or preamble.';
+
+function normalizeSourceText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
 
 /** Build deterministic citation/provenance fields before any provider call. */
 export function buildCurationEvidence(item: CurationInput, inputFingerprint: string): {
@@ -132,7 +165,7 @@ export function buildCurationEvidence(item: CurationInput, inputFingerprint: str
 
 async function readJsonFilesInDir(dir: string): Promise<any[]> {
   if (!existsSync(dir)) return [];
-  const files = (await readdir(dir)).filter((f) => f.endsWith('.json'));
+  const files = (await readdir(dir)).filter((f) => f.endsWith('.json')).sort();
   const parsed: any[] = [];
   for (const f of files) {
     try {
@@ -158,7 +191,7 @@ async function gatherNewsItems(): Promise<CurationInput[]> {
         title: item.title,
         text: item.content ?? '',
         link: item.link,
-        fetchedAt: item.fetchedAt ?? batch.fetchedAt ?? new Date().toISOString(),
+        fetchedAt: item.fetchedAt ?? batch.fetchedAt ?? 'unknown',
       });
     }
   }
@@ -178,7 +211,7 @@ async function gatherGovMeetingItems(): Promise<CurationInput[]> {
         title: item.title,
         text: item.content ?? '',
         link: item.link,
-        fetchedAt: item.fetchedAt ?? batch.fetchedAt ?? new Date().toISOString(),
+        fetchedAt: item.fetchedAt ?? batch.fetchedAt ?? 'unknown',
       });
     }
   }
@@ -188,7 +221,7 @@ async function gatherGovMeetingItems(): Promise<CurationInput[]> {
 /** Gather YouTube transcripts from every output/youtube/<video-id>.json file. */
 async function gatherYouTubeItems(): Promise<CurationInput[]> {
   if (!existsSync(YOUTUBE_DIR)) return [];
-  const files = (await readdir(YOUTUBE_DIR)).filter((f) => f.endsWith('.json'));
+  const files = (await readdir(YOUTUBE_DIR)).filter((f) => f.endsWith('.json')).sort();
   const out: CurationInput[] = [];
   for (const f of files) {
     try {
@@ -201,7 +234,7 @@ async function gatherYouTubeItems(): Promise<CurationInput[]> {
         title: t.title,
         text: t.fullText,
         link: `https://www.youtube.com/watch?v=${t.videoId}`,
-        fetchedAt: t.fetchedAt,
+        fetchedAt: t.fetchedAt ?? 'unknown',
       });
     } catch (err: any) {
       logger.warn(`Skipping unreadable/corrupt YouTube transcript file ${f}`, { error: err.message });
@@ -222,9 +255,9 @@ export async function gatherCurationInputs(): Promise<CurationInput[]> {
 
 // ─── Summarization (provider-agnostic: Ollama or OpenRouter) ─────────────
 
-async function chatWithConfiguredProvider(prompt: string): Promise<string> {
+async function chatWithConfiguredProvider(prompt: string, signal: AbortSignal): Promise<string> {
   const messages = [{ role: 'user' as const, content: prompt }];
-  return chatWithProvider(messages);
+  return chatWithProvider(messages, undefined, undefined, { signal, systemPrompt: CURATION_SYSTEM_PROMPT });
 }
 
 /**
@@ -241,22 +274,41 @@ async function chatWithConfiguredProvider(prompt: string): Promise<string> {
  * help against a genuine hang, since the awaited promise never settles;
  * this needs a real race against a timeout.
  */
-const SUMMARY_TIMEOUT_MS = 15_000;
+const configuredSummaryTimeout = Number(process.env.CURATION_SUMMARY_TIMEOUT_MS ?? '15000');
+const SUMMARY_TIMEOUT_MS = Number.isFinite(configuredSummaryTimeout) && configuredSummaryTimeout > 0 ? configuredSummaryTimeout : 15000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-    promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); }
-    );
-  });
+async function withAbortTimeout<T>(task: (signal: AbortSignal) => Promise<T>, ms: number, label: string): Promise<T> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, ms);
+  try {
+    const result = await task(controller.signal);
+    if (timedOut) throw new Error(`${label} timed out after ${ms}ms`);
+    return result;
+  } catch (error) {
+    if (timedOut) throw new Error(`${label} timed out after ${ms}ms`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    if (!controller.signal.aborted && timedOut) controller.abort();
+  }
+}
+
+function cleanSummary(raw: string): string {
+  return raw.trim()
+    .replace(/^```(?:text|markdown)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .replace(/^summary\s*:\s*/i, '')
+    .trim();
 }
 
 export async function summarizeItemDetailed(item: CurationInput): Promise<SummaryResult> {
   const provider = llmConfig.provider;
   const model = provider === 'openrouter' ? llmConfig.openrouterModel : llmConfig.chatModel;
-  const sourceExcerpt = item.text.trim().slice(0, 600);
+  const sourceExcerpt = normalizeSourceText(item.text).slice(0, 600);
   try {
     const prompt =
       `Summarize the following in 1-2 sentences for a civic-intelligence briefing about ` +
@@ -264,15 +316,16 @@ export async function summarizeItemDetailed(item: CurationInput): Promise<Summar
       `Do not infer identities, dates, causes, locations, or agencies. If the ` +
       `source lacks enough information, say that it is a limited source excerpt. ` +
       `Be factual and concise, with no preamble.\n\n` +
-      `Title: ${item.title}\n\nSource excerpt:\n${item.text.slice(0, 4000) || '(no article body was supplied by the feed)'}`;
-    const summary = await withTimeout(chatWithConfiguredProvider(prompt), SUMMARY_TIMEOUT_MS, `Summary for ${item.id}`);
-    if (!summary.trim()) throw new Error('Provider returned an empty summary');
-    return { summary: summary.trim(), status: 'ok', provider, model, retryable: false };
+      `Title: ${item.title}\n\nSource excerpt:\n${normalizeSourceText(item.text).slice(0, 4000) || '(no article body was supplied by the feed)'}`;
+    const summary = cleanSummary(await withAbortTimeout(signal => chatWithConfiguredProvider(prompt, signal), SUMMARY_TIMEOUT_MS, `Summary for ${item.id}`));
+    if (!summary) throw new Error('Provider returned an empty summary');
+    if (summary.length > SUMMARY_MAX_CHARS) throw new Error(`Provider returned a summary longer than ${SUMMARY_MAX_CHARS} characters`);
+    return { summary, status: 'ok', provider, model, retryable: false };
   } catch (err: unknown) {
     logger.warn(`Summary unavailable for item ${item.id}`, { error: errorMessage(err), source: item.source });
     return {
       summary: sourceExcerpt ? `Source-only excerpt: ${sourceExcerpt}` : 'Summary unavailable: the source did not provide article text.',
-      status: 'unavailable',
+      status: sourceExcerpt ? 'source_only' : 'unavailable',
       provider,
       model,
       error: errorMessage(err),
@@ -332,17 +385,33 @@ export async function runCuration(): Promise<CuratedItem[]> {
     // Historical batches can contain the same item more than once. Collapse
     // before scheduling provider work so one run cannot issue duplicate LLM
     // requests for an unchanged source record.
-    const uniqueInputs = [...new Map(inputs.map(item => [item.id, item])).values()];
+    // Pick one deterministic representation when the same source appears in
+    // several historical batches: newest fetchedAt wins, with stable ties.
+    const uniqueInputs = [...new Map(
+      [...inputs]
+        .sort((a, b) => a.id.localeCompare(b.id)
+          || b.fetchedAt.localeCompare(a.fetchedAt)
+          || b.text.length - a.text.length
+          || a.title.localeCompare(b.title))
+        .map(item => [item.id, item] as const),
+    ).values()].sort((a, b) => a.id.localeCompare(b.id));
     const inputFingerprints = new Map<string, string>();
     for (const item of uniqueInputs) {
-      inputFingerprints.set(item.id, await computeSha256(JSON.stringify({ id: item.id, title: item.title, text: item.text })));
+      const provider = llmConfig.provider;
+      const model = configuredChatModel();
+      inputFingerprints.set(item.id, await computeSha256(JSON.stringify({
+        id: item.id,
+        source: item.source,
+        title: normalizeSourceText(item.title),
+        text: normalizeSourceText(item.text),
+        provider,
+        model,
+        promptVersion: CURATION_PROMPT_VERSION,
+      })));
     }
     const toCurate = uniqueInputs.filter((item) => {
       const record = idempotency.get(item.id);
-      // Legacy presence-only records have an empty hash and remain valid. New
-      // records re-run when the source content or grounding prompt changes.
-      if (!record || !record.hash) return !record;
-      return record.hash !== inputFingerprints.get(item.id) || record.meta?.promptVersion !== CURATION_PROMPT_VERSION;
+      return !isCurationRecordComplete(record, inputFingerprints.get(item.id) ?? '', llmConfig.provider, configuredChatModel());
     });
 
     if (toCurate.length === 0) {
@@ -391,10 +460,10 @@ export async function runCuration(): Promise<CuratedItem[]> {
       }
       const summary = providerError
         ? {
-            summary: item.text.trim()
-              ? `Source-only excerpt: ${item.text.trim().slice(0, 600)}`
+            summary: normalizeSourceText(item.text)
+              ? `Source-only excerpt: ${normalizeSourceText(item.text).slice(0, 600)}`
               : 'Summary unavailable: the source did not provide article text.',
-            status: 'unavailable' as const,
+            status: normalizeSourceText(item.text) ? 'source_only' as const : 'unavailable' as const,
             provider: providerHealth.provider,
             model: providerHealth.model,
             error: providerError,
@@ -418,7 +487,7 @@ export async function runCuration(): Promise<CuratedItem[]> {
         summaryStatus: summary.status,
         provider: summary.provider,
         model: summary.model,
-        sourceExcerpt: item.text.slice(0, 600),
+        sourceExcerpt: normalizeSourceText(item.text).slice(0, 600),
         provenance: evidence.provenance,
         inputFingerprint: evidence.inputFingerprint,
         promptVersion: CURATION_PROMPT_VERSION,
@@ -429,8 +498,8 @@ export async function runCuration(): Promise<CuratedItem[]> {
       // A failed provider call stays retryable. The source-only fallback is
       // retained as evidence for this run but is not treated as a successful
       // LLM curation result.
-      if (summary.status === 'ok' || summary.status === 'source_only') {
-        idempotency.seen(item.id, inputFingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION });
+      if (summary.status === 'ok') {
+        idempotency.seen(item.id, inputFingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION, provider: summary.provider, model: summary.model, summaryStatus: 'ok' });
       }
     }
 
@@ -438,7 +507,8 @@ export async function runCuration(): Promise<CuratedItem[]> {
     const dateStamp = new Date().toISOString().slice(0, 10);
     const outPath = join(CURATED_OUTPUT_DIR, `${dateStamp}.json`);
 
-    // Append to today's file if it already exists (multiple curation runs per day)
+    // Upsert by stable source id. Failed/provider-unavailable attempts remain
+    // retryable, but repeated runs must not append identical visible records.
     let existing: CuratedItem[] = [];
     if (existsSync(outPath)) {
       try {
@@ -447,7 +517,7 @@ export async function runCuration(): Promise<CuratedItem[]> {
         existing = [];
       }
     }
-    await writeJsonAtomic(outPath, [...existing, ...curated]);
+    await writeJsonAtomic(outPath, mergeCuratedItems(existing, curated));
 
     await idempotency.save();
 

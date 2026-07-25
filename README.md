@@ -105,16 +105,17 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 
 | Stage | Description | Tests | Docs |
 | :---- | :---------- | :---: | :--: |
-| 🕷️ **Scrape** | Downloads the complete current article/section manifest via Playwright with Cloudflare bypass | ✓ | [→](docs/modules/scraping.md) |
+| 🕷️ **Scrape** | Refreshes a validated live TOC, rejects partial/challenge pages, and atomically resumes only hash- and section-complete article artifacts | ✓ | [→](docs/modules/scraping.md) |
 | ✅ **Verify** | SHA-256 integrity checks + TOC cross-reference + live re-fetch sampling | ✓ | [→](docs/modules/verification.md) |
 | 📦 **Export** | JSON · Markdown · plain text · CSV index | ✓ | [→](docs/modules/export.md) |
 | 🖥️ **View** | Web viewer: TOC, BM25 search, analytics dashboard, dark/light mode | ✓ | [→](docs/modules/gui.md) |
 | 💬 **Chat** | Ollama or OpenRouter chat with Ollama embeddings + ChromaDB · source citations (municipal code + YouTube transcripts) · RAG query logging | ✓ | [→](docs/modules/llm.md) |
 | 📡 **Monitor** | Municipal code change detection + RSS/Atom news + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare), with per-source health | ✓ | [→](docs/modules/monitoring.md) |
-| 📰 **Curate** | LLM summarization + domain tagging across news/meetings/YouTube, idempotent, provider-agnostic | ✓ | [→](docs/modules/monitoring.md) |
+| 📰 **Curate** | Source-grounded, bounded LLM summaries + domain tagging across news/meetings/YouTube with provider/model-aware retry-safe idempotency | ✓ | [→](docs/modules/monitoring.md) |
 | 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing · EPA AirNow · CAL FIRE · NDBC marine | ✓ | [→](docs/modules/alerts.md) |
 | 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | ✓ | [→](docs/modules/gui.md) |
 | 🌐 **Publish** | Bounded static snapshot for GitHub Pages with source health and provenance | ✓ | [→](docs/modules/pages.md) |
+| 📝 **Manuscript** | Evidence-bound IMRAD paper with formal contracts, claim ledger, and template-rendered PDF/HTML | ✓ | [→](docs/manuscript.md) |
 
 ---
 
@@ -324,7 +325,7 @@ can choose local news and source-grounded summaries, source freshness, the
 municipal code, safety alerts, analytics, civic reports, structured downloads,
 or official local source hubs before entering the deeper tools.
 
-**Sources**: Times-Standard · Lost Coast Outpost · Humboldt Times · KIEM-TV NBC Eureka · Redwood Voice
+**Sources**: Times-Standard (WordPress API fallback) · Lost Coast Outpost · Humboldt County official news · KIEM-TV/NBC 3 via current Redwood News RSS/HTML fallbacks · Redwood Voice · North Coast Journal. The historical Humboldt Times has no current standalone feed; its current civic/news continuity is represented explicitly by the Times-Standard and Humboldt County sources.
 
 **Filter keywords**: crescent city · del norte · tsunami · harbor · fishing · crabbing · pelican bay · evacuation · wildfire · zoning · ordinance...
 
@@ -457,9 +458,11 @@ The project maps the municipal code to **12 civic intelligence domains**, each c
 The repository publishes a static snapshot from `.github/workflows/pages.yml`.
 Configured public target: <https://docxology.github.io/crescent-city-intel/>.
 The workflow runs the deterministic release gate, collects the live monitors,
-and exports `.pages/` with provenance-aware source health. A source outage
-makes the snapshot `degraded` or `unavailable`; it is never rendered as an
-unexplained calm state.
+and exports `.pages/` with provenance-aware source health. Source state is
+exported separately from pipeline state: `ok` and `empty` are present checks,
+while `unavailable` and `stale` are named coverage gaps. A source gap does
+not make an otherwise complete snapshot `degraded`, and it is never rendered
+as an unexplained calm state.
 
 The public artifact includes the municipal-code export when present, source
 health, recent news and meeting items, alert snapshots, source-grounded
@@ -492,7 +495,9 @@ artifact boundaries, and local preview instructions.
 - 📋 Every section in the official TOC **cross-referenced** against scraped data
 - 🌐 Random sample of 5 pages **re-fetched from live site** to confirm byte-level freshness
 - ⏱️ Manifest records **exact timestamps** for audit trail
-- 💾 **Resume support** — interrupt and restart safely; completed articles skipped
+- 💾 **Resume support** — interrupt and restart safely; only exact current-TOC artifacts are skipped
+- 🧱 **Atomic artifacts** — TOC, article, manifest, and curation outputs are replaced without truncated JSON
+- 🧭 **TOC provenance** — manifest records a TOC fingerprint plus live/cached source
 
 > 🔧 **Verification details**: [docs/modules/verification.md](docs/modules/verification.md)
 
@@ -501,7 +506,7 @@ artifact boundaries, and local preview instructions.
 ## 📂 Project Structure
 
 ```text
-src/
+  src/
   types.ts              # All TypeScript interfaces (TocNode, FlatSection, ScrapeManifest…)
   constants.ts          # URLs, paths, rate limits (env-overridable)
   utils.ts              # Hash, flatten, chunk, truncate, sleep, retry, htmlToText…
@@ -510,6 +515,7 @@ src/
   toc.ts                # TOC fetcher + tree utilities
   content.ts            # Page scraper + section extraction
   scrape.ts             # Scraper orchestrator with resume
+  scraper_utils.ts      # TOC/artifact validation and retry utilities
   verify.ts             # Verification engine
   export.ts             # Multi-format exporter (JSON, MD, TXT, CSV)
   domains.ts            # 12 civic intelligence domains with code cross-refs
@@ -664,6 +670,9 @@ bun test tests/search.test.ts   # single file
 | :------ | :---------- |
 | `bun run readability` | Flesch-Kincaid scoring → `output/readability.json` |
 | `bun run coverage` | Domain coverage % → `output/domain-coverage.json` |
+| `bun run analytics` | Shared deterministic overview → `output/state/analytics-overview.json` with optional LLM executive summary |
+| `bun run manuscript:check` | Validate IMRAD structure, citations, labels, claim ledger, and source tokens |
+| `bun run manuscript:hydrate` | Resolve manuscript tokens from the canonical analytics overview |
 | `bun test` | Run the deterministic test suite |
 
 ---
@@ -689,6 +698,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/domains/coverage` | GET | Domain coverage % report |
 | `/api/domains/search?q=...` | GET | Search across domains |
 | `/api/readability` | GET | Flesch-Kincaid scores (all sections) |
+| `/api/analytics/overview` | GET | Canonical cross-surface signal, metrics, warnings, source boundaries, and optional LLM executive summary |
 | `/api/analytics/stats` | GET | Word counts, length extremes |
 | `/api/analytics/embeddings` | GET | PCA projection (requires ChromaDB) |
 | `/api/monitor/status` | GET | Latest monitor report |
@@ -721,7 +731,13 @@ All settings support environment variable overrides:
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Selected-provider health-check timeout |
 | `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
 | `OPENROUTER_API_KEY` | unset | Required only for OpenRouter chat/curation |
+| `OPENROUTER_URL` | `https://openrouter.ai/api/v1` | OpenRouter API base URL |
 | `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
+| `OPENROUTER_MAX_TOKENS` | `1024` | Maximum tokens per OpenRouter completion |
+| `OPENROUTER_MAX_REQUESTS` | `100` | Per-process OpenRouter request cap |
+| `OPENROUTER_MIN_REQUEST_INTERVAL_MS` | `3100` | Minimum spacing between OpenRouter requests |
+| `OPENROUTER_TIMEOUT_MS` | `120000` | OpenRouter request timeout |
+| `CURATION_SUMMARY_TIMEOUT_MS` | `15000` | Maximum time for one curation summary before source-only fallback |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server endpoint |
 | `CRESCENT_CITY_API_KEY` | `dev-key-12345` | API key (comma-separated for multiple) |
 | `RATE_LIMIT_MS` | `2000` | Min ms between requests to ecode360 (scraper) |
@@ -764,7 +780,7 @@ All settings support environment variable overrides:
 - **Rate-limit in-memory store** resets on server restart — not suitable for multi-instance deployments without shared cache (e.g., Redis)
 - **CDFW crab season** is estimated by regulatory calendar — check [CDFW North Coast bulletins](https://wildlife.ca.gov/regions/1) for emergency closures (domoic acid, whale entanglement)
 - **Tsunami monitor** fetches active CAP alerts — no historical data without archiving
-- **CAL FIRE wildfire API** (`fire.ca.gov/imap/imapdata/all`) currently returns HTTP 403 Forbidden for all requests, including browser `User-Agent` headers — this is an anti-bot/WAF block on CAL FIRE's end (confirmed 2026-07-23), not a code bug or response-format change; the monitor degrades gracefully with no incidents reported
+- **CAL FIRE wildfire API** — the retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked, so the monitor now uses the current official incident JSON endpoint linked from the [CAL FIRE incidents page](https://www.fire.ca.gov/incidents); a valid empty Del Norte-region result is reported as `empty`, not unavailable
 - **Government meeting tracker** — the legacy commission agenda URLs are retired. The monitor now uses the city's live EvoGov JSON endpoint (`crescentcity.org/meetings/get_list`); City Council and Planning Commission items were live in the 2026-07-24 smoke run, while Harbor Commission currently has no matching records and remains explicitly `empty` in source health.
 
 ---

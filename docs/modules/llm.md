@@ -98,10 +98,13 @@ the interface in a false “thinking” state.
 ### Curation evidence contract
 
 Each curated item includes an `inputFingerprint` (SHA-256 of the stable source
-ID, title, and source text), `promptVersion`, source `citations`, provider and
-model metadata, `summaryStatus`, `retryable`, and bounded source provenance.
-Triplicate is excluded before this pipeline begins and cannot become a
-curation or embedding input through the public snapshot path.
+ID, title, source text, provider, model, and prompt version), `promptVersion`,
+source `citations`, provider and model metadata, `summaryStatus`, `retryable`,
+and bounded source provenance. Curation uses a dedicated source-grounded
+editor prompt, a bounded excerpt/output contract, and an abortable
+`CURATION_SUMMARY_TIMEOUT_MS`; it never silently treats a source-only fallback
+as a completed LLM summary. Triplicate is excluded before this pipeline begins
+and cannot become a curation or embedding input through the public snapshot path.
 
 ---
 

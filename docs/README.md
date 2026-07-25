@@ -13,6 +13,7 @@ queries, legal analysis, and civic intelligence domains.
 | [Configuration](configuration.md) | All env vars, constants, and tuning parameters |
 | [API Reference](api-reference.md) | Complete table of all exported functions, interfaces, and types |
 | [Roadmap](roadmap.md) | Project phases, feature backlog, and progress tracking |
+| [Manuscript](manuscript.md) | Evidence-bound IMRAD paper, claim ledger, hydration, and template rendering |
 | **Module Guides** | |
 | [Scraping](modules/scraping.md) | Browser, TOC, content extraction, and scraper orchestrator |
 | [Verification](modules/verification.md) | SHA-256 integrity checks, section presence, live re-fetch |

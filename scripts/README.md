@@ -13,6 +13,10 @@ Thin TypeScript orchestrators for the Crescent City pipeline. All business logic
 | `run-meetings.ts` | `bun run gov-meetings` | City meeting agenda scraper |
 | `run-youtube.ts` | `bun run youtube` | YouTube transcript extraction/indexing with retryable failures |
 | `run-curation.ts` | `bun run curate` | Provider-aware grounded curation with provenance |
+| `run-analytics.ts` | `bun run analytics` | Durable cross-surface metrics and optional LLM executive summary |
+| `validate-manuscript.ts` | `bun run manuscript:check` | IMRAD, citations, labels, claim ledger, and token contract |
+| `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Resolve source manuscript tokens from the analytics overview |
+| `z_generate_manuscript_variables.py` | template renderer hook | Delegate template hydration to the Bun implementation |
 | `run-source-discovery.ts` | `bun run source-discovery [-- --check]` | Canonical source inventory, fingerprint, and optional bounded probes |
 | `export-pages.ts` | `bun run pages:export` | Build a bounded static GitHub Pages snapshot |
 | `refresh-pages-data.ts` | `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
@@ -35,6 +39,8 @@ scripts/weekly-check.ts
     ├── src/curation.ts          → output/curated/ + output/state/
     ├── src/source_registry.ts   → output/source-registry.json + source-discovery.json
     ├── src/monthly_report.ts    → output/reports/monthly-YYYY-MM.md + .json
+    ├── src/analytics_backend.ts → output/state/analytics-overview.json
+    ├── scripts/hydrate-manuscript.ts → output/manuscript/ + output/data/manuscript_variables.json
     └── shared orchestration     → output/state/latest-pipeline-run.json
 ```
 
@@ -57,8 +63,8 @@ runtime `output/` directory wholesale.
 
 | Code | Meaning |
 | :--- | :--- |
-| `0` | All monitored sources healthy and no code changes |
-| `1` | Code changes or one or more feeds are unavailable/stale |
+| `0` | Monitoring completed; source coverage is reported in the run envelope |
+| `1` | Code changes or another explicit review condition |
 | `2` | Error (missing data, network failure) |
 
 ## Durable run metadata
@@ -71,6 +77,9 @@ Every scheduled run is observable after the process exits:
   source-health counts.
 - `output/state/curation-report.json` — selected provider/model, attempted and
   successful item counts, retryable failures, and output path.
+- `output/state/analytics-overview.json` — canonical local/Pages reading order,
+  deterministic metrics, warning signals, source fingerprint, and optional
+  provider-labeled executive summary.
 - `output/reports/monthly-YYYY-MM.json` — machine-readable report metadata
   paired with the Markdown report.
 - `output/source-registry.json` — normalized source definitions and registry

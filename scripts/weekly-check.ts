@@ -24,11 +24,12 @@ import { monitorYouTube } from "../src/youtube_monitor.ts";
 import { monitorTriplicate } from "../src/triplicate_monitor.ts";
 import { runCuration } from "../src/curation.ts";
 import { generateMonthlyReport } from "../src/monthly_report.ts";
+import { writeAnalyticsOverview } from "../src/analytics_backend.ts";
 import { createLogger } from "../src/logger.ts";
 import { mkdir, readFile } from "fs/promises";
 import { join } from "path";
 import { paths } from "../src/shared/paths.ts";
-import { writeJsonAtomic } from "../src/shared/source_health.ts";
+import { completeSourceHealth, writeJsonAtomic } from "../src/shared/source_health.ts";
 import { writeSourceDiscoveryArtifacts } from "../src/source_registry.ts";
 import { buildPipelineRun, createRunId, executePipelineStep, writePipelineRun } from "../src/shared/orchestration.ts";
 import type { PipelineStepReport, SourceHealth } from "../src/types.ts";
@@ -70,21 +71,22 @@ if (!report) {
 // 2. All 8 real-time alert monitors (run concurrently, retain per-task failures)
 logger.info("Stage 2/8: Polling all 8 real-time alert feeds...");
 const alertExecution = await executePipelineStep("alert-monitors", () => runAllAlertMonitors(), {
-  classify: sources => sources.some(source => source.status === "unavailable" || source.status === "stale") ? "degraded" : "ok",
+  // A reachable empty source and a missing source are facts about coverage,
+  // not failures of this completed monitoring stage.
+  classify: _sources => "ok",
   itemCount: sources => sources.length,
   outputPaths: [paths.alertsHealth, "output/alerts/composite/current.json"],
 });
 steps.push(alertExecution.report);
 const alertSources = alertExecution.value ?? [];
 const alertFailures = alertExecution.report.status === "failed" ? [alertExecution.report] : [];
-const degradedAlerts = alertSources.filter(source => source.status === "unavailable" || source.status === "stale");
+const missingAlerts = alertSources.filter(source => source.status === "unavailable" || source.status === "stale");
 if (alertFailures.length > 0) {
   exitCode = Math.max(exitCode, 2);
   logger.error(`${alertFailures.length} alert monitor(s) failed`, { errors: alertFailures.map(result => result.error ?? "unknown failure") });
-} else if (degradedAlerts.length > 0) {
-  exitCode = Math.max(exitCode, 1);
-  logger.warn(`${degradedAlerts.length} alert source(s) are unavailable or stale`, {
-    sources: degradedAlerts.map(source => `${source.source}: ${source.status}`),
+} else if (missingAlerts.length > 0) {
+  logger.warn(`${missingAlerts.length} alert source(s) are unavailable or stale; coverage is recorded without failing the run`, {
+    sources: missingAlerts.map(source => `${source.source}: ${source.status}`),
   });
 } else {
   logger.info("✅ All 8 alert monitors complete");
@@ -119,11 +121,10 @@ const feedHealth = (await Promise.all([
   readHealth(paths.newsHealth),
   readHealth(paths.govMeetingsHealth),
 ])).flat();
-const degradedFeeds = feedHealth.filter(source => source.status === "unavailable" || source.status === "stale");
-if (degradedFeeds.length > 0) {
-  exitCode = Math.max(exitCode, 1);
-  logger.warn(`${degradedFeeds.length} news/meeting source(s) are unavailable or stale`, {
-    sources: degradedFeeds.map(source => `${source.source}: ${source.status}`),
+const missingFeeds = feedHealth.filter(source => source.status === "unavailable" || source.status === "stale");
+if (missingFeeds.length > 0) {
+  logger.warn(`${missingFeeds.length} news/meeting source(s) are unavailable or stale; coverage is recorded without failing the run`, {
+    sources: missingFeeds.map(source => `${source.source}: ${source.status}`),
   });
 }
 
@@ -145,7 +146,7 @@ logger.info("✅ Composite severity computed");
 // observe their newly written batches and reporting must observe curation's
 // output. Running all four in one Promise.allSettled previously made a healthy
 // run silently report the prior cycle's downstream state.
-logger.info("Stages 5–8/8: Running transcript, curation, source discovery, and monthly reporting surfaces...");
+logger.info("Stages 5–9/9: Running transcript, curation, source discovery, reporting, and unified analytics surfaces...");
 const sourceExecution = await executePipelineStep("transcript-and-reference-monitors", () => Promise.all([monitorYouTube(10), monitorTriplicate()]), {
   itemCount: results => results.reduce((sum, result) => sum + result.length, 0),
   outputPaths: [paths.youtubeHealth, paths.triplicateHealth],
@@ -159,7 +160,7 @@ steps.push(curationExecution.report);
 const sourceDiscoveryExecution = await executePipelineStep("source-discovery", () => writeSourceDiscoveryArtifacts({
   probe: process.env.SOURCE_DISCOVERY_LIVE_CHECK === "1",
 }), {
-  classify: result => result.sources.some(source => source.operationalStatus === "unavailable" || source.operationalStatus === "stale") ? "degraded" : "ok",
+  classify: _result => "ok",
   itemCount: result => result.sourceCount,
   outputPaths: [paths.sourceRegistry, paths.sourceDiscovery, paths.sourceDiscoverySeen],
 });
@@ -168,6 +169,13 @@ const reportExecution = await executePipelineStep("monthly-report", () => genera
   outputPaths: [paths.reports, paths.latestReportMetadata],
 });
 steps.push(reportExecution.report);
+const overviewExecution = await executePipelineStep("analytics-overview", () => writeAnalyticsOverview({ summarize: true }), {
+  classify: overview => overview.status === "unavailable" ? "failed" : overview.status === "degraded" || overview.llm.status === "unavailable" ? "degraded" : "ok",
+  outputPaths: [paths.analyticsOverview],
+  metadata: { contract: "shared-local-pages", promptVersion: "2026-07-24-analytics-overview-v1" },
+});
+steps.push(overviewExecution.report);
+if (overviewExecution.report.error) logger.warn("Unified analytics overview failed", { error: overviewExecution.report.error });
 const failedSteps = steps.filter(step => step.status === "failed");
 if (failedSteps.length > 0) {
   exitCode = Math.max(exitCode, 2);
@@ -178,11 +186,10 @@ const downstreamHealth = (await Promise.all([
   readHealth(paths.youtubeHealth),
   readHealth(paths.triplicateHealth),
 ])).flat();
-const degradedDownstream = downstreamHealth.filter(source => source.status === "unavailable" || source.status === "stale");
-if (degradedDownstream.length > 0) {
-  exitCode = Math.max(exitCode, 1);
-  logger.warn(`${degradedDownstream.length} downstream source(s) are unavailable or stale`, {
-    sources: degradedDownstream.map(source => `${source.source}: ${source.status}`),
+const missingDownstream = downstreamHealth.filter(source => source.status === "unavailable" || source.status === "stale");
+if (missingDownstream.length > 0) {
+  logger.warn(`${missingDownstream.length} downstream source(s) are unavailable or stale; coverage is recorded without failing the run`, {
+    sources: missingDownstream.map(source => `${source.source}: ${source.status}`),
   });
 }
 
@@ -196,17 +203,21 @@ const summary = {
   completedAt,
   monitorStatus: report?.overallStatus ?? "error",
   alertFailures: alertFailures.length,
-  degradedAlerts: degradedAlerts.length,
+  missingAlerts: missingAlerts.length,
+  degradedAlerts: missingAlerts.length,
   feedFailures: feedFailures.length,
-  degradedFeeds: degradedFeeds.length,
+  missingFeeds: missingFeeds.length,
+  degradedFeeds: missingFeeds.length,
   downstreamFailures: failedSteps.length,
-  degradedDownstream: degradedDownstream.length,
+  missingDownstream: missingDownstream.length,
+  degradedDownstream: missingDownstream.length,
   stepCount: steps.length,
   steps: steps.map(step => ({ name: step.name, status: step.status, durationMs: step.durationMs, error: step.error })),
   exitCode,
 };
 const allHealth = [...alertSources, ...feedHealth, ...downstreamHealth];
-const pipelineRun = buildPipelineRun("weekly-check", runId, startedAt, steps, allHealth, exitCode, completedAt);
+const completeHealth = completeSourceHealth(allHealth, completedAt);
+const pipelineRun = buildPipelineRun("weekly-check", runId, startedAt, steps, completeHealth, exitCode, completedAt);
 logger.info("=== Weekly Check Complete ===", summary);
 
 // Write summary to disk for external tooling

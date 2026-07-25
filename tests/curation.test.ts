@@ -8,7 +8,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm } from "fs/promises";
 import { join } from "path";
-import { buildCurationEvidence, tagWithDomains, summarizeItem, type CurationInput } from "../src/curation";
+import { buildCurationEvidence, isCurationRecordComplete, mergeCuratedItems, tagWithDomains, summarizeItem, type CurationInput, type CuratedItem } from "../src/curation";
 
 const TEST_DIR = join(process.cwd(), "output", "test-curation");
 
@@ -87,5 +87,22 @@ describe("CurationInput/CuratedItem shape", () => {
       fetchedAt: item.fetchedAt,
     }]);
     expect(evidence.provenance).toContain("fetchedAt=2026-07-24T12:00:00.000Z");
+  });
+});
+
+describe("curated output idempotency", () => {
+  test("replacing a source record does not append a duplicate visible item", () => {
+    const base = { id: "https://example.com/article", source: "news", title: "Story", link: "https://example.com/article", summary: "old", tags: [], curatedAt: "2026-07-24T00:00:00Z", summaryStatus: "source_only", provider: "ollama", model: "model", sourceExcerpt: "text", provenance: "news:https://example.com/article", inputFingerprint: "a", promptVersion: "p", citations: [], retryable: true } as CuratedItem;
+    const replacement = { ...base, summary: "new", inputFingerprint: "b" };
+    const merged = mergeCuratedItems([base], [replacement]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].summary).toBe("new");
+  });
+
+  test("does not treat presence-only or lineage-incomplete records as complete", () => {
+    const complete = { hash: "hash", firstSeen: "2026-07-24T00:00:00Z", lastSeen: "2026-07-24T00:00:00Z", meta: { promptVersion: "2026-07-24-grounded-v2", provider: "ollama", model: "gemma3:4b", summaryStatus: "ok" } };
+    expect(isCurationRecordComplete(complete, "hash", "ollama", "gemma3:4b")).toBe(true);
+    expect(isCurationRecordComplete({ ...complete, hash: "" }, "hash", "ollama", "gemma3:4b")).toBe(false);
+    expect(isCurationRecordComplete({ ...complete, meta: { ...complete.meta, summaryStatus: "source_only" } }, "hash", "ollama", "gemma3:4b")).toBe(false);
   });
 });

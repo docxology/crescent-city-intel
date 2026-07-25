@@ -80,11 +80,12 @@ Fetches RSS feeds from local NorCal news sources, filters for Crescent City-rele
 
 | Source | URL |
 | :--- | :--- |
-| Times-Standard | `https://www.times-standard.com/news/rss.xml` |
+| Times-Standard | `https://www.times-standard.com/wp-json/wp/v2/posts` (RSS fallback) |
 | Lost Coast Outpost | `https://lostcoastoutpost.com/feed` |
-| Humboldt Times | `https://www.humboldtcountynews.com/feed` |
-| KIEM-TV NBC Eureka | `https://www.kiemtv.com/feed/` |
+| Humboldt County official news | `https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml` |
+| KIEM-TV NBC Eureka | `https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc` (HTML fallback) |
 | Redwood Voice | `https://www.redwoodvoice.org/feed/` |
+| North Coast Journal | `https://www.northcoastjournal.com/feed/` |
 
 ### Keywords
 
@@ -226,9 +227,17 @@ bun run src/triplicate_monitor.ts
 `bun run curate` reads only news, government-meeting, and successful YouTube
 transcript batches. It records provider/model, source excerpts, citations,
 summary status, prompt version, input fingerprints, and retryable provider
-failures with atomic writes. Duplicate historical records are collapsed before
-LLM work, and changed source content is eligible for re-curation. Batch
-telemetry is written to `output/state/curation-report.json`.
+failures with atomic writes. The summarizer uses a task-specific
+source-grounded system prompt rather than the municipal-code chat prompt,
+limits the source excerpt and output length, and aborts hung requests after
+`CURATION_SUMMARY_TIMEOUT_MS`. The input fingerprint includes the source ID,
+title, text, provider, model, and prompt version, so model/prompt changes are
+eligible for re-curation. Duplicate historical records are collapsed
+deterministically before LLM work, and changed source content is eligible for
+re-curation. `source_only` and `unavailable` results remain retryable and do
+not mark the idempotency store complete; the daily output is upserted by
+source ID so retries cannot append duplicate visible records. Batch telemetry
+is written to `output/state/curation-report.json`.
 
 `bun run report [YYYY-MM]` uses UTC period bounds rather than string-prefix
 matching, validates timestamps, and emits both
@@ -240,9 +249,13 @@ warnings; they never become fabricated activity.
 
 `bun run weekly-check` writes `output/state/latest-pipeline-run.json` with a
 stable run ID, runtime/commit metadata, every stage's status/duration/error,
-output paths, and aggregate source health. Exit code `1` means degraded
-operational evidence (including unavailable/stale sources); exit code `2`
-means a pipeline stage failed.
+output paths, and aggregate source health. Source health is a coverage
+measurement: `ok` and `empty` are present checks, while `unavailable` and
+`stale` are missing checks. The summary exposes `present`, `missing`,
+`coveragePercent`, `coverageStatus`, and named source lists; source gaps do
+not change a successful run to `degraded` or produce a nonzero exit. Exit code
+`1` is reserved for an explicit operational condition such as a detected code
+change; exit code `2` means a pipeline stage failed.
 
 ### Tests
 

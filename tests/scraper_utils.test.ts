@@ -5,7 +5,28 @@ import {
   isMaintenanceMode,
   formatProgressBar,
   ScrapeMetricsCollector,
+  isArticleArtifactShapeValid,
+  isTocShapeValid,
 } from "../src/scraper_utils.js";
+
+const validToc = {
+  type: "code",
+  guid: "root",
+  tocName: "Crescent City",
+  children: [{ type: "article", guid: "article-1", children: [{ type: "section", guid: "section-1", children: [] }] }],
+};
+
+describe("isTocShapeValid", () => {
+  test("accepts a recursive TOC with sections", () => {
+    expect(isTocShapeValid(validToc)).toBe(true);
+  });
+
+  test("rejects an empty, duplicate, or non-TOC payload", () => {
+    expect(isTocShapeValid({ type: "code", guid: "root", tocName: "Crescent City", children: [] })).toBe(false);
+    expect(isTocShapeValid({ ...validToc, children: [{ ...validToc.children[0], children: [{ type: "section", guid: "section-1", children: [] }, { type: "section", guid: "section-1", children: [] }] }] })).toBe(false);
+    expect(isTocShapeValid({ error: "challenge" })).toBe(false);
+  });
+});
 
 describe("detectCloudflareStall", () => {
   test("returns true when elapsed time exceeds maxWait", () => {
@@ -20,6 +41,23 @@ describe("detectCloudflareStall", () => {
 
   test("returns false for just-started timer", () => {
     expect(detectCloudflareStall(Date.now(), 10_000)).toBe(false);
+  });
+});
+
+describe("isArticleArtifactShapeValid", () => {
+  test("rejects an empty or partial article artifact before resume-skip", () => {
+    expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "", sha256: "a".repeat(64), sections: [] }, ["section-1"])).toBe(false);
+    expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "", sha256: "a".repeat(64), sections: [{ guid: "section-1" }] }, ["section-1"])).toBe(true);
+  });
+
+  test("rejects malformed hashes and non-object sections", () => {
+    expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "html", sha256: "bad", sections: [{ guid: "section-1" }] }, ["section-1"])).toBe(false);
+    expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "html", sha256: "a".repeat(64), sections: [null] }, ["section-1"])).toBe(false);
+  });
+
+  test("can reject stale extra sections after TOC drift", () => {
+    const artifact = { guid: "a", rawHtml: "html", sha256: "a".repeat(64), sections: [{ guid: "section-1" }, { guid: "old-section" }] };
+    expect(isArticleArtifactShapeValid(artifact, ["section-1"], true)).toBe(false);
   });
 });
 

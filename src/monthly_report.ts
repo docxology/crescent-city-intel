@@ -21,7 +21,7 @@ import { join } from 'path';
 import { createLogger } from './logger.js';
 import { domains } from './domains.js';
 import { paths } from './shared/paths.js';
-import { isIsoTimestamp, summarizeSourceHealth, writeJsonAtomic, writeTextAtomic } from './shared/source_health.js';
+import { completeSourceHealth, isIsoTimestamp, summarizeSourceHealth, writeJsonAtomic, writeTextAtomic } from './shared/source_health.js';
 import { buildSourceDiscoveryReport, getSourceRegistry } from './source_registry.js';
 import type { MonthlyReportMetadata, SourceHealth } from './types.js';
 
@@ -154,13 +154,14 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const coverage = readJson(coveragePath);
 
   const healthReports = [newsHealth, meetingHealth, youtubeHealth, triplicateHealth, readJson(paths.alertsHealth)];
-  const sourceHealth: SourceHealth[] = healthReports.flatMap(report => {
+  const observedSourceHealth: SourceHealth[] = healthReports.flatMap(report => {
     if (!Array.isArray(report?.sources)) return [];
     return report.sources.filter((source: any) => source && typeof source.source === 'string' &&
       ['ok', 'empty', 'unavailable', 'stale'].includes(source.status) &&
       isIsoTimestamp(source.checkedAt) && Number.isInteger(source.itemCount) && source.itemCount >= 0) as SourceHealth[];
   });
-  if (sourceHealth.length === 0) warnings.push('No source-health artifacts were available for this report');
+  if (observedSourceHealth.length === 0) warnings.push('No source-health artifacts were available for this report');
+  const sourceHealth = completeSourceHealth(observedSourceHealth, now.toISOString());
   const healthSummary = summarizeSourceHealth(sourceHealth, now.toISOString());
   const sourceDiscovery = readJson(paths.sourceDiscovery) ?? await buildSourceDiscoveryReport({
     checkedAt: now.toISOString(),
@@ -389,7 +390,8 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   lines.push('');
   lines.push(`- **Report generated**: ${now.toISOString()}`);
   lines.push(`- **Data freshness**: ${manifest?.completedAt ?? 'Scrape not yet run'}`);
-  lines.push(`- **Report status**: ${manifest ? (healthSummary.degraded > 0 || warnings.length > 0 ? 'degraded' : 'ok') : 'unavailable'}`);
+  lines.push(`- **Report status**: ${manifest ? 'ok' : 'unavailable'}`);
+  lines.push(`- **Source coverage**: ${healthSummary.present}/${healthSummary.total} checks have an established current state (${healthSummary.coveragePercent}%); ${healthSummary.missing} unavailable or stale`);
   lines.push(`- **News health artifact**: ${existsSync(paths.newsHealth) ? paths.newsHealth : 'not generated'}`);
   lines.push(`- **Meeting health artifact**: ${existsSync(paths.govMeetingsHealth) ? paths.govMeetingsHealth : 'not generated'}`);
   lines.push(`- **YouTube health artifact**: ${existsSync(paths.youtubeHealth) ? paths.youtubeHealth : 'not generated'}`);
@@ -418,9 +420,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   // ── Write to file ────────────────────────────────────────────
   const reportPath = join(REPORTS_DIR, `monthly-${month}.md`);
   const metadataPath = join(REPORTS_DIR, `monthly-${month}.json`);
-  const reportStatus: MonthlyReportMetadata['status'] = !manifest
-    ? 'unavailable'
-    : healthSummary.degraded > 0 || warnings.length > 0 ? 'degraded' : 'ok';
+  const reportStatus: MonthlyReportMetadata['status'] = !manifest ? 'unavailable' : 'ok';
   const metadata: MonthlyReportMetadata = {
     schemaVersion: '1.0.0',
     reportType: 'monthly-civic-health',

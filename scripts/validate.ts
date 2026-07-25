@@ -2,9 +2,10 @@
 /** Authoritative deterministic release gate for the repository. */
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { isIsoTimestamp } from "../src/shared/source_health.ts";
+import { EXPECTED_SOURCE_HEALTH, isIsoTimestamp } from "../src/shared/source_health.ts";
 import { validatePagesSource } from "../src/pages_snapshot.ts";
 import { getSourceRegistry, sourceRegistryFingerprint, validateSourceRegistry } from "../src/source_registry.ts";
+import { paths } from "../src/shared/paths.ts";
 
 type Check = { name: string; args: string[] };
 
@@ -116,6 +117,7 @@ for (const path of [
   "output/weekly-check-summary.json",
   "output/state/latest-pipeline-run.json",
   "output/state/curation-report.json",
+  "output/state/analytics-overview.json",
   "output/source-registry.json",
   "output/source-discovery.json",
 ]) parseJsonIfPresent(path);
@@ -151,13 +153,43 @@ for (const relativePath of [
 }
 
 for (const relativePath of ["output/weekly-check-summary.json", "output/state/latest-pipeline-run.json"]) {
-  const report = parseJsonIfPresent(relativePath) as { schemaVersion?: string; runId?: string; status?: string; steps?: unknown[]; sourceHealth?: { degraded?: number } } | undefined;
+  const report = parseJsonIfPresent(relativePath) as { schemaVersion?: string; runId?: string; status?: string; steps?: unknown[]; sourceHealth?: { total?: number; present?: number; missing?: number; coveragePercent?: number; coverageStatus?: string; presentSources?: string[]; missingSources?: string[]; sources?: string[]; degraded?: number } } | undefined;
   if (!report) continue;
   if (report.schemaVersion !== "1.0.0" || !report.runId || !["ok", "degraded", "failed"].includes(report.status ?? "") || !Array.isArray(report.steps)) {
     throw new Error(`${relativePath} is not a valid pipeline-run envelope`);
   }
-  if (report.sourceHealth && (!Number.isInteger(report.sourceHealth.degraded) || (report.sourceHealth.degraded ?? -1) < 0)) {
-    throw new Error(`${relativePath} contains an invalid source-health summary`);
+ if (report.sourceHealth && (!Number.isInteger(report.sourceHealth.degraded) || (report.sourceHealth.degraded ?? -1) < 0)) {
+   throw new Error(`${relativePath} contains an invalid source-health summary`);
+ }
+  if (report.sourceHealth && (
+    !Number.isInteger(report.sourceHealth.total) ||
+    !Number.isInteger(report.sourceHealth.present) ||
+    !Number.isInteger(report.sourceHealth.missing) ||
+    (report.sourceHealth.total ?? -1) !== (report.sourceHealth.present ?? -2) + (report.sourceHealth.missing ?? -3) ||
+    !Number.isFinite(report.sourceHealth.coveragePercent) ||
+    (report.sourceHealth.coveragePercent ?? -1) < 0 ||
+    (report.sourceHealth.coveragePercent ?? 101) > 100
+  )) {
+    throw new Error(`${relativePath} contains an invalid present/missing source-coverage summary`);
+  }
+  if (report.sourceHealth) {
+    const coverage = report.sourceHealth;
+    const presentSources = Array.isArray(coverage.presentSources) ? [...coverage.presentSources].sort() : [];
+    const missingSources = Array.isArray(coverage.missingSources) ? [...coverage.missingSources].sort() : [];
+    const allSources = Array.isArray(coverage.sources) ? [...coverage.sources].sort() : [];
+    if (!Array.isArray(coverage.presentSources) || !Array.isArray(coverage.missingSources) || !Array.isArray(coverage.sources)) {
+      throw new Error(`${relativePath} is missing named source coverage lists`);
+    }
+    if (JSON.stringify(allSources) !== JSON.stringify([...presentSources, ...missingSources].sort())) {
+      throw new Error(`${relativePath} source coverage lists do not partition the source set`);
+    }
+    if (coverage.total !== allSources.length || coverage.present !== presentSources.length || coverage.missing !== missingSources.length) {
+      throw new Error(`${relativePath} named source coverage lists do not match their counts`);
+    }
+    const expectedNames = EXPECTED_SOURCE_HEALTH.map(expected => expected.source);
+    if (expectedNames.some(name => !allSources.includes(name))) throw new Error(`${relativePath} is missing an expected source-health contract record`);
+    const expectedCoverageStatus = coverage.total === 0 ? "none" : coverage.missing === 0 ? "complete" : coverage.present === 0 ? "none" : "partial";
+    if (coverage.coverageStatus !== expectedCoverageStatus) throw new Error(`${relativePath} has an invalid coverageStatus`);
   }
 }
 
@@ -167,7 +199,34 @@ for (const reportPath of ["output/state/curation-report.json", "output/reports/l
   if (report.schemaVersion !== "1.0.0") throw new Error(`${reportPath} has an unsupported schema version`);
 }
 
+const analyticsOverview = parseJsonIfPresent("output/state/analytics-overview.json") as {
+  schemaVersion?: string;
+  generatedAt?: string;
+  inputFingerprint?: string;
+  status?: string;
+  summary?: string;
+  metrics?: Record<string, unknown>;
+  signals?: unknown[];
+  llm?: { status?: string; provider?: string; model?: string; promptVersion?: string; inputFingerprint?: string };
+} | undefined;
+if (analyticsOverview) {
+  if (analyticsOverview.schemaVersion !== "1.0.0" || !isIsoTimestamp(analyticsOverview.generatedAt ?? "") || !/^[a-f0-9]{64}$/.test(analyticsOverview.inputFingerprint ?? "")) {
+    throw new Error("output/state/analytics-overview.json has an invalid envelope");
+  }
+  if (!["ok", "degraded", "unavailable"].includes(analyticsOverview.status ?? "") || !analyticsOverview.summary || !analyticsOverview.metrics || !Array.isArray(analyticsOverview.signals)) {
+    throw new Error("output/state/analytics-overview.json has an invalid status, summary, metrics, or signals field");
+  }
+  if (!analyticsOverview.llm || !["ok", "unavailable", "not-requested"].includes(analyticsOverview.llm.status ?? "") || !analyticsOverview.llm.provider || !analyticsOverview.llm.model || analyticsOverview.llm.promptVersion !== "2026-07-24-analytics-overview-v1" || analyticsOverview.llm.inputFingerprint !== analyticsOverview.inputFingerprint) {
+    throw new Error("output/state/analytics-overview.json has invalid LLM provenance");
+  }
+}
+
 run({ name: "TypeScript strict check", args: ["bunx", "tsc", "--noEmit"] });
+run({ name: "Manuscript source contract", args: ["bun", "run", "manuscript:check"] });
+if (existsSync(paths.analyticsOverview)) {
+  run({ name: "Manuscript evidence hydration", args: ["bun", "run", "manuscript:hydrate"] });
+  run({ name: "Hydrated manuscript contract", args: ["bun", "run", "scripts/validate-manuscript.ts", "--hydrated"] });
+}
 // The suite deliberately exercises the real local corpus and service
 // degradation paths. A 30-second per-test bound keeps transient CPU/IO
 // contention from turning a correct test into a false timeout while still

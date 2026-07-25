@@ -19,11 +19,18 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { DOMParser } from "@xmldom/xmldom";
+import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
 
 const logger = createLogger("epa_airnow_alert");
 
 const CRESCENT_CITY_ZIP = "95531";
 const AIRNOW_API_URL = "https://www.airnowapi.org/aq/observation/zipCode/current";
+/** Public preliminary AirNow product; unlike the ZIP API it does not require a key. */
+export const AIRNOW_PUBLIC_KML_URL = "https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml";
+const CRESCENT_CITY_LAT = 41.7485;
+const CRESCENT_CITY_LNG = -124.2028;
+const PUBLIC_STATION_RADIUS_KM = 80;
 
 // History persistence
 const HISTORY_DIR = join(process.cwd(), "output", "alerts", "airquality");
@@ -58,6 +65,8 @@ export interface AirQualityReading {
 export interface AirQualityReport {
   timestamp: string;
   zipCode: string;
+  /** Which AirNow transport produced this report. */
+  provider: "airnow-api" | "airnow-public-kml";
   readings: AirQualityReading[];
   /** Highest AQI across all parameters */
   maxAqi: number;
@@ -104,6 +113,10 @@ export function classifyAqi(aqi: number): AirQualityLevel {
   return "HAZARDOUS";
 }
 
+function categoryNumber(level: AirQualityLevel): number {
+  return { GOOD: 1, MODERATE: 2, UNHEALTHY_SENSITIVE: 3, UNHEALTHY: 4, VERY_UNHEALTHY: 5, HAZARDOUS: 6 }[level];
+}
+
 /** Generate health advisory message based on AQI level */
 export function getAdvisory(level: AirQualityLevel): string | null {
   const advisories: Record<AirQualityLevel, string | null> = {
@@ -120,56 +133,116 @@ export function getAdvisory(level: AirQualityLevel): string | null {
 /** Fetch current air quality from AirNow API */
 export async function fetchAirQuality(apiKey?: string): Promise<AirQualityReport> {
   const key = apiKey ?? process.env.AIRNOW_API_KEY;
-  if (!key) {
-    throw new Error("AIRNOW_API_KEY env var not set — get a free key at airnowapi.org");
+  let apiError: string | undefined;
+  if (key) {
+    try {
+      const url = `${AIRNOW_API_URL}?format=application/json&zipCode=${CRESCENT_CITY_ZIP}&distance=25&API_KEY=${encodeURIComponent(key)}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS) });
+      if (!response.ok) throw new Error(`AirNow API returned ${response.status}: ${response.statusText}`);
+      const data = await response.json() as any[];
+      const readings: AirQualityReading[] = Array.isArray(data) ? data.map((obs: any) => ({
+        parameter: obs.ParameterName,
+        aqi: obs.AQI,
+        category: obs.Category.Name,
+        categoryNumber: obs.Category.Number,
+        unit: obs.Unit,
+        value: obs.Value,
+        agency: obs.AgencyName,
+      })) : [];
+      const maxAqi = readings.length > 0 ? Math.max(...readings.map(r => r.aqi)) : 0;
+      const level = classifyAqi(maxAqi);
+      return {
+        timestamp: new Date().toISOString(),
+        zipCode: CRESCENT_CITY_ZIP,
+        provider: "airnow-api",
+        readings,
+        maxAqi,
+        level,
+        summary: readings.length > 0 ? `AQI ${maxAqi} (${level}) — ${readings.map(r => `${r.parameter}: ${r.aqi}`).join(", ")}` : "AirNow ZIP endpoint returned no current readings",
+        advisory: readings.length > 0 ? getAdvisory(level) : null,
+      };
+    } catch (error) {
+      apiError = error instanceof Error ? error.message : String(error);
+      logger.warn("AirNow keyed endpoint unavailable; trying public KML product", { error: apiError });
+    }
+  } else {
+    apiError = "AIRNOW_API_KEY env var not set";
   }
 
-  const url = `${AIRNOW_API_URL}?format=application/json&zipCode=${CRESCENT_CITY_ZIP}&distance=25&API_KEY=${key}`;
+  try {
+    return await fetchPublicAirNowKml();
+  } catch (error) {
+    const publicError = error instanceof Error ? error.message : String(error);
+    throw new Error(`AirNow keyed endpoint unavailable (${apiError ?? "not attempted"}); public KML fallback failed (${publicError})`);
+  }
+}
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`AirNow API returned ${response.status}: ${response.statusText}`);
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const radius = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function parseKmlAqi(description: string): number | null {
+  const match = description.match(/(?:Good|Moderate|Unhealthy for Sensitive Groups|Unhealthy|Very Unhealthy|Hazardous)\s+(\d{1,3})\b/i);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+/** Read the keyless public AirNow PM2.5 KML product near Crescent City. */
+export async function fetchPublicAirNowKml(): Promise<AirQualityReport> {
+  const response = await fetch(AIRNOW_PUBLIC_KML_URL, {
+    headers: { Accept: "application/vnd.google-earth.kml+xml, application/xml" },
+    signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`AirNow public KML returned ${response.status}: ${response.statusText}`);
+  const xml = await response.text();
+  const document = new DOMParser().parseFromString(xml, "text/xml");
+  const placemarks = document.getElementsByTagName("Placemark");
+  let nearest: { aqi: number; distanceKm: number; site: string } | null = null;
+  for (let index = 0; index < placemarks.length; index += 1) {
+    const placemark = placemarks[index];
+    const coordinates = placemark.getElementsByTagName("coordinates")[0]?.textContent?.trim() ?? "";
+    const [longitudeText, latitudeText] = coordinates.split(",");
+    const latitude = Number(latitudeText);
+    const longitude = Number(longitudeText);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    const distanceKm = haversineDistance(CRESCENT_CITY_LAT, CRESCENT_CITY_LNG, latitude, longitude);
+    if (distanceKm > PUBLIC_STATION_RADIUS_KM) continue;
+    const description = placemark.getElementsByTagName("description")[0]?.textContent ?? "";
+    const aqi = parseKmlAqi(description);
+    if (aqi === null || (nearest && nearest.distanceKm <= distanceKm)) continue;
+    const site = placemark.getElementsByTagName("Snippet")[0]?.textContent?.trim() || "Crescent City-area AirNow station";
+    nearest = { aqi, distanceKm, site };
   }
 
-  const data = await response.json() as any[];
-
-  if (!Array.isArray(data) || data.length === 0) {
+  const timestamp = new Date().toISOString();
+  if (!nearest) {
     return {
-      timestamp: new Date().toISOString(),
+      timestamp,
       zipCode: CRESCENT_CITY_ZIP,
+      provider: "airnow-public-kml",
       readings: [],
       maxAqi: 0,
       level: "GOOD",
-      summary: "No air quality data available",
+      summary: "AirNow public KML was reachable, but it contained no current Crescent City-area PM2.5 observation",
       advisory: null,
     };
   }
-
-  const readings: AirQualityReading[] = data.map((obs: any) => ({
-    parameter: obs.ParameterName,
-    aqi: obs.AQI,
-    category: obs.Category.Name,
-    categoryNumber: obs.Category.Number,
-    unit: obs.Unit,
-    value: obs.Value,
-    agency: obs.AgencyName,
-  }));
-
-  const maxAqi = Math.max(...readings.map(r => r.aqi));
-  const level = classifyAqi(maxAqi);
-  const advisory = getAdvisory(level);
-
-  const report: AirQualityReport = {
-    timestamp: new Date().toISOString(),
+  const level = classifyAqi(nearest.aqi);
+  return {
+    timestamp,
     zipCode: CRESCENT_CITY_ZIP,
-    readings,
-    maxAqi,
+    provider: "airnow-public-kml",
+    readings: [{ parameter: "PM2.5", aqi: nearest.aqi, category: level, categoryNumber: categoryNumber(level), unit: "AQI", value: nearest.aqi, agency: `AirNow public KML — ${nearest.site}` }],
+    maxAqi: nearest.aqi,
     level,
-    summary: `AQI ${maxAqi} (${level}) — ${readings.map(r => `${r.parameter}: ${r.aqi}`).join(", ")}`,
-    advisory,
+    summary: `AQI ${nearest.aqi} (${level}) — PM2.5 at ${nearest.site}`,
+    advisory: getAdvisory(level),
   };
-
-  return report;
 }
 
 /** Main monitor entry point */

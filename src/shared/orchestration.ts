@@ -88,7 +88,10 @@ export function pipelineStatus(steps: PipelineStepReport[], health: SourceHealth
   if (exitCode >= 2) return "failed";
   if (exitCode === 1) return "degraded";
   if (steps.some(step => step.status === "failed")) return "failed";
-  if (health.degraded > 0 || steps.some(step => step.status === "degraded")) return "degraded";
+  // Source availability is coverage metadata, not pipeline health. A run that
+  // completed its checks successfully remains operational even when one or
+  // more upstream sources are missing; the summary exposes those gaps.
+  if (steps.some(step => step.status === "degraded")) return "degraded";
   return "ok";
 }
 

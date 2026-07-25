@@ -12,12 +12,12 @@ Complete reference for all exported functions, interfaces, and constants.
 | `ARTICLES_DIR` | `string` | `output/articles` |
 | `RATE_LIMIT_MS` | `number` | `2000` |
 | `SCRAPE_TIMEOUT_MS` | `number` | `60000` |
-| `CLOUDFLARE_WAIT_MS` | `number` | `3000` |
-| `SPA_RENDER_MS` | `number` | `2000` |
+| `CLOUDFLARE_WAIT_MS` | `number` | `2000` |
+| `SPA_RENDER_MS` | `number` | `1500` |
 | `MAX_RETRIES` | `number` | `3` |
 | `VERIFY_SAMPLE_SIZE` | `number` | `5` |
 | `EMBED_BATCH_SIZE` | `number` | `32` |
-| `OLLAMA_TIMEOUT_MS` | `number` | `120000` |
+| `OLLAMA_TIMEOUT_MS` | `number` | `30000` |
 
 ---
 
@@ -78,6 +78,17 @@ Complete reference for all exported functions, interfaces, and constants.
 
 ---
 
+## Scraper utilities (`src/scraper_utils.ts`)
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `isTocShapeValid` | `(value: unknown) → value is TocNode` | Reject malformed, duplicate-guid, or section-empty TOC payloads |
+| `isArticleArtifactShapeValid` | `(value: unknown, expectedSectionGuids?, exactSectionGuids?) → boolean` | Validate article JSON shape and expected section coverage before resume-skip |
+| `withRetry` | `(fn, maxRetries?, baseDelayMs?) → Promise<{result, retried, attempts}>` | Exponential-backoff retry wrapper |
+| `isMaintenanceMode` | `(status, url, finalUrl) → boolean` | Detect 503 or unexpected redirects |
+
+---
+
 ## Monitor (`src/monitor.ts`)
 
 | Export | Signature | Description |
@@ -99,7 +110,7 @@ Complete reference for all exported functions, interfaces, and constants.
 | `normalizeUrl` | `(url: string) → string` | Stable deduplication key with tracking parameters removed |
 | `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
 | `SourceHealth` | `interface` | `ok | empty | unavailable | stale` plus timestamps, count, error, provenance, freshness, and duration |
-| `summarizeSourceHealth` | `source_health.ts` | Aggregate counts that preserve unavailable/stale sources as degraded |
+| `summarizeSourceHealth` | `source_health.ts` | Aggregate present/missing counts, percentage coverage, named gaps, and compatibility alias |
 | `executePipelineStep` | `orchestration.ts` | Capture a stage's status, duration, item count, output paths, and error |
 
 ---
@@ -232,6 +243,7 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `llmConfig` | `config.ts` | Object | All config properties |
 | `configuredChatProvider` | `provider.ts` | `() → "ollama" | "openrouter"` | Selected chat provider |
 | `chatWithProvider` | `provider.ts` | `(messages, context?) → Promise<string>` | Provider-dispatched chat completion |
+| `configuredChatModel` | `provider.ts` | `(modelOverride?) → string` | Resolve the active provider/model identity |
 | `checkChatProvider` | `provider.ts` | `() → Promise<ProviderHealth>` | Selected-provider preflight and model metadata |
 | `checkOpenRouterHealth` | `openrouter.ts` | `(options?) → Promise<OpenRouterHealthCheck>` | Bounded non-generative `/models` preflight |
 | `embed` | `ollama.ts` | `(text) → Promise<number[]>` | Single text embedding via Ollama |
@@ -247,6 +259,16 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `isIndexed` | `embeddings.ts` | `() → Promise<boolean>` | Check if collection has documents |
 | `indexAllSections` | `embeddings.ts` | `() → Promise<void>` | Chunk + embed + store all sections |
 | `ragQuery` | `rag.ts` | `(userQuestion) → Promise<RagResponse>` | Full RAG pipeline |
+
+## Curation (`src/curation.ts`)
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `gatherCurationInputs` | `() → Promise<CurationInput[]>` | Read deterministic, already-fetched news, meeting, and YouTube inputs |
+| `summarizeItemDetailed` | `(item) → Promise<SummaryResult>` | Source-grounded, bounded, retryable provider summary |
+| `buildCurationEvidence` | `(item, inputFingerprint) → evidence` | Build citations and fetch provenance without an LLM call |
+| `mergeCuratedItems` | `(existing, incoming) → CuratedItem[]` | Upsert visible daily output by stable source ID |
+| `runCuration` | `() → Promise<CuratedItem[]>` | Idempotent curation run with provider/model/prompt-aware fingerprints |
 
 ---
 

@@ -2,7 +2,7 @@
 /**
  * News monitoring automation for Crescent City.
  *
- * Fetches RSS feeds from Times-Standard, Lost Coast Outpost, and Humboldt Times.
+ * Fetches RSS/Atom/JSON feeds from current North Coast civic and news sources.
  * Uses proper XML parsing via @xmldom/xmldom for reliability.
  * Deduplicates across sources and filters for Crescent City–relevant content.
  *
@@ -28,12 +28,28 @@ const logger = createLogger('news_monitor');
 export const NEWS_FEEDS: Record<string, string> = {
   'Times-Standard': 'https://www.times-standard.com/news/rss.xml',
   'Lost Coast Outpost': 'https://lostcoastoutpost.com/feed',
-  'Humboldt Times': 'https://www.humboldtcountynews.com/feed',
-  'KIEM-TV NBC Eureka': 'https://www.kiemtv.com/feed/',
+  // The historical Humboldt Times was folded into the Times-Standard in 1967;
+  // this current official county feed preserves Humboldt civic coverage
+  // without pretending that the retired publication still has a live feed.
+  'Humboldt County official news': 'https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml',
+  // KIEM now publishes under the Redwood News brand on TownNews.
+  'KIEM-TV NBC Eureka': 'https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc',
   'Redwood Voice': 'https://www.redwoodvoice.org/feed/',
+  'North Coast Journal': 'https://www.northcoastjournal.com/feed/',
+};
+
+/** Current machine-readable fallbacks for feeds whose legacy endpoint retired. */
+export const NEWS_FEED_FALLBACKS: Record<string, string[]> = {
+  'Times-Standard': [
+    'https://www.times-standard.com/wp-json/wp/v2/posts?per_page=50&_fields=id,date,link,title,excerpt,content',
+  ],
 };
 
 /** Explicit operator-controlled suppression for feeds known to be retired or blocked. */
+/** HTML fallbacks for publishers whose RSS endpoint is intermittently rate-limited. */
+export const NEWS_HTML_FALLBACKS: Record<string, string> = {
+  'KIEM-TV NBC Eureka': 'https://www.redwoodnews.tv/news/',
+};
 export const NEWS_DISABLED_SOURCES = (process.env.NEWS_DISABLED_SOURCES ?? "")
   .split(",")
   .map(source => source.trim())
@@ -48,6 +64,18 @@ const NEWS_OUTPUT_DIR = paths.news;
  * IdempotencyStore.load() transparently migrates the legacy bare string[]
  * shape on first read, so no separate migration step is needed. */
 const SEEN_IDS_PATH = paths.newsSeenIds;
+
+async function fetchFeedWithRetry(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const response = await fetch(url, init);
+    if (response.status !== 429 || attempt === 2) return response;
+    const retryAfter = Number(response.headers.get('retry-after') ?? 0);
+    const delayMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : (attempt + 1) * 1000;
+    logger.warn(`Feed rate-limited for ${delayMs}ms; retrying`, { sourceUrl: url, attempt: attempt + 1 });
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  throw new Error('Feed retry loop exhausted');
+}
 
 /** Normalize a URL to a stable dedup key (strip tracking params, trailing slash) */
 export function normalizeUrl(url: string): string {
@@ -101,10 +129,109 @@ export interface NewsItem {
   fetchedAt: string;
 }
 
+function renderedText(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const rendered = (value as { rendered?: unknown }).rendered;
+  return typeof rendered === 'string' ? rendered : '';
+}
+
+/** Parse the WordPress REST envelope used by the current Times-Standard site. */
+function parseWordPressItems(payload: unknown): Array<Omit<NewsItem, 'source' | 'fetchedAt'>> {
+  if (!Array.isArray(payload)) return [];
+  return payload.flatMap(entry => {
+    if (!entry || typeof entry !== 'object') return [];
+    const record = entry as Record<string, unknown>;
+    const title = htmlToText(renderedText(record.title)).trim();
+    const link = typeof record.link === 'string' ? record.link.trim() : '';
+    if (!title || !link) return [];
+    const pubDate = typeof record.date === 'string' ? record.date : '';
+    const content = htmlToText(renderedText(record.content) || renderedText(record.excerpt)).substring(0, 500);
+    return [{ title, link, pubDate, content }];
+  });
+}
+
+async function fetchWordPressFallback(
+  url: string,
+  sourceName: string,
+  checkedAt: string,
+): Promise<NewsFeedResult> {
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
+    },
+    signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
+  });
+  if (!response.ok) {
+    return {
+      source: sourceName,
+      items: [],
+      health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+        url,
+        itemCount: 0,
+        httpStatus: response.status,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+        provenance: 'WordPress REST fallback',
+      }),
+    };
+  }
+  const items = parseWordPressItems(await response.json());
+  return {
+    source: sourceName,
+    items,
+    health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+      url,
+      fetchedAt: checkedAt,
+      itemCount: items.length,
+      provenance: 'WordPress REST fallback for retired RSS endpoint',
+    }),
+  };
+}
+
 /**
  * Fetch and parse a single RSS feed, returning only Crescent City–relevant items.
  * Returns an empty array on any network or parse error (graceful degradation).
  */
+async function fetchHtmlNewsFallback(
+  url: string,
+  sourceName: string,
+  checkedAt: string,
+): Promise<NewsFeedResult> {
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36',
+    },
+    signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
+  });
+  if (!response.ok) throw new Error(`HTML fallback returned ${response.status}: ${response.statusText}`);
+  const document = new DOMParser().parseFromString(await response.text(), 'text/html');
+  const anchors = document.getElementsByTagName('a');
+  const items: Array<Omit<NewsItem, 'source' | 'fetchedAt'>> = [];
+  const seenLinks = new Set<string>();
+  for (let index = 0; index < anchors.length; index += 1) {
+    const anchor = anchors[index];
+    const href = anchor.getAttribute('href')?.trim() ?? '';
+    const title = anchor.getAttribute('aria-label')?.trim() || htmlToText(anchor.textContent ?? '').trim();
+    if (!href.includes('/article_') || !title || seenLinks.has(href)) continue;
+    seenLinks.add(href);
+    const link = new URL(href, url).toString();
+    const haystack = title.toLowerCase();
+    if (!CRESCENT_CITY_KEYWORDS.some(keyword => haystack.includes(keyword))) continue;
+    items.push({ title, link, pubDate: '', content: '' });
+  }
+  return {
+    source: sourceName,
+    items,
+    health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+      url,
+      fetchedAt: checkedAt,
+      itemCount: items.length,
+      provenance: 'Redwood News HTML listing fallback after RSS rate limit',
+    }),
+  };
+}
+
 export async function fetchRSSFeedDetailed(
   url: string,
   sourceName: string
@@ -113,13 +240,32 @@ export async function fetchRSSFeedDetailed(
   try {
     logger.info(`Fetching RSS feed from ${sourceName}`, { url });
 
-    const response = await fetch(url, {
+    const response = await fetchFeedWithRetry(url, {
       headers: {
         'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
+        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1',
       },
       signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
     });
     if (!response.ok) {
+      const htmlFallbackUrl = NEWS_HTML_FALLBACKS[sourceName];
+      if (htmlFallbackUrl) {
+        try {
+          logger.warn(`Primary feed unavailable for ${sourceName}; trying HTML listing fallback`, { primaryUrl: url, htmlFallbackUrl, httpStatus: response.status });
+          return await fetchHtmlNewsFallback(htmlFallbackUrl, sourceName, checkedAt);
+        } catch (fallbackError) {
+          logger.warn(`HTML listing fallback failed for ${sourceName}`, { error: errorMessage(fallbackError) });
+        }
+      }
+      const fallbackUrl = NEWS_FEED_FALLBACKS[sourceName]?.[0];
+      if (fallbackUrl) {
+        logger.warn(`Primary feed unavailable for ${sourceName}; trying machine-readable fallback`, {
+          primaryUrl: url,
+          fallbackUrl,
+          httpStatus: response.status,
+        });
+        return await fetchWordPressFallback(fallbackUrl, sourceName, checkedAt);
+      }
       return {
         source: sourceName,
         items: [],
@@ -196,6 +342,31 @@ export async function fetchRSSFeedDetailed(
       }),
     };
   } catch (error: unknown) {
+    const htmlFallbackUrl = NEWS_HTML_FALLBACKS[sourceName];
+    if (htmlFallbackUrl) {
+      try {
+        logger.warn(`Primary feed failed for ${sourceName}; trying HTML listing fallback`, { primaryUrl: url, htmlFallbackUrl, error: errorMessage(error) });
+        return await fetchHtmlNewsFallback(htmlFallbackUrl, sourceName, checkedAt);
+      } catch (fallbackError) {
+        logger.warn(`HTML listing fallback failed for ${sourceName}`, { error: errorMessage(fallbackError) });
+      }
+    }
+    const fallbackUrl = NEWS_FEED_FALLBACKS[sourceName]?.[0];
+    if (fallbackUrl) {
+      try {
+        logger.warn(`Primary feed failed for ${sourceName}; trying machine-readable fallback`, {
+          primaryUrl: url,
+          fallbackUrl,
+          error: errorMessage(error),
+        });
+        return await fetchWordPressFallback(fallbackUrl, sourceName, checkedAt);
+      } catch (fallbackError) {
+        logger.error(`Fallback feed failed for ${sourceName}`, {
+          fallbackUrl,
+          error: errorMessage(fallbackError),
+        });
+      }
+    }
     logger.error(`Failed to fetch RSS feed from ${sourceName}`, {
       error: errorMessage(error),
       url,

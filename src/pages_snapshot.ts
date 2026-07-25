@@ -10,9 +10,10 @@
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "fs/promises";
 import { dirname, join, relative, resolve } from "path";
 import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealthStatus, SourceHealthSummary } from "./types.js";
-import { summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
+import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { runtimeMetadata } from "./shared/orchestration.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
+import type { AnalyticsOverview } from "./analytics_backend.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
@@ -61,6 +62,8 @@ export interface PagesSnapshot {
     pipelineRun: Record<string, unknown> | null;
     curation: Record<string, unknown> | null;
   };
+  /** Shared deterministic + optional LLM overview used as the public entry point. */
+  analytics: AnalyticsOverview | null;
   files: {
     code: string | null;
     toc: string | null;
@@ -75,6 +78,7 @@ export interface PagesSnapshot {
     sourceHealth: string;
     sourceRegistry: string;
     sourceDiscovery: string;
+    analyticsOverview: string | null;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
@@ -308,7 +312,7 @@ async function collectCurated(directory: string): Promise<JsonRecord[]> {
   return dedupe(items, ["id", "link"]);
 }
 
-async function collectHealth(outputDir: string): Promise<SourceHealth[]> {
+async function collectHealth(outputDir: string, checkedAt: string): Promise<SourceHealth[]> {
   const health: SourceHealth[] = [];
   for (const relativePath of SOURCE_HEALTH_FILES) {
     const parsed = await readJson<unknown>(join(outputDir, relativePath));
@@ -337,7 +341,7 @@ async function collectHealth(outputDir: string): Promise<SourceHealth[]> {
       });
     }
   }
-  return health.sort((a, b) => a.source.localeCompare(b.source));
+  return completeSourceHealth(health, checkedAt);
 }
 
 async function collectCurrentAlerts(outputDir: string): Promise<{ composite: JsonRecord | null; current: JsonRecord[] }> {
@@ -362,9 +366,11 @@ async function collectCurrentAlerts(outputDir: string): Promise<{ composite: Jso
   return { composite, current };
 }
 
-function snapshotStatus(health: SourceHealth[], codeAvailable: boolean): PagesSnapshot["status"] {
-  if (!codeAvailable) return health.length === 0 ? "unavailable" : "degraded";
-  if (health.some(source => source.status === "unavailable" || source.status === "stale")) return "degraded";
+function snapshotStatus(codeAvailable: boolean, pipelineRun: JsonRecord | null): PagesSnapshot["status"] {
+  // Missing source checks are represented in healthSummary and sourceHealth;
+  // they do not invalidate an otherwise complete static snapshot.
+  if (!codeAvailable) return "unavailable";
+  if (pipelineRun?.status === "failed" || pipelineRun?.status === "degraded") return "degraded";
   return "ok";
 }
 
@@ -382,7 +388,7 @@ export async function buildPagesSnapshot(
   const verification = await readFirstJson<JsonRecord>("verification-report.json");
   const coverage = await readFirstJson<JsonRecord>("domain-coverage.json");
   const readability = await readFirstJson<JsonRecord>("readability.json");
-  const health = await collectHealth(resolvedOutput);
+  const health = await collectHealth(resolvedOutput, generatedAt);
   const healthSummary = summarizeSourceHealth(health, generatedAt);
   const registryPayload = await readFirstJson<{ sources?: SourceDefinition[] }>("source-registry.json");
   const sourceRegistry = Array.isArray(registryPayload?.sources) ? registryPayload.sources : getSourceRegistry();
@@ -400,6 +406,7 @@ export async function buildPagesSnapshot(
   const weeklySummary = await readJson<JsonRecord>(join(resolvedOutput, "weekly-check-summary.json"));
   const pipelineRun = await readJson<JsonRecord>(join(resolvedOutput, "state/latest-pipeline-run.json"));
   const curation = await readJson<JsonRecord>(join(resolvedOutput, "state/curation-report.json"));
+  const analytics = await readJson<AnalyticsOverview>(join(resolvedOutput, "state/analytics-overview.json"));
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
@@ -416,7 +423,7 @@ export async function buildPagesSnapshot(
     generatedAt,
     repository: REPOSITORY_URL,
     commit,
-    status: snapshotStatus(health, codeAvailable),
+    status: snapshotStatus(codeAvailable, pipelineRun),
     healthSummary,
     sourceRegistry,
     sourceRegistryFingerprint: registryFingerprint,
@@ -437,6 +444,7 @@ export async function buildPagesSnapshot(
     curated,
     alerts,
     report: { monthly, metadata: reportMetadata, weeklySummary, pipelineRun, curation },
+    analytics: analytics?.schemaVersion === "1.0.0" ? analytics : null,
     files: {
       code: codeAvailable ? "data/code.json" : null,
       toc: (await readFirstJson<unknown>("toc.json")) !== null ? "data/toc.json" : null,
@@ -448,6 +456,7 @@ export async function buildPagesSnapshot(
       reportMetadata: reportMetadata ? "data/report-metadata.json" : null,
       pipelineRun: pipelineRun ? "data/pipeline-run.json" : null,
       curation: curation ? "data/curation.json" : null,
+      analyticsOverview: analytics?.schemaVersion === "1.0.0" ? "data/analytics-overview.json" : null,
       sourceHealth: "data/source-health.json",
       sourceRegistry: "data/source-registry.json",
       sourceDiscovery: "data/source-discovery.json",
@@ -525,6 +534,10 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       await writeJson(join(temporary, "data/curation.json"), snapshot.report.curation);
       files.push("data/curation.json");
     }
+    if (snapshot.analytics) {
+      await writeJson(join(temporary, "data/analytics-overview.json"), snapshot.analytics);
+      files.push("data/analytics-overview.json");
+    }
 
     await rm(destination, { recursive: true, force: true });
     await rename(temporary, destination);
@@ -560,6 +573,7 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (!indexHtml.includes("sourceRegistry")) errors.push("Pages index does not render the source registry");
   if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
   if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");
+  if (!indexHtml.includes("snapshot.analytics")) errors.push("Pages index does not render the shared analytics overview");
   return errors;
 }
 

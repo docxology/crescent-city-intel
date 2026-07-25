@@ -30,11 +30,14 @@ import { llmConfig } from './llm/config.js';
 import { paths } from './shared/paths.js';
 import { sourceHealth, errorMessage, writeJsonAtomic } from './shared/source_health.js';
 import type { SourceHealth } from './types.js';
+import { DOMParser } from '@xmldom/xmldom';
 
 const logger = createLogger('youtube_monitor');
 
 /** Official City of Crescent City, California YouTube channel — confirmed live 2026-07-23. */
 export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/c/CityofCrescentCityCalifornia/videos';
+export const YOUTUBE_CHANNEL_ID = 'UCc8LIkDxscuciAFNB9yEEMA';
+export const YOUTUBE_RSS_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`;
 const YOUTUBE_CHANNEL_NAME = 'City of Crescent City, California';
 
 const YOUTUBE_OUTPUT_DIR = join(process.cwd(), 'output', 'youtube');
@@ -125,6 +128,44 @@ async function runYtDlp(args: string[]): Promise<{ stdout: string; stderr: strin
   }
 }
 
+async function listChannelVideosFromRss(
+  channelUrl: string,
+  limit: number,
+): Promise<YouTubeListingResult> {
+  const checkedAt = new Date().toISOString();
+  const response = await fetch(YOUTUBE_RSS_URL, {
+    headers: { Accept: 'application/atom+xml, application/xml' },
+    signal: AbortSignal.timeout(YT_DLP_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`YouTube channel RSS returned ${response.status}: ${response.statusText}`);
+  const xml = await response.text();
+  const document = new DOMParser().parseFromString(xml, 'application/xml');
+  const entries = document.getElementsByTagName('entry');
+  const videos: YouTubeVideoListing[] = [];
+  for (let index = 0; index < entries.length && videos.length < limit; index += 1) {
+    const entry = entries[index];
+    const id = entry.getElementsByTagName('yt:videoId')[0]?.textContent?.trim() ?? '';
+    const title = entry.getElementsByTagName('title')[0]?.textContent?.trim() ?? '';
+    const published = entry.getElementsByTagName('published')[0]?.textContent?.trim() ?? '';
+    if (!id) continue;
+    const date = Date.parse(published);
+    videos.push({
+      id,
+      title,
+      uploadDate: Number.isFinite(date) ? new Date(date).toISOString().slice(0, 10).replaceAll('-', '') : 'NA',
+    });
+  }
+  return {
+    videos,
+    health: sourceHealth('YouTube', videos.length > 0 ? 'ok' : 'empty', checkedAt, {
+      url: channelUrl,
+      fetchedAt: checkedAt,
+      itemCount: videos.length,
+      provenance: 'Official YouTube channel Atom feed fallback; transcript extraction remains a separate yt-dlp capability',
+    }),
+  };
+}
+
 /** List recent videos from the channel via `yt-dlp --flat-playlist` (no download). */
 export async function listChannelVideos(
   channelUrl: string = YOUTUBE_CHANNEL_URL,
@@ -173,15 +214,21 @@ export async function listChannelVideosDetailed(
 
   if (exitCode !== 0) {
     logger.error('yt-dlp channel listing failed', { exitCode, stderr: stderr.slice(0, 500) });
-    return {
-      videos: [],
-      health: sourceHealth('YouTube', 'unavailable', checkedAt, {
-        url: channelUrl,
-        itemCount: 0,
-        error: stderr.trim().slice(0, 500) || `yt-dlp exited with code ${exitCode}`,
-        provenance: 'yt-dlp channel listing',
-      }),
-    };
+    try {
+      const fallback = await listChannelVideosFromRss(channelUrl, limit);
+      fallback.health.error = `yt-dlp listing unavailable; ${fallback.health.provenance}`;
+      return fallback;
+    } catch (fallbackError) {
+      return {
+        videos: [],
+        health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+          url: channelUrl,
+          itemCount: 0,
+          error: `${stderr.trim().slice(0, 500) || `yt-dlp exited with code ${exitCode}`}; RSS fallback failed: ${errorMessage(fallbackError)}`,
+          provenance: 'yt-dlp channel listing with official Atom feed fallback',
+        }),
+      };
+    }
   }
 
   const videos = stdout

@@ -17,7 +17,7 @@ const log = createLogger("content");
 /**
  * Extract all section-type descendant GUIDs from a TOC node.
  */
-function getSectionGuids(node: TocNode): { guid: string; number: string; title: string }[] {
+export function getSectionGuids(node: TocNode): { guid: string; number: string; title: string }[] {
   const results: { guid: string; number: string; title: string }[] = [];
   if (node.type === "section") {
     results.push({ guid: node.guid, number: node.number ?? node.indexNum ?? "", title: node.title ?? "" });
@@ -182,6 +182,10 @@ export async function scrapeArticlePage(
     log.info(`Deep-scraped ${deepSections.length}/${expectedSections.length} sections`);
   }
 
+  if (expectedSections.length > 0 && finalSections.length === 0) {
+    throw new Error(`No sections were extracted from article ${article.guid}; refusing to persist an empty scrape`);
+  }
+
   const sha256 = await computeSha256(rawHtml);
 
   return {
@@ -195,4 +199,3 @@ export async function scrapeArticlePage(
     scrapedAt: new Date().toISOString(),
   };
 }
-

@@ -171,13 +171,11 @@ Fetches active wildfire incidents from CAL FIRE for Del Norte County and surroun
 
 ### Data Source
 
-`GET https://www.fire.ca.gov/imap/imapdata/all`
+`GET https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false`
 
-**Known issue (confirmed 2026-07-23)**: this endpoint currently returns HTTP
-403 Forbidden for all requests, including browser `User-Agent` headers — an
-anti-bot/WAF block on CAL FIRE's side, not a parser or format bug. The monitor
-degrades gracefully (no incidents reported) until CAL FIRE's WAF policy
-changes or an alternate data source is adopted.
+The retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked. The monitor
+now uses the current official incident JSON endpoint and reports a valid
+no-match regional result as `empty`.
 
 ### Exports
 

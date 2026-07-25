@@ -1097,6 +1097,7 @@
             <h2 id="welcome-title">Find the local signal, then follow the evidence.</h2>
             <p>One starting point for local news, source-grounded LLM summaries, public meetings, municipal code, alerts, analytics, reports, and cited research tools. Choose a path below or search the code from anywhere.</p>
             <div id="welcome-status" class="welcome-status" role="status">Loading live workspace status…</div>
+            <div id="welcome-analytics" class="banner" style="margin-top:14px;text-align:left">Loading the current analytical signal…</div>
             <div class="welcome-metrics" aria-label="Municipal code coverage">
               <div class="welcome-metric"><div class="value" id="welcome-articles">—</div><div class="label">code articles</div></div>
               <div class="welcome-metric"><div class="value" id="welcome-sections">—</div><div class="label">code sections</div></div>
@@ -1363,9 +1364,10 @@
           const healthResp = await apiFetch("/api/health");
           const health = await healthResp.json();
           const sourceRows = [health.newsSources, health.meetingsSources, health.youtubeSources, health.triplicateSources, health.alertSources].flatMap(rows => Array.isArray(rows) ? rows : []);
-          const degradedSources = sourceRows.filter(source => source.status === "unavailable" || source.status === "stale").length;
           const welcomeStatus = document.getElementById("welcome-status");
-          if (welcomeStatus) welcomeStatus.textContent = `${health.status === "ok" ? "Workspace operational" : "Workspace degraded"} · ${degradedSources} of ${sourceRows.length} source checks unavailable/stale · chat ${health.chatProvider || "unknown"} · alerts ${health.alertLevel || "CALM"}`;
+          const missingSources = sourceRows.filter(source => source.status === "unavailable" || source.status === "stale").length;
+          const presentSources = sourceRows.length - missingSources;
+          if (welcomeStatus) welcomeStatus.textContent = `${health.status === "ok" ? "Workspace operational" : "Workspace attention required"} · ${presentSources}/${sourceRows.length} source checks present (${missingSources} unavailable/stale) · chat ${health.chatProvider || "unknown"} · alerts ${health.alertLevel || "CALM"}`;
           if (health.manifest?.stale) {
             const banner = document.createElement("div");
             banner.style.cssText = "padding:0.5rem 1rem; background:#f59e0b22; border-bottom:1px solid #f59e0b; color:#f59e0b; font-size:0.9rem;";
@@ -1390,7 +1392,22 @@
           const headerEl = document.getElementById("header");
           document.documentElement.style.setProperty("--header-height", headerEl.getBoundingClientRect().bottom + "px");
         } catch { /* non-fatal */ }
+        loadWelcomeAnalytics();
       } catch { }
+    }
+
+    async function loadWelcomeAnalytics() {
+      const target = document.getElementById('welcome-analytics');
+      if (!target) return;
+      try {
+        const response = await apiFetch('/api/analytics/overview');
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        const overview = await response.json();
+        const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 4) : [];
+        target.innerHTML = `<strong>${escapeHtml(overview.headline || 'Current analytical signal')}</strong><div style="margin-top:6px">${escapeHtml(overview.summary || '')}</div><div style="margin-top:8px;font-size:11px;color:var(--text-secondary)">${escapeHtml(overview.llm?.status === 'ok' ? `LLM summary · ${overview.llm.provider}/${overview.llm.model}` : `Deterministic summary · LLM ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)}</li>`).join('')}</ul>` : ''}`;
+      } catch (error) {
+        target.innerHTML = `<strong>Analytical overview unavailable.</strong><div style="margin-top:6px;color:var(--text-secondary)">${escapeHtml(error.message || error)}</div>`;
+      }
     }
 
     function renderToc(node, container, depth) {
@@ -2733,12 +2750,18 @@
     async function loadIntelOverview() {
       const grid = document.getElementById('intel-overview-grid');
       try {
-        const [health, alerts, timeline] = await Promise.all([
+        const [overview, health, alerts, timeline] = await Promise.all([
+          apiFetch('/api/analytics/overview').then(r => r.ok ? r.json() : null).catch(() => null),
           apiFetch('/api/health').then(r => r.json()).catch(() => null),
           apiFetch('/api/monitor/alerts').then(r => r.json()).catch(() => null),
           apiFetch('/api/alerts/timeline').then(r => r.json()).catch(() => null),
         ]);
         let html = '';
+        if (overview) {
+          const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 8) : [];
+          html += `<div class="intel-card" style="grid-column:1/-1"><h4>${escapeHtml(overview.headline || 'Current analytical signal')}</h4><p style="line-height:1.55">${escapeHtml(overview.summary || '')}</p><div class="label">${escapeHtml(overview.llm?.status === 'ok' ? `LLM summary · ${overview.llm.provider}/${overview.llm.model}` : `Deterministic summary · LLM ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)} <span class="label">Next: ${escapeHtml(signal.nextStep)}</span></li>`).join('')}</ul>` : '<div class="label">No warning signals were recorded.</div>'}</div>`;
+          html += `<div class="intel-card"><h4>Code sections</h4><div class="metric">${overview.metrics.code.sections}</div><div class="label">${overview.metrics.code.articles} articles · ${overview.metrics.code.words} words</div></div><div class="intel-card"><h4>LLM briefs</h4><div class="metric">${overview.metrics.content.curated}</div><div class="label">source-grounded items</div></div><div class="intel-card"><h4>Alert events</h4><div class="metric">${overview.metrics.alerts.totalEvents}</div><div class="label">historical monitor events</div></div><div class="intel-card"><h4>Source gaps</h4><div class="metric">${overview.metrics.sources.missing}</div><div class="label">unavailable or stale</div></div>`;
+        }
         if (health) {
           html += `<div class="intel-card"><h4>System Status</h4><div class="metric">${health.status === 'ok' ? '✅' : '⚠️'}</div><div class="label">Health</div></div>`;
           if (health.manifest) {

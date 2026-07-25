@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0.0",
+  "purpose": "Make manuscript claims auditable and prevent implementation evidence from being presented as civic or safety efficacy evidence.",
+  "claims": [
+    {
+      "id": "implementation-source-health",
+      "statement": "The platform represents source observations with explicit ok, empty, unavailable, or stale states.",
+      "status": "implemented",
+      "evidence": ["src/types.ts", "src/shared/source_health.ts", "src/source_registry.ts"],
+      "scope": "software contract",
+      "notEstablished": "Source completeness, institutional authority, or the truth of an upstream record"
+    },
+    {
+      "id": "implementation-code-integrity",
+      "statement": "Municipal-code acquisition records manifests and verification evidence before export.",
+      "status": "implemented",
+      "evidence": ["src/scrape.ts", "src/verify.ts", "tests/verify.test.ts"],
+      "scope": "software and artifact integrity",
+      "notEstablished": "Legal sufficiency or the continuing currency of the remote code portal"
+    },
+    {
+      "id": "implementation-summary-provenance",
+      "statement": "The shared analytics overview binds an optional LLM summary to input, provider, model, and prompt fingerprints and reuses an unchanged successful result.",
+      "status": "implemented",
+      "evidence": ["src/analytics_backend.ts", "src/manuscript_variables.ts", "tests/analytics-backend.test.ts"],
+      "scope": "deterministic orchestration and provenance",
+      "notEstablished": "Factuality, completeness, fairness, or calibrated confidence of generated language"
+    },
+    {
+      "id": "implementation-surface-parity",
+      "statement": "The local GUI and Pages export consume the same analytics overview and expose its fingerprint and status.",
+      "status": "implemented",
+      "evidence": ["src/gui/routes.ts", "src/pages_snapshot.ts", "scripts/validate-pages.ts"],
+      "scope": "cross-surface artifact parity",
+      "notEstablished": "That either surface is live, complete, or a substitute for the responsible agency"
+    },
+    {
+      "id": "snapshot-observation",
+      "statement": "The rendered manuscript reports the bounded snapshot represented by output/state/analytics-overview.json.",
+      "status": "observed",
+      "evidence": ["output/state/analytics-overview.json", "output/data/manuscript_variables.json"],
+      "scope": "one generated local snapshot",
+      "notEstablished": "A persistent condition in Crescent City or a longitudinal trend"
+    }
+  ]
+}

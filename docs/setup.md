@@ -41,6 +41,10 @@ bun run scrape
 This launches a visible Chromium browser, bypasses Cloudflare Turnstile, and downloads the current article/section manifest from [ecode360.com/CR4919](https://ecode360.com/CR4919). Takes ~10–15 minutes.
 
 **Resume support**: If interrupted, run `bun run scrape` again — it picks up where it left off.
+The default run refreshes the live TOC. If ecode360 is temporarily unavailable,
+the last validated TOC may be used as a fallback; for a deliberate offline
+resume, run `bun run scrape -- --cached-toc`. Only complete, hash-matching
+article artifacts are skipped.
 
 Output: `output/articles/*.json` + `output/toc.json` + `output/manifest.json`
 
@@ -166,7 +170,7 @@ The web viewer's chat panel (💬 button) also connects to the RAG pipeline once
 | `bun test` | Run the deterministic test suite |
 | `bun run validate` | Strict TypeScript, tests, contract, and generated-output gate |
 | `bun run monitor` | Detect municipal code changes |
-| `bun run news` | Fetch RSS news (Times-Standard, Lost Coast Outpost, Humboldt Times, KIEM-TV, Redwood Voice) |
+| `bun run news` | Fetch current North Coast news/civic sources with API, RSS, and bounded HTML fallbacks |
 | `bun run youtube` | Pull YouTube meeting transcripts (requires `yt-dlp` on PATH) |
 | `bun run curate` | LLM-summarize + domain-tag new items across news/meetings/YouTube |
 
@@ -183,9 +187,14 @@ All optional — defaults work out of the box.
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model |
 | `CHAT_MODEL` | `gemma3:4b` | Chat model |
 | `OPENROUTER_API_KEY` | `(unset)` | Required only when `LLM_PROVIDER=openrouter` |
+| `OPENROUTER_URL` | `https://openrouter.ai/api/v1` | OpenRouter API base URL |
 | `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |
+| `OPENROUTER_MAX_TOKENS` | `1024` | Maximum tokens per OpenRouter completion |
 | `OPENROUTER_MAX_REQUESTS` | `100` | Max OpenRouter chat requests allowed per run |
+| `OPENROUTER_MIN_REQUEST_INTERVAL_MS` | `3100` | Minimum spacing between OpenRouter requests |
+| `OPENROUTER_TIMEOUT_MS` | `120000` | OpenRouter request timeout |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Bounded selected-provider health-check timeout |
+| `CURATION_SUMMARY_TIMEOUT_MS` | `15000` | Maximum time for one curation summary before source-only fallback |
 | `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `PORT` | `3000` | GUI server port |
@@ -195,7 +204,7 @@ All optional — defaults work out of the box.
 
 ## Troubleshooting
 
-**Scraper gets stuck on Cloudflare**: The browser window should show a brief "Just a moment..." page then resolve. If it hangs, close the browser and re-run — the manifest ensures safe resume.
+**Scraper gets stuck on Cloudflare**: The browser window should show a brief "Just a moment..." page then resolve. If it hangs, close the browser and re-run — the manifest and atomic artifacts ensure safe resume. If the live TOC endpoint is unavailable, use `bun run scrape -- --cached-toc` only when the cached TOC is known to be current; follow with `bun run verify` when live access returns.
 
 **ChromaDB won't start**: Make sure Python 3.9+ is installed and `pip install chromadb` completed. Run `chroma run --path chroma_data` from the project root.
 

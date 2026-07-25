@@ -25,6 +25,10 @@ Every script is runnable directly via `bun run <script-name>`.
 | `run-meetings.ts` | `bun run gov-meetings` | Government meeting scraper (`src/gov_meeting_monitor.ts`) |
 | `run-coverage.ts` | `bun run coverage` | Domain coverage analysis |
 | `run-readability.ts` | `bun run readability` | Flesch-Kincaid + Gunning Fog scoring |
+| `run-analytics.ts` | `bun run analytics` | Durable cross-surface analytics overview with optional LLM executive summary |
+| `validate-manuscript.ts` | `bun run manuscript:check` | Validate the source-controlled IMRAD manuscript and claim ledger |
+| `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Hydrate manuscript tokens from the canonical analytics envelope |
+| `z_generate_manuscript_variables.py` | template renderer hook | Thin Python adapter that delegates to the Bun hydrator |
 | `weekly-check.sh` | _(legacy)_ | Bash predecessor to `weekly-check.ts` — kept for reference |
 | `cron-setup.sh` | `bun run cron-setup` | macOS Launchd / Linux cron installer |
 

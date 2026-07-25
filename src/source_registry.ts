@@ -73,8 +73,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   source({
     id: "city-youtube", name: "City of Crescent City official YouTube", kind: "video", authority: "official",
     region: "Crescent City", canonicalUrl: "https://www.youtube.com/c/CityofCrescentCityCalifornia/videos", discoveredFrom: [DISCOVERY_CITATIONS.city, DISCOVERY_CITATIONS.mediaHub],
-    collectionMode: "yt-dlp", automation: "monitored", enabled: true, configuredMonitor: "youtube", expectedCadence: "as published",
-    provenance: "Official City video channel used for meeting and civic recordings.",
+    endpointUrl: "https://www.youtube.com/feeds/videos.xml?channel_id=UCc8LIkDxscuciAFNB9yEEMA", collectionMode: "rss", automation: "monitored", enabled: true, configuredMonitor: "youtube", expectedCadence: "as published",
+    provenance: "Official City video channel; Atom listing fallback is keyless, while transcript extraction uses yt-dlp when available.",
   }),
   source({
     id: "county-official-home", name: "County of Del Norte official site", kind: "county_official", authority: "official",
@@ -163,8 +163,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "news-times-standard", name: "Times-Standard", kind: "news", authority: "journalistic", region: "North Coast",
-    canonicalUrl: "https://www.times-standard.com/news/rss.xml", discoveredFrom: ["https://www.times-standard.com/"], collectionMode: "rss", automation: "monitored", enabled: true,
-    configuredMonitor: "news:Times-Standard", expectedCadence: "daily", provenance: "RSS/Atom news monitor.",
+    canonicalUrl: "https://www.times-standard.com/", endpointUrl: "https://www.times-standard.com/wp-json/wp/v2/posts?per_page=50&_fields=id,date,link,title,excerpt,content", discoveredFrom: ["https://www.times-standard.com/"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "news:Times-Standard", expectedCadence: "daily", provenance: "WordPress REST news monitor with RSS fallback.",
   }),
   source({
     id: "news-lost-coast-outpost", name: "Lost Coast Outpost", kind: "news", authority: "journalistic", region: "North Coast",
@@ -172,19 +172,25 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
     configuredMonitor: "news:Lost Coast Outpost", expectedCadence: "daily", provenance: "RSS/Atom news monitor.",
   }),
   source({
-    id: "news-humboldt-times", name: "Humboldt Times", kind: "news", authority: "journalistic", region: "North Coast",
-    canonicalUrl: "https://www.humboldtcountynews.com/feed", discoveredFrom: ["https://www.humboldtcountynews.com/"], collectionMode: "rss", automation: "monitored", enabled: true,
-    configuredMonitor: "news:Humboldt Times", expectedCadence: "daily", provenance: "RSS/Atom news monitor.",
+    id: "news-humboldt-county", name: "Humboldt County official news", kind: "county_official", authority: "official", region: "North Coast",
+    canonicalUrl: "https://humboldtgov.org/CivicAlerts.aspx", endpointUrl: "https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml", discoveredFrom: ["https://humboldtgov.org/", "https://humboldtgov.org/rss.aspx"], collectionMode: "rss", automation: "monitored", enabled: true,
+    configuredMonitor: "news:Humboldt County official news", expectedCadence: "daily", provenance: "Official Humboldt County News Flash RSS feed; current civic notices and public-safety releases.",
+    notes: "The historical Humboldt Times was folded into the Times-Standard in 1967 and has no current standalone feed.",
   }),
   source({
     id: "news-kiem", name: "KIEM-TV NBC Eureka", kind: "news", authority: "journalistic", region: "North Coast",
-    canonicalUrl: "https://www.kiemtv.com/feed/", discoveredFrom: ["https://redwoodnews.tv/"], collectionMode: "rss", automation: "monitored", enabled: true,
-    configuredMonitor: "news:KIEM-TV NBC Eureka", expectedCadence: "daily", provenance: "RSS/Atom news monitor.",
+    canonicalUrl: "https://www.redwoodnews.tv/news/", endpointUrl: "https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc", discoveredFrom: ["https://redwoodnews.tv/", "https://www.redwoodnews.tv/news/"], collectionMode: "rss", automation: "monitored", enabled: true,
+    configuredMonitor: "news:KIEM-TV NBC Eureka", expectedCadence: "daily", provenance: "Current Redwood News/TownNews RSS endpoint for the KIEM-TV/NBC 3 newsroom.",
   }),
   source({
     id: "news-redwood-voice", name: "Redwood Voice", kind: "news", authority: "journalistic", region: "Del Norte County",
     canonicalUrl: "https://www.redwoodvoice.org/feed/", discoveredFrom: ["https://www.redwoodvoice.org/"], collectionMode: "rss", automation: "monitored", enabled: true,
     configuredMonitor: "news:Redwood Voice", expectedCadence: "daily", provenance: "RSS/Atom news monitor.",
+  }),
+  source({
+    id: "news-north-coast-journal", name: "North Coast Journal", kind: "news", authority: "journalistic", region: "North Coast",
+    canonicalUrl: "https://www.northcoastjournal.com/", endpointUrl: "https://www.northcoastjournal.com/feed/", discoveredFrom: ["https://www.northcoastjournal.com/"], collectionMode: "rss", automation: "monitored", enabled: true,
+    configuredMonitor: "news:North Coast Journal", expectedCadence: "daily", provenance: "North Coast Journal RSS feed; independent Humboldt County regional reporting.",
   }),
   source({
     id: "alert-noaa-tsunami", name: "NOAA/NWS tsunami alerts", kind: "alert", authority: "public_agency", region: "Federal",
@@ -213,13 +219,13 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "alert-airnow", name: "EPA AirNow Crescent City air quality", kind: "environment", authority: "public_agency", region: "Federal",
-    canonicalUrl: "https://www.airnowapi.org/aq/observation/zipCode/current", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "alert:airquality", expectedCadence: "hourly", provenance: "EPA AirNow ZIP 95531 API; requires AIRNOW_API_KEY.",
+    canonicalUrl: "https://www.airnow.gov/", endpointUrl: "https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml", discoveredFrom: [DISCOVERY_CITATIONS.county, "https://docs.airnowapi.org/docs/HourlyDataFactSheet.pdf"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:airquality", expectedCadence: "hourly", provenance: "EPA AirNow public KML observation product for the Crescent City-area station; optional keyed ZIP API remains supported.",
   }),
   source({
     id: "alert-calfire", name: "CAL FIRE wildfire incidents", kind: "alert", authority: "public_agency", region: "California",
-    canonicalUrl: "https://www.fire.ca.gov/imap/imapdata/all", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "alert:wildfire", expectedCadence: "real time", provenance: "CAL FIRE incident data endpoint; WAF outages remain explicit unavailable states.",
+    canonicalUrl: "https://www.fire.ca.gov/incidents", endpointUrl: "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false", discoveredFrom: [DISCOVERY_CITATIONS.county, "https://www.fire.ca.gov/incidents"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:wildfire", expectedCadence: "real time", provenance: "CAL FIRE current active-incident JSON endpoint linked from the official incident page.",
   }),
   source({
     id: "alert-ndbc-marine", name: "NOAA NDBC Crescent City marine buoys", kind: "environment", authority: "public_agency", region: "Federal",

@@ -10,7 +10,22 @@ describe("metadata and machine-readable reporting routes", () => {
     expect(["ollama", "openrouter"]).toContain(body.llm.provider);
     expect(body.llm.embeddingProvider).toBe("ollama");
     expect(body.sourceHealth).toHaveProperty("degraded");
+    expect(body.sourceHealth).toHaveProperty("present");
+    expect(body.sourceHealth).toHaveProperty("missing");
+    expect(body.sourceHealth).toHaveProperty("coveragePercent");
     expect(JSON.stringify(body)).not.toMatch(/OPENROUTER_API_KEY|sk-[A-Za-z0-9]/);
+  });
+
+  test("GET /api/analytics/overview returns the shared evidence envelope", async () => {
+    const response = await handleApiRoute(new URL("http://localhost:3000/api/analytics/overview"));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.schemaVersion).toBe("1.0.0");
+    expect(body.inputFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(["ok", "degraded", "unavailable"]).toContain(body.status);
+    expect(body.entryPoint.startHere).toBeTruthy();
+    expect(Array.isArray(body.signals)).toBe(true);
+    expect(body.llm).toHaveProperty("promptVersion");
   });
 
   test("GET /api/report/latest.json returns a typed not-found response when metadata is absent", async () => {

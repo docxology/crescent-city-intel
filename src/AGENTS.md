@@ -33,6 +33,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `triplicate_monitor.ts` | Yes (Playwright + filesystem; reference-only) | `tests/triplicate_monitor.test.ts` |
 | `curation.ts` | Yes (filesystem + configured chat provider) | `tests/curation.test.ts` |
 | `scrape.ts` | Yes (Playwright + network) | No (full integration) |
+| `scraper_utils.ts` | No (pure validation/retry utilities) | `tests/scraper_utils.test.ts` |
 | `toc.ts` | Partial | `tests/toc.test.ts` (pure functions) |
 | `types.ts` | No (types only) | N/A |
 | `utils.ts` | No | `tests/utils.test.ts`, `tests/utils_normalization.test.ts` |
@@ -40,6 +41,8 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `structured_queries.ts` | Yes (filesystem) | `tests/structured_queries.test.ts` |
 | `legal_parser.ts` | No (pure logic) | `tests/legal_parser.test.ts` |
 | `alert_analytics.ts` | Yes (filesystem) | `tests/alert_analytics.test.ts` |
+| `analytics_backend.ts` | Yes (filesystem; shared GUI/Pages evidence envelope) | `tests/analytics-backend.test.ts` |
+| `manuscript_variables.ts` | No (pure analytics-to-publication adapter) | `tests/manuscript.test.ts` |
 | `monthly_report.ts` | Yes (filesystem) | No (integration) |
 | `shared/orchestration.ts` | Yes (filesystem; run metadata) | `tests/orchestration.test.ts` |
 | `source_registry.ts` | Yes (filesystem; optional bounded probes) | `tests/source-registry.test.ts` |

@@ -8,7 +8,7 @@ Per-module documentation. Each file covers one logical component of the system.
 
 | File | Source modules |
 | :--- | :--- |
-| `scraping.md` | `browser.ts`, `toc.ts`, `content.ts`, `scrape.ts` |
+| `scraping.md` | `browser.ts`, `toc.ts`, `content.ts`, `scrape.ts`, `scraper_utils.ts` |
 | `verification.md` | `verify.ts` |
 | `export.md` | `export.ts` |
 | `pages.md` | `pages_snapshot.ts`, `scripts/export-pages.ts`, `scripts/validate-pages.ts` |

@@ -2,12 +2,12 @@
 /**
  * CAL FIRE Wildfire Monitor for Del Norte County.
  *
- * Fetches active wildfire incidents from the CAL FIRE incident API
+ * Fetches active wildfire incidents from the current CAL FIRE incident API
  * and filters for those affecting Del Norte County and surrounding
  * areas. Tracks fire size, containment, evacuation orders, and proximity
  * to Crescent City.
  *
- * API: https://www.fire.ca.gov/incidents/IncidentsDataAPI
+ * API: https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false
  *
  * Usage:
  *   bun run src/alerts/calfire_wildfire.ts
@@ -21,7 +21,8 @@ import { join } from "path";
 
 const logger = createLogger("calfire_wildfire_alert");
 
-const CALFIRE_API_URL = "https://www.fire.ca.gov/imap/imapdata/all";
+/** Linked as the JSON API from CAL FIRE's public Current Emergency Incidents page. */
+export const CALFIRE_API_URL = "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false";
 const SEARCH_COUNTIES = ["Del Norte", "Siskiyou", "Humboldt", "Trinity"];
 const CRESCENT_CITY_LAT = 41.7485;
 const CRESCENT_CITY_LNG = -124.2028;
@@ -135,45 +136,51 @@ export async function fetchWildfireIncidents(): Promise<WildfireIncident[]> {
     throw new Error(`CAL FIRE API returned ${response.status}: ${response.statusText}`);
   }
 
-  const data = await response.json() as any[];
-  if (!Array.isArray(data)) return [];
+  const payload = await response.json() as unknown;
+  const data = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === "object" && Array.isArray((payload as { incidents?: unknown[] }).incidents)
+      ? (payload as { incidents: unknown[] }).incidents
+      : [];
 
   const incidents: WildfireIncident[] = [];
 
   for (const incident of data) {
-    const county = incident.adminUnit ?? incident.county ?? "";
+    const county = String(incident.County ?? incident.county ?? incident.AdminUnit ?? incident.adminUnit ?? "");
     const matchesCounty = SEARCH_COUNTIES.some(c =>
       county.toLowerCase().includes(c.toLowerCase())
     );
 
-    if (!matchesCounty && !incident.isBorderRegion) continue;
+    if (!matchesCounty && !Boolean(incident.IsBorderRegion ?? incident.isBorderRegion)) continue;
 
     let distanceKm: number | null = null;
-    if (incident.latitude && incident.longitude) {
+    const latitude = Number(incident.Latitude ?? incident.latitude);
+    const longitude = Number(incident.Longitude ?? incident.longitude);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude) && latitude !== 0 && longitude !== 0) {
       distanceKm = haversineDistance(
         CRESCENT_CITY_LAT,
         CRESCENT_CITY_LNG,
-        parseFloat(incident.latitude),
-        parseFloat(incident.longitude)
+        latitude,
+        longitude,
       );
       if (distanceKm > SEARCH_RADIUS_KM) continue;
     }
 
     const wf: WildfireIncident = {
-      id: String(incident.uniqueId ?? incident.id ?? ""),
-      name: incident.name ?? "Unnamed",
+      id: String(incident.UniqueId ?? incident.uniqueId ?? incident.id ?? ""),
+      name: String(incident.Name ?? incident.name ?? "Unnamed"),
       county,
-      location: incident.location ?? "",
-      acres: parseFloat(incident.acresBurned ?? "0") || 0,
-      containmentPercent: parseFloat(incident.percentContained ?? "0") || 0,
-      started: incident.started ?? incident.dateStarted ?? "",
-      personnel: parseInt(incident.totalFirePersonnel ?? "0", 10) || 0,
-      hasEvacuationOrders: Boolean(incident.hasEvacOrders),
-      hasEvacuationWarnings: Boolean(incident.hasEvacWarnings),
-      structuresThreatened: parseInt(incident.structuresThreatened ?? "0", 10) || 0,
-      structuresDestroyed: parseInt(incident.structuresDestroyed ?? "0", 10) || 0,
+      location: String(incident.Location ?? incident.location ?? ""),
+      acres: Number(incident.AcresBurned ?? incident.acresBurned ?? incident.DailyAcres ?? incident.CalculatedAcres ?? 0) || 0,
+      containmentPercent: Number(incident.PercentContained ?? incident.percentContained ?? 0) || 0,
+      started: String(incident.Started ?? incident.StartedDateOnly ?? incident.started ?? incident.dateStarted ?? ""),
+      personnel: Number(incident.TotalIncidentPersonnel ?? incident.totalFirePersonnel ?? 0) || 0,
+      hasEvacuationOrders: Boolean(incident.HasEvacuationOrders ?? incident.hasEvacOrders),
+      hasEvacuationWarnings: Boolean(incident.HasEvacuationWarnings ?? incident.hasEvacWarnings),
+      structuresThreatened: Number(incident.StructuresThreatened ?? incident.structuresThreatened ?? 0) || 0,
+      structuresDestroyed: Number(incident.StructuresDestroyed ?? incident.structuresDestroyed ?? 0) || 0,
       distanceKm,
-      isBorderRegion: Boolean(incident.isBorderRegion),
+      isBorderRegion: Boolean(incident.IsBorderRegion ?? incident.isBorderRegion),
     };
 
     incidents.push(wf);

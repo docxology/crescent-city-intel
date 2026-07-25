@@ -176,6 +176,7 @@ src/
   toc.ts                # TOC fetcher + tree utilities
   content.ts            # Page scraper + section extraction
   scrape.ts             # Scraper orchestrator with resume
+  scraper_utils.ts      # TOC/artifact validation and retry utilities
   verify.ts             # Verification engine
   export.ts             # Multi-format exporter
   domains.ts            # Intelligence domain data + search

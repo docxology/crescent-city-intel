@@ -8,6 +8,8 @@
  * - Per-article timing metrics
  */
 
+import type { TocNode } from "./types.js";
+
 export interface ScrapeMetrics {
   guid: string;
   title: string;
@@ -25,6 +27,60 @@ export interface ScrapeProgress {
   failed: number;
   current: string;
   startTime: number;
+}
+
+const TOC_TYPES = new Set<TocNode["type"]>([
+  "code",
+  "division",
+  "chapter",
+  "article",
+  "part",
+  "subarticle",
+  "section",
+]);
+
+/**
+ * Validate the minimum recursive shape required to safely use a TOC as the
+ * scrape contract. A 200 response containing an error object or an empty
+ * challenge payload must never replace the last known-good TOC.
+ */
+export function isTocShapeValid(value: unknown): value is TocNode {
+  if (!value || typeof value !== "object") return false;
+  const seen = new Set<string>();
+  let sectionCount = 0;
+
+  const visit = (candidate: unknown): candidate is TocNode => {
+    if (!candidate || typeof candidate !== "object") return false;
+    const node = candidate as Record<string, unknown>;
+    if (typeof node.guid !== "string" || !node.guid.trim()) return false;
+    if (typeof node.type !== "string" || !TOC_TYPES.has(node.type as TocNode["type"])) return false;
+    if (!Array.isArray(node.children)) return false;
+    if (seen.has(node.guid)) return false;
+    seen.add(node.guid);
+    if (node.type === "section") sectionCount += 1;
+    return node.children.every(visit);
+  };
+
+  const root = value as Record<string, unknown>;
+  if (root.type !== "code" || typeof root.tocName !== "string" || !root.tocName.trim()) return false;
+  return visit(value) && sectionCount > 0;
+}
+
+/** Minimal runtime guard for a persisted article artifact. */
+export function isArticleArtifactShapeValid(value: unknown, expectedSectionGuids: readonly string[] = [], exactSectionGuids = false): value is {
+  guid: string;
+  rawHtml: string;
+  sha256: string;
+  sections: Array<{ guid: string }>;
+} {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  if (typeof record.guid !== "string" || typeof record.rawHtml !== "string" || typeof record.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.sha256)) return false;
+  if (!Array.isArray(record.sections)) return false;
+  if (!record.sections.every(section => section && typeof section === "object" && typeof (section as Record<string, unknown>).guid === "string")) return false;
+  const sectionGuids = new Set(record.sections.map(section => (section as Record<string, string>).guid));
+  if (!expectedSectionGuids.every(guid => sectionGuids.has(guid))) return false;
+  return !exactSectionGuids || sectionGuids.size === new Set(expectedSectionGuids).size;
 }
 
 /** Detect if Cloudflare Turnstile challenge is stuck */

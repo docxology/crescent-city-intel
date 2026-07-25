@@ -28,7 +28,8 @@ the fingerprinted source registry/discovery artifacts,
 the municipal code JSON/TOC/manifest plus verification, coverage, and
 readability artifacts when available, recent deduplicated news
 and government meeting items, YouTube video metadata, Triplicate metadata and
-links only, alert current snapshots and composite severity, and the latest
+links only, alert current snapshots and composite severity, the shared
+`analytics-overview.json` when the pipeline has generated it, and the latest
 monthly report.
 
 The first viewport is a welcome linktree that routes visitors to local news and
@@ -51,11 +52,23 @@ provider produced a brief, and whether a failure is retryable. The public
 export never exposes prompts, chat history, API keys, request logs, or
 vector-store contents.
 
+The first viewport also renders the analytics overview headline, deterministic
+or LLM summary, evidence fingerprint, key metrics, and the first warning
+signals. This gives a clear reading order before visitors browse the larger
+news, alerts, code, or report sections.
+
 It deliberately excludes chat history, request/search/RAG logs, Chroma
 indexes, credentials, and Triplicate article content. The dashboard labels
 `ok`, `empty`, `unavailable`, and `stale` separately. An unavailable source is
-not converted into a calm result, and a snapshot with unavailable or stale
-sources is marked `degraded`.
+not converted into a calm result. The snapshot reports present versus missing
+checks and lists the missing names and reasons; ordinary source gaps do not
+reclassify an otherwise complete static export as `degraded`.
+
+The exporter completes the 19-source operational health contract before
+writing `data/snapshot.json`. If a monitor crashes or omits its health file,
+the absent source is emitted as a named synthetic `unavailable` coverage
+record, so the denominator cannot silently shrink. A monitor that reached a
+source and found no matching records remains `empty` and therefore present.
 
 ## Deployment
 

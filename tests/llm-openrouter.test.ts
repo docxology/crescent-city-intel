@@ -19,6 +19,7 @@ const messages: ChatMessage[] = [
 let server: ReturnType<typeof Bun.serve>;
 let baseUrl: string;
 let requestCount = 0;
+let lastChatBody: Record<string, unknown> | null = null;
 let originalOpenRouterApiKey: string | undefined;
 
 beforeAll(() => {
@@ -28,7 +29,8 @@ beforeAll(() => {
       const url = new URL(req.url);
       if (url.pathname === "/chat/completions" && req.method === "POST") {
         requestCount += 1;
-        const body = await req.json() as { stream?: boolean };
+        const body = await req.json() as Record<string, unknown>;
+        lastChatBody = body;
         if (body.stream) {
           return new Response(
             'data: {"choices":[{"delta":{"content":"Fixture "}}]}\n\n' +
@@ -68,6 +70,7 @@ afterAll(() => {
 beforeEach(() => {
   originalOpenRouterApiKey = process.env.OPENROUTER_API_KEY;
   requestCount = 0;
+  lastChatBody = null;
   resetOpenRouterRequestCount();
 });
 
@@ -101,6 +104,17 @@ describe("openrouter chat", () => {
     expect(response).toBe("Fixture answer from OpenRouter test server.");
     expect(requestCount).toBe(1);
     expect(getOpenRouterRequestCount()).toBe(1);
+  });
+
+  test("allows bounded tasks to replace the municipal-code system prompt", async () => {
+    await chat(messages, undefined, undefined, {
+      baseUrl,
+      apiKey: "test-key",
+      systemPrompt: "Summarize only the supplied public source.",
+    });
+
+    const sentMessages = lastChatBody?.messages as Array<{ role: string; content: string }>;
+    expect(sentMessages[0]).toEqual({ role: "system", content: "Summarize only the supplied public source." });
   });
 
   test("fails fast when OPENROUTER_API_KEY is missing and does not make a request", async () => {

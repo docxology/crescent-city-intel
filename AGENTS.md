@@ -227,7 +227,7 @@ bun test                    # Deterministic zero-mock suite
 ```
 
 All tests run offline. Zero-mock policy: real data, real modules.
-0 test failures.
+Run `bun run validate` for the current pass/fail result.
 
 ## Prerequisites
 

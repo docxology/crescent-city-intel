@@ -12,7 +12,7 @@
 
 ### 1.1 Rate Limiting & Performance
 - 🟢 **Rate limit metrics in `/api/health`**: current per-IP usage, peak, blocked count
-- 🟡 **Gzip compression**: `Content-Encoding: gzip` for large JSON API responses
+- ✅ **Gzip compression**: `Content-Encoding: gzip` for large JSON API responses (shipped v0.2.0, Mar 2026)
 
 ### 1.2 Error Boundaries
 - 🟡 **GUI error banner**: render user-facing error UI for failed `/api/*` responses

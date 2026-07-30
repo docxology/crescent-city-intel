@@ -174,8 +174,8 @@ bun run all
 # 3. Launch the web viewer
 bun run gui          # → http://localhost:3000
 
-# 4. Run all tests
-bun test
+# 4. Run all tests (authoritative release gate)
+bun run validate
 ```
 
 > 📖 **Detailed setup**: [docs/setup.md](docs/setup.md) — step-by-step from prerequisites through RAG chat
@@ -421,9 +421,15 @@ The project maps the municipal code to **12 civic intelligence domains**, each c
 | Emergency Management | 🌊 | Tsunami evacuation · Cascadia earthquake · EOC · mutual aid | 8, 9, 12 |
 | Business & Economic Dev | 🦀 | Harbor permits · fishing licenses · tourism · crab season | 3, 5, 13 |
 | Public Safety & Justice | 🚔 | Police · corrections · Pelican Bay · crime prevention | 9, 10 |
+| Public Health & Safety | 🏥 | EMS · food safety · mental health/CARE Court | 6, 8, 9 |
 | Environment & Conservation | 🌲 | Coastal zone management · redwoods · wildlife · waste | 8, 13, 17 |
 | Infrastructure & Services | 🏗️ | Utilities · roads · parks · building permits · zoning | 12, 13, 15, 16, 17 |
 | Housing & Homelessness | 🏠 | Affordable housing · emergency shelter · vehicle dwelling · CARE Court | 8, 13, 15, 16, 17 |
+| Harbor & Marine Operations | ⚓ | Harbor commerce · dredging · fishing fleet · waterfront | 3, 5, 13 |
+| Event Planning & Tourism | 🎪 | Special events · film permits · tourism promotion | 5, 9 |
+| Education & Youth | 📚 | School district · youth programs · library | 2, 9 |
+| Climate & Environment | 🌡️ | Sea-level rise · drought/water conservation · air quality | 8, 17 |
+| Demographics & Social Indicators | 📊 | Population profile · poverty · homelessness trends | 6, 8, 9 |
 
 **External cross-references per domain:**
 

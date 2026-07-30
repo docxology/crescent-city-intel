@@ -24,7 +24,7 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 8 alert monit
 ## Step 1: Install Dependencies
 
 ```bash
-cd crescent-city
+cd crescent-city-intel
 bun install
 ```
 

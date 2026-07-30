@@ -1,5 +1,4 @@
-/**
- * API middleware: sliding-window rate limiting, multi-key auth, request logging.
+/** API middleware: sliding-window rate limiting, multi-key auth, request logging.
  *
  * Rate limiting uses a **sliding window** algorithm: each IP stores a list of
  * request timestamps within the current window. Old timestamps are pruned on
@@ -176,7 +175,7 @@ export function rateLimitMiddleware() {
       return null;
     }
 
-    const now = Date.now();
+    const now = _getNow();
     const limit = effectiveLimit(path);
     const count = slidingWindowCount(ip, now);
     const remaining = Math.max(0, limit - count);
@@ -231,7 +230,7 @@ export function apiKeyMiddleware() {
     }
 
     if (!VALID_API_KEYS.has(apiKey)) {
-      logger.warn(`Invalid API key attempt: ${apiKey.substring(0, 8)}...`);
+      logger.warn("Invalid API key attempt");
       return new Response(
         JSON.stringify({ error: "Invalid API key" }),
         { status: 403, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
@@ -278,15 +277,15 @@ export async function applyMiddleware(req: Request, socketIp?: string): Promise<
 // ─── Test hooks (exported for deterministic unit testing only) ────
 
 /**
- * Internal test hooks that expose clock control and state reset for
- * deterministic sliding-window exhaustion tests.
- *
- * DO NOT use in production code. Guards are in place (NODE_ENV / naming)
- * to make misuse obvious in code review.
+ * Override the clock used for rate-limit timestamps.
+ * Test suites needing deterministic window exhaustion should use
+ * `_testHooks.setNow()` before calling `rateLimitMiddleware()`;
+ * the rate limiter reads this clock instead of `Date.now()`.
  */
 let _injectedNow: number | null = null;
 
-function _getNow(): number {
+/** Internal clock used by middleware. Exported so tests can swap it. */
+export function _getNow(): number {
   return _injectedNow ?? Date.now();
 }
 

@@ -314,7 +314,6 @@ async function withAbortTimeout<T>(task: (signal: AbortSignal) => Promise<T>, ms
     throw error;
   } finally {
     clearTimeout(timer);
-    if (!controller.signal.aborted && timedOut) controller.abort();
   }
 }
 

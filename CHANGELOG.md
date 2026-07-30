@@ -8,7 +8,9 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — functional observability and interaction pass
+## [2.5.1] — 2026-07-30
+
+### Functional observability and interaction pass (promoted from [Unreleased])
 
 ### Added
 
@@ -40,10 +42,25 @@ Versioned by [Semantic Versioning](https://semver.org/).
 - Static Pages filtering, refresh controls, shared content search, and
   pipeline/provider/report metadata panels; local GUI chat cancellation.
 
+### Hardened
+
+- **Path traversal**: static file serving now rejects `../` sequences in URL
+  pathnames (including percent-encoded variants), preventing directory escape.
+- **Request logging**: `request-log.jsonl` entries now carry actual wall-clock
+  duration rather than always recording 0ms.
+- **LLM config**: unrecognized `LLM_PROVIDER` values emit a clear warning
+  rather than silently falling back to Ollama.
+- **Type safety**: `as any` casts in `server.ts` replaced with typed
+  `NodeJS.ErrnoException`.
+- **README**: stale project structure tree replaced with accurate snapshot of
+  all 58 source modules, 18 scripts, and supporting directories.
+
 ### Verification
 
 - Added deterministic orchestration, metadata-route, report-lineage, and GUI
   interactivity contract tests.
+
+---
 
 ## [2.5.0] — 2026-07-24
 

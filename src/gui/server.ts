@@ -108,7 +108,14 @@ const server = Bun.serve({
     if (url.pathname === "/" || url.pathname === "/index.html") {
       return serveIndexHtml(socketIp);
     }
-    const filePath = `${STATIC_DIR}${url.pathname}`;
+    // Sanitize pathname to prevent directory traversal (e.g. /../../../etc/passwd).
+    // decodeURIComponent normalizes percent-encoded sequences like %2e%2e%2f → ../.
+    // Then resolve relative to STATIC_DIR and require the result to stay within it.
+    const decoded = decodeURIComponent(url.pathname);
+    if (decoded.includes("..")) {
+      return new Response("Not Found", { status: 404 });
+    }
+    const filePath = `${STATIC_DIR}${decoded}`;
     const file = Bun.file(filePath);
     if (await file.exists()) {
       return new Response(file);
@@ -119,7 +126,8 @@ const server = Bun.serve({
   },
   error(err) {
     // Catch EADDRINUSE (port already in use) and give a helpful message
-    if ((err as any).code === 'EADDRINUSE') {
+    const portErr = err as NodeJS.ErrnoException;
+    if (portErr?.code === 'EADDRINUSE') {
       log.error(`Port ${PORT} is already in use.`, {
         suggestion: `Run with a different port: PORT=${PORT + 1} bun run gui`,
       });

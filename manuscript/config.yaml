@@ -7,8 +7,8 @@
 paper:
   title: "Evidence-Bounded Civic Intelligence for Crescent City, California"
   subtitle: "A provenance-preserving platform for municipal code, local sources, safety signals, and grounded summaries"
-  version: "2.5.0"
-  date: "2026-07-24"
+  version: "2.5.1"
+  date: "2026-07-30"
 
 authors:
   - name: "Crescent City Intelligence Project"

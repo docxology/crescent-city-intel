@@ -12,7 +12,7 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.5.0-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.5.1-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -521,13 +521,27 @@ artifact boundaries, and local preview instructions.
   domains.ts            # 12 civic intelligence domains with code cross-refs
   monitor.ts            # Municipal code change detection
   news_monitor.ts       # RSS/Atom news aggregator (configured sources + health + persistent dedup)
-  gov_meeting_monitor.ts # City Council/Planning/Harbor meeting tracker
+  gov_meeting_monitor.ts # City Council/Planning/Harbor meeting tracker (EvoGov JSON API)
+  youtube_monitor.ts    # YouTube listing + auto-caption transcript pipeline (yt-dlp)
+  triplicate_monitor.ts # Reference/citation-only Del Norte Triplicate monitor (Playwright)
+  curation.ts           # LLM provider-aware, source-grounded curation with domain tagging
+  source_registry.ts    # Canonical online source inventory + bounded discovery probes
+  monthly_report.ts     # Monthly civic health report generator
+  analytics_backend.ts  # Cross-surface analytics envelope (GUI, pipeline, Pages)
+  alert_analytics.ts    # Unified 8-monitor alert timeline + per-type statistics
+  structured_queries.ts # Legislative history, section compare, semantic similarity
+  legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
+  manuscript_variables.ts # Durable manuscript variable extraction from analytics
   alerts/
+    severity.ts         # Composite 8-monitor alert severity scoring
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750, 48h predictions)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km, Cascadia)
     nws_weather.ts      # NWS Del Norte coastal zone CAZ006 alerts
     cdfw_fishing.ts     # CDFW Dungeness crab season calendar + bulletin monitor
+    epa_airnow.ts       # EPA AirNow air quality monitor (PM2.5, ozone, PM10 AQI)
+    calfire_wildfire.ts # CAL FIRE wildfire incident monitor
+    ndbc_marine.ts      # NDBC marine buoy monitor (wave, wind, water temp)
   api/
     middleware.ts       # Sliding-window rate limiter · API key auth · request log
   domains/
@@ -536,33 +550,58 @@ artifact boundaries, and local preview instructions.
     paths.ts            # Centralized output path constants
     data.ts             # Data loading layer (60s TTL cache, parallel, actionable errors)
     porter_stem.ts      # Zero-dep Porter stemmer (Steps 1a-5b) for BM25 indexing
-    readability.ts      # Flesch-Kincaid Grade Level + Reading Ease scoring
+    readability.ts      # Flesch-Kincaid Grade Level + Reading Ease + Gunning Fog
+    fuzzy.ts            # Levenshtein fuzzy matching + typo correction
+    idempotency.ts      # Shared (id, contentHash)-keyed idempotency store for all monitors
+    orchestration.ts    # Durable step/run envelopes, build metadata, and run IDs
+    source_health.ts    # Typed source-health contract, atomic artifact writes, freshness
   gui/
     server.ts           # Bun.serve() HTTP server (port 3000)
     routes.ts           # All /api/* route handlers (see openapi.yaml)
-    search.ts           # In-memory BM25 full-text search (stemmed, paginated)
+    search.ts           # In-memory BM25 full-text search (stemmed, paginated, fuzzy fallback)
     analytics.ts        # PCA, K-Means, word loadings analytics
     static/index.html   # Single-page app (no framework, no build step)
   llm/
-    config.ts           # LLM configuration (models, chunk sizes, topK)
+    config.ts           # LLM configuration (models, chunk sizes, topK, rate spacing)
+    provider.ts         # Ollama/OpenRouter chat-provider selection + health check
     ollama.ts           # Ollama API wrapper (embed, chat, health check)
+    openrouter.ts       # OpenRouter API wrapper with model validation
     chroma.ts           # ChromaDB client (collections, add, query)
-    embeddings.ts       # Chunk → embed → index pipeline
-    rag.ts              # RAG pipeline (embed → retrieve → generate → log)
-    index.ts            # CLI entry point (index, chat, query, status)
+    embeddings.ts       # Chunk → embed → index pipeline (fingerprinted, stale-chunk deletion)
+    rag.ts              # RAG pipeline (embed → retrieve → generate → log, adaptive topK)
+    streaming_rag.ts    # SSE streaming RAG (provider-native Server-Sent Events)
+    index.ts            # CLI entry point (index, chat, query, status, preflight)
+  pages_snapshot.ts     # Bounded public GitHub Pages static snapshot exporter
+  pages/static/         # Static dashboard and 404 fallback for Pages
 scripts/
-  weekly-check.ts       # Weekly health check orchestrator
-  run-alerts.ts         # Alert monitor runner (concurrent)
+  weekly-check.ts       # Weekly health check orchestrator (all monitors + composite)
+  run-alerts.ts         # Alert monitor runner (concurrent 8-monitor composite)
   run-monitor.ts        # Change detection runner
   run-news.ts           # News monitor runner (--keywords= CLI flag)
   run-meetings.ts       # Meeting monitor runner
+  run-youtube.ts        # YouTube listing/transcript pipeline runner
+  run-curation.ts       # Provider-aware grounded curation runner
+  run-analytics.ts      # Analytics overview runner
   run-coverage.ts       # Domain coverage analysis orchestrator
   run-readability.ts    # Readability scoring orchestrator
+  run-source-discovery.ts # Source registry + bounded probe runner
+  export-pages.ts       # Build the bounded .pages public snapshot
+  refresh-pages-data.ts # Refresh the verified tracked municipal-code seed
+  validate-pages.ts     # Validate the generated Pages artifact
+  validate.ts           # Authoritative deterministic release gate
+  validate-manuscript.ts # Manuscript source contract + evidence checks
+  hydrate-manuscript.ts # Write evidence-bound manuscript into output/manuscript/
+  repair-output.ts      # Historical output repair/quarantine utility
+  z_generate_manuscript_variables.py # Python manuscript-variable generation for template render
   cron-setup.sh         # macOS Launchd / Linux cron installer
-tests/                  # Deterministic zero-mock suite; run `bun run validate`
+  weekly-check.sh       # Shell entry point for weekly check
+tests/                  # 603-test zero-mock suite across 54 files; run `bun run validate`
 docs/                   # Full module documentation suite
+manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
+pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
+.pages/                 # Generated static GitHub Pages snapshot (gitignored)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.1)
 ```
 
 ---

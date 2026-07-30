@@ -3,6 +3,10 @@
 const requestedProvider = (process.env.LLM_PROVIDER ?? "ollama").toLowerCase();
 const provider = requestedProvider === "openrouter" ? "openrouter" : "ollama";
 
+if (requestedProvider && requestedProvider !== "ollama" && requestedProvider !== "openrouter") {
+  console.warn(`[llm-config] Unrecognized LLM_PROVIDER "${requestedProvider}" — falling back to "ollama". Valid values: ollama, openrouter.`);
+}
+
 export const llmConfig = {
   /** LLM provider selection for chat */
   provider: provider as "ollama" | "openrouter",

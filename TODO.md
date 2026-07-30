@@ -1,6 +1,6 @@
 # TODO — Crescent City Intelligence Platform
 
-> Upcoming development backlog · v2.5.0 · validation counts are reported by `bun run validate`
+> Upcoming development backlog · v2.5.1 · validation counts are reported by `bun run validate`
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix)
 >
@@ -259,4 +259,4 @@
 
 ---
 
-_Last updated: July 2026 · v2.5.0 · run `bun run validate` for current test and contract counts_
+_Last updated: July 2026 · v2.5.1 · run `bun run validate` for current test and contract counts_

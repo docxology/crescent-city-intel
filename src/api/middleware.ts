@@ -243,23 +243,21 @@ export function apiKeyMiddleware() {
   };
 }
 
-/** Request logging middleware — logs method, path, IP, timing. */
+/** Request logging middleware — logs method, path, IP. */
 export function requestLoggingMiddleware() {
-  const starts = new Map<string, number>();
-
   return async (req: Request, socketIp?: string): Promise<Response | null> => {
     const url = new URL(req.url);
     const method = req.method;
     const ip = resolveIp(req, socketIp) === "unknown" ? "local" : resolveIp(req, socketIp);
-
-    const key = `${method}:${url.pathname}:${Date.now()}`;
-    starts.set(key, Date.now());
+    const start = Date.now();
 
     logger.info(`${method} ${url.pathname}`, { ip, ua: req.headers.get("user-agent")?.substring(0, 60) });
 
-    // Log asynchronously after the next event-loop tick (non-blocking)
-    const ms = 0; // We can't measure duration here (before handler runs); log with 0
-    void logRequest(method, url.pathname, ip, 0, ms);
+    // Log on the next event-loop tick (after the route handler completes) so
+    // the duration reflects actual wall-clock time through the handler.
+    setImmediate(async () => {
+      void logRequest(method, url.pathname, ip, 0, Date.now() - start);
+    });
     return null;
   };
 }

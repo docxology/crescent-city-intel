@@ -111,14 +111,13 @@ function isOpenRouterModelsResponse(value: unknown): value is OpenRouterModelsRe
 }
 
 function incrementRequestCount(): void {
-  const nextRequestCount = openRouterRequestCount + 1;
-  if (nextRequestCount > llmConfig.openrouterMaxRequestsPerRun) {
+  const next = openRouterRequestCount + 1;
+  if (next > llmConfig.openrouterMaxRequestsPerRun) {
     throw new Error(
       `OpenRouter request cap exceeded (${llmConfig.openrouterMaxRequestsPerRun} per run). Raise OPENROUTER_MAX_REQUESTS to allow more requests.`
     );
   }
-
-  openRouterRequestCount = nextRequestCount;
+  openRouterRequestCount = next;
 }
 
 function buildMessages(messages: ChatMessage[], context?: string, systemPromptOverride?: string): ChatMessage[] {

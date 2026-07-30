@@ -69,6 +69,21 @@ export function getPrimaryApiKey(): string {
 /** Map of IP → sorted array of request timestamps within the current window. */
 const rateLimitStore = new Map<string, number[]>();
 
+/** Clean up stale IP entries every 5 minutes to prevent unbounded memory growth.
+ * Entries with only expired timestamps are removed entirely. */
+setInterval(() => {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  for (const [ip, timestamps] of rateLimitStore) {
+    const active = timestamps.filter(t => t > cutoff);
+    if (active.length === 0) {
+      rateLimitStore.delete(ip);
+    } else {
+      rateLimitStore.set(ip, active);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 /** Prune + count requests in the sliding window. Returns current count after pruning. */
 function slidingWindowCount(ip: string, now: number): number {
   const windowStart = now - RATE_LIMIT_WINDOW_MS;

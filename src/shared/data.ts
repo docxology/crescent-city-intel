@@ -9,12 +9,17 @@ import type {
   MonitorReport,
 } from "../types.js";
 import { paths } from "./paths.js";
+import { createLogger } from "../logger.js";
+
+const logger = createLogger("data");
 
 // ─── In-process TTL cache ─────────────────────────────────────────
 
 /** Cache entry for all sections (60 second TTL) */
 let _sectionsCache: FlatSection[] | null = null;
 let _sectionsCacheTs = 0;
+/** In-flight load promise — prevents concurrent callers from duplicating work. */
+let _sectionsLoad: Promise<FlatSection[]> | null = null;
 const SECTIONS_CACHE_TTL_MS = 60_000; // 60 seconds
 
 /** Invalidate the sections cache (call after re-scrape or export). */
@@ -70,37 +75,48 @@ export async function loadAllArticles(): Promise<ArticlePage[]> {
   for (const outcome of articles) {
     if (outcome.status === "fulfilled") {
       result.push(outcome.value);
+    } else {
+      logger.warn("loadAllArticles: skipping unreadable/corrupt article", { reason: outcome.reason?.message ?? String(outcome.reason) });
     }
   }
   return result;
 }
 
 /** Load all sections as a flat array with article metadata attached.
- * Cached in-process for 60 seconds to avoid redundant disk reads. */
+ * Cached in-process for 60 seconds to avoid redundant disk reads.
+ * Concurrent callers share a single in-flight load. */
 export async function loadAllSections(): Promise<FlatSection[]> {
   const now = Date.now();
   if (_sectionsCache && now - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
     return _sectionsCache;
   }
-  const articles = await loadAllArticles();
-  const sections: FlatSection[] = [];
-  for (const article of articles) {
-    for (const s of article.sections) {
-      sections.push({
-        guid: s.guid,
-        number: s.number,
-        title: s.title,
-        text: s.text,
-        history: s.history,
-        articleGuid: article.guid,
-        articleTitle: article.title,
-        articleNumber: article.number,
-      });
+  if (_sectionsLoad) return _sectionsLoad;
+  _sectionsLoad = (async () => {
+    try {
+      const articles = await loadAllArticles();
+      const sections: FlatSection[] = [];
+      for (const article of articles) {
+        for (const s of article.sections) {
+          sections.push({
+            guid: s.guid,
+            number: s.number,
+            title: s.title,
+            text: s.text,
+            history: s.history,
+            articleGuid: article.guid,
+            articleTitle: article.title,
+            articleNumber: article.number,
+          });
+        }
+      }
+      _sectionsCache = sections;
+      _sectionsCacheTs = Date.now();
+      return sections;
+    } finally {
+      _sectionsLoad = null;
     }
-  }
-  _sectionsCache = sections;
-  _sectionsCacheTs = now;
-  return sections;
+  })();
+  return _sectionsLoad;
 }
 
 /** Return just the count of all sections without loading text bodies.

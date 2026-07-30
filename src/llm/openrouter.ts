@@ -63,7 +63,7 @@ function formatResponseSnippet(value: unknown): string {
 function resolveApiKey(apiKeyOverride?: string): string {
   const apiKey = apiKeyOverride ?? process.env.OPENROUTER_API_KEY;
   if (!apiKey || !apiKey.trim()) {
-    throw new Error("OPENROUTER_API_KEY is not set. Set it in your environment to use the OpenRouter provider, e.g. export OPENROUTER_API_KEY=sk-or-...");
+    throw new Error("OPENROUTER_API_KEY is not set. Set it in your environment to use the OpenRouter provider.");
   }
   return apiKey;
 }

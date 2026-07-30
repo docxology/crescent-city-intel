@@ -9,6 +9,7 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
 
 const logger = createLogger('nws_weather_alert');
 
@@ -295,7 +296,8 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
     const response = await fetch(NWS_ALERTS_URL, {
       headers: {
       'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel)'
-      }
+      },
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
     });
     
     if (!response.ok) {

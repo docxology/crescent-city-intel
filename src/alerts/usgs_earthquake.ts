@@ -10,6 +10,7 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
 
 const logger = createLogger('usgs_earthquake_alert');
 
@@ -154,7 +155,8 @@ async function fetchUSGSOverlayEarthquakes(): Promise<Array<{
     const response = await fetch(USGS_EARTHQUAKE_URL, {
       headers: {
         'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel)'
-      }
+      },
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
     });
     
     if (!response.ok) {

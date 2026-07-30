@@ -18,6 +18,7 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
 
 const logger = createLogger("calfire_wildfire_alert");
 
@@ -131,6 +132,7 @@ export function classifyWildfireSeverity(incidents: WildfireIncident[]): Wildfir
 export async function fetchWildfireIncidents(): Promise<WildfireIncident[]> {
   const response = await fetch(CALFIRE_API_URL, {
     headers: { "Accept": "application/json" },
+    signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`CAL FIRE API returned ${response.status}: ${response.statusText}`);

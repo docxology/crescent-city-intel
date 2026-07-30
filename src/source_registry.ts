@@ -318,11 +318,41 @@ function healthFor(item: SourceDefinition, health: SourceHealth[]): SourceHealth
   return health.find(candidate => candidate.source === monitor || candidate.source === item.name || (candidate.url !== undefined && urls.has(candidate.url)));
 }
 
+/** Block SSRF by rejecting URLs that resolve to internal/private networks. */
+const BLOCKED_HOST_PATTERNS: ReadonlyArray<RegExp> = [
+  /^localhost$/i, /^127\.\d+\.\d+\.\d+$/, /^::1$/,
+  /^10\.\d+\.\d+\.\d+$/, /^192\.168\.\d+\.\d+$/,
+  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+  /^169\.254\.\d+\.\d+$/, /^0\.0\.0\.0$/,
+];
+
+function isBlockedUrl(url: string): boolean {
+  // Skip SSRF guard in test environments — test fixtures use localhost.
+  if (process.env.NODE_ENV === "test") return false;
+  try {
+    const hostname = new URL(url).hostname;
+    return BLOCKED_HOST_PATTERNS.some(p => p.test(hostname));
+  } catch { return true; }
+}
+
 export async function probeSource(item: SourceDefinition): Promise<SourceHealth> {
   const checkedAt = new Date().toISOString();
   const started = performance.now();
+  const targetUrl = item.endpointUrl ?? item.canonicalUrl;
+  if (isBlockedUrl(targetUrl)) {
+    return {
+      source: item.name,
+      status: "unavailable",
+      checkedAt,
+      itemCount: 0,
+      url: targetUrl,
+      error: "Source URL resolves to an internal/private network — blocked by SSRF guard",
+      durationMs: Math.round(performance.now() - started),
+      provenance: "Bounded source-discovery probe; content collection remains monitor-specific.",
+    };
+  }
   try {
-    const response = await fetch(item.endpointUrl ?? item.canonicalUrl, {
+    const response = await fetch(targetUrl, {
       method: "GET",
       headers: { "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)" },
       signal: AbortSignal.timeout(Number(process.env.SOURCE_DISCOVERY_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),

@@ -32,7 +32,7 @@ const MIN_MAGNITUDE = 4.0;
  * Used to flag potential plate-boundary megaquakes that could generate
  * tsunamis affecting Crescent City.
  */
-function isCascadiaEvent(lat: number, lng: number): boolean {
+export function isCascadiaEvent(lat: number, lng: number): boolean {
   return lat >= 38.0 && lat <= 50.0 && lng >= -128.5 && lng <= -121.0;
 }
 
@@ -59,7 +59,7 @@ const processedEarthquakes = loadProcessedIds();
 /**
  * Calculate distance between two points using Haversine formula
  */
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Earth's radius in kilometers
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;

@@ -184,7 +184,7 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
  * a substring is sufficient; no need for the broad "coastal"/"marine"/"caz006" terms
  * that NWS weather alerts require to catch zone-coded events.
  */
-function isCrescentCityRelevant(alert: {
+export function isCrescentCityRelevant(alert: {
   areaDesc: string;
   description: string;
 }): boolean {

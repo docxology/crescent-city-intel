@@ -116,7 +116,7 @@ interface NWSAlertResponse {
 /**
  * Check if a point is inside a polygon (using ray casting algorithm)
  */
-function pointInPolygon(point: { lat: number; lng: number }, polygon: number[][][]): boolean {
+export function pointInPolygon(point: { lat: number; lng: number }, polygon: number[][][]): boolean {
   // For simplicity, we'll check if the point is in the bounding box first
   // In a production system, we'd use a proper GIS library
   
@@ -174,7 +174,7 @@ function pointInPolygon(point: { lat: number; lng: number }, polygon: number[][]
  * rather than city-specific names. Tsunami alerts already pre-filter by event type
  * at the API level, so a tighter keyword set is sufficient there.
  */
-function isCrescentCityRelevant(alert: {
+export function isCrescentCityRelevant(alert: {
   areaDesc: string;
   description: string;
   geometry?: {
@@ -233,7 +233,7 @@ function isCrescentCityRelevant(alert: {
 /**
  * Determine alert severity level for categorization
  */
-function getAlertSeverityLevel(severity: string, certainty: string, urgency: string): 'advisory' | 'watch' | 'warning' {
+export function getAlertSeverityLevel(severity: string, certainty: string, urgency: string): 'advisory' | 'watch' | 'warning' {
   // Map NWS severity/certainty/urgency to our categories
   const severityLower = severity.toLowerCase();
   const certaintyLower = certainty.toLowerCase();

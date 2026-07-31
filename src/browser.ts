@@ -13,19 +13,31 @@ const USER_AGENT =
 
 let browser: Browser | null = null;
 let context: BrowserContext | null = null;
+let launchPromise: Promise<BrowserContext> | null = null;
 
 export async function launchBrowser(): Promise<BrowserContext> {
   if (context) return context;
+  if (launchPromise) return launchPromise;
 
-  log.info("Launching Chromium browser (non-headless)");
-  browser = await chromium.launch({
-    headless: false,
-    args: ["--disable-blink-features=AutomationControlled"],
-  });
+  // HEADLESS_BROWSER=1 enables headless mode (required for CI/Docker).
+  const headless = process.env.HEADLESS_BROWSER === "1";
 
-  context = await browser.newContext({ userAgent: USER_AGENT });
-  log.info("Browser context created");
-  return context;
+  log.info(headless ? "Launching Chromium browser (headless)" : "Launching Chromium browser (non-headless)");
+  launchPromise = (async () => {
+    try {
+      browser = await chromium.launch({
+        headless,
+        args: ["--disable-blink-features=AutomationControlled"],
+      });
+
+      context = await browser.newContext({ userAgent: USER_AGENT });
+      log.info("Browser context created");
+      return context;
+    } finally {
+      launchPromise = null;
+    }
+  })();
+  return launchPromise;
 }
 
 export async function closeBrowser(): Promise<void> {

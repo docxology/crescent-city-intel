@@ -186,11 +186,18 @@ export async function withRetry<T>(
 
 // ─── Object utilities ────────────────────────────────────────────
 
-/** Deep equality check for plain JSON-serializable objects */
+/** Deep equality check for plain JSON-serializable objects and arrays */
 export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (typeof a !== "object" || typeof b !== "object") return false;
   if (a === null || b === null) return false;
+  // Arrays: compare element-by-element
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    return a.every((val, i) => deepEqual(val, b[i]));
+  }
+  // Mixed array/object types: not equal
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
   const keysA = Object.keys(a as object);
   const keysB = Object.keys(b as object);
   if (keysA.length !== keysB.length) return false;

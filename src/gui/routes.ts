@@ -1342,7 +1342,7 @@ function json(data: unknown, status = 200): Response {
 
 /** Provider, vector-store, and network failures are retryable dependencies. */
 function dependencyFailureStatus(message: string): number {
-  return /ollama|openrouter|chroma|provider|request cap|timed? ?out|embedding|retrieved context|index/i.test(message) ? 503 : 500;
+  return /ollama|openrouter|chroma|provider\s+(error|unavailable|not|failed)|request cap|timed? ?out|embedding model|retrieved context|(index|collection).*(empty|missing|not found)/i.test(message) ? 503 : 500;
 }
 
 

@@ -113,7 +113,10 @@ if (alertFailures.length > 0) {
 
 // 3. News + meeting monitors (non-fatal on failure)
 logger.info("Stage 3/8: Running news and meeting monitors...");
-const feedExecution = await executePipelineStep("news-and-meeting-monitors", () => Promise.allSettled([monitorNews(), monitorGovMeetings()]), {
+const feedExecution = await executePipelineStep("news-and-meeting-monitors", () => Promise.allSettled([
+  Promise.resolve().then(() => monitorNews()).catch((error: unknown) => { throw error; }),
+  Promise.resolve().then(() => monitorGovMeetings()).catch((error: unknown) => { throw error; }),
+]), {
   classify: results => results.some(result => result.status === "rejected") ? "failed" : "ok",
   outputPaths: [paths.newsHealth, paths.govMeetingsHealth],
 });

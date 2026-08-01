@@ -189,8 +189,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "alert-noaa-tsunami", name: "NOAA/NWS tsunami alerts", kind: "alert", authority: "public_agency", region: "Federal",
-    canonicalUrl: "https://api.weather.gov/alerts/active?area=CA&event=Tsunami+Warning", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "alert:tsunami", expectedCadence: "real time", provenance: "NWS CAP/alerts API.",
+    canonicalUrl: "https://api.weather.gov/alerts/active?area=CA", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:tsunami", expectedCadence: "real time", provenance: "NWS CAP/alerts API (tsunami Warning/Watch/Advisory events; area=CA covers all tiers).",
   }),
   source({
     id: "alert-usgs-earthquake", name: "USGS earthquake feed", kind: "alert", authority: "public_agency", region: "Federal",

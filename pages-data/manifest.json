@@ -1,10 +1,10 @@
 {
-  "municipality": "Crescent City",
+  "municipality": "Crescent City, CA",
   "municipalityGuid": "CR4919",
-  "sourceUrl": "https://ecode360.com",
+  "sourceUrl": "https://ecode360.com/CR4919",
   "version": "1.0",
   "scrapedAt": "2026-07-23T21:01:00.499Z",
-  "completedAt": "2026-07-23T21:40:25.406Z",
+  "completedAt": "2026-07-24T23:18:48.069Z",
   "tocNodeCount": 2486,
   "articlePageCount": 245,
   "sectionCount": 2194,
@@ -1969,5 +1969,9 @@
       "sha256": "960526566e41175e6de0a5431d463a495de499b632ff39402987069de3b2ecc1",
       "filePath": "articles/47272681.json"
     }
-  }
+  },
+  "tocFingerprint": "4617909fc9ea528c4735efe7aec7823d7ed622031931afb03e0995e75c644b8f",
+  "tocFetchedAt": "2026-07-24T23:18:47.964Z",
+  "tocSource": "live",
+  "lastRunAt": "2026-07-24T23:18:47.964Z"
 }

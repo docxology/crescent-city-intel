@@ -156,14 +156,22 @@ function tokenize(text: string): string[] {
     .filter(t => t.length > 1 && !LEGAL_STOP_WORDS.has(t));
 }
 
-/** Tokenize and stem using Porter algorithm (for index building) */
+/** Tokenize and stem using Porter algorithm (for index building). */
 function tokenizeAndStem(text: string): string[] {
-  return tokenize(text).map(t => STEMMER_EXCEPTIONS.has(t) ? t : stem(t));
+  return tokenize(text).map(stemIfNeeded);
+}
+
+/** Stem a single token unless it is a STEMMER_EXCEPTION. */
+function stemIfNeeded(t: string): string {
+  return STEMMER_EXCEPTIONS.has(t) ? t : stem(t);
 }
 
 /**
  * Return union of raw, stemmed, and synonym-expanded tokens for query.
  * Stop words are excluded. Synonyms are added for recall.
+ * Stemming is exception-aware — it must match the INDEX's stemming exactly,
+ * or an exception like "planning" would be indexed as "planning" but queried
+ * as "plan", silently under-matching.
  */
 function queryTerms(text: string): string[] {
   const raw = tokenize(text);
@@ -173,7 +181,7 @@ function queryTerms(text: string): string[] {
   }
   // Filter stop words from expansions too, then stem all
   const filtered = expanded.filter(t => !LEGAL_STOP_WORDS.has(t));
-  const stemmed = filtered.map(stem);
+  const stemmed = filtered.map(stemIfNeeded);
   const combined = new Set([...filtered, ...stemmed]);
   return [...combined];
 }

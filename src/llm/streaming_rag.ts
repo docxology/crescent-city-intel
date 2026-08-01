@@ -56,16 +56,22 @@ export function createStreamingRagResponse(
         return;
       }
 
-      const systemPrompt = `You are a helpful assistant answering questions about the Crescent City, California municipal code. Use only the supplied context. Always cite section numbers when possible. If the context is insufficient, say so.\n\nContext:\n${retrievedContext.context}`;
+      // Instruction part only — the retrieved context is passed separately so
+      // each provider's prompt builder can attach it once under its own
+      // "Context from the municipal code:" heading (avoids triple-wrapping:
+      // the previous code embedded context here AND handed the whole string
+      // to the openrouter builder which wrapped it again).
+      const systemPrompt = "You are a helpful assistant answering questions about the Crescent City, California municipal code. Use only the supplied context. Always cite section numbers when possible. If the context is insufficient, say so.";
+      const contextText = retrievedContext.context;
       let fullAnswer = "";
 
       try {
         if (llmConfig.provider === "openrouter") {
           for await (const token of streamOpenRouterChat(
             [{ role: "user", content: question }],
-            systemPrompt,
+            contextText,
             model,
-            { signal: requestAbort.signal },
+            { signal: requestAbort.signal, systemPrompt },
           )) {
             fullAnswer += token;
             controller.enqueue(event(encoder, "token", { token }));
@@ -74,7 +80,7 @@ export function createStreamingRagResponse(
           const ollamaResponse = await fetch(`${llmConfig.ollamaUrl}/api/generate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, prompt: `${systemPrompt}\n\nQuestion: ${question}\n\nAnswer:`, stream: true }),
+            body: JSON.stringify({ model, prompt: `${systemPrompt}\n\nContext:\n${contextText}\n\nQuestion: ${question}\n\nAnswer:`, stream: true }),
             signal: AbortSignal.any([requestAbort.signal, AbortSignal.timeout(OLLAMA_TIMEOUT_MS * 4)]),
           });
 

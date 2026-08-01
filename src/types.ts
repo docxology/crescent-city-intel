@@ -104,6 +104,12 @@ export interface VerificationReport {
   totalFoundSections: number;
   missingSections: string[];
   results: VerificationResult[];
+  /** Outcomes of the live random-sample re-fetch (0 when sampling disabled). */
+  sample?: {
+    attempted: number;
+    passes: number;
+    mismatches: number;
+  };
 }
 
 // ─── Shared data ─────────────────────────────────────────────────

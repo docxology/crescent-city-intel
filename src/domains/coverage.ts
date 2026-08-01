@@ -54,6 +54,20 @@ export async function computeDomainCoverage(): Promise<CoverageReport> {
   const globalCovered = new Set<string>();
   const domainEntries: DomainCoverageEntry[] = [];
 
+  /**
+   * Return the actual scraped section numbers that match a ref (exact, or a
+   * "17.04" prefix matching "17.04.010"). This counts SECTIONS, not refs — a
+   * single ref like "17.04" that matches 40 real sections must contribute 40
+   * to coverage, not 1 (the prior behavior under-reported coverage).
+   */
+  function matchingSections(ref: string): Set<string> {
+    const out = new Set<string>();
+    for (const sn of sectionNumbers) {
+      if (sn === ref || sn.startsWith(ref + ".") || sn.startsWith(ref + " ")) out.add(sn);
+    }
+    return out;
+  }
+
   for (const domain of domains) {
     const refs = new Set<string>();
 
@@ -61,27 +75,26 @@ export async function computeDomainCoverage(): Promise<CoverageReport> {
       for (const src of topic.sources) {
         const num = src.sectionNumber.replace(/§\s*/, "").trim().toLowerCase();
         refs.add(num);
-        globalCovered.add(num);
       }
     }
 
-    // Check which refs actually exist in scraped data
-    const matched = [...refs].filter(r => {
-      // Exact match or prefix match (e.g., "17.04" matches "17.04.010")
-      for (const sn of sectionNumbers) {
-        if (sn === r || sn.startsWith(r + ".") || sn.startsWith(r + " ")) return true;
+    // Expand every ref to the set of ACTUAL sections it covers.
+    const coveredSections = new Set<string>();
+    for (const ref of refs) {
+      for (const sn of matchingSections(ref)) {
+        coveredSections.add(sn);
+        globalCovered.add(sn);
       }
-      return false;
-    });
+    }
 
     const coveragePct =
-      totalSections > 0 ? Math.round((matched.length / totalSections) * 10000) / 100 : 0;
+      totalSections > 0 ? Math.round((coveredSections.size / totalSections) * 10000) / 100 : 0;
 
     domainEntries.push({
       domainId: domain.id,
       domainName: domain.name,
-      referencedSectionNumbers: [...refs].sort(),
-      referencedCount: matched.length,
+      referencedSectionNumbers: [...coveredSections].sort(),
+      referencedCount: coveredSections.size,
       coveragePct,
     });
   }
@@ -89,12 +102,7 @@ export async function computeDomainCoverage(): Promise<CoverageReport> {
   // Sort by coverage descending
   domainEntries.sort((a, b) => b.coveragePct - a.coveragePct);
 
-  const coveredCount = [...globalCovered].filter(r => {
-    for (const sn of sectionNumbers) {
-      if (sn === r || sn.startsWith(r + ".") || sn.startsWith(r + " ")) return true;
-    }
-    return false;
-  }).length;
+  const coveredCount = globalCovered.size;
 
   const overallCoveragePct =
     totalSections > 0 ? Math.round((coveredCount / totalSections) * 10000) / 100 : 0;

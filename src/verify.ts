@@ -11,8 +11,9 @@
  * Output:
  *   output/verification-report.json
  */
-import { readFile, writeFile } from "fs/promises";
+import { readFile } from "fs/promises";
 import { existsSync } from "fs";
+import { writeJsonAtomic } from "./shared/source_health.js";
 import type {
   TocNode,
   ScrapeManifest,
@@ -153,6 +154,8 @@ async function main() {
   log.info(`--- Random Sample Re-fetch (${VERIFY_SAMPLE_SIZE} pages) ---`);
   const sampleArticles = shuffle(expectedArticles).slice(0, VERIFY_SAMPLE_SIZE);
   let samplePasses = 0;
+  let sampleAttempted = 0;
+  let sampleMismatchCount = 0;
 
   const page = await newPage();
 
@@ -181,11 +184,13 @@ async function main() {
 
       const liveHash = await computeSha256(liveHtml);
       const savedHash = await computeSha256(savedData.rawHtml);
+      sampleAttempted++;
 
       if (liveHash === savedHash) {
         log.info(`[MATCH] ${article.indexNum}: SHA-256 matches live site`);
         samplePasses++;
       } else {
+        sampleMismatchCount++;
         log.warn(`[MISMATCH] ${article.indexNum}: Content has changed!`, {
           saved: savedHash.substring(0, 32),
           live: liveHash.substring(0, 32),
@@ -217,9 +222,17 @@ async function main() {
     totalFoundSections: totalFoundSections,
     missingSections: allMissingSections,
     results,
+    // Live re-fetch sample outcomes — the report previously logged mismatches
+    // to the console but never persisted them, so the report could say "pass"
+    // while a sampled page had drifted from the live site.
+    sample: {
+      attempted: sampleAttempted,
+      passes: samplePasses,
+      mismatches: sampleMismatchCount,
+    },
   };
 
-  await writeFile(paths.verificationReport, JSON.stringify(report, null, 2));
+  await writeJsonAtomic(paths.verificationReport, report);
 
   // Summary
   log.info("=== Verification Summary ===");

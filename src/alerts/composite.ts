@@ -1,0 +1,204 @@
+/**
+ * Composite alert-input shaping and source-health classification.
+ *
+ * All the DOMAIN logic the alert orchestrator needs to (a) shape the 8
+ * monitors' reports into the inputs `computeAlertSeverity` expects, and (b)
+ * turn each monitor's run outcome into a typed `SourceHealth` record. These
+ * live in `src/` (not in the orchestration script) so they are pure, unit
+ * testable, and shared — `scripts/run-alerts.ts` only triggers the monitors
+ * and persists artifacts.
+ *
+ * No network or filesystem side effects here; the freshness check is pure over
+ * the report's own timestamp.
+ */
+import type { TideReport } from "./noaa_tides.js";
+import type { FishingReport } from "./cdfw_fishing.js";
+import type { SourceHealth, SourceHealthStatus } from "../types.js";
+
+/** A single monitor's run outcome + the metadata needed to classify it. */
+export interface AlertMonitorDefinition {
+  source: string;
+  index: number;
+  report: unknown | null;
+  itemCount: number;
+  url: string;
+  provenance: string;
+}
+
+/** Payloads available to shape the composite severity inputs. */
+export interface CompositePayload {
+  tsunami: unknown | null;
+  earthquake: unknown | null;
+  weather: unknown | null;
+  airquality: unknown | null;
+  wildfire: unknown | null;
+  marine: unknown | null;
+  tidesReport: TideReport | null;
+  fishingReport: FishingReport | null;
+  now?: number;
+}
+
+/** Read plain fields off an unknown report object whatever its shape. */
+function asRecord(value: unknown): Record<string, any> {
+  return (value && typeof value === "object" ? value : {}) as Record<string, any>;
+}
+
+const FRESHNESS_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * A monitor report is "fresh" only if its fetchedAt/timestamp is within the
+ * last hour. Anything else is treated as absent so a stale snapshot is not
+ * presented as current.
+ */
+export function isFreshReport(report: unknown, now = Date.now()): boolean {
+  const record = asRecord(report);
+  const timestamp = record.fetchedAt ?? record.timestamp;
+  if (typeof timestamp !== "string") return false;
+  const ageMs = now - Date.parse(timestamp);
+  return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= FRESHNESS_WINDOW_MS;
+}
+
+/** Shaping for the tides monitor: prefer the current observed level. */
+export function buildTidesInput(report: TideReport | null): {
+  waterLevelFt: number | null;
+  available: boolean;
+} {
+  const observed = Number(report?.waterLevel?.v);
+  return {
+    waterLevelFt: report
+      ? (Number.isFinite(observed) ? observed : (report.maxPredictedLevel ?? null))
+      : null,
+    available: !!report,
+  };
+}
+
+/** Shaping for the fishing/crab-closure monitor. */
+export function buildFishingInput(report: FishingReport | null): {
+  closureActive: boolean;
+  closureMessage?: string;
+  available: boolean;
+} {
+  return {
+    closureActive: report
+      ? !report.crabStatus.commercialOpen || !report.crabStatus.recreationalOpen
+      : false,
+    closureMessage: report?.crabStatus.statusNote,
+    available: !!report,
+  };
+}
+
+/**
+ * Shape all 8 monitors' reports into the exact input object
+ * `computeAlertSeverity` expects (tsunami/earthquake/weather/tides/fishing/
+ * airQuality/wildfire/marine).
+ */
+export function buildCompositeInput(payload: CompositePayload): Record<string, any> {
+  const { tsunami, earthquake, weather, airquality, wildfire, marine, tidesReport, fishingReport, now } = payload;
+  const tsunamiR = asRecord(tsunami);
+  const weatherR = asRecord(weather);
+  const earthquakeR = asRecord(earthquake);
+  const airR = asRecord(airquality);
+  const wildfireR = asRecord(wildfire);
+  const marineR = asRecord(marine);
+
+  const tides = buildTidesInput(tidesReport);
+  const fishing = buildFishingInput(fishingReport);
+
+  // Tsunami: read the monitor's OWN threatLevel (warning/watch/advisory),
+  // NOT the CAP `severity` enum (Minor/Moderate/Severe/Extreme).
+  const tsunamiAlerts = Array.isArray(tsunamiR.alerts) ? tsunamiR.alerts : [];
+  const weatherAlerts = Array.isArray(weatherR.alerts) ? weatherR.alerts : [];
+
+  return {
+    tsunami: {
+      warningCount: tsunamiAlerts.filter((a: any) => a.threatLevel === "warning").length,
+      watchCount: tsunamiAlerts.filter((a: any) => a.threatLevel === "watch" || a.threatLevel === "advisory").length,
+      available: isFreshReport(tsunami, now),
+    },
+    earthquake: {
+      events: (Array.isArray(earthquakeR.events) ? earthquakeR.events : []).map((e: any) => ({
+        magnitude: e.magnitude ?? e.mag ?? 0,
+        distanceKm: e.distanceKm ?? 200,
+        tsunami: e.tsunami ?? 0,
+        place: e.place ?? "",
+      })),
+      available: isFreshReport(earthquake, now),
+    },
+    weather: {
+      severities: weatherAlerts.map((a: any) => a.severityLevel ?? "advisory"),
+      count: weatherAlerts.length,
+      available: isFreshReport(weather, now),
+    },
+    tides,
+    fishing,
+    airQuality: {
+      maxAqi: airR.maxAqi ?? 0,
+      available: isFreshReport(airquality, now) && Array.isArray(airR.readings) && airR.readings.length > 0,
+    },
+    wildfire: {
+      incidentCount: wildfireR.totalIncidents ?? 0,
+      hasEvacuationOrders: (Array.isArray(wildfireR.incidents) ? wildfireR.incidents : []).some((i: any) => i.hasEvacuationOrders),
+      hasLargeFireNearby: (Array.isArray(wildfireR.incidents) ? wildfireR.incidents : []).some((i: any) => i.acres >= 1000 && i.containmentPercent < 50),
+      available: isFreshReport(wildfire, now),
+    },
+    marine: {
+      // Prefer the primary buoy (46027) exactly as ndbc_marine.ts does —
+      // `observations[0]` can be a far-field station when 46027 is down.
+      waveHeightFt: (Array.isArray(marineR.observations) ? marineR.observations : []).find((o: any) => o.stationId === "46027")?.waveHeightFt
+        ?? marineR.observations?.[0]?.waveHeightFt ?? null,
+      windSpeedKt: (Array.isArray(marineR.observations) ? marineR.observations : []).find((o: any) => o.stationId === "46027")?.windSpeedKt
+        ?? marineR.observations?.[0]?.windSpeedKt ?? null,
+      available: isFreshReport(marine, now) && Array.isArray(marineR.observations) && marineR.observations.length > 0,
+    },
+  };
+}
+
+/**
+ * Classify one monitor run into a typed SourceHealth record.
+ * `result` is the PromiseSettledResult for that monitor's index;
+ * `monitorErrors` carries the runNullableMonitor last-error messages for
+ * monitors that return null (rather than throwing) when degraded.
+ */
+export function classifySourceHealth(
+  definition: AlertMonitorDefinition,
+  result: PromiseSettledResult<unknown>,
+  monitorErrors: Map<number, string>,
+  checkedAt = new Date().toISOString(),
+): SourceHealth {
+  const fetchedAt = (() => {
+    const r = asRecord(definition.report);
+    return r.fetchedAt ?? r.timestamp;
+  })();
+  const fresh = isFreshReport(definition.report);
+  // Monitors index >= 3 are the "null-report on failure" family (epa/calfire/
+  // marine/tides/fishing); a null value there means it failed to produce a
+  // report, not that it produced an empty one.
+  const failed = result.status === "rejected" ||
+    (result.status === "fulfilled" && definition.index >= 3 && result.value === null);
+
+  let status: SourceHealthStatus = failed
+    ? "unavailable"
+    : !fresh
+      ? "stale"
+      : definition.itemCount === 0 ? "empty" : "ok";
+
+  const error = result.status === "rejected"
+    ? String(result.reason instanceof Error ? result.reason.message : result.reason)
+    : failed ? (monitorErrors.get(definition.index) ?? "Monitor returned no report") : undefined;
+
+  const health: SourceHealth = {
+    source: definition.source,
+    status,
+    checkedAt,
+    ...(fetchedAt ? { fetchedAt } : {}),
+    itemCount: definition.itemCount,
+    url: definition.url,
+    ...(error ? { error } : {}),
+    provenance: definition.provenance,
+  };
+  if (fetchedAt) {
+    const ageMs = Date.parse(fetchedAt);
+    if (Number.isFinite(ageMs)) health.ageMs = Math.max(0, Date.now() - ageMs);
+  }
+  return health;
+}

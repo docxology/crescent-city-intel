@@ -8,11 +8,12 @@
  *   3. Plain text corpus
  *   4. Section index CSV
  */
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import type { TocNode, ArticlePage } from "./types.js";
 import { flattenToc, htmlToText, csvEscape, sanitizeFilename } from "./utils.js";
 import { loadToc, loadManifest, loadAllArticles } from "./shared/data.js";
+import { writeJsonAtomic, writeTextAtomic } from "./shared/source_health.js";
 import { paths } from "./shared/paths.js";
 import { createLogger } from "./logger.js";
 
@@ -57,7 +58,7 @@ async function main() {
           })),
         })),
       };
-      await writeFile(paths.consolidatedJson, JSON.stringify(consolidated, null, 2));
+      await writeJsonAtomic(paths.consolidatedJson, consolidated);
       log.info(`  [JSON] -> ${paths.consolidatedJson}`);
     })(),
 
@@ -96,11 +97,11 @@ async function main() {
                   `- [${section.number}: ${section.title}](${sanitizeFilename(chapter.number)}.md#${section.number.replace(/§\s*/, "").replace(/\s/g, "-")})`
                 );
               }
-              await writeFile(`${titleDir}/${sanitizeFilename(chapter.number)}.md`, mdLines.join("\n"));
+              await writeTextAtomic(`${titleDir}/${sanitizeFilename(chapter.number)}.md`, mdLines.join("\n"));
             })
           );
 
-          await writeFile(`${titleDir}/README.md`, titleIndex.join("\n"));
+          await writeTextAtomic(`${titleDir}/README.md`, titleIndex.join("\n"));
         })
       );
 
@@ -121,7 +122,7 @@ async function main() {
               mdLines.push(section.text || htmlToText(section.html));
               if (section.history) mdLines.push(`\n*${section.history}*\n`);
             }
-            await writeFile(`${otherDir}/${sanitizeFilename(chapter.indexNum || chapter.guid)}.md`, mdLines.join("\n"));
+            await writeTextAtomic(`${otherDir}/${sanitizeFilename(chapter.indexNum || chapter.guid)}.md`, mdLines.join("\n"));
           })
         );
       }
@@ -148,7 +149,7 @@ async function main() {
           if (section.history) textLines.push(`[${section.history}]`);
         }
       }
-      await writeFile(paths.plainText, textLines.join("\n"));
+      await writeTextAtomic(paths.plainText, textLines.join("\n"));
       log.info(`  [Text] -> ${paths.plainText}`);
     })(),
 
@@ -170,7 +171,7 @@ async function main() {
           );
         }
       }
-      await writeFile(paths.sectionIndex, csvLines.join("\n"));
+      await writeTextAtomic(paths.sectionIndex, csvLines.join("\n"));
       log.info(`  [CSV] -> ${paths.sectionIndex}`);
     })(),
   ]);

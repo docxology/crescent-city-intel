@@ -168,13 +168,18 @@ function computeTypeStats(type: AlertType, records: AlertHistoryRecord[]): Alert
 
 /**
  * Build a comprehensive alert analytics report from all JSONL history files.
+ *
+ * `maxTimelineEntries` bounds the number of timeline entries returned so a
+ * long-running deployment's ever-growing history cannot balloon an API
+ * response or memory footprint; the per-type statistics are still computed
+ * over the FULL record set.
  */
-export function buildAlertAnalytics(): AlertAnalyticsReport {
+export function buildAlertAnalytics(maxTimelineEntries = 1000): AlertAnalyticsReport {
   const alertsDir = join(process.cwd(), "output", "alerts");
   const fishingDir = join(process.cwd(), "output", "fishing");
   const tidesDir = join(process.cwd(), "output", "tides");
 
-  const timeline: TimelineEntry[] = [];
+  let timeline: TimelineEntry[] = [];
   const typeStats: AlertTypeStats[] = [];
   let totalEvents = 0;
   let mostActiveType: AlertType | null = null;
@@ -211,6 +216,10 @@ export function buildAlertAnalytics(): AlertAnalyticsReport {
 
   // Sort timeline chronologically
   timeline.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  // Bound the number of entries carried into the report (keep the most recent).
+  if (timeline.length > maxTimelineEntries) {
+    timeline = timeline.slice(-maxTimelineEntries);
+  }
 
   const mostRecentAlert = timeline.length > 0 ? timeline[timeline.length - 1] : null;
 

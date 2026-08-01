@@ -199,7 +199,7 @@ export async function* streamChat(
     },
     body: JSON.stringify({
       model,
-      messages: buildMessages(messages, context),
+      messages: buildMessages(messages, context, options?.systemPrompt),
       max_tokens: llmConfig.openrouterMaxTokens,
       stream: true,
     }),

@@ -13,6 +13,14 @@ services:
       - CHROMA_URL=http://chroma:8000
       - CRESCENT_CITY_API_KEY=${CRESCENT_CITY_API_KEY:-}
       - AIRNOW_API_KEY=${AIRNOW_API_KEY:-}
+      # OpenRouter (optional) — forward so the containerized GUI/curation can
+      # actually use the hosted provider instead of silently falling back or
+      # failing. Unset LLM_PROVIDER keeps the default all-local 'ollama' path.
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-}
+      - OPENROUTER_MAX_REQUESTS=${OPENROUTER_MAX_REQUESTS:-100}
+      - YT_DLP_TIMEOUT_MS=${YT_DLP_TIMEOUT_MS:-15000}
     volumes:
       - ./output:/app/output
     depends_on:

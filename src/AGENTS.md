@@ -70,6 +70,7 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `alerts/calfire_wildfire.ts` | CAL FIRE wildfire incident monitoring | `classifyWildfireSeverity()`, `runWildfireMonitor()` |
 | `alerts/ndbc_marine.ts` | NDBC buoy marine weather monitoring | `classifyMarineSeverity()`, `runMarineMonitor()` |
 | `alerts/severity.ts` | 8-monitor composite severity | `computeAlertSeverity()` (expanded from 5 to 8 monitors) |
+| `alerts/composite.ts` | Pure composite-input shaping + source-health classification (thin-script enabler for `scripts/run-alerts.ts`) | `buildCompositeInput()`, `classifySourceHealth()`, `isFreshReport()` |
 | `shared/fuzzy.ts` | Levenshtein fuzzy matching + typo correction | `levenshtein()`, `similarity()`, `fuzzyCorrect()`, `expandQueryFuzzy()` |
 | `llm/streaming_rag.ts` | SSE streaming RAG | `createStreamingRagResponse()` |
 | `llm/provider.ts` | Selected-provider routing and bounded preflight | `chatWithProvider()`, `checkChatProvider()` |

@@ -84,6 +84,47 @@ TODO.md). See the issue-by-issue notes in TODO.md.
 - Unbounded alert JSONL history → shared `IdempotencyStore` with a cap + process
   lock (was R7) across the 5 alert monitors.
 
+### Part 3 — deep refactorings & deferred-item completion (2026-08-01)
+
+- **M6 (run-alerts thin-orchestrator) completed.** Added `src/alerts/composite.ts`
+  holding all pure composite-input shaping (`buildCompositeInput`), source-health
+  classification (`classifySourceHealth`) and freshness (`isFreshReport`);
+  `scripts/run-alerts.ts` is now a thin orchestrator that only runs monitors and
+  persists artifacts. Added an advisory run-lock to `run-alerts` to prevent
+  overlapping cron runs from double-processing alert events across processes
+  (part of R7).
+- **Alert analytics timeline is now bounded** (`alert_analytics.ts`): the
+  timeline carries at most `maxTimelineEntries` (default 1000) most-recent
+  entries so an ever-growing history can't balloon API responses; per-type
+  statistics still use the full record set.
+- **Domain coverage now counts sections, not refs** (`domains/coverage.ts`): a
+  ref like `17.04` matching 40 real sections contributes 40 to
+  `referencedCount`/`coveragePct` (previously counted as 1 — underreported).
+- **Export artifacts are now atomically written** (`export.ts`): consolidated
+  JSON, Markdown, plain-text and CSV all go through `writeJsonAtomic`/
+  `writeTextAtomic` (fsync'd temp + rename) instead of plain `writeFile`.
+- **Verification report persists sample-outcome data** (`verify.ts`): the live
+  re-fetch sample now records `sample.{attempted,passes,mismatches}` in
+  `verification-report.json` and is written atomically (was console-only +
+  non-atomic).
+- **Streaming OpenRouter prompt no longer triple-wraps context**
+  (`streaming_rag.ts` + `openrouter.ts`): `streamChat` now honors
+  `options.systemPrompt`, and the RAG streamer passes the domain prompt and the
+  retrieved context separately so the system message is composed once.
+- **Search query stemming is exception-aware** (`gui/search.ts`): query terms now
+  use the same `STEMMER_EXCEPTIONS` as the index (e.g. "planning" no longer
+  silently stems to "plan" at query time).
+- **docker-compose forwards OpenRouter/LLM env** (`LLM_PROVIDER`,
+  `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_MAX_REQUESTS`,
+  `YT_DLP_TIMEOUT_MS`) so the containerized GUI/curation can use the hosted
+  provider.
+
+### Still deferred (this pass)
+
+- Bounded per-monitor alert JSONL (cap file length) + `export.test.ts` +
+  `isComplexWord` capitalized-word tuning + news `normalizeUrl` dedup — see
+  TODO.md Deferred section.
+
 ---
 
 ## [2.5.1] — 2026-07-30

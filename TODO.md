@@ -85,24 +85,25 @@
 ### Deferred Minor/Medium (scoped, with rationale)
 
 > Intentionally not implemented this pass — larger/riskier or needing an external
-> decision. Tracked so they are not silently dropped. (R2 tides thresholds, R4
-> marine primary-buoy and R6 pointInPolygon holes were completed in the part-2
-> pass and are listed under Major findings above.)
+> decision. Tracked so they are not silently dropped. (Completed in prior passes:
+> M1–M5, R2/R4/R6, and in the part-3 refactor pass: M6 run-alerts thin-orchestrator,
+> alert-analytics timeline cap, domain-coverage section counting, export atomic
+> writes, verify sample-outcome report, streaming prompt de-duplication, search
+> exception-aware stemming, docker-compose OpenRouter env forwarding.)
 
-- 🟡 **`run-alerts.ts` thin-orchestrator refactor (was M6)**: move shaping/freshness/
-  source-health classification into `src/alerts/` — architecture-only, no behavior
-  change; deferred for a focused refactor pass.
-- 🟡 **Unbounded JSONL history + cross-process dedup race** (5 alert monitors):
-  migrate to the shared `IdempotencyStore` with a cap + process lock — larger refactor.
-- 🟡 **Domain coverage counts refs, not sections** (`domains/coverage.ts`): labels are
-  misleading; expand matched refs to actual section sets (changes published metrics).
-- 🟡 **Verify sample mismatches not in report** (`verify.ts`): report live re-fetch
-  outcomes + flip status; report schema change.
-- 🟡 **`export.test.ts` absent** and four export formats are non-atomic writes:
-  add a dedicated test + convert to atomic writes.
-- 🟢 **`/api/alerts/timeline` unbounded** (routes.ts/alert_analytics.ts): cap/summarize
-  server-side.
-- 🟢 **News dedup collapses distinct articles** sharing a path (news_monitor.ts).
+- 🟡 **Unbounded per-monitor alert JSONL** (5 alert monitors): history.jsonl files
+  grow without bound and are fully re-read each run; migrate to the shared
+  `IdempotencyStore` with a cap (or a bounded tail-trim) — larger refactor, left.
+- 🟢 **`export.test.ts` absent**: the export builders (consolidated JSON shape,
+  markdown/plain-text/CSV layouts) lack a dedicated test file; add one (the
+  atomic-write portion of the original finding is completed).
+- 🟢 **`isComplexWord` capitalized-word heuristic** (`readability.ts`): the
+  blanket "drop any capitalized word as a proper noun" can under-report
+  complexity for sentence-initial content words; needs sentence-position context
+  to refine safely without destabilizing published readability scores.
+- 🟢 **News dedup collapses distinct articles** sharing a path (`normalizeUrl` in
+  news_monitor.ts): keep a title/length secondary check to avoid dropping
+  distinct paginated items.
 - 🟢 **`?api_key=` query-param auth** may leak keys into logs; prefer header-only
   (breaking change — needs a migration note).
 

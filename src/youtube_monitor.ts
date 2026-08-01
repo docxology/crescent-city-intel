@@ -464,6 +464,14 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
 
   for (const video of videos) {
     if (idempotency.has(video.id)) continue;
+    // Defensive validation: video ids are used verbatim in file paths and the
+    // yt-dlp `-o` template below. They originate from the official channel's
+    // listing (trusted), but an unexpected malformed id must not escape the
+    // output directory or be spliced into the subprocess template.
+    if (!/^[A-Za-z0-9_-]{6,24}$/.test(video.id)) {
+      logger.warn("Skipping video with invalid id", { id: video.id, title: video.title });
+      continue;
+    }
     newCount++;
 
     const transcript = await extractTranscript(video);

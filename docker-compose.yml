@@ -11,7 +11,7 @@ services:
       - LOG_LEVEL=info
       - OLLAMA_URL=http://ollama:11434
       - CHROMA_URL=http://chroma:8000
-      - CRESCENT_CITY_API_KEY=${CRESCENT_CITY_API_KEY:-dev-key-12345}
+      - CRESCENT_CITY_API_KEY=${CRESCENT_CITY_API_KEY:-}
       - AIRNOW_API_KEY=${AIRNOW_API_KEY:-}
     volumes:
       - ./output:/app/output

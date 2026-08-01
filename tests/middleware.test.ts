@@ -61,17 +61,43 @@ describe("middleware — sliding window rate limiter", () => {
   });
 
   test("applyMiddleware accepts valid API key", async () => {
-    const { applyMiddleware } = await import("../src/api/middleware.ts");
+    const { applyMiddleware, getPrimaryApiKey } = await import("../src/api/middleware.ts");
     const req = new Request("http://localhost:3000/api/chat?q=test", {
       method: "GET",
       headers: {
         "x-real-ip": "127.0.0.1",
-        "x-api-key": process.env.CRESCENT_CITY_API_KEY ?? "dev-key-12345",
+        "x-api-key": getPrimaryApiKey(),
       },
     });
     const result = await applyMiddleware(req);
     // Valid key + localhost IP → null (continue)
     expect(result).toBeNull();
+  });
+
+  test("a public socket IP cannot bypass rate limiting with a spoofed loopback header", async () => {
+    // Regression test for the 2026-07-24 finding: `resolveIp` prefers
+    // client-supplied x-forwarded-for/x-real-ip, so a remote requester whose
+    // REAL socket address is public must NOT be handed an unlimited rate-limit
+    // bucket merely by sending `X-Forwarded-For: 127.0.0.1`. The bypass is now
+    // decided on the socket address when one is present.
+    const { rateLimitMiddleware, _testHooks } = await import("../src/api/middleware.ts");
+    _testHooks.clearNow();
+    _testHooks.resetAll();
+    const middleware = rateLimitMiddleware();
+    const req = (n: number) =>
+      new Request("http://localhost:3000/api/search?q=test", {
+        method: "GET",
+        headers: { "x-forwarded-for": `127.0.0.${n}` }, // spoofed loopback
+      });
+    const limit = _testHooks.getPublicLimit();
+    // Exhaust the window: socket address is a public IP, so each request is
+    // bucketed (spoofed value) and the NEXT identical-blade request is blocked.
+    for (let i = 0; i < limit; i++) {
+      expect(await middleware(req(1), "203.0.113.42")).toBeNull();
+    }
+    const blocked = await middleware(req(1), "203.0.113.42");
+    expect(blocked).not.toBeNull();
+    expect(blocked!.status).toBe(429);
   });
 });
 

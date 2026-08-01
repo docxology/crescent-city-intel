@@ -137,7 +137,9 @@ async function main() {
         `Exported: ${new Date().toISOString()}`,
         `${"=".repeat(60)}\n`,
       ];
-      for (const article of articles.sort((a, b) => a.number.localeCompare(b.number))) {
+      // Sort a COPY so the shared `articles` array isn't mutated in place for
+      // the other branches of this Promise.all that read it concurrently.
+      for (const article of [...articles].sort((a, b) => a.number.localeCompare(b.number))) {
         textLines.push(`\nCHAPTER ${article.number}: ${article.title}`);
         textLines.push("-".repeat(40));
         for (const section of article.sections) {

@@ -295,7 +295,12 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
   const missing = health.filter(source => source.status === "unavailable" || source.status === "stale").map(source => ({ source: source.source, status: source.status, ...(source.error ? { error: source.error } : {}), checkedAt: source.checkedAt }));
   // Source gaps are represented by sourceSummary.missing. Only an actual
   // failed pipeline envelope can make the analytical artifact degraded.
-  const status: OverviewStatus = code.totalSections === 0 && health.length === 0 ? "unavailable" : pipeline?.status === "failed" ? "degraded" : "ok";
+  // A missing/empty municipal-code corpus is genuine degradation even when the
+  // source-health records exist — "ok" would falsely imply the analytical
+  // view is complete while the code backbone is absent.
+  const status: OverviewStatus = code.totalSections === 0
+    ? (health.length === 0 ? "unavailable" : "degraded")
+    : (pipeline?.status === "failed" ? "degraded" : "ok");
   const alertLevel = String(alerts?.level ?? "CALM");
   const signals = buildSignals({ health, alerts, alertAnalytics, code, curated, pipeline });
   const evidence = {

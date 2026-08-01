@@ -31,14 +31,19 @@ const log = createLogger("verifier");
 
 /**
  * Recursively collect all section GUIDs that are descendants of a given node.
- * This handles subarticles and parts nested within articles.
+ * This must mirror `content.ts`'s `getSectionGuids` (the enumeration the
+ * scraper itself uses to decide what to fetch): recurse into ALL child types —
+ * division/chapter/article/subarticle/part — not just subarticle/part. A
+ * verifier that only looked at subarticle/part would undercount "expected"
+ * sections for any article whose sections nest under a different container,
+ * potentially marking allSectionsPresent true while the scrape required more.
  */
 function collectDescendantSections(node: TocNode): TocNode[] {
   const sections: TocNode[] = [];
   for (const child of node.children) {
     if (child.type === "section") {
       sections.push(child);
-    } else if (child.type === "subarticle" || child.type === "part") {
+    } else {
       sections.push(...collectDescendantSections(child));
     }
   }

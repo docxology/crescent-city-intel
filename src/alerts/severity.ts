@@ -216,29 +216,36 @@ function assessWeather(input: WeatherInput): MonitorStatus {
 }
 
 /**
- * Assess NOAA tides severity based on predicted water level.
+ * Assess NOAA tides severity based on the water level (observed, or predicted
+ * max as a fallback) in feet MLLW.
+ *
+ * Thresholds are set ABOVE Crescent City's typical maximum high tide (~6.2 ft
+ * MLLW) so a normal astronomical high tide does NOT raise the composite — the
+ * prior WARNING≥5ft/WATCH≥3ft fired on nearly every run. WATCH means the level
+ * is at/above the normal max (a real risk of minor coastal flooding); WARNING
+ * means a genuine significant exceedance (storm surge / king tide).
  */
 function assessTides(input: TidesInput): MonitorStatus {
   if (!input.available || input.waterLevelFt === null) {
     return { level: "CALM", summary: "Tides data unavailable", count: 0, availability: "unavailable" };
   }
-  if (input.waterLevelFt >= 5.0) {
+  if (input.waterLevelFt >= 7.0) {
     return {
       level: "WARNING",
-      summary: `🔴 High tide ${input.waterLevelFt.toFixed(1)} ft MLLW`,
+      summary: `🔴 Water level ${input.waterLevelFt.toFixed(1)} ft MLLW (significant exceedance)`,
       count: 1,
     };
   }
-  if (input.waterLevelFt >= 3.0) {
+  if (input.waterLevelFt >= 6.0) {
     return {
       level: "WATCH",
-      summary: `🟡 Elevated tide ${input.waterLevelFt.toFixed(1)} ft MLLW`,
+      summary: `🟡 Elevated water level ${input.waterLevelFt.toFixed(1)} ft MLLW (at/above normal max high tide)`,
       count: 1,
     };
   }
   return {
     level: "CALM",
-    summary: `Normal tides ${input.waterLevelFt.toFixed(1)} ft MLLW`,
+    summary: `Normal water level ${input.waterLevelFt.toFixed(1)} ft MLLW`,
     count: 0,
   };
 }

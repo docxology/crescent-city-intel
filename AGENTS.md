@@ -120,7 +120,7 @@ tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
 pages-data/             # Reviewed public seed artifacts for static Pages
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.1)
 ```
 
 ## What's New in v2.5.0

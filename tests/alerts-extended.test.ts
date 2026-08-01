@@ -774,6 +774,24 @@ describe("NWS Weather — pointInPolygon geometry", () => {
     const ccPoint = { lat: 41.7485, lng: -124.2028 };
     expect(pointInPolygon(ccPoint, floridaPolygon)).toBe(false);
   });
+
+  test("a point inside a ring hole returns false (outer ring + hole)", () => {
+    // Outer square [-125..-123] x [41..43] with a hole [-124.4..-124.0] x [41.6..41.9].
+    const donut: number[][][] = [
+      [
+        [-125.0, 41.0], [-123.0, 41.0], [-123.0, 43.0], [-125.0, 43.0], [-125.0, 41.0],
+      ],
+      [
+        [-124.4, 41.6], [-124.0, 41.6], [-124.0, 41.9], [-124.4, 41.9], [-124.4, 41.6],
+      ],
+    ];
+    // Inside the hole → outside the polygon.
+    expect(pointInPolygon({ lat: 41.7485, lng: -124.2 }, donut)).toBe(false);
+    // In the ring area (inside outer, outside hole) → inside the polygon.
+    expect(pointInPolygon({ lat: 42.0, lng: -124.2 }, donut)).toBe(true);
+    // Outside the outer ring → not inside.
+    expect(pointInPolygon({ lat: 40.0, lng: -124.2 }, donut)).toBe(false);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -16,6 +16,7 @@ import { createLogger } from "../logger.js";
 import { mkdir, writeFile, readFile, appendFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
+import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
 
 const logger = createLogger("noaa-tides");
 
@@ -24,8 +25,12 @@ const logger = createLogger("noaa-tides");
 /** NOAA CO-OPS station ID for Crescent City, CA */
 export const CRESCENT_CITY_STATION_ID = "9419750";
 
-/** Alert if any water level prediction exceeds this threshold (MLLW, feet) */
-const HIGH_TIDE_ALERT_FT = 5.0;
+/** Alert if any water level prediction exceeds this threshold (MLLW, feet).
+ * Set above Crescent City's typical max astronomical high tide (~6.2 ft MLLW)
+ * so a normal day does not fire a "HIGH TIDE ALERT" — only a genuine
+ * exceedance (storm surge / king tide) does. Mirrors severity.ts assessTides
+ * WARNING threshold. */
+const HIGH_TIDE_ALERT_FT = 7.0;
 
 /** NOAA CO-OPS API base URL */
 const COOPS_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
@@ -112,6 +117,7 @@ export async function fetchTidePredictions(): Promise<TidePrediction[]> {
 
   const resp = await fetch(url, {
     headers: { "User-Agent": "CrescentCityIntelligenceSystem/1.0" },
+    signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
   });
   if (!resp.ok) throw new Error(`NOAA API HTTP ${resp.status}: ${resp.statusText}`);
 
@@ -136,6 +142,7 @@ export async function fetchCurrentWaterLevel(): Promise<WaterLevel | null> {
   try {
     const resp = await fetch(url, {
       headers: { "User-Agent": "CrescentCityIntelligenceSystem/1.0" },
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
     });
     if (!resp.ok) return null;
 

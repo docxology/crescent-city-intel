@@ -15,7 +15,7 @@
  *   silently started from empty and treated everything as new. Using this
  *   store instead of that Map is a real idempotency fix, not just a refactor.
  */
-import { mkdir, readFile, rename, writeFile } from "fs/promises";
+import { mkdir, readFile, rename, open } from "fs/promises";
 import { existsSync } from "fs";
 import { dirname } from "path";
 import { computeSha256 } from "../utils.js";
@@ -75,6 +75,9 @@ export class IdempotencyStore {
             this.records.set(id, { hash: "", firstSeen: now, lastSeen: now });
           }
         }
+        // A migrated legacy array larger than the cap must be trimmed now,
+        // not left over-cap in memory until the next new-id insert.
+        this.cleanup();
         logger.info(`Migrated ${this.records.size} legacy string[] id(s) from ${this.path}`);
         return;
       }
@@ -153,7 +156,17 @@ export class IdempotencyStore {
     for (const [id, rec] of this.records) obj[id] = rec;
 
     const tmpPath = `${this.path}.tmp-${process.pid}-${Math.random().toString(36).slice(2)}`;
-    await writeFile(tmpPath, JSON.stringify(obj, null, 2));
+    // fsync the temp file before rename: without it a power loss between write
+    // and rename can persist a partially-written file under the real path, and
+    // the corrupt file is then silently discarded as "start empty" on next
+    // load — losing all dedup state and reprocessing everything as new.
+    const handle = await open(tmpPath, "w");
+    try {
+      await handle.writeFile(JSON.stringify(obj, null, 2), "utf-8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
     await rename(tmpPath, this.path);
   }
 }

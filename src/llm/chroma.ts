@@ -2,7 +2,6 @@
 import { ChromaClient, type Collection } from "chromadb";
 import { llmConfig } from "./config.js";
 import { createLogger } from "../logger.js";
-import { OLLAMA_TIMEOUT_MS } from "../constants.js";
 
 const log = createLogger("chroma");
 

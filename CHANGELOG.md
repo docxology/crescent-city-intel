@@ -8,6 +8,84 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Deepest hostile red-team hardening pass (2026-08-01)
+
+### Fixed
+
+- Rate-limit bypass via spoofed `X-Forwarded-For`/`X-Real-IP` closed — the
+  trusted-local bypass is now decided on the real socket address.
+- Well-known default API key (`dev-key-12345`) replaced with a random per-boot
+  credential when `CRESCENT_CITY_API_KEY` is unset (docs + compose updated).
+- Upstream alert fetches (tides, tsunami, fishing, marine) now carry a timeout
+  so a hung feed cannot stall `run-alerts`.
+- EPA AirNow no longer publishes a false `GOOD` reading when its keyed ZIP
+  endpoint returns no data (falls through to the public KML product).
+- `loadAllArticles` now sorts corpus output (deterministic ordering) and logs
+  corrupt-article loss at ERROR level instead of a silent per-file warn.
+- Atomic writes (`writeJsonAtomic`/`writeTextAtomic`/idempotency `save`) now
+  `fsync` the temp file before `rename`, closing a crash window that could wipe
+  dedup state.
+- Long-lived GUI no longer permanently locks OpenRouter generation after 100
+  cumulative calls; LLM lazy-load retries after a transient failure.
+- Verifier section enumeration now matches the scraper's; monthly-report
+  earthquake magnitude NaN guarded; export sorts a copy; analytics reports
+  `degraded` on a missing code corpus; monitor flags extra sections as changed.
+- Haversine NaN clamp (earthquake/airnow/wildfire); `chunk(size≤0)` guard;
+  yt-dlp video-id validation; dead code removed; `2.5.0` version drift
+  corrected to `2.5.1`; README hardcoded test count dropped.
+
+### Deepest hostile red-team hardening pass (2026-08-01) — part 2: scoped Majors
+
+The red-team review's MAJOR findings are now implemented (previously scoped in
+TODO.md). See the issue-by-issue notes in TODO.md.
+
+### Fixed
+
+- **Tsunami composite severity now works (was M1/M3).** `noaa_tsunami.ts` persists
+  each alert's classified `threatLevel` (warning/watch/advisory) into
+  `current.json`, the fetch now pulls all active CA tsunami events (Warning,
+  Watch and Advisory — previously pinned to `event=Tsunami Warning` only, so the
+  WATCH tier was structurally empty), and `run-alerts.ts` reads `threatLevel`
+  instead of the CAP `severity` enum. A real tsunami warning now elevates the
+  composite banner to EMERGENCY; watches/advisories to WATCH.
+- **NWS weather composite severity now works (was M2).** `nws_weather.ts` persists
+  its computed `severityLevel` (advisory/watch/warning) into each `current.json`
+  alert and `run-alerts.ts` reads it — a Severe weather warning now correctly
+  reaches WARNING instead of being misclassified as an advisory.
+- **Change-detector now checks the manifest baseline (was M3-monitor).**
+  `monitor.ts checkHashes` compares the recomputed SHA-256 against the trusted
+  `manifest.articles[guid].sha256` rather than the hash stored in the article
+  file itself, so a consistent whole-file rewrite is detected, not self-validated.
+- **Readability no longer fragments on every period (was M4).** `readability.ts`
+  shields decimal section numbers (`17.04.010`), dotted citations (`U.S.C.`), and
+  common abbreviations (`No.`, `Cal.`) before sentence-splitting, correcting
+  Flesch-Kincaid / Reading Ease / Gunning Fog for decimal-heavy legal text.
+- **`.env` excluded from the Docker image (was M5).** Added `.dockerignore`
+  (`.env`, `node_modules`, `output`, `.git`, `.pages`, `.claude`) so an API key
+  in `.env` can no longer be baked into image layers.
+- **Tide alerting no longer fires on every normal high tide (was R2).**
+  Composite tides severity now uses the CURRENT observed water level and
+  thresholds above Crescent City's typical max high tide (WATCH≥6.0 / WARNING≥7.0
+  ft MLLW); `noaa_tides` mirror `HIGH_TIDE_ALERT_FT` to 7.0.
+- **Marine composite uses the primary buoy (was R4).** `run-alerts.ts` prefers
+  station 46027 over `observations[0]` (which could be a ~120NM far-field buoy).
+- **NWS `pointInPolygon` handles holes (was R6).** Now per-ring even-odd with
+  hole exclusion instead of a single ray-cast over concatenated rings.
+- Consolidated `noaa_tsunami` / `nws_weather` / tide source-health URLs to the
+  current endpoints and updated the matching docs.
+
+### Still deferred (architecture-only, no behavior change)
+
+- `run-alerts.ts` thin-orchestrator refactor (was M6) — move shaping/freshness/
+  source-health classification into `src/alerts/`; behavior-neutral, left for a
+  focused refactor pass.
+- Unbounded alert JSONL history → shared `IdempotencyStore` with a cap + process
+  lock (was R7) across the 5 alert monitors.
+
+---
+
 ## [2.5.1] — 2026-07-30
 
 ### Functional observability and interaction pass (promoted from [Unreleased])

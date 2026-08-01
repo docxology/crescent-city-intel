@@ -52,4 +52,15 @@ describe("computeReadability — Gunning Fog", () => {
     expect(score).not.toBeNull();
     expect(["plain", "standard", "complex", "legal"]).toContain(score!.difficulty);
   });
+
+  test("decimal section numbers are not treated as sentence boundaries", () => {
+    // Regression: "17.04.010" must count as ONE sentence, not fragment into
+    // multiple — the old `.split(/[.!?]+/)` inflated sentenceCount and
+    // collapsed words-per-sentence for decimal-heavy legal text.
+    const text = "Pursuant to Section 17.04.010 the commission may act. This is a second sentence.";
+    const score = computeReadability(text);
+    expect(score).not.toBeNull();
+    expect(score!.sentenceCount).toBe(2);
+    expect(score!.avgWordsPerSentence).toBeGreaterThan(4);
+  });
 });

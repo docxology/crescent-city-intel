@@ -33,14 +33,35 @@ async function loadLlmModules() {
 
 let llmModules: Awaited<ReturnType<typeof loadLlmModules>> = null;
 let llmModulesLoaded = false;
+/** Set true only on a SUCCESSFUL load, so a transient first-load failure
+ * (e.g. chromadb unavailable for a moment) is retried on the next request
+ * instead of permanently disabling chat/analytics for the server's lifetime. */
+let llmModulesLoadedOk = false;
 
-/** Get LLM modules, loading once lazily */
+/** Get LLM modules, loading once lazily (retrying after a failed load). */
 async function getLlm() {
-  if (!llmModulesLoaded || !llmModules) {
+  if (!llmModulesLoadedOk || !llmModules) {
     llmModules = await loadLlmModules();
     llmModulesLoaded = true;
+    if (llmModules) llmModulesLoadedOk = true;
   }
   return llmModules;
+}
+
+/**
+ * Reset the OpenRouter per-run request budget at each top-level GUI request.
+ * The counter otherwise accumulates across the whole server lifetime and, at
+ * the 100/run cap, permanently locks every later generation until restart.
+ * Curation batches (a separate `bun run curate` process) still bind the whole
+ * batch to one budget — only the shared server is scoped per-request. GUI
+ * request volume is separately bounded by the rate limiter.
+ */
+async function resetProviderBudget(): Promise<void> {
+  if (llmConfig.provider !== "openrouter") return;
+  try {
+    const m = await import("../llm/openrouter.js");
+    m.resetOpenRouterRequestCount();
+  } catch { /* module unavailable — nothing to reset */ }
 }
 
 // ─── Route handler ───────────────────────────────────────────────
@@ -213,6 +234,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // Note: must not match POST /api/chat below — that path carries a JSON body,
   // not a `q` query param, and needs its own handler further down.
   if (path === "/api/chat" && req?.method !== "POST") {
+    await resetProviderBudget();
     const q = url.searchParams.get("q") ?? "";
     const modelOverride = url.searchParams.get("model") ?? undefined;
     if (!q.trim()) {
@@ -260,6 +282,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   }
   // POST /api/chat — RAG query via JSON body (for longer questions)
   if (path === "/api/chat" && req?.method === "POST") {
+    await resetProviderBudget();
     let body: { q?: string; context?: string; model?: string } = {};
     try {
       body = await req.json();
@@ -333,6 +356,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
   // POST /api/summarize — summarize a section using Ollama
   if (path === "/api/summarize") {
+    await resetProviderBudget();
     const llm = await getLlm();
     if (!llm) {
       return json({ error: "LLM modules unavailable" }, 503);
@@ -823,7 +847,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       generatedAt: new Date().toISOString(),
       application: {
         name: "crescent-city-intel",
-        version: process.env.APP_VERSION ?? "2.5.0",
+        version: process.env.APP_VERSION ?? "2.5.1",
         commit: process.env.GITHUB_SHA ?? process.env.GIT_COMMIT ?? null,
         runtime: `bun/${process.versions.bun ?? "unknown"}`,
       },
@@ -1144,6 +1168,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
   // POST /api/chat/stream — streaming RAG via Server-Sent Events
   if (path === "/api/chat/stream" && req?.method === "POST") {
+    await resetProviderBudget();
     try {
       const body = await req.json();
       const q = body.q;

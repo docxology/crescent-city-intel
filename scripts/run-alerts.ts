@@ -49,8 +49,16 @@ const logger = createLogger("alerts");
  * observed level, which can read low even on a high-tide-alert day.
  */
 export function buildTidesInput(report: TideReport | null): TidesInput {
+  // Prefer the CURRENT observed water level (reflects real conditions including
+  // any residual/surge) over the 48-hour PREDICTED max. The predicted max is
+  // almost always at/above the WATCH threshold, which kept the composite
+  // permanently elevated even on a perfectly normal day. Fall back to the
+  // predicted max only when no observed reading is available (sensor offline).
+  const observed = Number(report?.waterLevel?.v);
   return {
-    waterLevelFt: report?.maxPredictedLevel ?? null,
+    waterLevelFt: report
+      ? (Number.isFinite(observed) ? observed : (report.maxPredictedLevel ?? null))
+      : null,
     available: !!report,
   };
 }
@@ -177,8 +185,8 @@ const [tsunami, earthquake, weather, airquality, wildfire, marine] = await Promi
 
 const compositeInput = {
   tsunami: {
-    warningCount: tsunami?.alerts?.filter((a: any) => a.severity === "Warning").length ?? 0,
-    watchCount: tsunami?.alerts?.filter((a: any) => a.severity === "Watch" || a.severity === "Advisory").length ?? 0,
+    warningCount: (tsunami?.alerts ?? []).filter((a: any) => a.threatLevel === "warning").length,
+    watchCount: (tsunami?.alerts ?? []).filter((a: any) => a.threatLevel === "watch" || a.threatLevel === "advisory").length,
     available: isFreshCurrent(tsunami),
   },
   earthquake: {
@@ -191,7 +199,7 @@ const compositeInput = {
     available: isFreshCurrent(earthquake),
   },
   weather: {
-    severities: (weather?.alerts ?? []).map((a: any) => a.severity?.toLowerCase() ?? "advisory"),
+    severities: (weather?.alerts ?? []).map((a: any) => a.severityLevel ?? "advisory"),
     count: weather?.alerts?.length ?? 0,
     available: isFreshCurrent(weather),
   },
@@ -208,8 +216,14 @@ const compositeInput = {
     available: isFreshCurrent(wildfire),
   },
   marine: {
-    waveHeightFt: marine?.observations?.[0]?.waveHeightFt ?? null,
-    windSpeedKt: marine?.observations?.[0]?.windSpeedKt ?? null,
+    // Prefer the primary buoy (46027) exactly as ndbc_marine.ts's own
+    // classifyMarineSeverity does — `observations[0]` can be a far-field
+    // station (e.g. 46022, Eel River ~120NM) when 46027 is briefly down,
+    // applying coastal thresholds to a non-coastal reading.
+    waveHeightFt: (marine?.observations ?? []).find((o: any) => o.stationId === "46027")?.waveHeightFt
+      ?? marine?.observations?.[0]?.waveHeightFt ?? null,
+    windSpeedKt: (marine?.observations ?? []).find((o: any) => o.stationId === "46027")?.windSpeedKt
+      ?? marine?.observations?.[0]?.windSpeedKt ?? null,
     available: isFreshCurrent(marine) && !!marine?.observations?.length,
   },
 };
@@ -241,7 +255,7 @@ const monitorDefinitions: Array<{
   url: string;
   provenance: string;
 }> = [
-  { source: "NOAA Tsunami", index: 0, report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?event=Tsunami+Warning&area=CA", provenance: "NOAA CAP alerts" },
+  { source: "NOAA Tsunami", index: 0, report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?area=CA", provenance: "NOAA CAP alerts (tsunami Warning/Watch/Advisory)" },
   { source: "USGS Earthquake", index: 1, report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", provenance: "USGS GeoJSON feed" },
   { source: "NWS Weather", index: 2, report: weather, itemCount: weather?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?zone=CAZ006", provenance: "NWS active alerts" },
   { source: "NOAA Tides", index: 6, report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", provenance: "NOAA CO-OPS station 9419750" },

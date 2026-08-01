@@ -23,6 +23,7 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
 
 const logger = createLogger("ndbc_marine_alert");
 
@@ -224,7 +225,9 @@ export function classifyMarineSeverity(observations: BuoyObservation[]): {
 export async function fetchBuoyObservation(station: typeof MONITORED_STATIONS[number]): Promise<BuoyObservation | null> {
   const url = `${NDBC_BASE_URL}/${station.id}.txt`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) {
       logger.warn(`Failed to fetch buoy ${station.id}`, { status: response.status });
       return null;

@@ -27,7 +27,7 @@ Polls the NOAA Weather API for active tsunami warnings affecting the California 
 
 ### Data Source
 
-`GET https://api.weather.gov/alerts/active?event=Tsunami%20Warning&area=CA`
+`GET https://api.weather.gov/alerts/active?area=CA`
 
 Built via `URLSearchParams` so the `event` value is always properly
 URL-encoded. **Fixed 2026-07-23**: the endpoint requires the query param to be

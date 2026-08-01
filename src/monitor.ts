@@ -3,10 +3,6 @@
  * Municipal code change detection monitor.
  *
  * Compares current scraped data against baseline hashes to detect changes.
- * Can also re-fetch a sample to check for upstream updates on ecode360.
- *
- * Usage:
- *   bun run src/monitor.ts [--sample N]
  *
  * Output: JSON report to output/monitor-report.json
  */
@@ -39,8 +35,21 @@ export async function checkHashes(): Promise<{
     try {
       const data: ArticlePage = JSON.parse(await readFile(filePath, "utf-8"));
       const currentHash = await computeSha256(data.rawHtml);
-      if (currentHash !== data.sha256) {
-        mismatches.push(`${entry.guid}: hash mismatch (saved=${data.sha256.substring(0, 16)}, computed=${currentHash.substring(0, 16)})`);
+      // The authoritative baseline is the hash recorded in the SCRAPE MANIFEST
+      // (the trusted artifact copied at scrape time), NOT the sha256 field
+      // stored inside the article file itself — an attacker/process that
+      // rewrites an article with a consistent new rawHtml+sha256 would otherwise
+      // pass a self-comparison silently. A mismatch against the manifest is a
+      // change (or tamper) signal.
+      const baselineHash = entry.sha256;
+      if (baselineHash && currentHash !== baselineHash) {
+        mismatches.push(`${entry.guid}: hash mismatch vs manifest baseline (manifest=${baselineHash.substring(0, 16)}, computed=${currentHash.substring(0, 16)})`);
+      } else if (!baselineHash) {
+        mismatches.push(`${entry.guid}: manifest entry has no sha256 baseline to compare`);
+      } else if (data.sha256 && data.sha256 !== baselineHash) {
+        // Even when content matches the baseline, a stored sha256 field that
+        // disagrees with the manifest is evidence of a modified/rewritten file.
+        mismatches.push(`${entry.guid}: stored sha256 field disagrees with manifest baseline`);
       }
       checked++;
     } catch (err: any) {
@@ -116,7 +125,9 @@ export async function runMonitor(): Promise<MonitorReport> {
   log.info(`Missing: ${missing.length}, Extra: ${extra.length}`);
 
   // Build report
-  const overallStatus = (mismatches.length === 0 && missing.length === 0) ? "clean" : "changed";
+  // Any discrepancy — hash mismatch, missing section, OR extra (unexpected)
+  // section — means the corpus changed relative to the baseline manifest.
+  const overallStatus = (mismatches.length === 0 && missing.length === 0 && extra.length === 0) ? "clean" : "changed";
   const report: MonitorReport = {
     timestamp: new Date().toISOString(),
     articlesChecked: checked,

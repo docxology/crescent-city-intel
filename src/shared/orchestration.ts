@@ -77,7 +77,7 @@ function gitCommit(): string | null {
 
 export function runtimeMetadata(): PipelineRunReport["metadata"] {
   return {
-    appVersion: process.env.APP_VERSION ?? "2.5.0",
+    appVersion: process.env.APP_VERSION ?? "2.5.1",
     commit: gitCommit(),
     runtime: `bun/${process.versions.bun ?? "unknown"}`,
     ci: Boolean(process.env.CI || process.env.GITHUB_ACTIONS),

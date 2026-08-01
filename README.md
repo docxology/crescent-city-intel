@@ -601,7 +601,7 @@ scripts/
   z_generate_manuscript_variables.py # Python manuscript-variable generation for template render
   cron-setup.sh         # macOS Launchd / Linux cron installer
   weekly-check.sh       # Shell entry point for weekly check
-tests/                  # 603-test zero-mock suite across 54 files; run `bun run validate`
+tests/                  # deterministic zero-mock suite; run `bun run validate` for the current count
 docs/                   # Full module documentation suite
 manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
 pages-data/             # Reviewed public seed artifacts for static Pages
@@ -757,7 +757,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.5.0)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.5.1)
 
 ---
 
@@ -784,7 +784,7 @@ All settings support environment variable overrides:
 | `OPENROUTER_TIMEOUT_MS` | `120000` | OpenRouter request timeout |
 | `CURATION_SUMMARY_TIMEOUT_MS` | `15000` | Maximum time for one curation summary before source-only fallback |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server endpoint |
-| `CRESCENT_CITY_API_KEY` | `dev-key-12345` | API key (comma-separated for multiple) |
+| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | API key (comma-separated for multiple) |
 | `RATE_LIMIT_MS` | `2000` | Min ms between requests to ecode360 (scraper) |
 | `SCRAPE_TIMEOUT_MS` | `60000` | Playwright page navigation timeout |
 

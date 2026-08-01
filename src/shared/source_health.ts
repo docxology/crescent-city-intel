@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from "fs/promises";
+import { mkdir, rename, open } from "fs/promises";
 import { dirname } from "path";
 import type { SourceHealth, SourceHealthStatus, SourceHealthSummary } from "../types.js";
 
@@ -28,7 +28,7 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "Harbor Commission", url: "https://www.crescentcity.org/meetings/get_list", monitor: "meetings" },
   { source: "YouTube", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCc8LIkDxscuciAFNB9yEEMA", monitor: "youtube" },
   { source: "Del Norte Triplicate", url: "https://www.triplicate.com/news", monitor: "triplicate" },
-  { source: "NOAA Tsunami", url: "https://api.weather.gov/alerts/active?event=Tsunami+Warning&area=CA", monitor: "alerts" },
+  { source: "NOAA Tsunami", url: "https://api.weather.gov/alerts/active?area=CA", monitor: "alerts" },
   { source: "USGS Earthquake", url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", monitor: "alerts" },
   { source: "NWS Weather", url: "https://api.weather.gov/alerts/active?zone=CAZ006", monitor: "alerts" },
   { source: "NOAA Tides", url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", monitor: "alerts" },
@@ -128,18 +128,32 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Flip a fully-written temp file into place after fsync, so a crash between
+ * write and rename cannot leave a partially-written artifact under the real
+ * path (which downstream `JSON.parse` would treat as corrupt and, for
+ * idempotency stores, silently start over from empty). */
+async function writeFileSynced(path: string, data: string): Promise<void> {
+  const handle = await open(path, "w");
+  try {
+    await handle.writeFile(data, "utf-8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
 /** Write a JSON artifact atomically so concurrent runs cannot truncate it. */
 export async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
+  await writeFileSynced(temporary, `${JSON.stringify(value, null, 2)}\n`);
   await rename(temporary, path);
 }
 
 export async function writeTextAtomic(path: string, value: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, value, "utf-8");
+  await writeFileSynced(temporary, value);
   await rename(temporary, path);
 }
 

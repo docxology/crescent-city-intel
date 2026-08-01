@@ -15,6 +15,7 @@
 import { createLogger } from "../logger.js";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
+import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
 
 const logger = createLogger("cdfw-fishing");
 
@@ -65,6 +66,7 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
         "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
         Accept: "text/html",
       },
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
     });
 
     if (!resp.ok) {

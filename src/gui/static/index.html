@@ -2796,8 +2796,8 @@
           const unavailable = sources.filter(s => s.status === 'unavailable' || s.status === 'stale').length;
           html += `<div class="intel-card"><h4>${label} Sources</h4><div class="metric">${sources.length - unavailable}/${sources.length}</div><div class="label">${unavailable ? '⚠️ unavailable/stale' : '✅ healthy'}</div></div>`;
         }
-        html += `<div class="intel-card"><h4>API Contract</h4><div class="metric">v2.5.0</div><div class="label">OpenAPI 3.0.3 · run validate</div></div>`;
-        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.5.0</div><div class="label">deterministic gate: bun run validate</div></div>`;
+        html += `<div class="intel-card"><h4>API Contract</h4><div class="metric">v2.5.1</div><div class="label">OpenAPI 3.0.3 · run validate</div></div>`;
+        html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.5.1</div><div class="label">deterministic gate: bun run validate</div></div>`;
         grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available</p>';
       } catch (err) {
         grid.innerHTML = '<p style="color:var(--text-secondary)">Failed to load overview</p>';

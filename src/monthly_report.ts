@@ -221,7 +221,10 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   lines.push(`### 🌍 Earthquakes (${earthquakes.length} events this month)`);
   if (earthquakes.length > 0) {
     const cascadiaEqs = earthquakes.filter(e => e.cascadia);
-    const maxMag = Math.max(...earthquakes.map(e => e.magnitude));
+    // Guard against null/NaN magnitudes — Math.max over a mixed array yields
+    // NaN which would render as "MNaN" in the report.
+    const mags = earthquakes.map(e => e.magnitude ?? 0).filter((m): m is number => Number.isFinite(m));
+    const maxMag = mags.length > 0 ? Math.max(...mags) : 0;
     lines.push(`- **Max magnitude**: ${fmtMag(maxMag)}`);
     if (cascadiaEqs.length > 0) {
       lines.push(`- **Cascadia Subduction Zone events**: ${cascadiaEqs.length} (${cascadiaEqs.map(e => fmtMag(e.magnitude)).join(', ')})`);

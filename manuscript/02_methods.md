@@ -83,9 +83,12 @@ The pair $(L(t), U(t))$ is more informative than the label $L(t)$ alone. A
 warning can coexist with an unavailable monitor; a calm local level with
 $U(t)=1$ is explicitly “not established as calm.” Monitor thresholds are
 operational rules encoded in src/alerts/severity.ts, not learned risk models.
-For example, a tide at or above 5.0 feet MLLW maps to WARNING, while a tide
-between 3.0 and 5.0 feet maps to WATCH. The composite function retains the
-per-monitor breakdown and the reason that produced the maximum.
+For example, a tide at or above 7.0 feet MLLW maps to WARNING, while a tide
+between 6.0 and 7.0 feet maps to WATCH (set above Crescent City's typical
+max astronomical high tide of ~6.2 ft MLLW, so a normal high tide does not
+elevate the composite); the tides input uses the current observed water
+level. The composite function retains the per-monitor breakdown and the
+reason that produced the maximum.
 
 This max operator is intentionally conservative for escalation but incomplete
 as a risk model. It does not estimate joint probabilities, forecast impacts,

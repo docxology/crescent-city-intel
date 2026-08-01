@@ -113,57 +113,44 @@ interface NWSAlertResponse {
   features: NWSAlertFeature[];
 }
 
-/**
- * Check if a point is inside a polygon (using ray casting algorithm)
- */
-export function pointInPolygon(point: { lat: number; lng: number }, polygon: number[][][]): boolean {
-  // For simplicity, we'll check if the point is in the bounding box first
-  // In a production system, we'd use a proper GIS library
-  
-  // Extract all coordinates from multi-polygon
-  const allCoords: [number, number][] = [];
-  for (const polygonPart of polygon) {
-    for (const coord of polygonPart) {
-      // GeoJSON coordinates are [longitude, latitude]
-      allCoords.push([coord[0], coord[1]]);
-    }
-  }
-  
-  if (allCoords.length === 0) return false;
-  
-  // Bounding box check
-  let minLng = allCoords[0][0];
-  let maxLng = allCoords[0][0];
-  let minLat = allCoords[0][1];
-  let maxLat = allCoords[0][1];
-  
-  for (const [lng, lat] of allCoords) {
-    if (lng < minLng) minLng = lng;
-    if (lng > maxLng) maxLng = lng;
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-  }
-  
-  const pointLng = point.lng;
-  const pointLat = point.lat;
-  
-  if (pointLng < minLng || pointLng > maxLng || pointLat < minLat || pointLat > maxLat) {
-    return false;
-  }
-  
-  // Simple point-in-polygon check (ray casting algorithm)
+/** Cast a ray and return whether (lng,lat) is inside ONE ring (even-odd rule). */
+function pointInRing(ring: number[][], lng: number, lat: number): boolean {
   let inside = false;
-  for (let i = 0, j = allCoords.length - 1; i < allCoords.length; j = i++) {
-    const [xi, yi] = allCoords[i];
-    const [xj, yj] = allCoords[j];
-    
-    const intersect = ((yi > pointLat) !== (yj > pointLat)) &&
-      (pointLng < (xj - xi) * (pointLat - yi) / (yj - yi) + xi);
-    
+  // GeoJSON coordinates are [longitude, latitude].
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const intersect = ((yi > lat) !== (yj > lat)) &&
+      (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
     if (intersect) inside = !inside;
   }
-  
   return inside;
+}
+
+/**
+ * Check if a point is inside a polygon (ray casting).
+ *
+ * `polygon` is a set of rings: `polygon[0]` is the outer boundary and any
+ * remaining rings are HOLES. A point qualifies only if it is inside the outer
+ * ring AND outside every hole ring. (The prior implementation concatenated all
+ * rings into one coordinate list and ran a single ray-cast over the merged
+ * path, which flips parity across unrelated rings — wrong for polygons with
+ * holes — even though NWS data is mostly hole-free polygons.)
+ */
+export function pointInPolygon(point: { lat: number; lng: number }, polygon: number[][][]): boolean {
+  if (polygon.length === 0) return false;
+  const lng = point.lng;
+  const lat = point.lat;
+
+  // Must be inside the outer boundary ring.
+  if (!pointInRing(polygon[0], lng, lat)) return false;
+
+  // And outside every hole ring.
+  for (let ring = 1; ring < polygon.length; ring++) {
+    if (pointInRing(polygon[ring], lng, lat)) return false;
+  }
+
+  return true;
 }
 
 /**
@@ -408,9 +395,14 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
     }
 
     await mkdir(HISTORY_DIR, { recursive: true });
+    // Enrich each alert with the computed severityLevel so the composite
+    // severity scorer can read the monitor's own advisory/watch/warning tier —
+    // the raw CAP `severity` (Minor/Moderate/Severe/Extreme) is NOT the same
+    // thing and made the composite think severe weather was only an advisory.
+    const enrichedAlerts = alerts.map(a => ({ ...a, severityLevel: getAlertSeverityLevel(a.severity, a.certainty, a.urgency) }));
     await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
       fetchedAt: new Date().toISOString(),
-      alerts,
+      alerts: enrichedAlerts,
     }, null, 2));
     
   } catch (error: unknown) {

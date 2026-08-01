@@ -8,16 +8,26 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
+import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
 
 const logger = createLogger('noaa_tsunami_alert');
 
-// NOAA CAP feed for tsunami warnings (Pacific Coast/Alaska region)
+// NOAA CAP tsunami feeds (Pacific Coast/Alaska region)
 // NB: the api.weather.gov `/alerts/active` endpoint takes `area` (not `region`)
-// and requires the `event` value to be URL-encoded (raw spaces cause HTTP 400).
+// and everyone's tsunami WATCH/ADVISORY events are separate `event` values from
+// `Tsunami Warning` — a filter pinned to `event=Tsunami Warning` structurally
+// could never produce a Watch count (the composite's WATCH tier was therefore
+// always empty). Fetch ALL active CA alerts and filter + classify client-side
+// so Warning/Watch/Advisory are all represented.
 const NOAA_TSUNAMI_CAP_URL = `https://api.weather.gov/alerts/active?${new URLSearchParams({
-  event: 'Tsunami Warning',
   area: 'CA',
 })}`;
+
+/** Classify a CAP tsunami event name into the monitor's threat tier. */
+export function classifyTsunamiThreat(event: string): 'warning' | 'watch' | 'advisory' {
+  const e = event.toLowerCase();
+  return e.includes('warning') ? 'warning' : e.includes('watch') ? 'watch' : 'advisory';
+}
 
 // Persistent alert history JSONL path
 const HISTORY_DIR = join(process.cwd(), 'output', 'alerts', 'tsunami');
@@ -122,6 +132,7 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
   status: string;
   msgType: string;
   category: string;
+  threatLevel: 'warning' | 'watch' | 'advisory';
   geometry: {
     type: string;
     coordinates: number[][][];
@@ -133,7 +144,8 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
     const response = await fetch(NOAA_TSUNAMI_CAP_URL, {
       headers: {
       'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (https://github.com/docxology/crescent-city-intel)'
-      }
+      },
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
     });
     
     if (!response.ok) {
@@ -142,11 +154,13 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
     
     const data: NOAAAlertResponse = await response.json();
     
-    // Filter for active alerts and extract relevant information
+    // Filter for active tsunami-related alerts (we fetch all CA alerts but only
+    // want tsunami Warning/Watch/Advisory/Statement events, not flood or smog).
     const alerts = data.features
       .filter(feature => 
         feature.properties.status === 'Actual' && 
-        feature.properties.msgType === 'Alert'
+        feature.properties.msgType === 'Alert' &&
+        feature.properties.event.toLowerCase().includes('tsunami')
       )
       .map(feature => ({
         id: feature.properties.id,
@@ -164,6 +178,7 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
         status: feature.properties.status,
         msgType: feature.properties.msgType,
         category: feature.properties.category,
+        threatLevel: classifyTsunamiThreat(feature.properties.event),
         geometry: feature.geometry
       }));
     
@@ -180,9 +195,10 @@ async function fetchNOAATsunamiAlerts(): Promise<Array<{
  * Check if an alert affects Crescent City area.
  *
  * NOTE: This keyword list is tighter than nws_weather.ts by design. Tsunami alerts
- * are pre-filtered to `event=Tsunami Warning` at the API level, so "california" as
- * a substring is sufficient; no need for the broad "coastal"/"marine"/"caz006" terms
- * that NWS weather alerts require to catch zone-coded events.
+ * are pre-filtered to tsunami `event` names at the API layer (the client-side
+ * `.includes('tsunami')` filter), so "california" as a substring is sufficient;
+ * no need for the broad "coastal"/"marine"/"caz006" terms that NWS weather
+ * alerts require to catch zone-coded events.
  */
 export function isCrescentCityRelevant(alert: {
   areaDesc: string;
@@ -257,9 +273,9 @@ export async function monitorNOAATsunamiAlerts(): Promise<void> {
     processedAlerts.add(alert.id);
     newAlertsCount++;
 
-    // Classify threat level
-    const threatLevel = alert.event.toLowerCase().includes('warning') ? 'warning'
-      : alert.event.toLowerCase().includes('watch') ? 'watch' : 'advisory';
+    // Classify threat level (already attached to each fetched alert by
+    // classifyTsunamiThreat during the map above).
+    const threatLevel = alert.threatLevel;
 
     // Persist to JSONL history immediately
     appendTsunamiHistory(alert, threatLevel);

@@ -435,10 +435,14 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
   // ─── Fuzzy fallback: if BM25 returns 0 results, suggest corrections ───
   if (total === 0 && sections.length > 0) {
     try {
-      // Build vocabulary from all section texts (sample first 500 sections for performance)
+      // Build a deterministic vocabulary over the WHOLE corpus, sorted by
+      // section number — the prior behavior sampled `sections.slice(0, 500)`
+      // in loadAllSections order, so corrections were incomplete and biased
+      // by whatever happened to be first. This path only runs when BM25
+      // returned nothing, so the one-time vocabulary pass is acceptable.
       const vocab = new Set<string>();
-      const sample = sections.slice(0, Math.min(500, sections.length));
-      for (const s of sample) {
+      const sortedSections = [...sections].sort((a, b) => (a.number ?? "").localeCompare(b.number ?? ""));
+      for (const s of sortedSections) {
         for (const w of s.text.toLowerCase().split(/\s+/)) {
           if (w.length > 3) vocab.add(w);
         }

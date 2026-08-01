@@ -149,7 +149,15 @@ export async function fetchAirQuality(apiKey?: string): Promise<AirQualityReport
         value: obs.Value,
         agency: obs.AgencyName,
       })) : [];
-      const maxAqi = readings.length > 0 ? Math.max(...readings.map(r => r.aqi)) : 0;
+      if (readings.length === 0) {
+        // The keyed ZIP endpoint succeeded but produced no observation within
+        // radius — emitting a maxAqi:0 "GOOD" report here would present "good
+        // air" when the sensor simply had no data. Fall through to the public
+        // KML product (which honestly says "no observation"), like the
+        // network-failure path below.
+        throw new Error("AirNow ZIP endpoint returned no current readings within radius");
+      }
+      const maxAqi = Math.max(...readings.map(r => r.aqi));
       const level = classifyAqi(maxAqi);
       return {
         timestamp: new Date().toISOString(),
@@ -158,8 +166,8 @@ export async function fetchAirQuality(apiKey?: string): Promise<AirQualityReport
         readings,
         maxAqi,
         level,
-        summary: readings.length > 0 ? `AQI ${maxAqi} (${level}) — ${readings.map(r => `${r.parameter}: ${r.aqi}`).join(", ")}` : "AirNow ZIP endpoint returned no current readings",
-        advisory: readings.length > 0 ? getAdvisory(level) : null,
+        summary: `AQI ${maxAqi} (${level}) — ${readings.map(r => `${r.parameter}: ${r.aqi}`).join(", ")}`,
+        advisory: getAdvisory(level),
       };
     } catch (error) {
       apiError = error instanceof Error ? error.message : String(error);
@@ -182,7 +190,9 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  // Clamp a to [0,1] to avoid NaN from floating-point rounding on sqrt(1-a).
+  const clamped = Math.max(0, Math.min(1, a));
+  return radius * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
 }
 
 function parseKmlAqi(description: string): number | null {

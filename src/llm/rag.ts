@@ -101,12 +101,7 @@ function expandQuery(question: string): string {
   return `${question} ${expansions.slice(0, 5).join(" ")}`;
 }
 
-// ─── Citation deep-links ──────────────────────────────────────────
-
-/** Build ecode360 deep-link URL for a section GUID */
-function buildCitationUrl(guid: string): string {
-  return `https://ecode360.com/${guid}`;
-}
+// ─── RagSource construction ──────────────────────────────────────
 
 /**
  * Build a RagSource from a retrieved chunk's document text + metadata,

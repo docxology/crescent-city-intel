@@ -6,7 +6,7 @@ Real-time hazard monitoring for Crescent City, CA.
 
 | Monitor | Source | Filters |
 | :--- | :--- | :--- |
-| **NOAA Tsunami** (`noaa_tsunami.ts`) | [api.weather.gov](https://api.weather.gov/alerts/active?event=Tsunami%20Warning&area=CA) | `Actual` + `Alert` msgType, Crescent City / Del Norte area |
+| **NOAA Tsunami** (`noaa_tsunami.ts`) | [api.weather.gov](https://api.weather.gov/alerts/active?area=CA) | `Actual` + `Alert` msgType, tsunami Warning/Watch/Advisory, Crescent City / Del Norte area |
 | **USGS Earthquake** (`usgs_earthquake.ts`) | [earthquake.usgs.gov](https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson) | Within 200 km of 41.7485°N, 124.2028°W; ≥ M4.0 |
 | **NWS Weather** (`nws_weather.ts`) | [api.weather.gov CAZ006](https://api.weather.gov/alerts/active?zone=CAZ006) | Northwest CA coastal zone; advisory / watch / warning categorized |
 

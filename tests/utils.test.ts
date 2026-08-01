@@ -139,6 +139,12 @@ describe("chunk", () => {
   test("empty array returns empty array", () => {
     expect(chunk([], 3)).toEqual([]);
   });
+
+  test("throws on non-positive size (would otherwise infinite-loop)", () => {
+    expect(() => chunk([1, 2, 3], 0)).toThrow(RangeError);
+    expect(() => chunk([1, 2, 3], -2)).toThrow(RangeError);
+    expect(() => chunk([1, 2, 3], 2.5)).toThrow(RangeError);
+  });
 });
 
 // ─── groupBy ─────────────────────────────────────────────────────

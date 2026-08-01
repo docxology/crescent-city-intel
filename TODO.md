@@ -4,9 +4,108 @@
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix)
 >
-> Jump to: [Phase 1](#phase-1--production-hardening) · [Phase 2](#phase-2--search--query) · [Phase 3](#phase-3--rag-pipeline) · [Phase 4](#phase-4--monitoring-expansion) · [Phase 5](#phase-5--alert-system--analytics) · [Phase 6](#phase-6--intelligence-domains) · [Phase 7](#phase-7--analytics--reporting) · [Phase 8](#phase-8--marine--harbor) · [Phase 9](#phase-9--gui-enhancements) · [Phase 10](#phase-10--data-quality) · [Phase 11](#phase-11--infrastructure) · [Phase 12](#phase-12--new-alert-monitors) · [Phase 13](#phase-13--structured-queries--legal-analysis) · [Phase 14](#phase-14--documentation)
+> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-08-01 (deepest hostile red-team pass)
+>
+> Jump to: [Red-Team Scoped Majors](#red-team-review-2026-08-01--scoped-majors) · [Red-Team Completed](#red-team-review-2026-08-01--minor--medium-implementation-pass) · [Phase 1](#phase-1--production-hardening) · [Phase 2](#phase-2--search--query) · [Phase 3](#phase-3--rag-pipeline) · [Phase 4](#phase-4--monitoring-expansion) · [Phase 5](#phase-5--alert-system--analytics) · [Phase 6](#phase-6--intelligence-domains) · [Phase 7](#phase-7--analytics--reporting) · [Phase 8](#phase-8--marine--harbor) · [Phase 9](#phase-9--gui-enhancements) · [Phase 10](#phase-10--data-quality) · [Phase 11](#phase-11--infrastructure) · [Phase 12](#phase-12--new-alert-monitors) · [Phase 13](#phase-13--structured-queries--legal-analysis) · [Phase 14](#phase-14--documentation)
 
 ---
+
+## Red-Team Review (2026-08-01) — Major findings
+
+> M1–M6 were validated as MAJOR defects in the 2026-08-01 deepest hostile
+> red-team review. **M1, M2, M3(monitor), M4 and M5 are now implemented and
+> verified** (see below); **M6 remains deferred** (architecture-only, no behavior
+> change). The associated deferred composite/geometry items R2, R4 and R6 were
+> also completed. Each completed item links to the concrete fix.
+
+- ✅ **M1 — Tsunami composite severity elevates correctly (COMPLETED).** `noaa_tsunami.ts` now persists each alert's `threatLevel` into `current.json`, fetches all active CA tsunami Warning/Watch/Advisory events (was pinned to `event=Tsunami Warning`, so WATCH was structurally empty), and `run-alerts.ts` reads `threatLevel` instead of the CAP `severity` enum — a real tsunami warning now drives EMERGENCY, watches/advisories WATCH.
+
+- ✅ **M2 — NWS weather composite severity reaches WARNING (COMPLETED).** `nws_weather.ts` persists its computed `severityLevel` (advisory/watch/warning) into `current.json`; `run-alerts.ts` reads it — severe weather now correctly elevates to WARNING instead of being misread as an advisory.
+
+- ✅ **M3(monitor) — self-hash tamper detection fixed (COMPLETED).** `monitor.ts checkHashes` compares the recomputed SHA-256 against the trusted `manifest.articles[guid].sha256` baseline (not the sha256 field inside the article file), so a consistent whole-file rewrite is detected.
+
+- ✅ **M4 — readability metrics corrected (COMPLETED).** `readability.ts` shields decimal section numbers, dotted citations, and common abbreviations before sentence-splitting, so Flesch-Kincaid / Reading Ease / Gunning Fog no longer fragment decimal-heavy legal text.
+
+- ✅ **M5 — Docker `.env` excluded (COMPLETED).** Added `.dockerignore` (`.env`, `node_modules`, `output`, `.git`, `.pages`, `.claude`) so an API key in `.env` cannot be baked into image layers.
+
+- ✅ **R2 / R4 / R6 (COMPLETED).** Tides composite uses the current observed level with thresholds above normal max high tide (WATCH≥6.0 / WARNING≥7.0 ft MLLW) instead of the always-elevated 48-h predicted max; marine composite prefers the primary buoy 46027; NWS `pointInPolygon` now excludes ring holes.
+
+- 🔴 **M6 — `scripts/run-alerts.ts` violates the thin-orchestrator contract (STILL DEFERRED).** Per `scripts/AGENTS.md`, scripts must be thin; `run-alerts.ts` (284 lines) still contains composite-input shaping, freshness policy, stale-snapshot deletion, and full source-health classification. This is architecture-only (no behavior change) and was left for a focused refactor pass. **Fix:** move the shaping/freshness/classification into `src/alerts/severity.ts` / a source-health builder and keep the script as invocation-only.
+
+---
+
+## Red-Team Review (2026-08-01) — Minor & Medium implementation pass
+
+> Implemented and verified this pass (`bun run validate` green; suite 697 → **699**,
+> +2 regression tests). See git diff for the exact changes.
+
+- ✅ **Rate-limit spoof bypass closed** (`src/api/middleware.ts`): the trusted-local
+  bypass is now decided on the REAL socket address (`server.requestIP`), so a remote
+  client sending `X-Forwarded-For: 127.0.0.1` can no longer obtain an unlimited
+  rate-limit bucket. + regression test.
+- ✅ **Weak default API key replaced** (`middleware.ts`): `CRESCENT_CITY_API_KEY`
+  unset now yields a random per-boot credential (logged) instead of the well-known
+  `dev-key-12345`; docker-compose default and all doc tables updated.
+- ✅ **Unbounded upstream fetches bounded** (`noaa_tides`, `noaa_tsunami`, `cdfw_fishing`,
+  `ndbc_marine`): every external `fetch` now carries `AbortSignal.timeout` so a hung
+  upstream cannot stall `run-alerts`.
+- ✅ **AirNow no longer reports false GOOD on empty data** (`epa_airnow.ts`): an
+  empty keyed-ZIP response now falls through to the public KML product instead of
+  publishing `maxAqi:0 / GOOD`.
+- ✅ **Deterministic corpus ordering** (`shared/data.ts`): `loadAllArticles` sorts
+  `readdir` output; fuzzy search vocabulary built over a deterministic full corpus.
+- ✅ **Corrupt-article loss surfaced** (`shared/data.ts`): skipped/unreadable articles
+  now log an ERROR with a count (was a silent per-file warn).
+- ✅ **Verifier/skraper enumeration aligned** (`verify.ts`): `collectDescendantSections`
+  now recurses into all container types, matching `content.ts getSectionGuids`.
+- ✅ **Monthly-report NaN guard** (`monthly_report.ts`): earthquake `Math.max` is
+  finite-filtered.
+- ✅ **Atomic writes fsync'd** (`shared/source_health.ts`, `shared/idempotency.ts`):
+  temp file is `fsync`ed before `rename`, closing a crash-window that could wipe
+  idempotency/dedup state.
+- ✅ **OpenRouter per-request cap reset** (`gui/routes.ts`): the long-lived GUI server
+  no longer permanently locks after 100 cumulative generations; also fixes the
+  permanent LLM lazy-load failure (retries after a transient load failure).
+- ✅ **Monitor report status + docstring** (`monitor.ts`): extra (unexpected) sections
+  now flip `overallStatus` to `changed`; removed the unimplemented `--sample N`
+  docstring claim.
+- ✅ **Export shared-array mutation** (`export.ts`): plain-text branch sorts a copy.
+- ✅ **Analytics status** (`analytics_backend.ts`): empty code corpus with sources
+  present is now `degraded`, not `ok`.
+- ✅ **Haversine NaN clamp** (`usgs_earthquake`, `epa_airnow`, `calfire_wildfire`).
+- ✅ **`chunk` size≤0 guard** (`utils.ts`) + regression test; `truncateText` constant;
+  `extractSnippet` integer window.
+- ✅ **Dead code removed** (`rag.ts buildCitationUrl`, `chroma.ts` unused import).
+- ✅ **yt-dlp video-id validation** (`youtube_monitor.ts`): malformed ids rejected
+  before path/argv interpolation.
+- ✅ **Version-string drift corrected** to 2.5.1 (orchestration, routes, index.html,
+  run.sh, README, docs/README, AGENTS.md); README hardcoded test count dropped in
+  favor of the live `bun run validate` count.
+
+### Deferred Minor/Medium (scoped, with rationale)
+
+> Intentionally not implemented this pass — larger/riskier or needing an external
+> decision. Tracked so they are not silently dropped. (R2 tides thresholds, R4
+> marine primary-buoy and R6 pointInPolygon holes were completed in the part-2
+> pass and are listed under Major findings above.)
+
+- 🟡 **`run-alerts.ts` thin-orchestrator refactor (was M6)**: move shaping/freshness/
+  source-health classification into `src/alerts/` — architecture-only, no behavior
+  change; deferred for a focused refactor pass.
+- 🟡 **Unbounded JSONL history + cross-process dedup race** (5 alert monitors):
+  migrate to the shared `IdempotencyStore` with a cap + process lock — larger refactor.
+- 🟡 **Domain coverage counts refs, not sections** (`domains/coverage.ts`): labels are
+  misleading; expand matched refs to actual section sets (changes published metrics).
+- 🟡 **Verify sample mismatches not in report** (`verify.ts`): report live re-fetch
+  outcomes + flip status; report schema change.
+- 🟡 **`export.test.ts` absent** and four export formats are non-atomic writes:
+  add a dedicated test + convert to atomic writes.
+- 🟢 **`/api/alerts/timeline` unbounded** (routes.ts/alert_analytics.ts): cap/summarize
+  server-side.
+- 🟢 **News dedup collapses distinct articles** sharing a path (news_monitor.ts).
+- 🟢 **`?api_key=` query-param auth** may leak keys into logs; prefer header-only
+  (breaking change — needs a migration note).
+
 
 ## Phase 1 — Production Hardening
 
@@ -259,4 +358,4 @@
 
 ---
 
-_Last updated: July 2026 · v2.5.1 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-08-01 (deepest hostile red-team review) · v2.5.1 · run `bun run validate` for current test and contract counts_

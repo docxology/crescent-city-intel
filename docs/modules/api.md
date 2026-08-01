@@ -32,7 +32,7 @@ The following paths skip rate limiting and API key auth:
 
 | Env variable | Default | Description |
 | :--- | :--- | :--- |
-| `CRESCENT_CITY_API_KEY` | `dev-key-12345` | Valid API key(s) — comma-separated for multiple |
+| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key(s) — comma-separated for multiple |
 | `RATE_LIMIT_MS` | `2000` | Minimum ms between requests per client IP |
 
 ### Integration

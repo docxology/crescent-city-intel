@@ -65,19 +65,31 @@ export async function loadArticle(guid: string): Promise<ArticlePage> {
 export async function loadAllArticles(): Promise<ArticlePage[]> {
   const dir = paths.articles;
   if (!existsSync(dir)) return [];
-  const files = await readdir(dir);
+  // Sort for deterministic corpus ordering — `readdir` order is filesystem-
+  // dependent, and every downstream consumer (search, export, structured
+  // queries, index fingerprints) would otherwise inherit run-to-run
+  // nondeterminism (see embeddings.ts index-fingerprint determinism claim).
+  const files = (await readdir(dir)).sort();
   const jsonFiles = files.filter(f => f.endsWith(".json"));
   // Load all articles in parallel for speed
   const articles = await Promise.allSettled(
     jsonFiles.map(f => readFile(`${dir}/${f}`, "utf-8").then(raw => JSON.parse(raw) as ArticlePage))
   );
   const result: ArticlePage[] = [];
+  let skipped = 0;
   for (const outcome of articles) {
     if (outcome.status === "fulfilled") {
       result.push(outcome.value);
     } else {
+      // A corrupt/unreadable article is silent data loss for every consumer
+      // that relies on this corpus — surface it loudly so monitor/verify
+      // failures aren't masked by a merely-reduced section set.
+      skipped += 1;
       logger.warn("loadAllArticles: skipping unreadable/corrupt article", { reason: outcome.reason?.message ?? String(outcome.reason) });
     }
+  }
+  if (skipped > 0) {
+    logger.error(`loadAllArticles: ${skipped} of ${jsonFiles.length} article file(s) failed to load and were skipped; corpus is incomplete`);
   }
   return result;
 }

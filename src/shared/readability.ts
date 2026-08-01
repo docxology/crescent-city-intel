@@ -52,9 +52,32 @@ function isComplexWord(word: string): boolean {
   return true;
 }
 
-/** Split text into sentences (handles periods, !, ?) */
+/**
+ * Split text into sentences (handles periods, !, ?).
+ *
+ * Legal text is saturated with period-bearing tokens that are NOT sentence
+ * boundaries — decimal section numbers (`§ 8.04.010`), statutory citations
+ * (`U.S.C.`), and common abbreviations (`No.`, `Cal.`, `Ave.`). Naively
+ * splitting on every `.` fragments one sentence into dozens and collapses the
+ * words-per-sentence metric that drives Flesch-Kincaid, Reading Ease and
+ * Gunning Fog. We shield those tokens before splitting, then restore them.
+ */
 function splitSentences(text: string): string[] {
-  return text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+  const protectedTokens: string[] = [];
+  const shield = (token: string): string => {
+    protectedTokens.push(token);
+    return `\u0000${protectedTokens.length - 1}\u0000`;
+  };
+  const shielded = text
+    // Decimal section/ordinance numbers (8.04.010) and numeric decimals (7.5)
+    .replace(/\b\d+(?:\.\d+)+\b/g, shield)
+    // Multi-letter dotted abbreviations (U.S.C., e.g., i.e., a.k.a.)
+    .replace(/\b(?:[A-Za-z]\.){2,}\b/g, shield)
+    // Common single abbreviations followed by a period
+    .replace(/\b(?:No|Nos|Cal|Ave|St|Mr|Mrs|Ms|Dr|Prof|Sect|Sec|Fig|etc|vs)\.\b/gi, shield);
+
+  const parts = shielded.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 0);
+  return parts.map(p => p.replace(/\u0000(\d+)\u0000/g, (_, idx) => protectedTokens[Number(idx)]));
 }
 
 /** Split text into words (alphabetic only) */

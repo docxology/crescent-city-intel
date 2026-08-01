@@ -113,7 +113,9 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  // Clamp a to [0,1] to avoid NaN from floating-point rounding on sqrt(1-a).
+  const clamped = Math.max(0, Math.min(1, a));
+  return R * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
 }
 
 export function classifyWildfireSeverity(incidents: WildfireIncident[]): WildfireSeverity {

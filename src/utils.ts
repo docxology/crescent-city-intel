@@ -38,6 +38,9 @@ export function shuffle<T>(arr: T[]): T[] {
  * @example chunk([1,2,3,4,5], 2) → [[1,2],[3,4],[5]]
  */
 export function chunk<T>(arr: T[], size: number): T[][] {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new RangeError(`chunk size must be a positive integer, got ${size}`);
+  }
   const result: T[][] = [];
   for (let i = 0; i < arr.length; i += size) {
     result.push(arr.slice(i, i + size));
@@ -93,14 +96,17 @@ export function htmlToText(html: string): string {
 
 /**
  * Truncate text to a maximum length, appending an ellipsis if trimmed.
- * Truncates at a word boundary when possible.
+ * Truncates at a word boundary when possible. The 0.7 threshold means a
+ * word-boundary cut is used only when it occurs within the first 70% of the
+ * window (so we never produce a strip shorter than ~30% of maxLength).
  */
+export const TRUNCATE_WORD_BOUNDARY_FRACTION = 0.7;
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   const trimmed = text.substring(0, maxLength);
   // Try to cut at the last space to avoid mid-word truncation
   const lastSpace = trimmed.lastIndexOf(" ");
-  return (lastSpace > maxLength * 0.7 ? trimmed.substring(0, lastSpace) : trimmed) + "…";
+  return (lastSpace > maxLength * TRUNCATE_WORD_BOUNDARY_FRACTION ? trimmed.substring(0, lastSpace) : trimmed) + "…";
 }
 
 /** Count words in a string (splits on whitespace) */
@@ -116,8 +122,9 @@ export function extractSnippet(text: string, query: string, windowChars = 200): 
   const lower = text.toLowerCase();
   const idx = lower.indexOf(query.toLowerCase());
   if (idx === -1) return truncateText(text, windowChars);
-  const start = Math.max(0, idx - windowChars / 2);
-  const end = Math.min(text.length, idx + query.length + windowChars / 2);
+  const half = Math.floor(windowChars / 2);
+  const start = Math.max(0, idx - half);
+  const end = Math.min(text.length, idx + query.length + half);
   const snippet = text.substring(start, end).trim();
   return (start > 0 ? "…" : "") + snippet + (end < text.length ? "…" : "");
 }

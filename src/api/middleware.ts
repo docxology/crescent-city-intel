@@ -6,6 +6,7 @@
  */
 import { createLogger } from "../logger.js";
 import { appendFile } from "fs/promises";
+import { randomBytes } from "crypto";
 
 const logger = createLogger("api-middleware");
 
@@ -40,12 +41,34 @@ const PUBLIC_PATHS = [
 
 // ─── API Key Store ────────────────────────────────────────────────
 
-function buildValidKeySet(): Set<string> {
-  const raw = process.env.CRESCENT_CITY_API_KEY ?? "dev-key-12345";
-  return new Set(raw.split(",").map(k => k.trim()).filter(Boolean));
-}
-
+/** Per-boot generated credential used only when CRESCENT_CITY_API_KEY is unset. */
+let generatedDefaultKey: string | null = null;
 let VALID_API_KEYS = buildValidKeySet();
+
+/**
+ * Build the set of valid API keys. When `CRESCENT_CITY_API_KEY` is unset we
+ * refuse to ship a well-known built-in secret (historically `dev-key-12345`):
+ * any deployment that forgets the env var would otherwise authenticate with a
+ * credential that is present in source and could be handed to every LAN node
+ * via `getPrimaryApiKey()`. Instead we generate a random per-boot credential
+ * and log a warning, mirroring how other local-first services produce a
+ * throwaway key. `getPrimaryApiKey()` still injects it into the served page,
+ * so the GUI keeps working with no additional configuration.
+ */
+function buildValidKeySet(): Set<string> {
+  const raw = process.env.CRESCENT_CITY_API_KEY;
+  if (raw && raw.trim() !== "") {
+    return new Set(raw.split(",").map(k => k.trim()).filter(Boolean));
+  }
+  if (!generatedDefaultKey) {
+    generatedDefaultKey = `boot-${randomBytes(24).toString("hex")}`;
+    logger.warn(
+      "CRESCENT_CITY_API_KEY is not set; generated a random per-boot API key. " +
+        `Set CRESCENT_CITY_API_KEY in the environment for a stable credential (${generatedDefaultKey.slice(0, 12)}…).`
+    );
+  }
+  return new Set([generatedDefaultKey]);
+}
 
 /** Reload API keys from env (for hot-reload scenarios). */
 export function reloadApiKeys(): void {
@@ -183,12 +206,26 @@ export function rateLimitMiddleware() {
     // Bypass list
     if (BYPASS_PATHS.some(p => path.startsWith(p))) return null;
 
-    const ip = resolveIp(req, socketIp);
-
-    // Skip for loopback / LAN
-    if (isTrustedLocalIp(ip)) {
+    // The trusted-local bypass must be decided on the REAL socket address
+    // (Bun's server.requestIP), exactly like serveIndexHtml's key-injection
+    // gate. `resolveIp()` prefers x-forwarded-for/x-real-ip for rate-limit
+    // bucketing behind a real reverse proxy, but those headers are
+    // attacker-controllable on any deployment without a proxy that strips or
+    // rewrites them — a remote client sending `X-Forwarded-For: 127.0.0.1`
+    // must NOT be handed an unlimited rate-limit bucket by being classified
+    // as loopback (confirmed as a live spoof vector 2026-07-24 for the key
+    // injection; the same header reaches this decision). When a socket IP is
+    // available (real server) it is authoritative and cannot be spoofed. Only
+    // when no socket is present (unit tests, unusual programmatic callers) do
+    // we fall back to the header-derived IP so the loopback bypass still works
+    // in the test harness.
+    if (socketIp !== undefined) {
+      if (isTrustedLocalIp(socketIp)) return null;
+    } else if (isTrustedLocalIp(resolveIp(req, undefined))) {
       return null;
     }
+
+    const ip = resolveIp(req, socketIp);
 
     const now = _getNow();
     const limit = effectiveLimit(path);

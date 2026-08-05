@@ -7,7 +7,7 @@
  * with GeoJSON formatting.
  */
 import { createLogger } from '../logger.js';
-import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
+import { appendFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from '../shared/source_health.js';

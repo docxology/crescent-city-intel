@@ -16,7 +16,7 @@
  * Output: output/alerts/airquality/current.json + history.jsonl
  */
 import { createLogger } from "../logger.js";
-import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from "fs";
+import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { DOMParser } from "@xmldom/xmldom";

@@ -43,6 +43,7 @@
     "pages:validate": "bun run scripts/validate-pages.ts",
     "validate": "bun run scripts/validate.ts",
     "test:coverage": "bun test tests/ --coverage",
+    "test:browser": "bun run scripts/browser-smoke.ts",
     "release:check": "bun run validate",
     "test": "bun test tests/"
   },

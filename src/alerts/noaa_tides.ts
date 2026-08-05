@@ -36,7 +36,12 @@ const HIGH_TIDE_ALERT_FT = 7.0;
 const COOPS_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
 
 const OUTPUT_DIR = join(process.cwd(), "output", "tides");
-const HISTORY_PATH = join(OUTPUT_DIR, "tide-history.jsonl");
+// NB: must be `history.jsonl` in output/tides/ — alert_analytics.ts reads this
+// exact path for the unified alert timeline. It was previously
+// `tide-history.jsonl`, a filename nothing read, so tides never appeared in the
+// timeline/stats even though the monitor wrote history every run (see
+// tests/alert-analytics-contract.test.ts).
+export const TIDES_HISTORY_PATH = join(OUTPUT_DIR, "history.jsonl");
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -203,11 +208,13 @@ export async function monitorTides(): Promise<TideReport> {
   const outPath = join(OUTPUT_DIR, `tides-${ts}.json`);
   await writeFile(outPath, JSON.stringify(report, null, 2));
 
-  // Append one-line to history
-  await appendFile(HISTORY_PATH, JSON.stringify({
+  // Append one-line to history (solely from the report; level mirrors severity.ts
+  // so the analytics timeline shows a meaningful severity, not the default CALM).
+  await appendFile(TIDES_HISTORY_PATH, JSON.stringify({
     fetchedAt: report.fetchedAt,
     maxPredictedLevel: maxPredicted,
     highTideAlert,
+    level: highTideAlert ? "WARNING" : "CALM",
     summary,
   }) + "\n");
 

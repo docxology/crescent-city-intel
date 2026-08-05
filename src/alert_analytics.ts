@@ -103,6 +103,7 @@ function getSeverity(record: AlertHistoryRecord, type: AlertType): string {
   if (type === "airquality") return record.level ?? "CALM";
   if (type === "wildfire") return record.level ?? "ADVISORY";
   if (type === "marine") return record.level ?? "CALM";
+  if (type === "fishing") return record.level ?? "CALM";
   return "alert";
 }
 

@@ -13,13 +13,17 @@
  * Output: output/fishing/fishing-<timestamp>.json
  */
 import { createLogger } from "../logger.js";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, appendFile } from "fs/promises";
 import { join } from "path";
 import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
 
 const logger = createLogger("cdfw-fishing");
 
 const OUTPUT_DIR = join(process.cwd(), "output", "fishing");
+// NB: must be `history.jsonl` in output/fishing/ — alert_analytics.ts reads this
+// exact path for the unified alert timeline. Previously the fishing monitor wrote
+// no history file at all, so fishing never appeared in the timeline/stats.
+export const FISHING_HISTORY_PATH = join(OUTPUT_DIR, "history.jsonl");
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -187,6 +191,17 @@ export async function monitorFishing(): Promise<FishingReport> {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const outPath = join(OUTPUT_DIR, `fishing-${ts}.json`);
   await writeFile(outPath, JSON.stringify(report, null, 2));
+
+  // Append a one-line history record so the fishing monitor appears in the
+  // unified alert timeline/analytics (it previously wrote no history file at all).
+  const closureActive = !report.crabStatus.commercialOpen || !report.crabStatus.recreationalOpen;
+  await appendFile(FISHING_HISTORY_PATH, JSON.stringify({
+    fetchedAt: report.fetchedAt,
+    crabCommercialOpen: report.crabStatus.commercialOpen,
+    crabRecreationalOpen: report.crabStatus.recreationalOpen,
+    level: closureActive ? "WATCH" : "CALM",
+    summary,
+  }) + "\n");
 
   logger.info(summary);
   logger.info(`Fishing report saved: ${outPath}`);

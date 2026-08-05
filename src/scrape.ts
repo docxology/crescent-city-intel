@@ -259,7 +259,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  log.error("Fatal error", { error: String(err) });
-  closeBrowser().finally(() => process.exit(1));
-});
+// Guarded: importing this module (e.g. from a test) must never launch a
+// browser or start scraping as a side effect.
+if (import.meta.main) {
+  main().catch((err) => {
+    log.error("Fatal error", { error: String(err) });
+    closeBrowser().finally(() => process.exit(1));
+  });
+}

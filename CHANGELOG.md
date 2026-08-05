@@ -10,6 +10,23 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Deepest review pass (2026-08-04) — round 4 ("proceed with all improvements")
+
+### Added
+
+- **Real browser smoke test** (`scripts/browser-smoke.ts`, `bun run test:browser`): starts the
+  actual GUI server and drives it in headless Chromium, asserting the SPA renders, the
+  loopback API-key trust boundary injects a real key, `/api/toc` authenticates, and
+  `/api/search/semantic` returns a fallback envelope. Resolves the Playwright-build
+  version-skew by auto-detecting the installed Chromium. Verified passing.
+- **`docs/api-reference.md` + `docs/modules/{gui,llm}.md`** completed (Phase 14) for the
+  semantic-search, rerank, chat-history, webhook, dedup-key, bounded-JSONL and
+  link-item exports.
+
+### Fixed
+
+- Removed unused `writeFileSync` imports from `epa_airnow`, `nws_weather`, `usgs_earthquake`.
+
 ### Deepest review pass (2026-08-04) — "proceed with all" completion
 
 ### Added

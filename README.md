@@ -719,6 +719,8 @@ bun test tests/search.test.ts   # single file
 | `bun run manuscript:check` | Validate IMRAD structure, citations, labels, claim ledger, and source tokens |
 | `bun run manuscript:hydrate` | Resolve manuscript tokens from the canonical analytics overview |
 | `bun test` | Run the deterministic test suite |
+| `bun run test:coverage` | Run the deterministic suite with coverage |
+| `bun run test:browser` | Headless-Chromium smoke test of the running GUI (requires Playwright browser) |
 
 ---
 

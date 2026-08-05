@@ -170,3 +170,14 @@ bun test tests/routes.test.ts      # 7 tests
 bun test tests/search.test.ts      # 8 tests
 bun test tests/analytics.test.ts   # 7 tests
 ```
+
+### Search, chat & resilience additions
+
+- `GET /api/search/semantic` uses `src/gui/semantic_search.ts` — Ollama-embed + ChromaDB
+  retrieval that degrades to BM25 (`mode: "bm25-fallback"`) whenever the vector stack is
+  down. Preflight uses short health checks so a missing Ollama/Chroma fails fast.
+- Chat (`sendChat`) tracks a `chatHistory` array and sends it as `history` on
+  `/api/chat/stream` and POST `/api/chat` (server composes a bounded last-6 context via
+  `buildChatMessages`).
+- A top-of-page `#error-banner` (`showErrorBanner`) surfaces genuine network failures from
+  `apiFetch`; per-route inline errors are preserved.

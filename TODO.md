@@ -84,6 +84,18 @@ TypeScript + OpenAPI route-contract + generated-Pages checks green.
   Tests: `tests/gov-meeting-agenda.test.ts`.
 - ✅ **`bun run test:coverage`** alias added.
 
+### Round 4 ("proceed with all improvements") — additional completion
+
+- ✅ **Real browser smoke test** — `scripts/browser-smoke.ts` + `bun run test:browser` drives
+  the running GUI in headless Chromium (auto-detects the installed Playwright build): asserts
+  page render, the loopback API-key trust boundary, authenticated `/api/toc`, and the
+  `/api/search/semantic` fallback. Verified passing. (The deterministic `bun test` suite still
+  excludes browsers by design.)
+- ✅ **Dead-import cleanup**: removed unused `writeFileSync` imports in `epa_airnow`,
+  `nws_weather`, `usgs_earthquake`.
+- ✅ **Phase-14 docs completion**: `docs/api-reference.md` (semantic/rerank/history/webhook/
+  dedup/bounded-JSONL/link-item exports) and `docs/modules/{gui,llm}.md` updated.
+
 ### Rounds 1–2 already completed (carried forward)
 
 - Round 2: tides+fishing reached the alert timeline (history-path contract fix +
@@ -114,11 +126,10 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   result on failure + source-health). **Acceptance:** each returns a typed report + source
   health and no-throws on failure. **Reason:** response shapes must be validated against the
   live feeds, which are not reachable/verified in this environment.
-- 🟡 **Browser regression test file + hard coverage floor (Phase 11.1).** `bun run test:coverage`
-  exists; a zero-mock `tests/browser.test.ts` (Playwright timeout/dead-page/retry) and an
-  enforced coverage threshold need a Playwright browser runtime in CI. **Acceptance:** a
-  `test:browser` script gated behind a browser-available flag; coverage script without a hard
-  floor until coverage is stable.
+- 🟢 **Hard coverage floor (Phase 11.1).** `bun run test:coverage` and `bun run test:browser`
+  (real headless-Chromium GUI smoke) now exist. An enforced percentage threshold in CI remains
+  open until coverage is stable; a full in-suite `tests/browser.test.ts` (timeout/dead-page/
+  retry unit tests) is optional given the smoke script covers the live path.
 - 🟡 **Deeper meeting minutes/vote extraction (Phase 4.2, part 2).** Link-item extraction is
   done; parsing yea/nay/abstain from minutes text, SHA-256 change detection on agenda/minutes
   PDFs, and BM25 cross-ref of agenda items to code sections depend on the live EvoGov PDF/HTML

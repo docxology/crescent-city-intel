@@ -26,6 +26,7 @@ Every script is runnable directly via `bun run <script-name>`.
 | `run-coverage.ts` | `bun run coverage` | Domain coverage analysis |
 | `run-readability.ts` | `bun run readability` | Flesch-Kincaid + Gunning Fog scoring |
 | `run-analytics.ts` | `bun run analytics` | Durable cross-surface analytics overview with optional LLM executive summary |
+| `browser-smoke.ts` | `bun run test:browser` | Real Playwright/Chromium smoke test of the running GUI (render + API-key trust boundary + api auth + semantic-search fallback) 
 | `validate-manuscript.ts` | `bun run manuscript:check` | Validate the source-controlled IMRAD manuscript and claim ledger |
 | `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Hydrate manuscript tokens from the canonical analytics envelope |
 | `z_generate_manuscript_variables.py` | template renderer hook | Thin Python adapter that delegates to the Bun hydrator |

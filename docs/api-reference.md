@@ -314,3 +314,56 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `IntelligenceDomain` | Top-level domain `{id, name, description, icon, topics, updatedAt}` |
 | `DomainTopic` | Topic within a domain `{name, description, sources, externalRefs?, tags}` |
 | `DomainSource` | Cross-reference to a municipal code section |
+
+## Round-3 / "proceed-with-all" additions
+
+**From `src/gui/semantic_search.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `semanticSearch(query, {limit, offset, forceFallback})` | Ollama-embed + ChromaDB retrieval; degrades to BM25 (`mode: "bm25-fallback"`) when the vector stack is unavailable |
+| `bm25Fallback(query, {limit, offset}, reason)` | Deterministic BM25 fallback path (mode `bm25-fallback`) |
+| `SemanticSearchResult` | `{mode, query, total, count, results, vectorStoreAvailable, reason}` |
+
+**From `src/llm/rag.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `rerankByQueryOverlap(query, candidates, topN)` | Lexical-hybrid rerank (query-term overlap ⊕ vector similarity) behind `RERANK_ENABLED` |
+| `buildChatMessages(userQuestion, history?)` | Bounded (last 6) multi-turn message list builder |
+| `MAX_HISTORY_TURNS` | History turn cap (6) |
+| `buildRagSource(doc, meta, distance)` | RagSource construction (municipal / youtube branches) |
+
+**From `src/alerts/notify.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `maybeSendSeverityWebhook(report)` | Fire-and-forget POST on composite WARNING/EMERGENCY when `ALERT_WEBHOOK_URL` set |
+| `sendWebhook(url, payload, timeoutMs?)` | Bounded JSON POST returning `{ok, status}` |
+| `isWebhookConfigured()` | True when `ALERT_WEBHOOK_URL` is set |
+
+**From `src/shared/source_health.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `appendBoundedJsonl(path, line, maxLines?)` | Async JSONL appender with cap + tail-trim (atomic) |
+| `appendBoundedJsonlSync(path, line, maxLines?)` | Synchronous variant (temp+rename) |
+
+**From `src/gov_meeting_monitor.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `extractLinkItems(htmlAnchors?)` | Parse anchor HTML into structured `{title, url}` agenda/minutes items |
+| `LinkItem` | `{title, url}` |
+
+**From `src/news_monitor.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `dedupKey(url, title)` | Composite (normalized URL | title) dedup key |
+
+**From `src/api/middleware.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `getRateLimitStats()` | `{trackedIps, peakUsage, blocked}` for `/api/health` |

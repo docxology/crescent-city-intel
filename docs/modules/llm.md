@@ -116,3 +116,12 @@ and cannot become a curation or embedding input through the public snapshot path
 | `bun run chat` | Interactive REPL chat |
 | `bun run query "..."` | Single RAG query |
 | `bun run status` | Show Ollama/ChromaDB status and stats |
+
+### RAG additions
+
+- **Rerank** (`RERANK_ENABLED=true`): `rerankByQueryOverlap` reorders the post-retrieval
+  chunks by a lexical-hybrid score (query-term overlap ⊕ vector similarity), keeping
+  `RERANK_TOP_N`. Off by default so retrieval order is unchanged.
+- **Conversation history**: `chatWithProvider`/`streamChat` accept prior turns via
+  `buildChatMessages` (last 6), enabling multi-turn context on POST `/api/chat` and
+  `/api/chat/stream`.

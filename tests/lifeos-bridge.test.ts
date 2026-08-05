@@ -52,12 +52,16 @@ describe("buildDigest", () => {
     expect(digest.meta.city).toBe("Crescent City");
     expect(digest.meta.state).toBe("CA");
     expect(digest.meta.zip).toBe("95531");
+    expect(digest.meta.region).toContain("North Coast");
+    expect(digest.meta.region).toContain("Humboldt");
     expect(digest.news.items).toHaveLength(1); // empty-title item dropped
     expect(digest.news.items[0].source).toBe("Test Paper");
     expect(digest.officials.items).toHaveLength(1);
     expect(digest.officials.items[0].title).toBe("City Council Meeting");
     expect(digest.legislation.items).toHaveLength(1); // Planning Commission
     expect(digest.construction.source_status).toBe("empty");
+    expect(digest.meta.overview).toContain("North Coast");
+    expect(digest.meta.overview).toContain("Humboldt");
     expect(digest.meta.overview).toContain("composite alert: WARNING");
     expect(digest.meta.overview).toContain("2194 sections");
   });

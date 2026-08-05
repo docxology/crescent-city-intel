@@ -847,8 +847,8 @@ All settings support environment variable overrides:
 
 ## LifeOS / Pulse integration
 
-This platform feeds the user's LifeOS **Pulse LOCAL** tab with real Crescent City
-intelligence.
+This platform feeds the user's LifeOS **Pulse LOCAL** tab with real **North Coast**
+intelligence (Del Norte + Humboldt), anchored on Crescent City — not Crescent City only.
 
 - `scripts/lifeos-bridge.ts` (`bun run lifeos:bridge`) reads this platform's actual
   outputs — the latest news digest, government meetings, the composite alert level, and

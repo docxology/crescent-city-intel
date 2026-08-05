@@ -15,12 +15,14 @@ Versioned by [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **LifeOS / Pulse integration**: the platform now feeds the LifeOS `LocalIntelligence`
-  digest (Pulse LOCAL tab) with real Crescent City data via `scripts/lifeos-bridge.ts`
+  digest (Pulse LOCAL tab) with real **North Coast** data (Del Norte + Humboldt, anchored on
+  Crescent City — not Crescent City only) via `scripts/lifeos-bridge.ts`
   (`bun run lifeos:bridge`). News digests → `news`, gov meetings → `officials`/`legislation`,
-  plus live composite alert level + municipal-code stats in `meta.overview`. Writes both
-  `latest.json` paths the Pulse module reads + the dated digest.
+  plus live composite alert level + municipal-code stats in `meta.overview` (`meta.region` =
+  "North Coast (Del Norte + Humboldt)"). Writes both `latest.json` paths the Pulse module
+  reads + the dated digest. Renamed cron/hooks to `lifeos-north-coast-digest`.
 - **`scripts/lifeos-daily.sh`** (`bun run lifeos:daily`) refreshes news/meetings/alerts then
-  writes the digest; scheduled by a Hermes cron job (`lifeos-crescent-city-digest`, 06:00
+  writes the digest; scheduled by a Hermes cron job (`lifeos-north-coast-digest`, 06:00
   daily, job `a85bcf3bd06d`).
 - **LifeOS user config**: `**Hometown:** Crescent City, CA (ZIP 95531, Del Norte County)`
   set in `PRINCIPAL_IDENTITY.md` (LocalIntelligence's required identity line), and a

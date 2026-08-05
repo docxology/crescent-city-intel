@@ -27,7 +27,7 @@ Every script is runnable directly via `bun run <script-name>`.
 | `run-readability.ts` | `bun run readability` | Flesch-Kincaid + Gunning Fog scoring |
 | `run-analytics.ts` | `bun run analytics` | Durable cross-surface analytics overview with optional LLM executive summary |
 | `browser-smoke.ts` | `bun run test:browser` | Real Playwright/Chromium smoke test of the running GUI (render + API-key trust boundary + api auth + semantic-search fallback) 
-| `lifeos-bridge.ts` | `bun run lifeos:bridge` | Writes the LifeOS/Pulse LocalIntelligence digest from this platform's outputs |
+| `lifeos-bridge.ts` | `bun run lifeos:bridge` | Writes the LifeOS/Pulse LocalIntelligence digest (North Coast: Del Norte + Humboldt) from this platform's outputs |
 | `lifeos-daily.sh` | `bun run lifeos:daily` | Refresh news/meetings/alerts then write the LifeOS digest (cron-driven) |
 | `validate-manuscript.ts` | `bun run manuscript:check` | Validate the source-controlled IMRAD manuscript and claim ledger |
 | `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Hydrate manuscript tokens from the canonical analytics envelope |

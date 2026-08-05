@@ -47,6 +47,7 @@ export interface LifeosDigest {
     state: string;
     county?: string;
     zip?: string;
+    region?: string;
     generated_at: string;
     sources_used: string[];
     sources_failed: string[];
@@ -119,7 +120,9 @@ export async function buildDigest(options: {
   const legislation = meetingItems.filter(m => /planning|harbor|commission/i.test(m.source));
 
   // Platform state: composite alert level + municipal-code section count.
-  let overview = "Crescent City intelligence platform (crescent-city-intel)";
+  // Coverage is REGIONAL — the North Coast (Del Norte + Humboldt) — anchored on
+  // Crescent City, not Crescent City only.
+  let overview = "North Coast intelligence platform (crescent-city-intel) — anchors Crescent City, Del Norte County; covers Del Norte + Humboldt news, meetings, and alerts";
   try {
     const compositePath = join(outputDir, "alerts", "composite", "current.json");
     if (existsSync(compositePath)) {
@@ -134,7 +137,11 @@ export async function buildDigest(options: {
     }
   } catch { /* overview is best-effort */ }
 
-  const used = ["crescent-city-intel:news", "crescent-city-intel:gov_meetings", "crescent-city-intel:alerts"];
+  const used = [
+    "crescent-city-intel:news (regional Del Norte + Humboldt feeds)",
+    "crescent-city-intel:gov_meetings (Crescent City council/commissions)",
+    "crescent-city-intel:alerts (Del Norte coast)",
+  ];
 
   return {
     meta: {
@@ -142,6 +149,7 @@ export async function buildDigest(options: {
       state: "CA",
       county: "Del Norte",
       zip: "95531",
+      region: "North Coast (Del Norte + Humboldt)",
       generated_at: generatedAt,
       sources_used: used,
       sources_failed: [],

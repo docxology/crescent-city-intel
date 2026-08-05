@@ -318,3 +318,14 @@ See [scripts/README.md](../../scripts/README.md) for cron setup.
 - History files are **bounded** (`shared/source_health.ts appendBoundedJsonl*`):
   each monitor appends through a capped appender that trims to the most-recent
   tail (default 10 000 lines), so JSONL history no longer grows without bound.
+
+### Webhook notifier & fire weather
+
+- **Webhook** (`src/alerts/notify.ts`): when `ALERT_WEBHOOK_URL` is set and the
+  run-alerts composite reaches **WARNING** or **EMERGENCY**, a JSON POST
+  (`{severity, reason, assessedAt, source}`) is fired at that URL with a 5s
+  timeout. Fire-and-forget — a webhook failure never fails an alert run.
+- **Fire weather (Red Flag)** is already covered by the `CAZ006` zone fetch; the
+  NWS weather monitor now flags each alert with `isRedFlag` and reports
+  `redFlagCount` in `current.json`, so Del Norte red-flag/warning conditions are
+  surfaced without a separate monitor.

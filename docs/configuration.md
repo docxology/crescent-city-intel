@@ -114,3 +114,11 @@ Hard-coded project constants. Change these to target a different municipality.
 PORT=8080 LOG_LEVEL=debug OLLAMA_URL=http://my-server:11434 bun run gui
 AIRNOW_API_KEY=your-key-here bun run alerts:airquality
 ```
+
+## Additional environment variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `ALERT_WEBHOOK_URL` | _(unset)_ | Optional URL; `scripts/run-alerts.ts` POSTs a JSON payload when the composite reaches WARNING/EMERGENCY |
+| `RERANK_ENABLED` | `false` | Enable the post-retrieval lexical-hybrid rerank (`src/llm/rag.ts`) |
+| `RERANK_TOP_N` | `5` | Chunks retained by the rerank when `RERANK_ENABLED=true` |

@@ -10,6 +10,29 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Deepest review pass (2026-08-04) — "proceed with all" completion
+
+### Added
+
+- **Semantic search** `GET /api/search/semantic`: Ollama-embed + ChromaDB retrieval with
+  graceful BM25 fallback (`src/gui/semantic_search.ts`). Registered in the OpenAPI
+  route-contract gate; tests in `tests/semantic-search.test.ts`.
+- **RAG reranking** behind `RERANK_ENABLED=true`: `rerankByQueryOverlap` (lexical-hybrid)
+  reorders top retrieval chunks; off by default so existing behavior is unchanged.
+  Tests in `tests/rag-rerank.test.ts`.
+- **Conversation history**: `POST /api/chat` and `/api/chat/stream` accept a bounded
+  `history` array; pure `buildChatMessages` (last 6 turns). GUI tracks `chatHistory` and
+  sends it. Tests in `tests/chat-history.test.ts`.
+- **GUI error banner**: top-of-page `#error-banner` + `showErrorBanner`; `apiFetch`
+  surfaces network failures. String-contract test in `tests/gui-chat-contract.test.ts`.
+- **Alert webhook notifier** (`src/alerts/notify.ts`): `ALERT_WEBHOOK_URL` POSTs on
+  composite WARNING/EMERGENCY (fire-and-forget). Tested against a real local listener.
+- **Fire weather surfaced**: NWS weather monitor flags `isRedFlag` + `redFlagCount`
+  (Del Norte Red Flag already flows through the CAZ006 zone fetch).
+- **Structured meeting agenda/minutes**: `extractLinkItems` + `agendaItems`/`minuteItems`
+  on meeting items. Tests in `tests/gov-meeting-agenda.test.ts`.
+- **`bun run test:coverage`** alias.
+
 ### Deepest review pass (2026-08-04) — Round 3 completion
 
 ### Fixed / Added

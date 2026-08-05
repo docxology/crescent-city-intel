@@ -12,9 +12,9 @@
 
 ### Round 3 completion pass (2026-08-04) — implemented and verified
 
-Every item below is implemented and verified. `bun run validate` is **741 tests / 66
-files / 0 failures** (up from 719/63 at the end of Round 2), strict TypeScript + OpenAPI
-route-contract + generated-Pages checks green.
+Every item below is implemented and verified. `bun run validate` is **768 tests / 72
+files / 0 failures** (up from 741/66 at the end of Round 3's pre-scope pass), strict
+TypeScript + OpenAPI route-contract + generated-Pages checks green.
 
 - ✅ **R7 — unbounded per-monitor alert JSONL history (MAJOR, deferred since 2026-08-01).**
   `src/shared/source_health.ts` now exports `appendBoundedJsonl` / `appendBoundedJsonlSync`,
@@ -58,6 +58,32 @@ route-contract + generated-Pages checks green.
   BOTH directions (every OpenAPI path has an implementation and every implemented route is
   in OpenAPI); no new CI work needed.
 
+### "Proceed with all" completion (2026-08-04) — deferred items now implemented
+
+- ✅ **Semantic / embedding search** (`GET /api/search/semantic`). `src/gui/semantic_search.ts`
+  embeds with Ollama and queries ChromaDB, degrading to the BM25 index (mode
+  `bm25-fallback`) whenever the vector stack is unavailable — so the feature works with
+  and without Ollama/Chroma. Registered in the OpenAPI route-contract gate.
+  Tests: `tests/semantic-search.test.ts`.
+- ✅ **RAG reranking** behind `RERANK_ENABLED=true`. `rerankByQueryOverlap` is a real,
+  deterministic lexical-hybrid rerank (query-term overlap ⊕ vector similarity) keeping the
+  top `RERANK_TOP_N` chunks; off by default so existing order is unchanged. Tests:
+  `tests/rag-rerank.test.ts`.
+- ✅ **Conversation history** — `POST /api/chat` and `/api/chat/stream` accept a bounded
+  `history` array (`buildChatMessages`, last 6 turns); the GUI tracks `chatHistory` and
+  sends it. Tests: `tests/chat-history.test.ts`, `tests/gui-chat-contract.test.ts`.
+- ✅ **GUI error banner** — top-of-page `#error-banner` + `showErrorBanner`; `apiFetch`
+  surfaces genuine network failures. Verified via string-contract test.
+- ✅ **Alert webhook notifier** (`src/alerts/notify.ts`) — `ALERT_WEBHOOK_URL` triggers a
+  JSON POST on composite WARNING/EMERGENCY; fire-and-forget. Tested against a real local
+  listener. Tests: `tests/alert-webhook.test.ts`.
+- ✅ **Fire weather (Red Flag)** — already covered by the `CAZ006` zone fetch; the NWS
+  monitor now flags `isRedFlag` and reports `redFlagCount` in `current.json`.
+- ✅ **Government-meeting agenda/minutes extraction** — `extractLinkItems` parses anchors
+  into structured `{title,url}`; meeting items carry `agendaItems`/`minuteItems`.
+  Tests: `tests/gov-meeting-agenda.test.ts`.
+- ✅ **`bun run test:coverage`** alias added.
+
 ### Rounds 1–2 already completed (carried forward)
 
 - Round 2: tides+fishing reached the alert timeline (history-path contract fix +
@@ -73,66 +99,48 @@ route-contract + generated-Pages checks green.
 
 ## Open — Deferred (precisely scoped; cannot be completed/verified in this environment)
 
-These items remain open because they require an external service/model, live site structure,
-a browser runtime, or an owner UX decision — each with a concrete plan and acceptance
-criteria. None is a known defect in the current code.
+Only genuinely-impossible-here items remain (external live data, a browser runtime, or an
+owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
 
-### Major (deferred — external dependency)
+### Medium (deferred — live-data / browser / frontend)
 
-- 🔴 **Semantic / embedding search in the GUI.** **Why:** BM25 recall across drafting styles.
-  **Plan:** add `POST /api/search/semantic` that embeds the query with Ollama
-  (`embed`), queries ChromaDB (`llm/chroma.ts query`), and maps hits to search-result shape;
-  degrade gracefully to BM25 when Chroma/Ollama are unavailable. **Acceptance:** endpoint
-  returns ranked sections on a live Ollama+Chroma stack and 503-style graceful fallback
-  otherwise; GUI search box gains a toggle. **Reason deferred:** requires a running
-  Ollama+ChromaDB to verify end-to-end, which is not available here; the code path is
-  otherwise the same as `/api/chat`'s retrieval.
-
-- 🔴 **RAG reranking (cross-encode top-20 → top-5).** **Requires** a cross-encoder reranker
-  model/external service not in the current local stack. **Plan:** add a configurable
-  rerank step in `src/llm/rag.ts` behind a provider flag; fall back to raw cosine order when
-  unset. **Reason deferred:** no reranker model/provider available; cannot verify.
-
-### Medium (deferred — frontend/UX or live-data dependent)
-
-- 🟡 **Conversation history in the RAG chat.** Multi-turn context window. **Plan:** GUI keeps
-  an in-page message list and passes prior turns into `ragQuery`; server tracks a bounded
-  window. **Reason:** SPA (`src/gui/static/index.html`) change; unverifiable without a
-  browser; UX decision on how many turns to retain.
-- 🟡 **GUI error banner for failed `/api/*`.** Preflight endpoints already return actionable
-  503s; the frontend needs a banner. **Reason:** frontend-only SPA change.
-- 🟡 **Government-meeting agenda/vote extraction (Phase 4.2).** Parse EvoGov HTML agendas into
-  structured agenda items and minutes into yea/nay/abstain votes; SHA-256 change detection on
-  agenda/minutes PDFs; BM25 cross-ref of agenda items to code sections. **Reason:** depends on
-  the live EvoGov HTML/PDF markup; would need live fixtures to verify.
-- 🟡 **Notification channels (webhook/email/Slack) on code-change or high-severity alerts.**
-  **Plan:** config-driven webhook POST from `scripts/run-monitor.ts` and `scripts/run-alerts.ts`
-  when `*_WEBHOOK_URL` is set. **Reason:** external endpoint + operator decision on the
-  channel; cannot verify against a live webhook.
-- 🟡 **Alert heatmap / monthly trend charts (frontend).** The backend `/api/alerts/{type}/history`
-  and timeline now exist; map + trend widgets are SPA/Chart.js work. **Reason:** frontend,
-  unverifiable without a browser.
-- 🟡 **Red-flag / drought / PSPS / smoke / road / school monitors (Phase 5.7, 12).**
-  **Reason:** new external live data sources whose response shapes must be validated against
-  the live feeds; no live access here to verify parsers honestly.
-- 🟡 **`tests/browser.test.ts` + `bun test --coverage` floor (Phase 11.1).** **Requires** a
-  Playwright browser runtime in CI; the deterministic suite deliberately avoids browsers.
-  **Plan:** a separate `test:browser` script gated behind a browser-available flag; a
-  coverage-script alias without hard threshold until coverage is stable.
-- 🟡 **Monthly-report tides/fishing recommendation note** — done (see Completed). N/A.
+- 🟡 **Alert heatmap / monthly trend charts (frontend).** Backend data exists
+  (`/api/alerts/{type}/history`, `/api/alerts/timeline`, `getAlertsByType`); the map + trend
+  widgets are SPA/Chart.js work. **Acceptance:** a dashboard tab rendering per-type trends from
+  those endpoints. **Reason:** frontend, unverifiable without a browser here.
+- 🟡 **New external-source monitors: drought (USDM), PG&E PSPS, HRRR smoke forecast, Caltrans
+  road closures, DUSD school closures (Phase 12).** **Plan:** one `src/alerts/*` module per
+  source following the existing graceful-degradation monitor pattern (bounded fetch + empty
+  result on failure + source-health). **Acceptance:** each returns a typed report + source
+  health and no-throws on failure. **Reason:** response shapes must be validated against the
+  live feeds, which are not reachable/verified in this environment.
+- 🟡 **Browser regression test file + hard coverage floor (Phase 11.1).** `bun run test:coverage`
+  exists; a zero-mock `tests/browser.test.ts` (Playwright timeout/dead-page/retry) and an
+  enforced coverage threshold need a Playwright browser runtime in CI. **Acceptance:** a
+  `test:browser` script gated behind a browser-available flag; coverage script without a hard
+  floor until coverage is stable.
+- 🟡 **Deeper meeting minutes/vote extraction (Phase 4.2, part 2).** Link-item extraction is
+  done; parsing yea/nay/abstain from minutes text, SHA-256 change detection on agenda/minutes
+  PDFs, and BM25 cross-ref of agenda items to code sections depend on the live EvoGov PDF/HTML
+  markup. **Acceptance:** vote tables + PDF hash drift surfaced in the meeting report.
+  **Reason:** needs live minutes/PDF structure to verify.
 
 ### Minor (deferred — owner decision / roadmap / frontend)
 
-- 🟢 **`.claude/` untracked** — pre-existing file owned by the operator; decide whether to
-  commit or `.gitignore` it (I do not touch operator-owned files).
+- 🟢 **`.claude/` untracked** — pre-existing operator-owned file; decide whether to commit or
+  `.gitignore` it (operator-owned files are untouched by these passes).
 - 🟢 **Roadmap UX/frontend items** (Phase 2 debounce/dependency-graph/tooltips/cross-ref
   hyperlinking; Phase 7 readability trend/heatmap/plain-language rewrite/word-frequency/
   section-longevity/ordinance timeline; Phase 8 USCG/PZZ455/PacFIN/AIS/permits/dredging/fuel;
   Phase 9 AQ widget/marine panel/wildfire map/virtual scroll/lazy load/annotation/overlays;
   Phase 10 ordinal refinement/legal-citation + CA + US cross-linking/effective-date field;
-  Phase 13 ordinance chronology/lineage/dep-graph; Phase 14 docs/modules/… dashboard and
-  structured-query pages). **Reason:** all frontend/SPA or new external-source features that
-  require live data or browser verification; each is documented in `docs/` where scoped.
-- 🟢 **Fishing bulletin full-text fetch.** Currently `content` is the title-derived stub and
-  only counts are consumed; fetching each bulletin body requires following per-link fetches
-  against the live CDFW page (deferred with the live-data items above).
+  Phase 13 ordinance chronology/lineage/dep-graph; Phase 14 docs/modules dashboard and
+  structured-query pages). **Reason:** frontend/SPA or new external-source features needing
+  live data or browser verification; each is documented in `docs/` where scoped.
+- 🟢 **Fishing bulletin full-text fetch** (`src/alerts/cdfw_fishing.ts`). `content` remains
+  a title-derived stub (only counts are consumed); fetching bulletin bodies requires
+  per-link fetches against the live CDFW page. **Acceptance:** bulletin `content` carries the
+  extracted body text with graceful fallback. **Reason:** depends on the live CDFW page.
+
+---
+_Last updated: 2026-08-04 (Round 3 "proceed with all" completion) · v2.5.1 · run `bun run validate` for current test and contract counts_

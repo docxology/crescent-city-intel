@@ -775,6 +775,9 @@ All settings support environment variable overrides:
 | `LLM_PROVIDER` | `ollama` | Chat provider: `ollama` or `openrouter` |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Selected-provider health-check timeout |
 | `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
+| `ALERT_WEBHOOK_URL` | _(unset)_ | Optional URL; POSTs on composite alert WARNING/EMERGENCY |
+| `RERANK_ENABLED` | `false` | Enable the post-retrieval lexical-hybrid rerank in RAG |
+| `RERANK_TOP_N` | `5` | Chunks retained by the rerank (RERANK_ENABLED=true) |
 | `OPENROUTER_API_KEY` | unset | Required only for OpenRouter chat/curation |
 | `OPENROUTER_URL` | `https://openrouter.ai/api/v1` | OpenRouter API base URL |
 | `OPENROUTER_MODEL` | `inclusionai/ling-3.0-flash:free` | OpenRouter chat model |

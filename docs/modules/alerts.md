@@ -305,3 +305,16 @@ bun run alerts              # all 8 concurrently + composite severity
 ```
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.
+
+## Alert Analytics & History
+
+- The unified alert timeline (`src/alert_analytics.ts`) reads each monitor's
+  `history.jsonl` — including tides (`output/tides/history.jsonl`) and fishing
+  (`output/fishing/history.jsonl`), plus `output/alerts/<type>/history.jsonl` for
+  the other six — so all 8 monitor types appear in `/api/alerts/timeline`,
+  `/api/alerts/recent`, and the monthly report.
+- `GET /api/alerts/{type}/history` returns paginated history for one type
+  (`?limit=&offset=`); unknown types return 400.
+- History files are **bounded** (`shared/source_health.ts appendBoundedJsonl*`):
+  each monitor appends through a capped appender that trims to the most-recent
+  tail (default 10 000 lines), so JSONL history no longer grows without bound.

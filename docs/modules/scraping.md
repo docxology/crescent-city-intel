@@ -87,7 +87,7 @@ Main entry point for the scraping pipeline. Orchestrates TOC fetching, article s
 
 ### Workflow
 
-1. **TOC**: Fetch the live TOC by default; use `bun run scrape -- --cached-toc` for an explicit cached-only run. A failed live fetch may fall back to a validated cached TOC.
+1. **TOC**: Fetch the live TOC by default; use `bun run scrape -- --cached-toc` for an explicit cached-only run. A failed live fetch may fall back to a validated cached TOC. Use `bun run scrape -- --full-rescrape` to bypass the resume cache and re-fetch every article.
 2. **Identify**: Find all scrapable article pages via `getArticlePages()`
 3. **Scrape**: Visit each article page, extract content via `scrapeArticlePage()`
 4. **Validate**: Require a complete current-TOC section set and verify the raw-HTML SHA-256 before an artifact is eligible for resume-skip

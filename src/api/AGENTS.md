@@ -40,4 +40,5 @@ if (middlewareResponse !== null) return middlewareResponse;
 
 - **Skip list**: `/api/health`, `/api/openapi.yaml`, `/api/swagger` bypass both rate limiting and auth.
 - **In-memory rate limit store**: keyed by client IP. Resets on server restart. For production, replace with Redis.
-- **API key sources**: checked in `X-API-Key` header first, then `?api_key=` query parameter.
+- **API key source**: the `X-API-Key` header only (a prior `?api_key=` query-parameter
+  form was removed because it leaked credentials into proxy/access logs and browser history).

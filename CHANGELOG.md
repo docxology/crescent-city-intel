@@ -10,6 +10,29 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Deepest review pass (2026-08-04) — Round 3 completion
+
+### Fixed / Added
+
+- **Bounded alert history (R7, was a deferred Major):** `shared/source_health.ts` adds
+  `appendBoundedJsonl`/`appendBoundedJsonlSync`, capped JSONL appenders that tail-trim to
+  10 000 lines; wired into all eight alert monitors. JSONL history no longer grows unbounded.
+- **Header-only API key auth:** the `?api_key=` query-parameter fallback is removed (it leaked
+  credentials into logs/URLs); only `X-API-Key` is accepted. OpenAPI `apiKeyQuery` scheme dropped.
+- **`GET /api/alerts/{type}/history`:** paginated per-type alert history
+  (`?limit=&offset=`, 400 on unknown type); registered in the OpenAPI route-contract gate.
+- **`/api/health` rate-limit metrics:** `getRateLimitStats()` → `{trackedIps, peakUsage, blocked}`.
+- **`--full-rescrape`** scrape flag (bypasses the resume cache).
+- **Monthly report covers tides + fishing** (new "🌊 Tides" and "🦀 Dungeness Crab Season"
+  sections from `output/{tides,fishing}/history.jsonl`).
+- **News dedup key is URL+title** (`dedupKey`), so distinct paginated articles sharing a path
+  are no longer collapsed; cross-feed/param variants still dedup.
+- **`sanitizeFilename` guard** for empty/dot/dot-dot results.
+- **Composite tides/fishing availability is freshness-gated.**
+- **`isComplexWord` sentence-position fix** — sentence-initial polysyllabic content words are
+  no longer dropped as "proper nouns", correcting Gunning-Fog under-reporting.
+- **CDFW bulletin `date` is honest** (parsed from anchor when present, else empty).
+
 ### Deepest review pass (2026-08-04) — continuation
 
 ### Fixed

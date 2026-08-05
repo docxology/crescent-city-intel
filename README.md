@@ -674,7 +674,7 @@ bun test tests/search.test.ts   # single file
 | Command | Description |
 | :------ | :---------- |
 | `bun install` | Install all dependencies |
-| `bun run scrape` | Scrape municipal code (resumable, Cloudflare bypass) |
+| `bun run scrape` | Scrape municipal code (resumable, Cloudflare bypass). `--full-rescrape` re-fetches every article, bypassing the resume cache |
 | `bun run verify` | Verify SHA-256 integrity + TOC cross-reference |
 | `bun run export` | Export to JSON, Markdown, TXT, CSV |
 | `bun run all` | Scrape → Verify → Export (full pipeline) |

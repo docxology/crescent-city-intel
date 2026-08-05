@@ -44,6 +44,8 @@
     "validate": "bun run scripts/validate.ts",
     "test:coverage": "bun test tests/ --coverage",
     "test:browser": "bun run scripts/browser-smoke.ts",
+    "lifeos:bridge": "bun run scripts/lifeos-bridge.ts",
+    "lifeos:daily": "bash scripts/lifeos-daily.sh",
     "release:check": "bun run validate",
     "test": "bun test tests/"
   },

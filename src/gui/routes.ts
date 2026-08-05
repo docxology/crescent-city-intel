@@ -140,6 +140,23 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     });
   }
 
+  // GET /api/search/semantic — embedding search with graceful BM25 fallback.
+  // Uses the vector stack (Ollama embed + ChromaDB) when running; degrades to
+  // the BM25 index when it is not, so the endpoint never hard-fails.
+  if (path === "/api/search/semantic") {
+    const q = url.searchParams.get("q") ?? "";
+    if (!q.trim()) return json({ error: "No query provided" }, 400);
+    try {
+      const { semanticSearch } = await import("./semantic_search.js");
+      const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "20", 10) || 20);
+      const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
+      const result = await semanticSearch(q, { limit, offset });
+      return json(result);
+    } catch (err: any) {
+      return json({ error: `Semantic search failed: ${err.message}` }, 500);
+    }
+  }
+
   // GET /api/sections — hierarchical section listing with optional title/chapter filter
   if (path === "/api/sections") {
     try {
@@ -283,7 +300,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // POST /api/chat — RAG query via JSON body (for longer questions)
   if (path === "/api/chat" && req?.method === "POST") {
     await resetProviderBudget();
-    let body: { q?: string; context?: string; model?: string } = {};
+    let body: { q?: string; context?: string; model?: string; history?: Array<{ role: "user" | "assistant"; content: string }> } = {};
     try {
       body = await req.json();
     } catch {
@@ -308,7 +325,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!indexed) return json({ error: "No documents indexed. Run: bun run index" }, 503);
 
       log.info(`[chat POST] Query: ${q.substring(0, 80)}`);
-      const result = await llm.rag.ragQuery(q, body.model);
+      const result = await llm.rag.ragQuery(q, body.model, body.history);
       return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider, queryId: result.queryId, metadata: result.metadata });
     } catch (err: any) {
       log.error("[chat POST] RAG error", { error: err.message });
@@ -1208,7 +1225,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       }).join("\n\n");
 
       const { createStreamingRagResponse } = await import("../llm/streaming_rag.js");
-      return createStreamingRagResponse(q, { sources, context }, body.model);
+      return createStreamingRagResponse(q, { sources, context }, body.model, body.history);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`Streaming chat failed`, { error: message });

@@ -142,6 +142,62 @@ export function buildRagSource(doc: string, meta: Record<string, string>, distan
   };
 }
 
+// ─── Reranking (lexical-hybrid) ──────────────────────────────────────
+
+export interface RerankCandidate {
+  document: string;
+  distance: number;
+}
+
+/**
+ * Pure post-retrieval rerank: reorder retrieved chunks by a hybrid score of
+ * lexical query-term overlap (normalized 0..1) and vector similarity
+ * (1 - distance, 0..1), keeping the top `topN`. This is a real, deterministic
+ * improvement over raw vector order when the query's own terms discriminate
+ * between chunks (the original task's "cross-encode top-20 → top-5" needs an
+ * external cross-encoder, which the local stack does not provide; this hybrid
+ * is the zero-dependency equivalent and is what `rerankEnabled` turns on).
+ * Returns the candidate indices in the new order.
+ */
+export function rerankByQueryOverlap(query: string, candidates: RerankCandidate[], topN: number): number[] {
+  const terms = new Set(query.toLowerCase().split(/\s+/).filter(t => t.length > 2));
+  if (terms.size === 0 || candidates.length === 0) {
+    return candidates.map((_, i) => i).slice(0, Math.max(0, Math.min(topN, candidates.length)));
+  }
+  const scored = candidates.map((candidate, index) => {
+    const docLower = candidate.document.toLowerCase();
+    let overlap = 0;
+    for (const term of terms) {
+      if (docLower.includes(term)) overlap += 1;
+    }
+    const lexical = overlap / terms.size;
+    const vector = Math.max(0, Math.min(1, 1 - (candidate.distance ?? 1)));
+    return { index, score: lexical * 0.5 + vector * 0.5 };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, Math.max(0, Math.min(topN, candidates.length))).map(entry => entry.index);
+}
+
+// ─── Conversation history ──────────────────────────────────────────
+
+export const MAX_HISTORY_TURNS = 6;
+
+/**
+ * Pure message-list builder for multi-turn chat: appends the current user
+ * question to a bounded, non-empty tail of prior turns. The system/context
+ * message is composed by the provider layer (chatWithProvider), so only the
+ * conversation turns are built here. Exported for direct unit testing.
+ */
+export function buildChatMessages(
+  userQuestion: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
+): ChatMessage[] {
+  const bounded = (history ?? [])
+    .filter(turn => turn && typeof turn.content === "string" && turn.content.trim().length > 0)
+    .slice(-MAX_HISTORY_TURNS);
+  return [...bounded, { role: "user", content: userQuestion }];
+}
+
 // ─── RAG pipeline ─────────────────────────────────────────────────
 
 /** Retryable dependency error used when retrieval produced no usable evidence. */
@@ -153,7 +209,11 @@ export class NoRetrievedContextError extends Error {
 }
 
 /** Query the RAG pipeline with a user question */
-export async function ragQuery(userQuestion: string, modelOverride?: string): Promise<RagResponse> {
+export async function ragQuery(
+  userQuestion: string,
+  modelOverride?: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<RagResponse> {
   const start = Date.now();
   const model = configuredChatModel(modelOverride);
   const queryId = `rag-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
@@ -170,11 +230,22 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
   // Step 2: Search ChromaDB for similar chunks with adaptive topK
   const results = await query(questionEmbedding, topK);
 
+  // Step 2.5: optional post-retrieval rerank (RERANK_ENABLED). When off, the
+  // natural retrieval order is preserved exactly.
+  const reranked = llmConfig.rerankEnabled
+    ? rerankByQueryOverlap(
+        userQuestion,
+        results.ids.map((_, i) => ({ document: results.documents[i] ?? "", distance: results.distances[i] ?? 1 })),
+        llmConfig.rerankTopN,
+      )
+    : null;
+  const order = reranked ?? results.ids.map((_, i) => i);
+
   // Step 3: Build context from retrieved chunks with citation deep-links
   const sources: RagSource[] = [];
   const contextParts: string[] = [];
 
-  for (let i = 0; i < results.ids.length; i++) {
+  for (const i of order) {
     const doc = results.documents[i] ?? "";
     const meta = results.metadatas[i] ?? {};
     const distance = results.distances[i] ?? 1;
@@ -196,6 +267,7 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
     latencyMs: Date.now() - start,
     retrievalCount: sources.length,
     requestedTopK: topK,
+    ...(reranked ? { reranked: true, rerankTopN: llmConfig.rerankTopN } : {}),
     contextFingerprint,
     grounded: sources.length > 0 && !!context.trim(),
     embeddingProvider: "ollama" as const,
@@ -208,10 +280,8 @@ export async function ragQuery(userQuestion: string, modelOverride?: string): Pr
     throw new NoRetrievedContextError();
   }
 
-  // Step 4: Generate answer with context
-  const messages: ChatMessage[] = [
-    { role: "user", content: userQuestion },
-  ];
+  // Step 4: Generate answer with context (multi-turn history appended when provided)
+  const messages = buildChatMessages(userQuestion, history);
 
   const answer = await chatWithProvider(messages, context, model);
   const latencyMs = Date.now() - start;

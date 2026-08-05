@@ -399,10 +399,19 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
     // severity scorer can read the monitor's own advisory/watch/warning tier —
     // the raw CAP `severity` (Minor/Moderate/Severe/Extreme) is NOT the same
     // thing and made the composite think severe weather was only an advisory.
-    const enrichedAlerts = alerts.map(a => ({ ...a, severityLevel: getAlertSeverityLevel(a.severity, a.certainty, a.urgency) }));
+    const enrichedAlerts = alerts.map(a => ({
+      ...a,
+      severityLevel: getAlertSeverityLevel(a.severity, a.certainty, a.urgency),
+      // Del Norte fire-weather (Red Flag Warning/Watch) flows through the same
+      // CAZ006 zone feed; flag it explicitly so dashboards/reports can surface
+      // it without a separate monitor.
+      isRedFlag: /red\s*flag/i.test(a.event ?? ''),
+    }));
+    const redFlagCount = enrichedAlerts.filter(a => a.isRedFlag).length;
     await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
       fetchedAt: new Date().toISOString(),
       alerts: enrichedAlerts,
+      redFlagCount,
     });
     
   } catch (error: unknown) {

@@ -42,6 +42,7 @@
     "pages:seed": "bun run scripts/refresh-pages-data.ts",
     "pages:validate": "bun run scripts/validate-pages.ts",
     "validate": "bun run scripts/validate.ts",
+    "test:coverage": "bun test tests/ --coverage",
     "release:check": "bun run validate",
     "test": "bun test tests/"
   },

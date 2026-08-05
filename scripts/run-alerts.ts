@@ -40,6 +40,7 @@ import { join } from "path";
 import type { SourceHealth } from "../src/types.ts";
 import { paths } from "../src/shared/paths.ts";
 import { writeJsonAtomic } from "../src/shared/source_health.ts";
+import { maybeSendSeverityWebhook } from "../src/alerts/notify.ts";
 
 export { buildTidesInput, buildFishingInput };
 
@@ -173,6 +174,10 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     const severityDir = join(process.cwd(), "output", "alerts", "composite");
     await mkdir(severityDir, { recursive: true });
     await writeJsonAtomic(join(severityDir, "current.json"), severityReport);
+
+    // Optional high-severity webhook (ALERT_WEBHOOK_URL). Fire-and-forget; a
+    // webhook failure never fails the alert run.
+    await maybeSendSeverityWebhook(severityReport);
 
     const checkedAt = new Date().toISOString();
     const monitorDefinitions: AlertMonitorDefinition[] = [

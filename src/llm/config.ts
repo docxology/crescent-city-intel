@@ -71,4 +71,11 @@ export const llmConfig = {
 
   /** Word count threshold below which a query is considered "short/specific" */
   shortQueryThreshold: 3,
+
+  /** Enable the post-retrieval lexical-hybrid rerank in rag.ts (RERANK_ENABLED=true).
+   *  Off by default so existing RAG behavior/order is unchanged. */
+  rerankEnabled: process.env.RERANK_ENABLED === "true",
+
+  /** How many of the top retrieval chunks the rerank retains (RERANK_TOP_N). */
+  rerankTopN: Number(process.env.RERANK_TOP_N ?? "5"),
 };

@@ -510,6 +510,12 @@
     }
 
     /* Stats bar */
+    .error-banner {
+      position: sticky; top: 0; z-index: 2000;
+      background: #7f1d1d; color: #fecaca;
+      padding: 10px 16px; text-align: center;
+      font-size: 0.95rem; border-bottom: 1px solid #991b1b;
+    }
     #stats-bar {
       font-family: system-ui, sans-serif;
       font-size: 11px;
@@ -1067,6 +1073,7 @@
 </head>
 
 <body>
+  <div id="error-banner" role="alert" class="error-banner" style="display:none"></div>
   <div id="header">
     <h1>Crescent City Intelligence</h1>
     <div id="search-container">
@@ -1300,13 +1307,28 @@
     // the server injected into this page (see server.ts serveIndexHtml()).
     // Falls back to a bare fetch if the placeholder was never substituted
     // (e.g. this file opened directly from disk rather than via the server).
+    function showErrorBanner(msg) {
+      const banner = document.getElementById("error-banner");
+      if (!banner) return;
+      banner.textContent = msg;
+      banner.style.display = "block";
+      clearTimeout(window.__errorBannerTimer);
+      window.__errorBannerTimer = setTimeout(() => { banner.style.display = "none"; }, 8000);
+    }
+
     function apiFetch(url, opts) {
       const key = window.__CC_API_KEY__;
       const hasKey = key && !key.startsWith("__CC_API_KEY");
-      if (!hasKey) return fetch(url, opts);
-      const merged = Object.assign({}, opts);
-      merged.headers = Object.assign({ "X-API-Key": key }, opts && opts.headers);
-      return fetch(url, merged);
+      const doFetch = hasKey
+        ? (() => { const merged = Object.assign({}, opts); merged.headers = Object.assign({ "X-API-Key": key }, opts && opts.headers); return fetch(url, merged); })()
+        : fetch(url, opts || {});
+      // Surface genuine network/unreachable failures at the top of the page so a
+      // dead server is never mistaken for an empty result; per-route 4xx/5xx
+      // handling (inline error text) is preserved by rethrowing.
+      return doFetch.catch((err) => {
+        showErrorBanner("Network error reaching the server: " + (err && err.message ? err.message : "request failed"));
+        throw err;
+      });
     }
 
     // State
@@ -1324,6 +1346,7 @@
     const searchResults = document.getElementById("search-results");
     const chatPanel = document.getElementById("chat-panel");
     const chatMessages = document.getElementById("chat-messages");
+    const chatHistory = []; // multi-turn context sent with each chat request (bounded server-side)
     const chatInput = document.getElementById("chat-input");
     const chatCancel = document.getElementById("chat-cancel");
     let activeChatController = null;
@@ -1790,6 +1813,7 @@
       userDiv.className = "chat-msg user";
       userDiv.textContent = msg;
       chatMessages.appendChild(userDiv);
+      chatHistory.push({ role: "user", content: msg });
 
       // Show streaming assistant message
       const botDiv = document.createElement("div");
@@ -1805,7 +1829,7 @@
         const resp = await apiFetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ q: msg }),
+          body: JSON.stringify({ q: msg, history: chatHistory }),
           signal: activeChatController.signal,
         });
 
@@ -1856,6 +1880,7 @@
             }
           }
           if (sourcesHtml) botDiv.insertAdjacentHTML('beforeend', sourcesHtml);
+          chatHistory.push({ role: "assistant", content: fullAnswer });
           chatCancel.disabled = true;
           activeChatController = null;
           return;
@@ -1880,6 +1905,7 @@
           answerText.innerHTML = `<span style="color:#f97316">${data.error}</span>`;
         } else {
           answerText.innerHTML = marked.parse(data.answer || "No response");
+          if (data.answer) chatHistory.push({ role: "assistant", content: data.answer });
           if (data.sources && data.sources.length > 0) {
             const sourcesDiv = document.createElement("details");
             sourcesDiv.className = "chat-sources";

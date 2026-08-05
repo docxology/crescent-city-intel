@@ -6,6 +6,7 @@ import { llmConfig } from "./config.js";
 import { configuredChatModel } from "./provider.js";
 import { streamChat as streamOpenRouterChat } from "./openrouter.js";
 import { computeSha256 } from "../utils.js";
+import { buildChatMessages } from "./rag.js";
 
 const log = createLogger("streaming_rag");
 
@@ -38,6 +39,7 @@ export function createStreamingRagResponse(
   question: string,
   retrievedContext: { sources: RagSource[]; context: string },
   modelOverride?: string,
+  history?: Array<{ role: "user" | "assistant"; content: string }>,
 ): Response {
   const encoder = new TextEncoder();
   const model = configuredChatModel(modelOverride);
@@ -68,7 +70,7 @@ export function createStreamingRagResponse(
       try {
         if (llmConfig.provider === "openrouter") {
           for await (const token of streamOpenRouterChat(
-            [{ role: "user", content: question }],
+            buildChatMessages(question, history),
             contextText,
             model,
             { signal: requestAbort.signal, systemPrompt },
@@ -80,7 +82,9 @@ export function createStreamingRagResponse(
           const ollamaResponse = await fetch(`${llmConfig.ollamaUrl}/api/generate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, prompt: `${systemPrompt}\n\nContext:\n${contextText}\n\nQuestion: ${question}\n\nAnswer:`, stream: true }),
+            body: JSON.stringify({ model, prompt: `${systemPrompt}\n\nContext:\n${contextText}\n\n${
+              history && history.length ? `Prior conversation:\n${history.map(t => `${t.role}: ${t.content}`).join("\n")}\n\n` : ""
+            }Question: ${question}\n\nAnswer:`, stream: true }),
             signal: AbortSignal.any([requestAbort.signal, AbortSignal.timeout(OLLAMA_TIMEOUT_MS * 4)]),
           });
 

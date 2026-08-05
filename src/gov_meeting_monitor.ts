@@ -88,6 +88,34 @@ interface EvoGovMeetingItem {
   minute_links?: string[];
 }
 
+/** A parsed document link with its display title (agenda/minutes). */
+export interface LinkItem {
+  title: string;
+  url: string;
+}
+
+/**
+ * Pure: parse an array of raw anchor-tag HTML strings into structured
+ * {title, url} items (used for agenda/minutes). Falls back to the URL when the
+ * anchor has no text, and resolves relative hrefs against the city origin.
+ */
+export function extractLinkItems(htmlAnchors: string[] | undefined): LinkItem[] {
+  if (!htmlAnchors) return [];
+  const items: LinkItem[] = [];
+  for (const anchor of htmlAnchors) {
+    const hrefMatch = anchor.match(/href=["'']([^"'']+)["'']/);
+    if (!hrefMatch) continue;
+    const url = new URL(hrefMatch[1], "https://www.crescentcity.org").toString();
+    const titleText = anchor
+      .replace(/<[^>]*>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&#039;|&apos;/g, "'")
+      .trim();
+    items.push({ title: titleText || url, url });
+  }
+  return items;
+}
+
 /** Extract every `href="..."` URL out of an array of raw anchor-tag HTML strings. */
 function extractLinkUrls(htmlAnchors: string[] | undefined): string[] {
   if (!htmlAnchors) return [];
@@ -148,12 +176,14 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
     const allItems = await fetchEvoGovMeetings(url);
     const matching = allItems.filter(item => item.title.toLowerCase().includes(sourceName.toLowerCase()));
 
-    const items: Array<{title: string, link: string, date: string, content: string, hash: string}> = [];
+    const items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[]}> = [];
     for (const item of matching) {
       const link = `https://www.crescentcity.org/events/${item.id}/`;
       const date = item.start_date_short ?? item.start_date_day_of_week ?? '';
       const agendaUrls = extractLinkUrls(item.agenda_links);
       const minuteUrls = extractLinkUrls(item.minute_links);
+      const agendaItems = extractLinkItems(item.agenda_links);
+      const minuteItems = extractLinkItems(item.minute_links);
       const descriptionText = htmlToText(item.description ?? '').substring(0, 800);
       const contentParts = [descriptionText];
       if (agendaUrls.length) contentParts.push(`Agenda: ${agendaUrls.join(', ')}`);
@@ -163,7 +193,7 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
       const hashContent = `${item.title}|${link}|${date}|${content}`;
       const hash = await generateContentHash(hashContent);
 
-      items.push({ title: item.title, link, date, content, hash });
+      items.push({ title: item.title, link, date, content, hash, ...(agendaItems.length ? { agendaItems } : {}), ...(minuteItems.length ? { minuteItems } : {}) });
     }
 
     logger.info(`Found ${items.length} meeting-related items from ${sourceName}`, { count: items.length });

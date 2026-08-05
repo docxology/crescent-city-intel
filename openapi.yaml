@@ -125,6 +125,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/search/semantic:
+    get:
+      summary: Semantic (embedding) search with graceful BM25 fallback
+      operationId: semanticSearch
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: Search results (mode= semantic | bm25-fallback)
+          content: { application/json: { schema: { type: object, properties: { mode: { type: string }, query: { type: string }, total: { type: integer }, count: { type: integer }, results: { type: array, items: { type: object } }, vectorStoreAvailable: { type: boolean }, reason: { type: [string, 'null'] } } } } }
+        '400': { description: Missing query }
+
   /api/search:
     get:
       summary: Search municipal code

@@ -10,6 +10,24 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Deepest review pass (2026-08-04) — Hermes + LifeOS intelligence setup
+
+### Added
+
+- **LifeOS / Pulse integration**: the platform now feeds the LifeOS `LocalIntelligence`
+  digest (Pulse LOCAL tab) with real Crescent City data via `scripts/lifeos-bridge.ts`
+  (`bun run lifeos:bridge`). News digests → `news`, gov meetings → `officials`/`legislation`,
+  plus live composite alert level + municipal-code stats in `meta.overview`. Writes both
+  `latest.json` paths the Pulse module reads + the dated digest.
+- **`scripts/lifeos-daily.sh`** (`bun run lifeos:daily`) refreshes news/meetings/alerts then
+  writes the digest; scheduled by a Hermes cron job (`lifeos-crescent-city-digest`, 06:00
+  daily, job `a85bcf3bd06d`).
+- **LifeOS user config**: `**Hometown:** Crescent City, CA (ZIP 95531, Del Norte County)`
+  set in `PRINCIPAL_IDENTITY.md` (LocalIntelligence's required identity line), and a
+  `sources.json` with the platform's verified local news RSS feeds under
+  `CUSTOMIZATIONS/SKILLS/LocalIntelligence/`.
+- Tests: `tests/lifeos-bridge.test.ts` (4) for digest mapping + both-path persistence.
+
 ### Deepest review pass (2026-08-04) — round 4 ("proceed with all improvements")
 
 ### Added

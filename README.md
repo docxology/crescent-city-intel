@@ -844,3 +844,25 @@ All settings support environment variable overrides:
   <a href="https://crescentcity.org">crescentcity.org</a> ·
   <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a>
 </p>
+
+## LifeOS / Pulse integration
+
+This platform feeds the user's LifeOS **Pulse LOCAL** tab with real Crescent City
+intelligence.
+
+- `scripts/lifeos-bridge.ts` (`bun run lifeos:bridge`) reads this platform's actual
+  outputs — the latest news digest, government meetings, the composite alert level, and
+  the municipal-code section count — and writes a `LocalIntelligence`-schema digest to
+  BOTH `latest.json` paths the Pulse module reads (`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/
+  SKILLS/LocalIntelligence/` and `~/.claude/LIFEOS/MEMORY/DATA/LocalIntelligence/`), plus
+  the dated digest file.
+- Section mapping: `news` ← news digests, `officials` ← City Council meetings,
+  `legislation` ← Planning/Harbor Commission meetings; the remaining sections are empty
+  (Pulse renders graceful empty states). `meta.overview` carries the live composite alert
+  + code stats.
+- `scripts/lifeos-daily.sh` (`bun run lifeos:daily`) refreshes news/meetings/alerts then
+  writes the digest. A Hermes cron job (`lifeos-crescent-city-digest`, daily 06:00,
+  `job a85bcf3bd06d`) runs it automatically.
+- The LifeOS `LocalIntelligence` skill is configured for **Crescent City, CA** (ZIP 95531,
+  Del Norte County): `**Hometown:**` set in `PRINCIPAL_IDENTITY.md`, and verified local
+  news RSS feeds in `CUSTOMIZATIONS/SKILLS/LocalIntelligence/sources.json`.

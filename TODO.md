@@ -84,6 +84,20 @@ TypeScript + OpenAPI route-contract + generated-Pages checks green.
   Tests: `tests/gov-meeting-agenda.test.ts`.
 - ✅ **`bun run test:coverage`** alias added.
 
+### Round 5 — Hermes + LifeOS intelligence setup
+
+- ✅ **LifeOS / Pulse bridge** — `scripts/lifeos-bridge.ts` (`bun run lifeos:bridge`) writes
+  the LocalIntelligence digest from this platform's real outputs (news → `news`; gov
+  meetings → `officials`/`legislation`; live composite alert + code stats in
+  `meta.overview`) to BOTH `latest.json` paths the Pulse LOCAL tab reads + the dated file.
+  Tests: `tests/lifeos-bridge.test.ts` (4).
+- ✅ **Daily automation** — `scripts/lifeos-daily.sh` (`bun run lifeos:daily`) refreshes
+  news/meetings/alerts then writes the digest; a Hermes cron job
+  (`lifeos-crescent-city-digest`, daily 06:00, job `a85bcf3bd06d`) runs it.
+- ✅ **LifeOS user config** — `**Hometown:** Crescent City, CA (ZIP 95531, Del Norte County)`
+  in `PRINCIPAL_IDENTITY.md`; verified local news RSS `sources.json` under
+  `CUSTOMIZATIONS/SKILLS/LocalIntelligence/`.
+
 ### Round 4 ("proceed with all improvements") — additional completion
 
 - ✅ **Real browser smoke test** — `scripts/browser-smoke.ts` + `bun run test:browser` drives

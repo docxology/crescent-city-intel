@@ -12,8 +12,8 @@
 
 ### Deep review pass (2026-08-04) — implemented and verified
 
-Every item below is implemented and verified by `bun run validate` (suite **701 → 717**
-tests across 57 → 61 files, 0 failures, strict-ts + contract + generated-output checks green).
+Every item below is implemented and verified by `bun run validate` (suite **701 → 719**
+tests across 57 → 62 files, 0 failures, strict-ts + contract + generated-output checks green).
 
 - ✅ **SSE `/api/chat/stream` streaming restored (MAJOR).** `src/gui/server.ts maybeCompress`
   treated `text/event-stream` like any other text response and called
@@ -58,6 +58,18 @@ tests across 57 → 61 files, 0 failures, strict-ts + contract + generated-outpu
   `src/api/AGENTS.md` documented a non-existent `RATE_LIMIT_MS` "min-ms-between-requests"
   behavior (now the real sliding-window model); `src/alerts/AGENTS.md` claimed
   `noaa_tides.ts` "runs on import" (it exports `monitorTides()`).
+
+- ✅ **Tides + fishing now appear in the unified alert timeline (MEDIUM fix).**
+  `noaa_tides.ts` wrote `output/tides/tide-history.jsonl` (a filename nothing reads)
+  while `alert_analytics.ts` reads `output/tides/history.jsonl`, and `cdfw_fishing.ts`
+  wrote **no** history file at all — so the timeline/stats (`/api/alerts/timeline`,
+  `/api/alerts/recent`, GUI charts) silently omitted tides AND fishing. Both monitors
+  now write the `history.jsonl` path the analytics layer reads (tides add a real
+  `level`; fishing gains a `history.jsonl`), and `tests/alert-analytics-contract.test.ts`
+  (2 tests) locks the path contract.
+- ✅ **`src/scrape.ts` no longer runs on import** (`import.meta.main` guard added,
+  matching the `export.ts`/`verify.ts` guards from the prior pass) — no module import
+  can launch a Playwright browser as a side effect.
 
 ### Prior passes already completed (carried forward)
 
@@ -120,6 +132,15 @@ tests across 57 → 61 files, 0 failures, strict-ts + contract + generated-outpu
   has a handler (the reverse already exists in `scripts/validate.ts`).
 - 🟢 **/api/health rate-limit metrics** (Phase 1.1): report current per-IP usage, peak,
   and blocked count.
+
+- 🟡 **Monthly civic report omits tides and fishing.** `src/monthly_report.ts` reads
+  alert history only for 6 of the 8 monitor types (earthquake/weather/tsunami/
+  airquality/wildfire/marine); tides and fishing segments are absent even though their
+  histories now exist at `output/tides/history.jsonl` / `output/fishing/history.jsonl`.
+  **Why:** the monthly health report under-reports two monitored hazard classes.
+  **Fix:** add tides/fishing sections reading those history files (atoms:
+  max-predicted level, high-tide events; fishery closure status), mirroring the other
+  monitor sections' style.
 
 ---
 

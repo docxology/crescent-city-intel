@@ -10,6 +10,22 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Deepest review pass (2026-08-04) — continuation
+
+### Fixed
+
+- **Tides and fishing now appear in the unified alert timeline/analytics.**
+  `noaa_tides.ts` wrote its history to `output/tides/tide-history.jsonl` — a
+  filename nothing read while `alert_analytics.ts` looks for
+  `output/tides/history.jsonl` — and `cdfw_fishing.ts` wrote no history file at
+  all, so the timeline/stats silently omitted both monitor types. Both monitors
+  now write the `history.jsonl` path the analytics layer reads (tides records
+  gain a real `level`, fishing gains a `history.jsonl`), and
+  `tests/alert-analytics-contract.test.ts` locks the path contract.
+- **`src/scrape.ts` no longer runs on import** (`import.meta.main` guard added,
+  matching the `export.ts` / `verify.ts` guards), so no module import can launch
+  Playwright as a side effect.
+
 ### Deepest review pass (2026-08-04)
 
 ### Fixed

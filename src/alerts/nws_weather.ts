@@ -9,7 +9,7 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from '../shared/source_health.js';
 
 const logger = createLogger('nws_weather_alert');
 
@@ -400,10 +400,10 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
     // the raw CAP `severity` (Minor/Moderate/Severe/Extreme) is NOT the same
     // thing and made the composite think severe weather was only an advisory.
     const enrichedAlerts = alerts.map(a => ({ ...a, severityLevel: getAlertSeverityLevel(a.severity, a.certainty, a.urgency) }));
-    await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
+    await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
       fetchedAt: new Date().toISOString(),
       alerts: enrichedAlerts,
-    }, null, 2));
+    });
     
   } catch (error: unknown) {
     logger.error('Failed to fetch NWS weather alerts', { error: String(error) });

@@ -20,7 +20,7 @@ import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } fr
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { DOMParser } from "@xmldom/xmldom";
-import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "../shared/source_health.js";
 
 const logger = createLogger("epa_airnow_alert");
 
@@ -263,7 +263,7 @@ export async function runAirQualityMonitor(): Promise<AirQualityReport | null> {
   try {
     const report = await fetchAirQuality();
     await mkdir(HISTORY_DIR, { recursive: true });
-    await writeFile(CURRENT_FILE, JSON.stringify(report, null, 2), "utf-8");
+    await writeJsonAtomic(CURRENT_FILE, report);
     appendHistory(report);
 
     if (report.advisory) {

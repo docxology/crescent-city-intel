@@ -10,7 +10,7 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from '../shared/source_health.js';
 
 const logger = createLogger('usgs_earthquake_alert');
 
@@ -333,10 +333,10 @@ export async function monitorUSGSEarthquakeAlerts(): Promise<void> {
   }
 
   await mkdir(HISTORY_DIR, { recursive: true });
-  await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
+  await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
     fetchedAt: new Date().toISOString(),
     events: earthquakes,
-  }, null, 2));
+  });
   
   logger.info('=== USGS Earthquake Alert Monitoring Complete ===');
 }

@@ -151,6 +151,25 @@ async function logRequest(
   }
 }
 
+/**
+ * Record one request-log entry with its REAL HTTP status and wall-clock
+ * duration. The logging middleware cannot know the status (it runs before the
+ * route handler), so it previously wrote a hardcoded 0 every time — every
+ * entry in request-log.jsonl claimed status 0. The server now calls this after
+ * it has the actual Response (middleware short-circuit OR handled route) so the
+ * log is honest: status reflects the real code and ms reflects the full round
+ * trip through the (possibly gzipped) response.
+ */
+export function recordRequestLog(
+  method: string,
+  path: string,
+  ip: string,
+  status: number,
+  ms: number
+): void {
+  void logRequest(method, path, ip, status, ms);
+}
+
 // ─── Middleware functions ─────────────────────────────────────────
 
 /**
@@ -304,11 +323,9 @@ export function requestLoggingMiddleware() {
 
     logger.info(`${method} ${url.pathname}`, { ip, ua: req.headers.get("user-agent")?.substring(0, 60) });
 
-    // Log on the next event-loop tick (after the route handler completes) so
-    // the duration reflects actual wall-clock time through the handler.
-    setImmediate(async () => {
-      void logRequest(method, url.pathname, ip, 0, Date.now() - start);
-    });
+    // The JSONL request-log entry is written by the server (recordRequestLog)
+    // once the real Response exists, so it carries an honest status instead of
+    // this middleware's fixed 0. Console logging stays here for live visibility.
     return null;
   };
 }

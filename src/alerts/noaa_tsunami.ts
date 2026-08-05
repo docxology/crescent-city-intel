@@ -8,7 +8,7 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from '../shared/source_health.js';
 
 const logger = createLogger('noaa_tsunami_alert');
 
@@ -307,10 +307,10 @@ export async function monitorNOAATsunamiAlerts(): Promise<void> {
   }
 
   await mkdir(HISTORY_DIR, { recursive: true });
-  await writeFile(join(HISTORY_DIR, 'current.json'), JSON.stringify({
+  await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
     fetchedAt: new Date().toISOString(),
     alerts,
-  }, null, 2));
+  });
 
   logger.info('=== NOAA Tsunami Alert Monitoring Complete ===');
 }

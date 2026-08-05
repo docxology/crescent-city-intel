@@ -23,7 +23,7 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "../shared/source_health.js";
 
 const logger = createLogger("ndbc_marine_alert");
 
@@ -278,7 +278,7 @@ export async function runMarineMonitor(): Promise<MarineReport | null> {
     };
 
     await mkdir(HISTORY_DIR, { recursive: true });
-    await writeFile(CURRENT_FILE, JSON.stringify(report, null, 2), "utf-8");
+    await writeJsonAtomic(CURRENT_FILE, report);
 
     if (advisory) {
       logger.warn(`Marine advisory: ${advisory}`);

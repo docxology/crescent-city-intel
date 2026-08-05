@@ -138,7 +138,12 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
     wildfire: {
       incidentCount: wildfireR.totalIncidents ?? 0,
       hasEvacuationOrders: (Array.isArray(wildfireR.incidents) ? wildfireR.incidents : []).some((i: any) => i.hasEvacuationOrders),
-      hasLargeFireNearby: (Array.isArray(wildfireR.incidents) ? wildfireR.incidents : []).some((i: any) => i.acres >= 1000 && i.containmentPercent < 50),
+      // Match classifyWildfireSeverity's distance rule (large fire nearby = a
+      // 1000+ acre fire with <50% containment within 50 km), so the composite
+      // WARNING tier never disagrees with the monitor's own ADVISORY for a
+      // large fire that is far away (e.g. interior Humboldt, ~130 km out).
+      hasLargeFireNearby: (Array.isArray(wildfireR.incidents) ? wildfireR.incidents : []).some((i: any) =>
+        i.acres >= 1000 && i.containmentPercent < 50 && i.distanceKm !== null && i.distanceKm <= 50),
       available: isFreshReport(wildfire, now),
     },
     marine: {

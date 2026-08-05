@@ -7,9 +7,9 @@
  * Rules (applied in priority order):
  *   EMERGENCY — any active Tsunami Warning (CAP) or USGS tsunami flag ≥ 2
  *   WARNING   — active Earthquake M≥6 within 200 km, NWS Severe weather warning,
- *               tidal water level ≥ 5 ft MLLW, gale-force winds, or wildfire evac orders
+ *               tidal water level ≥ 7.0 ft MLLW (significant exceedance), gale-force winds, or wildfire evac orders
  *   WATCH     — Earthquake M4-6 within 200 km, NWS watch/advisory,
- *               CDFW fishing closure, tidal level ≥ 3 ft MLLW, elevated seas
+ *               CDFW fishing closure, tidal level ≥ 6.0 ft MLLW (at/above the typical max high tide), elevated seas
  *   CALM      — no active alerts meeting above thresholds
  *
  * Designed to be called by GET /api/monitor/alerts and the GUI dashboard.

@@ -458,6 +458,9 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
       const queryWords = rawQuery.split(/\s+/).filter(Boolean);
       const corrections = fuzzyCorrect(queryWords, vocab, 0.7);
       if (corrections.length > 0) {
+        // Log the zero-result query too so /api/search/analytics counts it —
+        // previously this fuzzy short-circuit returned before logSearchQuery.
+        logSearchQuery(rawQuery, 0);
         return { results, total, offset, limit, fuzzyCorrections: corrections };
       }
     } catch {

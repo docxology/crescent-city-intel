@@ -18,7 +18,7 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "../shared/source_health.js";
 
 const logger = createLogger("calfire_wildfire_alert");
 
@@ -219,7 +219,7 @@ export async function runWildfireMonitor(): Promise<WildfireReport | null> {
     };
 
     await mkdir(HISTORY_DIR, { recursive: true });
-    await writeFile(CURRENT_FILE, JSON.stringify(report, null, 2), "utf-8");
+    await writeJsonAtomic(CURRENT_FILE, report);
 
     if (level === "EMERGENCY") {
       logger.warn(`WILDFIRE EMERGENCY: ${report.summary}`);

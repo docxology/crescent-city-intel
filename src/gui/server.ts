@@ -3,7 +3,7 @@
 import { handleApiRoute } from "./routes.js";
 import { initSearch } from "./search.js";
 import { createLogger } from "../logger.js";
-import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp } from "../api/middleware.js";
+import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp, recordRequestLog, resolveIp } from "../api/middleware.js";
 
 const log = createLogger("gui");
 
@@ -17,9 +17,16 @@ const GZIP_THRESHOLD = 4096;
  * Transparently gzip-compress a Response if the client supports it
  * and the response body is larger than GZIP_THRESHOLD bytes.
  */
-async function maybeCompress(res: Response, acceptEncoding: string | null): Promise<Response> {
+export async function maybeCompress(res: Response, acceptEncoding: string | null): Promise<Response> {
   if (!acceptEncoding?.includes("gzip")) return res;
   const ct = res.headers.get("Content-Type") ?? "";
+  // Server-Sent Events must stream through untouched: res.arrayBuffer() on a
+  // live text/event-stream ReadableStream consumes the ENTIRE stream (blocking
+  // until generation finishes, then returning the whole body as one buffered
+  // response). Every browser sends Accept-Encoding: gzip, so without this a
+  // RAG /api/chat/stream client would receive the whole answer at once instead
+  // of token-by-token (SSE responses already carry no-transform).
+  if (ct.startsWith("text/event-stream")) return res;
   if (!ct.startsWith("application/json") && !ct.startsWith("text/")) return res;
 
   const body = await res.arrayBuffer();
@@ -96,11 +103,15 @@ const server = Bun.serve({
     // BYPASS_PATHS are both "/api/..."-scoped, so applying it unconditionally
     // (as before) 401'd every page load, including "/" itself.
     if (url.pathname.startsWith("/api/")) {
+      const apiStart = performance.now();
+      const apiIp = resolveIp(req, socketIp);
       const middlewareResponse = await applyMiddleware(req, socketIp);
       if (middlewareResponse !== null) {
+        recordRequestLog(req.method, url.pathname, apiIp, middlewareResponse.status, Math.round(performance.now() - apiStart));
         return middlewareResponse;
       }
       const apiRes = await handleApiRoute(url, req);
+      recordRequestLog(req.method, url.pathname, apiIp, apiRes.status, Math.round(performance.now() - apiStart));
       return maybeCompress(apiRes, req.headers.get("Accept-Encoding"));
     }
 

@@ -39,7 +39,7 @@ const log = createLogger("verifier");
  * sections for any article whose sections nest under a different container,
  * potentially marking allSectionsPresent true while the scrape required more.
  */
-function collectDescendantSections(node: TocNode): TocNode[] {
+export function collectDescendantSections(node: TocNode): TocNode[] {
   const sections: TocNode[] = [];
   for (const child of node.children) {
     if (child.type === "section") {
@@ -248,7 +248,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  log.error("Fatal error", { error: String(err) });
-  closeBrowser().finally(() => process.exit(1));
-});
+// Guarded: importing this module (e.g. from a test) must never launch a
+// Playwright browser or re-run the whole verification as a side effect.
+if (import.meta.main) {
+  main().catch((err) => {
+    log.error("Fatal error", { error: String(err) });
+    closeBrowser().finally(() => process.exit(1));
+  });
+}

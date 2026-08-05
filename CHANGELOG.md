@@ -10,6 +10,35 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Deepest review pass (2026-08-04)
+
+### Fixed
+
+- **SSE `/api/chat/stream` streaming restored.** `maybeCompress` (src/gui/server.ts)
+  treated `text/event-stream` like any text response and `arrayBuffer()`'d the live
+  ReadableStream, consuming the whole stream and returning the RAG answer buffered
+  (every browser sends `Accept-Encoding: gzip`, so streaming was effectively broken).
+  Event-stream responses now pass through untouched; regression tests in
+  tests/gui-compress.test.ts.
+- **`request-log.jsonl` now records the real HTTP status** (was a hardcoded 0 written by
+  middleware that runs before the handler). The server records each API response's status
+  and duration via `recordRequestLog()`.
+- **`src/export.ts` is now importable**: builders are pure (`buildConsolidatedJson`,
+  `buildMarkdownFiles`, `buildPlainText`, `buildSectionIndexCsv`) and `main()` is guarded
+  by `import.meta.main`. Adds `tests/export.test.ts` (closes the deferred export test gap).
+- **`src/verify.ts` no longer runs on import** (`import.meta.main` guard) and exports
+  `collectDescendantSections`; adds `tests/verify.test.ts`.
+- **Alert `current.json` is written atomically** (writeJsonAtomic) in 6 alert monitors, so a
+  torn write cannot surface as a spurious unavailable live state.
+- **Composite wildfire severity is distance-aware** — `hasLargeFireNearby` requires a
+  fire within 50 km, matching the monitor's own ADVISORY/WARNING classification (a large
+  fire ~130 km away no longer forces the composite to WARNING).
+- **Stale tide-severity thresholds corrected** in the severity.ts header and README
+  (WARNING≥7.0 / WATCH≥6.0 ft MLLW, not the old 5/3 ft).
+- **Fuzzy search fallback logs zero-result queries** for search analytics.
+- **AGENTS.md doc drift corrected** (test-file references, API rate-limit model, tides
+  monitor export).
+
 ### Deepest hostile red-team hardening pass (2026-08-01)
 
 ### Fixed

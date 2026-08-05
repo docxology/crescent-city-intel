@@ -23,7 +23,7 @@ severity scoring system and unified alert analytics timeline.
 | `noaa_tsunami.ts` | `monitorNOAATsunamiAlerts()` | `output/alerts/tsunami/` | `api.weather.gov` REST JSON |
 | `usgs_earthquake.ts` | `monitorUSGSEarthquakeAlerts()` | `output/alerts/earthquake/` | `earthquake.usgs.gov` GeoJSON feed |
 | `nws_weather.ts` | `monitorNWSWeatherAlerts()` | `output/alerts/weather/{advisory,watch,warning}/` | `api.weather.gov` REST JSON |
-| `noaa_tides.ts` | (runs on import) | `output/tides/` | NOAA CO-OPS station 9419750 |
+| `noaa_tides.ts` | `monitorTides()` | `output/tides/` | NOAA CO-OPS station 9419750 |
 | `cdfw_fishing.ts` | `monitorFishing()`, `estimateCrabSeasonStatus()` | `output/fishing/` | CDFW marine bulletins |
 | `epa_airnow.ts` | `runAirQualityMonitor()` | `output/alerts/airquality/` | EPA AirNow API (requires `AIRNOW_API_KEY`) |
 | `calfire_wildfire.ts` | `runWildfireMonitor()` | `output/alerts/wildfire/` | CAL FIRE incident API |

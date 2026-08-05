@@ -344,7 +344,7 @@ bun run gov-meetings    # → output/gov_meetings/
 Real-time tide predictions for Crescent City Harbor — the exact same station used by harbor pilots and fishing vessels.
 
 ```bash
-bun run alerts:tides    # 48h predictions · current water level · 5 ft MLLW alert
+bun run alerts:tides    # 48h predictions · current water level · 7 ft MLLW alert
 ```
 
 Station 9419750 coordinates: **41.745°N, 124.184°W** — [NOAA Tides Online](https://tidesandcurrents.noaa.gov/stationhome.html?id=9419750)
@@ -377,7 +377,7 @@ bun run cron-setup          # install as weekly scheduled job (macOS/Linux)
 | Tsunami | NOAA `api.weather.gov/alerts` | Any Tsunami Warning for California |
 | Earthquake | USGS `earthquake.usgs.gov` Feed | M4.0+ within 200 km, Cascadia Subduction Zone priority |
 | Weather | NWS Eureka office, zone CAZ006 | Coastal flood advisory · high wind · storm surge |
-| Tides | NOAA CO-OPS Station 9419750 | >5.0 ft MLLW predicted water level |
+| Tides | NOAA CO-OPS Station 9419750 | ≥7.0 ft MLLW current water level (storm surge / king tide) |
 
 > 🔧 **Monitor internals**: [docs/modules/monitoring.md](docs/modules/monitoring.md) · [docs/modules/alerts.md](docs/modules/alerts.md)
 

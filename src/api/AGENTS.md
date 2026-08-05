@@ -34,7 +34,7 @@ if (middlewareResponse !== null) return middlewareResponse;
 | Env variable | Default | Description |
 | :--- | :--- | :--- |
 | `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key (comma-separated for multiple) |
-| `RATE_LIMIT_MS` | `2000` | Minimum ms between requests per IP |
+| `RATE_LIMIT_MAX_REQUESTS` | `100` | Sliding-window request cap per IP per hour (see `ENDPOINT_LIMITS` for stricter per-path limits) |
 
 ## Key Patterns
 

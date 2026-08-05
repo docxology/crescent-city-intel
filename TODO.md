@@ -2,361 +2,149 @@
 
 > Upcoming development backlog · v2.5.1 · validation counts are reported by `bun run validate`
 >
-> Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix)
+> Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix) — reviewed 2026-08-04
 >
-> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-08-01 (deepest hostile red-team pass)
->
-> Jump to: [Red-Team Scoped Majors](#red-team-review-2026-08-01--scoped-majors) · [Red-Team Completed](#red-team-review-2026-08-01--minor--medium-implementation-pass) · [Phase 1](#phase-1--production-hardening) · [Phase 2](#phase-2--search--query) · [Phase 3](#phase-3--rag-pipeline) · [Phase 4](#phase-4--monitoring-expansion) · [Phase 5](#phase-5--alert-system--analytics) · [Phase 6](#phase-6--intelligence-domains) · [Phase 7](#phase-7--analytics--reporting) · [Phase 8](#phase-8--marine--harbor) · [Phase 9](#phase-9--gui-enhancements) · [Phase 10](#phase-10--data-quality) · [Phase 11](#phase-11--infrastructure) · [Phase 12](#phase-12--new-alert-monitors) · [Phase 13](#phase-13--structured-queries--legal-analysis) · [Phase 14](#phase-14--documentation)
+> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-08-04 (deepest review pass)
 
 ---
 
-## Red-Team Review (2026-08-01) — Major findings
+## Completed / Closed
 
-> M1–M6 were validated as MAJOR defects in the 2026-08-01 deepest hostile
-> red-team review. **M1, M2, M3(monitor), M4 and M5 are now implemented and
-> verified** (see below); **M6 remains deferred** (architecture-only, no behavior
-> change). The associated deferred composite/geometry items R2, R4 and R6 were
-> also completed. Each completed item links to the concrete fix.
+### Deep review pass (2026-08-04) — implemented and verified
 
-- ✅ **M1 — Tsunami composite severity elevates correctly (COMPLETED).** `noaa_tsunami.ts` now persists each alert's `threatLevel` into `current.json`, fetches all active CA tsunami Warning/Watch/Advisory events (was pinned to `event=Tsunami Warning`, so WATCH was structurally empty), and `run-alerts.ts` reads `threatLevel` instead of the CAP `severity` enum — a real tsunami warning now drives EMERGENCY, watches/advisories WATCH.
+Every item below is implemented and verified by `bun run validate` (suite **701 → 717**
+tests across 57 → 61 files, 0 failures, strict-ts + contract + generated-output checks green).
 
-- ✅ **M2 — NWS weather composite severity reaches WARNING (COMPLETED).** `nws_weather.ts` persists its computed `severityLevel` (advisory/watch/warning) into `current.json`; `run-alerts.ts` reads it — severe weather now correctly elevates to WARNING instead of being misread as an advisory.
+- ✅ **SSE `/api/chat/stream` streaming restored (MAJOR).** `src/gui/server.ts maybeCompress`
+  treated `text/event-stream` like any other text response and called
+  `res.arrayBuffer()` on the live ReadableStream, which **consumed the entire SSE
+  stream** (blocking until the RAG generation finished) and returned the whole body
+  as one buffered response. Because every browser sends `Accept-Encoding: gzip`, the
+  chat stream delivered the answer all at once instead of token-by-token. `maybeCompress`
+  now passes `text/event-stream` through UNTOUCHED (same Response object). Regression
+  tests in `tests/gui-compress.test.ts` (4 tests) assert streaming identity + JSON gzip.
+- ✅ **`export.test.ts absent` deferred Minor closed.** `src/export.ts` is refactored to
+  export **pure builders** (`buildConsolidatedJson`, `buildMarkdownFiles`, `buildPlainText`,
+  `buildSectionIndexCsv`) and its full-run `main()` is now guarded by `import.meta.main` —
+  importing it no longer runs an export as a side effect. New `tests/export.test.ts` (6 tests)
+  covers the consolidated-JSON shape, CSV escaping/layout, plain-text ordering/history, and
+  Markdown title/chapter/appendix layout.
+- ✅ **`verify.ts` no longer launches a browser on import.** `main()` is now guarded by
+  `import.meta.main`; `collectDescendantSections` is exported. New `tests/verify.test.ts`
+  (2 tests) locks the section-enumeration parity contract (division/chapter/part nesting).
+- ✅ **Request log records the real HTTP status (`src/api/middleware.ts`, `src/gui/server.ts`).**
+  The logging middleware ran before the route handler and wrote a hardcoded `status: 0` for
+  every entry. The server now calls the new `recordRequestLog()` after it has the actual
+  Response (middleware short-circuit **or** handled route), so `request-log.jsonl` is honest.
+- ✅ **Alert `current.json` artifacts are now written atomically.** `noaa_tsunami`,
+  `nws_weather`, `usgs_earthquake`, `epa_airnow`, `calfire_wildfire`, and `ndbc_marine`
+  switched their live-state `current.json` writes from plain `writeFile` to
+  `writeJsonAtomic` (fsync'd temp + rename), so a torn write cannot surface as a spurious
+  `unavailable`/deleted live state.
+- ✅ **Composite wildfire severity is distance-aware (`src/alerts/composite.ts`).**
+  `hasLargeFireNearby` now requires `distanceKm ≤ 50` (matching `classifyWildfireSeverity`),
+  so a large fire ~130 km away (e.g. interior Humboldt) no longer raises the composite to
+  WARNING while the monitor itself reports ADVISORY. Regression tests in
+  `tests/composite-alerts.test.ts` (4 tests; also marine primary-buoy preference).
+- ✅ **Stale tide-severity thresholds corrected (docs/prose).** `src/alerts/severity.ts`
+  header and `README.md` (`alerts:tides` comment, Tides API table) still described the old
+  `WARNING≥5 ft / WATCH≥3 ft` thresholds; corrected to the live `WARNING≥7.0 / WATCH≥6.0`
+  (storm surge / king tide) model from the R2 fix.
+- ✅ **`search.ts` fuzzy fallback now logs zero-result queries** (`src/gui/search.ts`), so
+  `/api/search/analytics` counts queries that surfaced `did-you-mean` corrections.
+- ✅ **AGENTS.md doc drift corrected.** `src/AGENTS.md` + `src/shared/AGENTS.md` pointed
+  readability/content tests at the non-existent `tests/content.test.ts` (now
+  `content-fixture.test.ts`; `export.test.ts` / `verify.test.ts` now actually exist);
+  `src/api/AGENTS.md` documented a non-existent `RATE_LIMIT_MS` "min-ms-between-requests"
+  behavior (now the real sliding-window model); `src/alerts/AGENTS.md` claimed
+  `noaa_tides.ts` "runs on import" (it exports `monitorTides()`).
 
-- ✅ **M3(monitor) — self-hash tamper detection fixed (COMPLETED).** `monitor.ts checkHashes` compares the recomputed SHA-256 against the trusted `manifest.articles[guid].sha256` baseline (not the sha256 field inside the article file), so a consistent whole-file rewrite is detected.
+### Prior passes already completed (carried forward)
 
-- ✅ **M4 — readability metrics corrected (COMPLETED).** `readability.ts` shields decimal section numbers, dotted citations, and common abbreviations before sentence-splitting, so Flesch-Kincaid / Reading Ease / Gunning Fog no longer fragment decimal-heavy legal text.
-
-- ✅ **M5 — Docker `.env` excluded (COMPLETED).** Added `.dockerignore` (`.env`, `node_modules`, `output`, `.git`, `.pages`, `.claude`) so an API key in `.env` cannot be baked into image layers.
-
-- ✅ **R2 / R4 / R6 (COMPLETED).** Tides composite uses the current observed level with thresholds above normal max high tide (WATCH≥6.0 / WARNING≥7.0 ft MLLW) instead of the always-elevated 48-h predicted max; marine composite prefers the primary buoy 46027; NWS `pointInPolygon` now excludes ring holes.
-
-- 🔴 **M6 — `scripts/run-alerts.ts` violates the thin-orchestrator contract (STILL DEFERRED).** Per `scripts/AGENTS.md`, scripts must be thin; `run-alerts.ts` (284 lines) still contains composite-input shaping, freshness policy, stale-snapshot deletion, and full source-health classification. This is architecture-only (no behavior change) and was left for a focused refactor pass. **Fix:** move the shaping/freshness/classification into `src/alerts/severity.ts` / a source-health builder and keep the script as invocation-only.
-
----
-
-## Red-Team Review (2026-08-01) — Minor & Medium implementation pass
-
-> Implemented and verified this pass (`bun run validate` green; suite 697 → **699**,
-> +2 regression tests). See git diff for the exact changes.
-
-- ✅ **Rate-limit spoof bypass closed** (`src/api/middleware.ts`): the trusted-local
-  bypass is now decided on the REAL socket address (`server.requestIP`), so a remote
-  client sending `X-Forwarded-For: 127.0.0.1` can no longer obtain an unlimited
-  rate-limit bucket. + regression test.
-- ✅ **Weak default API key replaced** (`middleware.ts`): `CRESCENT_CITY_API_KEY`
-  unset now yields a random per-boot credential (logged) instead of the well-known
-  `dev-key-12345`; docker-compose default and all doc tables updated.
-- ✅ **Unbounded upstream fetches bounded** (`noaa_tides`, `noaa_tsunami`, `cdfw_fishing`,
-  `ndbc_marine`): every external `fetch` now carries `AbortSignal.timeout` so a hung
-  upstream cannot stall `run-alerts`.
-- ✅ **AirNow no longer reports false GOOD on empty data** (`epa_airnow.ts`): an
-  empty keyed-ZIP response now falls through to the public KML product instead of
-  publishing `maxAqi:0 / GOOD`.
-- ✅ **Deterministic corpus ordering** (`shared/data.ts`): `loadAllArticles` sorts
-  `readdir` output; fuzzy search vocabulary built over a deterministic full corpus.
-- ✅ **Corrupt-article loss surfaced** (`shared/data.ts`): skipped/unreadable articles
-  now log an ERROR with a count (was a silent per-file warn).
-- ✅ **Verifier/skraper enumeration aligned** (`verify.ts`): `collectDescendantSections`
-  now recurses into all container types, matching `content.ts getSectionGuids`.
-- ✅ **Monthly-report NaN guard** (`monthly_report.ts`): earthquake `Math.max` is
-  finite-filtered.
-- ✅ **Atomic writes fsync'd** (`shared/source_health.ts`, `shared/idempotency.ts`):
-  temp file is `fsync`ed before `rename`, closing a crash-window that could wipe
-  idempotency/dedup state.
-- ✅ **OpenRouter per-request cap reset** (`gui/routes.ts`): the long-lived GUI server
-  no longer permanently locks after 100 cumulative generations; also fixes the
-  permanent LLM lazy-load failure (retries after a transient load failure).
-- ✅ **Monitor report status + docstring** (`monitor.ts`): extra (unexpected) sections
-  now flip `overallStatus` to `changed`; removed the unimplemented `--sample N`
-  docstring claim.
-- ✅ **Export shared-array mutation** (`export.ts`): plain-text branch sorts a copy.
-- ✅ **Analytics status** (`analytics_backend.ts`): empty code corpus with sources
-  present is now `degraded`, not `ok`.
-- ✅ **Haversine NaN clamp** (`usgs_earthquake`, `epa_airnow`, `calfire_wildfire`).
-- ✅ **`chunk` size≤0 guard** (`utils.ts`) + regression test; `truncateText` constant;
-  `extractSnippet` integer window.
-- ✅ **Dead code removed** (`rag.ts buildCitationUrl`, `chroma.ts` unused import).
-- ✅ **yt-dlp video-id validation** (`youtube_monitor.ts`): malformed ids rejected
-  before path/argv interpolation.
-- ✅ **Version-string drift corrected** to 2.5.1 (orchestration, routes, index.html,
-  run.sh, README, docs/README, AGENTS.md); README hardcoded test count dropped in
-  favor of the live `bun run validate` count.
-
-### Deferred Minor/Medium (scoped, with rationale)
-
-> Intentionally not implemented this pass — larger/riskier or needing an external
-> decision. Tracked so they are not silently dropped. (Completed in prior passes:
-> M1–M5, R2/R4/R6, and in the part-3 refactor pass: M6 run-alerts thin-orchestrator,
-> alert-analytics timeline cap, domain-coverage section counting, export atomic
-> writes, verify sample-outcome report, streaming prompt de-duplication, search
-> exception-aware stemming, docker-compose OpenRouter env forwarding.)
-
-- 🟡 **Unbounded per-monitor alert JSONL** (5 alert monitors): history.jsonl files
-  grow without bound and are fully re-read each run; migrate to the shared
-  `IdempotencyStore` with a cap (or a bounded tail-trim) — larger refactor, left.
-- 🟢 **`export.test.ts` absent**: the export builders (consolidated JSON shape,
-  markdown/plain-text/CSV layouts) lack a dedicated test file; add one (the
-  atomic-write portion of the original finding is completed).
-- 🟢 **`isComplexWord` capitalized-word heuristic** (`readability.ts`): the
-  blanket "drop any capitalized word as a proper noun" can under-report
-  complexity for sentence-initial content words; needs sentence-position context
-  to refine safely without destabilizing published readability scores.
-- 🟢 **News dedup collapses distinct articles** sharing a path (`normalizeUrl` in
-  news_monitor.ts): keep a title/length secondary check to avoid dropping
-  distinct paginated items.
-- 🟢 **`?api_key=` query-param auth** may leak keys into logs; prefer header-only
-  (breaking change — needs a migration note).
-
-
-## Phase 1 — Production Hardening
-
-### 1.1 Rate Limiting & Performance
-- 🟢 **Rate limit metrics in `/api/health`**: current per-IP usage, peak, blocked count
-- ✅ **Gzip compression**: `Content-Encoding: gzip` for large JSON API responses (shipped v0.2.0, Mar 2026)
-
-### 1.2 Error Boundaries
-- 🟡 **GUI error banner**: render user-facing error UI for failed `/api/*` responses
-- 🟡 **Ollama preflight**: `ollama check` before `bun run index` — fail fast with install instructions
-- 🟡 **ChromaDB preflight**: check collection exists before RAG query; better error if empty
-- ✅ **Frontend never sent an API key** (found 2026-07-23, fixed 2026-07-24): server now injects the live key into the served `index.html` (`serveIndexHtml()` in `src/gui/server.ts`) and the frontend's `apiFetch()` wrapper attaches it as `X-API-Key` on every one of its 30 call sites. Verified live in a real browser session: every previously-401ing panel (streaming chat, monitor/alerts, analytics/embeddings, readability, glossary, cross-refs, curated feed, report, domains) now returns 200 and renders real data, while `curl` with no key still correctly 401s — the auth gate itself is untouched, only the browser's own requests were fixed. **Hardened same day**: the key is only injected for loopback/private-LAN requesters (`isTrustedLocalIp()` in `src/api/middleware.ts`) — a remote visitor to a publicly-deployed instance gets the un-substituted placeholder (falls back to unauthenticated `fetch()`, matching pre-fix behavior for them) rather than the real key leaking into page source they can view. Verified: a `curl` with a real loopback socket gets the real key; one spoofing `X-Forwarded-For` to a public IP gets an empty string; a spoofed public IP is still correctly 429'd after its rate limit (10 real requests through, 2 more correctly blocked). **Second real hardening, found by a cross-vendor audit same day**: that first hardening pass still used `resolveIp()` (headers-first) to decide trust — a remote attacker sending `X-Forwarded-For: 127.0.0.1` was classified as trusted-local and handed the real key, exactly defeating the fix above. `serveIndexHtml()` in `src/gui/server.ts` now takes the raw `server.requestIP()` socket address directly and has no `Request`/headers parameter at all — there is no code path for a spoofed header to reach the decision. Also fixed `isTrustedLocalIp()` missing the full `172.16.0.0/12` range and IPv4-mapped IPv6 (`::ffff:127.0.0.1`). New tests: `tests/gui-server.test.ts` (4 tests) directly proving a real socket IP gets the key and a spoofed-looking-but-not-actually-local one (`203.0.113.42`) does not.
-- ✅ **Rate limiter never recognized direct local browser traffic as loopback** (found + fixed 2026-07-24): `resolveIp()` only checked `x-forwarded-for`/`x-real-ip`, which a direct `bun run gui` browser session never sends, so every local user shared one `"unknown"` rate-limit bucket instead of the intended loopback bypass — confirmed live: a real browser session 429'd on `/api/analytics/embeddings` (10 req/hr limit) after a handful of clicks. Fixed by threading Bun's own `server.requestIP(req)` through `applyMiddleware()` as a fallback IP source alongside the proxy headers.
-- ✅ **`/api/chat/stream` silently 500'd on every real call** (found + fixed 2026-07-24): the handler called `ollama.healthCheck()`, which does not exist on `src/llm/ollama.ts` (the real export is `isOllamaRunning()`) — every request threw, was caught, and returned a 500 with zero server-side log line (the catch block returned `json(...)` directly without going through `logger.error`), so the failure was invisible in `bun run gui`'s own logs. The GUI's own chat panel silently fell back to the non-streaming `GET /api/chat` and worked, masking the break. Fixed the call-site and added `log.error` to the catch block.
+- 2026-08-01 deepest hostile red-team: M1 tsunami composite severity, M2 NWS weather
+  severity, M3(self) monitor hash baseline, M4 readability decimal shielding, M5
+  `.dockerignore`, R2 tide thresholds, R4 marine primary buoy, R6 polygon holes, plus the
+  Minor/Medium hardening pass (rate-limit spoof, random API key, bounded fetches, AirNow
+  KML fallback, deterministic corpus ordering, atomic fsync writes, etc.) and part-3
+  refactor (M6 thin orchestrator, bounded alert timeline, domain section counting,
+  export atomic writes, verify sample outcomes, stream prompt dedup, stem-exception parity).
 
 ---
 
-## Phase 2 — Search & Query
+## Open — Major
 
-- 🔴 **Semantic search**: use ChromaDB embeddings for concept-based search (not just keyword BM25)
-- 🟢 **Search debounce**: 250ms debounce on search input to reduce unnecessary BM25 re-queries
-- 🟡 **Section dependency graph**: network graph showing which sections reference which
-- 🟢 **Definition tooltips**: hover over defined terms in viewer for inline tooltip
-- 🟢 **Cross-reference hyperlinking**: auto-link § references in section text to actual sections
-
----
-
-## Phase 3 — RAG Pipeline
-
-- 🟡 **Reranking**: cross-encode top-20 retrieved chunks → return top-5
-- 🟡 **Conversation history**: multi-turn chat with context window management
-- 🟢 **Citation format**: source citations include direct ecode360 deep-links
-- 🟢 **Streaming chat UI**: connect SSE stream to GUI chat panel for real-time token display
-- 🟡 **Embedding model upgrade**: support `nomic-embed-text-v1.5` (768→1024 dim)
-- 🟢 **Collection metadata**: store scrape manifest hash in ChromaDB collection metadata
+- 🔴 **Unbounded per-monitor alert JSONL history (R7, still deferred).** `output/alerts/<type>/history.jsonl`
+  (tsunami, weather, earthquake, airquality, wildfire, marine, tides) grows without bound
+  and is fully re-read each run. **Why:** unbounded disk growth and O(n) startup reads over
+  months of runs. **Fix:** migrate to the shared `IdempotencyStore` with a cap (the store
+  already exists and is fsync-atomic) or add a bounded tail-trim to the JSONL appenders.
+  **Affected:** `src/alerts/*` history appenders.
+- 🔴 (capability) **Semantic/embedding search in the GUI.** BM25 is keyword-based; concept
+  search needs ChromaDB embeddings surfaced in `/api/search`. **Why:** recall across
+  drafting styles. **Affected:** `src/gui/search.ts`, `src/llm/embeddings.ts`.
 
 ---
 
-## Phase 4 — Monitoring Expansion
+## Open — Medium
 
-### 4.1 News Monitor
-- ✅ **Redwood Voice**: live, active RSS feed added (`redwoodvoice.org/feed/`, confirmed publishing 2026-07-23)
-- 🟢 **Del Norte Triplicate**: no public RSS exists (confirmed 2026-07-23); Cloudflare-protected — see `src/triplicate_monitor.ts` (Playwright-based, not RSS)
-- 🟢 **KHUM-FM**: add local radio news RSS if available
-- 🟡 **Sentiment scoring**: classify each filtered article as positive/negative/neutral
-- 🟡 **Aggregated digest**: daily top-5 articles by relevance + sentiment
-- 🟡 **Slack/webhook alert**: POST to webhook when high-urgency civic keywords detected
-
-### 4.2 Government Meeting Monitor
-- ✅ **All 3 configured agenda URLs were dead (found + fixed 2026-07-24)**: `crescentcity.org/government/{city-council,planning-commission,harbor-commission}/agendas` all 404'd — the city migrated to the EvoGov CMS, whose `/meetings` calendar is JS-rendered (no meeting data in the static HTML at all). Found the real same-origin JSON API the widget itself calls (`GET /meetings/get_list?selected_calendar_ids=...`) by capturing network traffic with Playwright, and rewrote `fetchGovMeetings()` in `src/gov_meeting_monitor.ts` to call it directly (no browser automation needed at runtime — it's a plain JSON endpoint). City Council and Planning Commission share one underlying calendar and are now distinguished by matching `title` (confirmed against a full year of real data); a live run pulled 6 real items with working agenda/minutes PDF links (verified one resolves: `https://www.crescentcity.org/meetingfiles/.../agendas/....pdf` → 200, `application/pdf`). **Harbor Commission has no known digital agenda source right now** — absent from the EvoGov widget, and its own domain `crescentcityharbor.com` no longer resolves in DNS (confirmed live) — kept in `GOV_SOURCES` so it filters and honestly returns 0 rather than 404ing, but finding a real source needs manual research, not more scraping code.
-- 🟡 **Agenda item extraction**: parse HTML agendas → structured agenda item list
-- 🟡 **Vote record extraction**: parse minutes HTML → yea/nay/abstain per resolution
-- 🟡 **SHA-256 change detection**: hash each agenda/minutes document → alert on hash change
-- 🟡 **Code cross-reference**: keyword-match agenda items to relevant code sections via BM25
-- 🟢 **Agenda calendar**: infer next meeting dates from past schedule → proactive reminder
-- 🟢 **PDF support**: extract text from PDF agendas/minutes
-
-### 4.4 YouTube Meeting Transcripts (✅ shipped 2026-07-23)
-- ✅ **`src/youtube_monitor.ts`**: lists `youtube.com/c/CityofCrescentCityCalifornia`, extracts auto-captions via `yt-dlp`, indexes into ChromaDB with `sourceType: "youtube_transcript"` citations distinct from municipal code.
-- 🟡 **Extractor-args maintenance**: the `player_client=android,web_safari` yt-dlp flag was empirically required 2026-07-23 to clear YouTube's current JS challenge — this WILL need revisiting as YouTube's extraction internals evolve. `extraction_failed` status is logged distinctly from `unavailable` (no captions) precisely so this regression is visible rather than silently read as "no new videos."
-- 🟢 **Backfill older meetings**: current run defaults to the 15 most recent channel videos; a one-time deeper backfill pass would need channel pagination beyond `--playlist-end`.
-- 🟢 **Cleaner transcript reconstruction**: `parseVtt`'s growing-caption collapse handles simple prefix-extension groups well but leaves some residual near-duplication on more complex caption patterns — acceptable for RAG search, not a polished human-readable transcript.
-
-### 4.5 Curation Pipeline (✅ shipped 2026-07-23)
-- ✅ **`src/curation.ts`** / `bun run curate`: LLM-summarizes + domain-tags new items across news/gov-meetings/youtube via the configured provider (Ollama default, OpenRouter opt-in). `/api/curated` + GUI "Curated Feed" tab.
-- ✅ **Triplicate excluded from curation by policy**: `gatherCurationInputs()` intentionally covers only news/gov_meetings/youtube. Triplicate metadata remains reference/citation-only and is excluded from LLM curation, embeddings, and training inputs.
-- ✅ **OpenRouter default model/cap**: default model is `inclusionai/ling-3.0-flash:free` (free tier, changed from the original `openai/gpt-4o-mini` placeholder so an unset `OPENROUTER_MODEL` never silently incurs cost), cap 100 req/run.
-- ✅ **Curation burned through the free-tier rate limit on any real batch (found + fixed 2026-07-24)**: summarizing items back-to-back with zero spacing hit OpenRouter's free-model ~20 req/min cap within seconds on anything but a tiny batch — confirmed live: a 34-item batch (fresh Triplicate + YouTube + gov-meetings items from a single verification pass) got a 429 on every item after the first. Added `llmConfig.openrouterMinRequestIntervalMs` (default 3100ms, env-overridable via `OPENROUTER_MIN_REQUEST_INTERVAL_MS`) and a conditional delay in `runCuration()`'s loop — only when `provider=openrouter`; Ollama has no external rate limit so its path is untouched.
-- 🟢 **Facebook**: deliberately not built this pass — no sanctioned automated-access path for a hobby project (ToS prohibits scraping; Graph API Page Public Content Access needs Meta App Review). Revisit only if a real content gap surfaces that no other source covers.
-
-### 4.3 Municipal Code Change Monitor
-- 🟢 **`--full-rescrape` flag**: bypass resume and re-fetch every article in the current TOC
-- 🟡 **Change notification**: webhook/email notification when municipal code changes detected
-- 🟡 **Section diff storage**: unified diff at `output/diffs/` when re-scraped section differs
-- 🟡 **ecode360 change feed**: monitor sitemap.xml or Last-Modified headers
-- 🟡 **Auto-rescrape schedule**: trigger full re-scrape when weekly-check detects changes
+- 🔴 **`?api_key=` query-param auth may leak keys into logs/URLs.** The middleware still
+  accepts `?api_key=` in addition to the `X-API-Key` header. **Why:** query strings land in
+  proxy/access logs and browser history. **Fix:** header-only auth (breaking change — needs a
+  migration note in README/OpenAPI).
+- 🟡 **`news_normalizeUrl` dedup collapses distinct paginated articles** sharing a path
+  (`src/news_monitor.ts`). **Why:** distinct items with the same canonical path are dropped
+  as duplicates. **Fix:** add a title/length secondary check to the dedup key.
+- 🟡 **`isComplexWord` capitalized-word heuristic** (`src/shared/readability.ts`) drops any
+  sentence-initial capitalized content word as a "proper noun", under-reporting Gunning-Fog
+  complexity. **Why:** published readability scores are slightly optimistic. **Fix:** use
+  sentence-position context before dropping a capitalized word.
+- 🟡 **Semantic reranking + conversation history in RAG** (`src/llm/rag.ts`): cross-encode
+  top-20 → top-5, and multi-turn context window. **Why:** answer quality on ambiguous queries.
+- 🟡 **GUI error banner + Ollama/Chroma preflight wiring** (Phase 1.2): render user-facing
+  error UI for failed `/api/*`; fail fast with actionable install instructions before
+  `bun run index`/RAG when Ollama/ChromaDB are absent.
+- 🟡 **Government meeting structure extraction** (Phase 4.2): parse HTML agendas into
+  structured agenda-item lists, and minutes into yea/nay/abstain vote records; SHA-256 change
+  detection on agenda/minutes PDFs; BM25 cross-reference of agenda items to code sections.
+- 🟡 **Notification channels** (Phase 4.3/4.1): webhook/email/Slack on code-change detection,
+  high-urgency civic keywords, or new high-severity alerts.
+- 🟡 **Change-diff storage + `--full-rescrape`** (Phase 4.3): write `output/diffs/` when a
+  re-scraped section differs; add a `--full-rescrape` flag that bypasses resume.
+- 🟡 **Alert heatmap / trends / per-type history API** (Phase 5.9): map visualization,
+  monthly trend charts, and `GET /api/alerts/:type/history?offset=&limit=` pagination.
+- 🟡 **Wildfire smoke correlation & red-flag integration** (Phase 5.6/5.7): cross-ref AQI
+  spikes vs CAL FIRE incidents; NWS fire-weather warnings for Del Norte.
+- 🟡 **`tests/browser.test.ts` + coverage gate** (Phase 11.1): Playwright error-path tests
+  (timeout/dead-page/retry) and a `bun test --coverage` floor.
+- 🟡 **Validate routes against OpenAPI in CI** (Phase 11.2): check every openapi.yaml path
+  has a handler (the reverse already exists in `scripts/validate.ts`).
+- 🟢 **/api/health rate-limit metrics** (Phase 1.1): report current per-IP usage, peak,
+  and blocked count.
 
 ---
 
-## Phase 5 — Alert System & Analytics
+## Open — Minor
 
-### 5.1 Tsunami (NOAA)
-- 🟡 **CAP polygon geometry**: parse `geometry.coordinates` → exact distance from harbor via Haversine
-- 🟡 **Evacuation route section lookup**: when tsunami alert fires, surface relevant code sections
-- 🟢 **Severity distinction**: distinguish Watch vs Warning vs Advisory more precisely
-
-### 5.2 Earthquake (USGS)
-- 🟡 **Tsunami potential scoring**: cross-reference USGS `alert` field with tsunami potential
-- 🟡 **Aftershock sequence**: detect aftershock swarms (>3 events in 24h) and summarize
-
-### 5.3 Weather (NWS)
-- 🟡 **Coastal flood advisory (CFW) parsing**: extract predicted surge height, timing, affected beaches
-- 🟡 **High wind advisory**: track sustained wind + gust values for harbor operations
-- 🟢 **Storm track overlay**: map NWS storm track to harbor exposure geometry
-
-### 5.4 Tides (NOAA)
-- 🟢 **Historical tide comparison**: compare current predictions against historical averages
-
-### 5.5 Fishing (CDFW)
-- 🟢 **Season status history**: track season opening/closing dates year over year
-
-### 5.6 Air Quality (EPA)
-- 🟢 **AQI trend chart**: GUI widget showing AQI over time
-- 🟡 **Wildfire smoke correlation**: cross-reference AQI spikes with CAL FIRE wildfire events
-
-### 5.7 Wildfire (CAL FIRE)
-- 🟡 **Red flag warning integration**: NWS fire weather warnings for Del Norte County
-- 🟢 **Incident map**: GUI widget showing incident locations on a simple map
-
-### 5.8 Marine Buoy (NDBC)
-- 🟢 **Marine conditions trend**: GUI widget showing wave/wind trends over time
-
-### 5.9 Composite & Analytics
-- ✅ **Tides + fishing never actually ran under `bun run alerts`/`alerts:all`, and the composite severity banner always ignored them (found + fixed 2026-07-24)**: `scripts/run-alerts.ts` called `m.runTidesMonitor?.()`/`m.runFishingMonitor?.()` via dynamic import — those functions never existed (the real exports are `monitorTides`/`monitorFishing`), so the optional-call silently evaluated to `undefined` every run, wrapped in an empty `.catch(() => {})` that swallowed the mismatch with zero logging. Separately, even had they run, the composite-severity calculation fed them static `{available:false}`/`{closureActive:false}` stubs rather than reading their real output. Net effect: the top-level CALM/WATCH/WARNING banner could never reflect an actual high-tide or fishery-closure condition. Fixed both — real monitors now run with proper error logging, and their live reports feed the composite calc directly. Verified live: a real 6.8 ft predicted high tide now correctly produces `"level": "WARNING", "reason": "Tides: 🔴 High tide 6.8 ft MLLW"` in `output/alerts/composite/current.json` (previously would have stayed `CALM` regardless).
-- 🟡 **Alert heatmap**: geographic visualization of alert events on a map
-- 🟡 **Alert frequency trends**: monthly chart of alert events by type
-- 🟢 **Alert sparklines**: mini trend lines per monitor in dashboard grid
-- 🟡 **`/api/alerts/:type/history`**: paginated history for a specific alert type
-
----
-
-## Phase 6 — Intelligence Domains
-
-- 🟡 **Expand Emergency domain**: add specific tsunami evacuation route section GUIDs (Title 8 + 12)
-- 🟡 **External resource validation**: verify all external URLs in domain definitions return 200
-- 🟢 **Domain summary auto-generation**: use Ollama to generate 2-paragraph summary per domain
-- 🟢 **Domain-specific dashboard tabs**: GUI tab per domain with curated sections + external refs
-
----
-
-## Phase 7 — Analytics & Reporting
-
-### 7.1 Readability
-- 🟡 **Readability trend**: compare section readability across ordinance amendment dates
-- 🟢 **Plain-language rewrite suggestions**: use Ollama to draft simplified versions of high-grade sections
-- 🟡 **Readability heatmap**: color-code TOC tree by grade level (green=plain, red=legal)
-- 🟢 **Coverage visualization**: domain coverage donut charts in analytics dashboard
-
-### 7.2 Automated Reporting
-- 🟡 **Word frequency tracking**: compare word frequency across multi-version snapshots
-- 🟡 **Section longevity**: identify oldest unmodified sections (most likely outdated)
-
-### 7.3 Visualization
-- 🟡 **Alert timeline chart**: chronological Chart.js visualization of all alert events
-- 🟡 **RAG query analytics**: frequency chart of most-queried topics from `rag-queries.jsonl`
-- 🟢 **Ordinance timeline**: visualize amendment history as a timeline chart
-
----
-
-## Phase 8 — Marine & Harbor
-
-- 🟡 **USCG coastal safety broadcasts**: Sector Humboldt Bay safety messages
-- 🟡 **Marine weather**: NOAA offshore forecast zone PZZ455 (Northern California nearshore)
-- 🟢 **Swell height**: NOAA buoy data for Station 46027 → wave height/period
-- 🟡 **PacFIN landing data**: weekly Dungeness crab and groundfish landings at port
-- 🟡 **Vessel AIS tracking**: public AIS feed for harbor entry/exit traffic
-- 🟢 **Permit cross-reference**: map harbor commission permit sections to active vessel licenses
-- 🟡 **Harbor-specific agenda parser**: dedicated parser for harbor-specific agenda format
-- 🟡 **Dredging schedule**: parse harbor dredging permit documents from USACE
-- 🟢 **Fuel price tracking**: scrape fuel dock prices for compliance with Title 13 rate schedule
-
----
-
-## Phase 9 — GUI Enhancements
-
-### 9.1 Dashboard Widgets
-- 🟡 **Air quality widget**: current AQI with color-coded severity (in intel dashboard)
-- 🟡 **Marine conditions panel**: wave height, wind, water temp from buoys (in intel dashboard)
-- 🟡 **Wildfire map**: incident locations on a simple map widget
-
-### 9.2 UI/UX Polish
-- ✅ **Nav tab clarity refactor** (2026-07-24): the old 4-button nav (Analytics / Alerts / 🧠 Intelligence / Chat) flattened 12 unrelated things — code-analysis tools, actual news/feed content, dev tooling, and a duplicate alert timeline — under one vague "Intelligence" label. Replaced with 6 clearly-scoped top-level tabs: 📖 Code, 📊 Code Analytics (Stats, Readability, Glossary, Cross-Refs, Domains, Compare, Legislative History), 📰 News & Feeds (Civic Dashboard, News Feed, Monthly Report — the actual news/meeting/YouTube content), 🚨 Alerts (8-monitor grid + timeline merged, no more duplicate), 💬 Chat, 🔌 Developer (API Explorer, Search Analytics). Also fixed two real bugs this surfaced: asymmetric overlay-closing (only 1 of 4 old buttons closed its siblings) and a hardcoded `--header-height` that didn't account for the dynamic stale-data/alert banners, making nav buttons unclickable behind an open overlay when a banner was showing. See `docs/modules/gui.md` Navigation section.
-- 🟢 **Loading skeletons**: replace spinner with skeleton loaders for section viewer
-- 🟢 **Section permalink**: copy-to-clipboard button for deep-link URL
-- 🟢 **Print view**: CSS print stylesheet for individual section printing
-- 🟢 **Bookmark sections**: local-storage bookmarks list for frequently referenced sections
-- 🟢 **Section annotation**: allow user notes attached to sections (localStorage or `output/notes/`)
-- 🟢 **Export section**: download a single section as PDF or Markdown from viewer
-- 🟢 **Readability overlay**: toggle in TOC to color-code sections by grade level
-- 🟢 **Coverage overlay**: toggle in TOC to highlight sections cross-referenced by each domain
-
-### 9.3 Performance
-- 🟢 **Virtual scroll**: TOC tree with 2,486 nodes causes DOM performance issues
-- 🟢 **Section lazy load**: load section text on-demand rather than embedding in initial page load
-
----
-
-## Phase 10 — Data Quality
-
-### 10.1 Data Integrity
-- 🟡 **Ordinal sequence check refinement**: improve gap detection accuracy
-
-### 10.2 Content Enhancement
-- 🟡 **Legal citation hyperlinking**: auto-link CA Code citations in section text
-- 🟡 **Effective date field**: parse "Amended by Ord. No. XXXX" → structured date field
-- 🟡 **Definition tooltip integration**: build glossary from Title 1 for tooltip hints in viewer
-
----
-
-## Phase 11 — Infrastructure
-
-### 11.1 Testing
-- 🟢 **`tests/browser.test.ts`**: Playwright error handling — timeout, dead page, retry
-- 🟢 **`tests/content-fixture.test.ts`**: section extraction from fixture HTML strings
-- 🟡 **Coverage gate**: `bun test --coverage` with minimum threshold (target: 60%)
-- 🟢 **NDBC parser unit test**: test `parseNdbcLine()` with fixture data
-- 🟢 **CAL FIRE fixture expansion**: add local HTTP failure/response fixtures around the existing `classifyWildfireSeverity()` coverage when the monitor parser is expanded
-
-### 11.2 OpenAPI & CI
-- 🟢 **Generate TypeScript client** from openapi.yaml using `openapi-typescript` or `orval`
-- 🟡 **Validate routes against spec**: CI check that every openapi.yaml path has a route handler
-
-### 11.3 Deployment
-- 🟡 **Health check monitoring**: `/api/health` including disk space, index status, last scrape time
-
----
-
-## Phase 12 — New Alert Monitors
-
-- 🟡 **USCG safety broadcasts**: Sector Humboldt Bay maritime safety messages
-- 🟡 **Red flag warnings**: NWS fire weather warnings for Del Norte County
-- 🟡 **Drought monitor**: US Drought Monitor data for Del Norte County
-- 🟡 **Power outage tracking**: PG&E PSPS event monitoring for Crescent City
-- 🟢 **Smoke forecast**: NOAA HRRR smoke model for wildfire smoke trajectory prediction
-- 🟢 **Road closure monitor**: Caltrans QuickMap for US-101 and US-199 closures
-- 🟢 **School closure monitor**: Del Norte Unified School District closure alerts
-
----
-
-## Phase 13 — Structured Queries & Legal Analysis
-
-- 🟡 **Ordinance timeline visualization**: chronological chart of amendment history per section
-- 🟡 **Section dependency graph**: network graph showing which sections reference which
-- 🟡 **Section lineage tracking**: trace how a section evolved through ordinance amendments
-- 🟡 **Legal citation hyperlinking**: auto-link detected citations in section text to external sources
-- 🟡 **California Code cross-linking**: link CA Code citations to leginfo.legislature.ca.gov
-- 🟡 **Federal law cross-linking**: link U.S.C. citations to uscode.house.gov
-- 🟢 **Ordinance chronology**: build a timeline of all ordinance amendments across the entire code
-
----
-
-## Phase 14 — Documentation
-
-- 🟢 **`docs/api-reference.md`**: add all v2 exported functions and interfaces
-- 🟢 **`docs/modules/gui.md`**: add alerts dashboard, streaming chat, fuzzy search, intel dashboard
-- 🟢 **`docs/modules/llm.md`**: add streaming_rag.ts, incremental indexing, chat history, adaptive topK
-- 🟢 **`docs/modules/shared.md`**: add fuzzy.ts, readability.ts (Gunning Fog)
-- 🟢 **`docs/modules/domains.md`**: add 3 new domains (Climate, Demographics, Public Health)
-- 🟢 **`docs/modules/monitoring.md`**: add monthly_report.ts v2 sections + diff report + snapshots
-
----
-
-_Last updated: 2026-08-01 (deepest hostile red-team review) · v2.5.1 · run `bun run validate` for current test and contract counts_
+- 🟢 **CDFW bulletin `date` is always today + placeholder content** (`src/alerts/cdfw_fishing.ts`):
+  the SQL-regex parse stamps every `FishingBulletin.date` with the fetch date and
+  `content` with `CDFW bulletin: <title>`; only counts are consumed today, but the persisted
+  record misrepresents publish date. **Fix:** extract the real bulletin date from the CDFW
+  page (or mark `date` unknown when unparseable), and fetch real bulletin text.
+- 🟢 **`buildCompositeInput` tides/fishing `available` is not freshness-gated**
+  (`src/alerts/composite.ts`): unlike air/wildfire/marine it uses `!!report` only. Harmless
+  through the orchestrator (always a fresh report) but inconsistent for direct callers.
+- 🟢 **`.claude/` is untracked** (pre-existing, not mine): decide whether to commit or ignore.
+- 🟢 **`sanitizeFilename` can yield `.`/`..`** (`src/utils.ts`) for pathological input; used
+  in export paths. Low risk (real chapter numbers are safe) — add an empty/`.` guard.
+- 🟢 **`extractSnippet`/`truncateText` edge polish** and **physical roadmap items already
+  listed in earlier phases** (Phase 2: debounce, dependency graph, definition tooltips,
+  cross-ref hyperlinking; Phase 7: readability trend/heatmap, plain-language rewrite, word
+  frequency tracking, section longevity, alert timeline chart, RAG query analytics,
+  ordinance timeline; Phase 8: USCG broadcasts, PZZ455 marine forecast, swell height, PacFIN
+  landings, AIS traffic, permit cross-ref, harbor agenda parser, dredging schedule, fuel
+  price; Phase 9: AQ widget, marine panel, wildfire map, virtual scroll, lazy load, annotation,
+  readability/coverage overlays; Phase 10: ordinal-sequence refinement, legal-citation and
+  CA/US cross-linking, effective-date field; Phase 12: USCG broadcasts, red-flag warnings,
+  drought monitor, PSPS, smoke forecast, road closures, school closures; Phase 13: ordinance
+  chronology/lineage, section dependency graph, citation hyperlinks; Phase 14: remaining
+  docs/modules pages for analytics, monitoring, and structured-query surfaces).

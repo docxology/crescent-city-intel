@@ -19,7 +19,7 @@ readability scoring.
 | `paths.ts` | Centralized `paths` object with all output file/dir paths | `tests/shared-paths.test.ts` |
 | `data.ts` | Async data loaders: `loadToc()`, `loadManifest()`, `loadArticle()`, `loadAllArticles()`, `loadAllSections()`, `loadSection()`, `loadMonitorReport()`, `hasScrapedData()` | `tests/shared-data.test.ts` |
 | `porter_stem.ts` | Zero-dep Porter stemmer (Steps 1a-5b) for BM25 indexing | (tested via `tests/search.test.ts`) |
-| `readability.ts` | Flesch-Kincaid Grade Level + Reading Ease + Gunning Fog Index | `tests/readability-gunning-fog.test.ts`, `tests/content.test.ts` |
+| `readability.ts` | Flesch-Kincaid Grade Level + Reading Ease + Gunning Fog Index | `tests/readability-gunning-fog.test.ts`, `tests/content-fixture.test.ts` |
 | `fuzzy.ts` | Levenshtein edit distance, similarity ratio, typo correction, query expansion | `tests/fuzzy.test.ts` |
 
 ## Public API

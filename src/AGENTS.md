@@ -21,7 +21,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 |---|---|---|
 | `browser.ts` | Yes (Playwright) | No (requires browser) |
 | `constants.ts` | No | `tests/constants.test.ts`, `tests/constants-extended.test.ts` |
-| `content.ts` | Yes (network) | `tests/content.test.ts` |
+| `content.ts` | Yes (network) | `tests/content-fixture.test.ts` |
 | `domains.ts` | No | `tests/domains.test.ts`, `tests/domains-extended.test.ts` |
 | `export.ts` | Yes (filesystem) | `tests/export.test.ts` |
 | `pages_snapshot.ts` | Yes (filesystem; static public export) | `tests/pages_snapshot.test.ts` |

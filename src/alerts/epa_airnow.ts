@@ -20,7 +20,7 @@ import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } fr
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { DOMParser } from "@xmldom/xmldom";
-import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from "../shared/source_health.js";
 
 const logger = createLogger("epa_airnow_alert");
 
@@ -97,7 +97,7 @@ function appendHistory(report: AirQualityReport): void {
     mkdirSync(HISTORY_DIR, { recursive: true });
     const id = `${report.zipCode}-${report.timestamp}`;
     const record = JSON.stringify({ id, ...report });
-    appendFileSync(HISTORY_FILE, record + "\n", "utf-8");
+    appendBoundedJsonlSync(HISTORY_FILE, record);
   } catch (err) {
     logger.warn("Failed to append air quality history", { error: String(err) });
   }

@@ -329,8 +329,18 @@ describe("sanitizeFilename", () => {
     expect(sanitizeFilename(long)).toHaveLength(80);
   });
 
-  test("handles empty string", () => {
-    expect(sanitizeFilename("")).toBe("");
+  test("handles empty string with a safe token (never an unusable filename)", () => {
+    expect(sanitizeFilename("")).toBe("_");
+  });
+
+  test("never yields '.' or '..' (path-traversal/empty guard)", () => {
+    expect(sanitizeFilename(".")).toBe("_");
+    expect(sanitizeFilename("..")).toBe("_");
+    expect(sanitizeFilename("//")).toBe("_"); // strips to empty then substitutes
+  });
+
+  test("keeps leading letters that contain dots intact", () => {
+    expect(sanitizeFilename("8.04.010")).toBe("8.04.010");
   });
 });
 

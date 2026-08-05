@@ -71,3 +71,36 @@ describe("buildCompositeInput — marine prefers the primary buoy 46027", () => 
     expect(input.marine.available).toBe(true);
   });
 });
+
+describe("buildCompositeInput — tides/fishing availability freshness", () => {
+  test("a stale tides report is treated as unavailable (freshness-gated)", () => {
+    const stale = {
+      fetchedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      waterLevel: { v: "6.5" },
+      maxPredictedLevel: 6.5,
+    };
+    const input = buildCompositeInput({
+      tsunami: null, earthquake: null, weather: null, airquality: null, marine: null, wildfire: null,
+      fishingReport: null,
+      tidesReport: stale as never,
+    });
+    expect(input.tides.available).toBe(false);
+    // Even though a water level is present, a stale snapshot must not elevate.
+    expect(input.tides.waterLevelFt).toBe(6.5);
+  });
+
+  test("a fresh tides report is available", () => {
+    const fresh = {
+      fetchedAt: new Date().toISOString(),
+      waterLevel: { v: "4.2" },
+      maxPredictedLevel: 7.2,
+    };
+    const input = buildCompositeInput({
+      tsunami: null, earthquake: null, weather: null, airquality: null, marine: null, wildfire: null,
+      fishingReport: null,
+      tidesReport: fresh as never,
+    });
+    expect(input.tides.available).toBe(true);
+    expect(input.tides.waterLevelFt).toBe(4.2);
+  });
+});

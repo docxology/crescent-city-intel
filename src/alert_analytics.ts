@@ -16,8 +16,8 @@ import { createLogger } from "./logger.js";
 
 const log = createLogger("alert_analytics");
 
-const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"] as const;
-type AlertType = typeof ALERT_TYPES[number];
+export const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"] as const;
+export type AlertType = typeof ALERT_TYPES[number];
 
 interface AlertHistoryRecord {
   id?: string;

@@ -13,10 +13,10 @@
  * Output: output/tides/tides-<timestamp>.json
  */
 import { createLogger } from "../logger.js";
-import { mkdir, writeFile, readFile, appendFile } from "fs/promises";
+import { mkdir, writeFile, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
-import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, appendBoundedJsonl } from "../shared/source_health.js";
 
 const logger = createLogger("noaa-tides");
 
@@ -210,13 +210,13 @@ export async function monitorTides(): Promise<TideReport> {
 
   // Append one-line to history (solely from the report; level mirrors severity.ts
   // so the analytics timeline shows a meaningful severity, not the default CALM).
-  await appendFile(TIDES_HISTORY_PATH, JSON.stringify({
+  await appendBoundedJsonl(TIDES_HISTORY_PATH, {
     fetchedAt: report.fetchedAt,
     maxPredictedLevel: maxPredicted,
     highTideAlert,
     level: highTideAlert ? "WARNING" : "CALM",
     summary,
-  }) + "\n");
+  });
 
   logger.info(`Tide report saved: ${outPath}`);
   logger.info("=== NOAA Tides Monitor Complete ===");

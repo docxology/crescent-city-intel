@@ -141,6 +141,8 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const airquality = periodItems('Air-quality history', readJsonl(join(process.cwd(), 'output', 'alerts', 'airquality', 'history.jsonl')));
   const wildfire = periodItems('Wildfire history', readJsonl(join(process.cwd(), 'output', 'alerts', 'wildfire', 'history.jsonl')));
   const marine = periodItems('Marine history', readJsonl(join(process.cwd(), 'output', 'alerts', 'marine', 'history.jsonl')));
+  const tides = periodItems('Tide history', readJsonl(join(process.cwd(), 'output', 'tides', 'history.jsonl')));
+  const fishing = periodItems('Fishing history', readJsonl(join(process.cwd(), 'output', 'fishing', 'history.jsonl')));
 
   const newsItems = readBatchItems(paths.news, month, item => isActiveNewsSource(item?.source));
   const meetingItems = readBatchItems(paths.govMeetings, month);
@@ -317,6 +319,30 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
     lines.push(`- **Marine advisories issued**: ${advisories.length}`);
   } else {
     lines.push('_No marine buoy readings recorded this month._');
+  }
+  lines.push('');
+
+  // Tides
+  lines.push(`### 🌊 Tides (${tides.length} readings this month)`);
+  if (tides.length > 0) {
+    const peak = tides.reduce((best, t) => Math.max(best, Number(t.maxPredictedLevel) || 0), 0);
+    const highTideAlerts = tides.filter(t => t.highTideAlert === true || t.level === 'WARNING').length;
+    lines.push(`- **Peak predicted level**: ${peak > 0 ? peak.toFixed(1) + ' ft MLLW' : 'no data'}`);
+    lines.push(`- **High-tide alert days (≥7.0 ft MLLW surge)**: ${highTideAlerts}`);
+  } else {
+    lines.push('_No tide readings recorded this month._');
+  }
+  lines.push('');
+
+  // Fishing
+  lines.push(`### 🦀 Dungeness Crab Season (${fishing.length} reports this month)`);
+  if (fishing.length > 0) {
+    const closureReports = fishing.filter(f => f.level === 'WATCH' || f.crabCommercialOpen === false || f.crabRecreationalOpen === false);
+    lines.push(`- **Closure/watch reports**: ${closureReports.length}`);
+    const latest = fishing[fishing.length - 1];
+    lines.push(`- **Latest status**: ${latest?.summary ?? '–'}`);
+  } else {
+    lines.push('_No fishing monitor reports recorded this month._');
   }
   lines.push('');
 

@@ -13,9 +13,9 @@
  * Output: output/fishing/fishing-<timestamp>.json
  */
 import { createLogger } from "../logger.js";
-import { mkdir, writeFile, appendFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, appendBoundedJsonl } from "../shared/source_health.js";
 
 const logger = createLogger("cdfw-fishing");
 
@@ -102,10 +102,22 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
         lowerTitle.includes("district 3") ||
         lowerTitle.includes("crescent city")
       ) {
+        // The anchor/link sometimes carries a publish date (YYYY-MM-DD or
+        // MM/DD/YYYY). Extract it if present rather than stamping every bulletin
+        // with today's date (the prior behavior misrepresented publish date).
+        // When no date is parseable, leave it empty (honest "unknown") — the
+        // caller should not invent one. `content` stays a title-derived stub;
+        // fetching the bulletin body requires following each link (deferred).
+        const dateMatch = `${href} ${title}`.match(/(\d{4})-(\d{2})-(\d{2})|(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        const date = dateMatch
+          ? (dateMatch[1]
+              ? `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`
+              : `${dateMatch[6]}-${String(dateMatch[4]).padStart(2, "0")}-${String(dateMatch[5]).padStart(2, "0")}`)
+          : "";
         bulletins.push({
           fetchedAt: new Date().toISOString(),
           title,
-          date: new Date().toISOString().split("T")[0],
+          date,
           content: `CDFW bulletin: ${title}`,
           url: fullUrl,
         });
@@ -195,13 +207,13 @@ export async function monitorFishing(): Promise<FishingReport> {
   // Append a one-line history record so the fishing monitor appears in the
   // unified alert timeline/analytics (it previously wrote no history file at all).
   const closureActive = !report.crabStatus.commercialOpen || !report.crabStatus.recreationalOpen;
-  await appendFile(FISHING_HISTORY_PATH, JSON.stringify({
+  await appendBoundedJsonl(FISHING_HISTORY_PATH, {
     fetchedAt: report.fetchedAt,
     crabCommercialOpen: report.crabStatus.commercialOpen,
     crabRecreationalOpen: report.crabStatus.recreationalOpen,
     level: closureActive ? "WATCH" : "CALM",
     summary,
-  }) + "\n");
+  });
 
   logger.info(summary);
   logger.info(`Fishing report saved: ${outPath}`);

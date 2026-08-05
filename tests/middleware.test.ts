@@ -160,3 +160,35 @@ describe("middleware — resolveIp", () => {
     expect(resolveIp(req, undefined)).toBe("unknown");
   });
 });
+
+describe("middleware — header-only API key auth", () => {
+  test("a VALID key sent via ?api_key= query parameter is REJECTED (header-only)", async () => {
+    const { applyMiddleware, getPrimaryApiKey } = await import("../src/api/middleware.ts");
+    // Real valid key, but in the query string with no header; public socket IP so
+    // the local bypass does not short-circuit before auth.
+    const req = new Request("http://localhost:3000/api/chat?" + new URLSearchParams({ api_key: getPrimaryApiKey() }), {
+      method: "GET",
+    });
+    const result = await applyMiddleware(req, "203.0.113.42");
+    expect(result).not.toBeNull();
+    expect(result!.status).toBe(401);
+  });
+
+  test("the 401 message advertises the X-API-Key header only", async () => {
+    const { applyMiddleware } = await import("../src/api/middleware.ts");
+    const req = new Request("http://localhost:3000/api/chat", { method: "GET" });
+    const result = await applyMiddleware(req, "203.0.113.42")!;
+    const body = await result!.json();
+    expect(body.message).toContain("X-API-Key header");
+    expect((body.message as string).toLowerCase()).not.toContain("query");
+  });
+
+  test("a valid X-API-Key header still authenticates", async () => {
+    const { applyMiddleware, getPrimaryApiKey } = await import("../src/api/middleware.ts");
+    const req = new Request("http://localhost:3000/api/chat", {
+      headers: { "x-api-key": getPrimaryApiKey() },
+    });
+    const result = await applyMiddleware(req, "198.51.100.7");
+    expect(result).toBeNull();
+  });
+});

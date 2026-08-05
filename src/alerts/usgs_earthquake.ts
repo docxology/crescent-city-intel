@@ -10,7 +10,7 @@ import { createLogger } from '../logger.js';
 import { appendFileSync, existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from '../shared/source_health.js';
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from '../shared/source_health.js';
 
 const logger = createLogger('usgs_earthquake_alert');
 
@@ -237,7 +237,7 @@ function appendEarthquakeHistory(earthquake: any, alertLevel: string): void {
       time: new Date(earthquake.time).toISOString(),
       fetchedAt: new Date().toISOString(),
     });
-    appendFileSync(HISTORY_FILE, record + '\n', 'utf-8');
+    appendBoundedJsonlSync(HISTORY_FILE, record);
   } catch (err) {
     logger.warn('Failed to append earthquake history', { error: String(err) });
   }

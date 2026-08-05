@@ -153,10 +153,15 @@ export function csvEscape(val: string): string {
 
 /** Sanitize a string for use as a filename (replaces non-alphanumeric, max 80 chars) */
 export function sanitizeFilename(name: string): string {
-  return name
+  const cleaned = name
     .replace(/[^a-zA-Z0-9._-]/g, "_")
     .replace(/_+/g, "_")
     .substring(0, 80);
+  // Guard against empty or dot/dot-dot results (pathological input): these
+  // would yield an unusable or path-escaping filename when used in export/mkdir
+  // paths. Substitute a safe token instead of returning "" / "." / "..".
+  if (cleaned === "" || cleaned === "." || cleaned === "..") return "_";
+  return cleaned;
 }
 
 // ─── Async helpers ───────────────────────────────────────────────

@@ -1,6 +1,16 @@
-import { mkdir, rename, open } from "fs/promises";
+import { mkdir, rename, open, appendFile, readFile } from "fs/promises";
 import { dirname } from "path";
+import { appendFileSync, readFileSync, writeFileSync, renameSync } from "fs";
 import type { SourceHealth, SourceHealthStatus, SourceHealthSummary } from "../types.js";
+
+/**
+ * Default cap for the on-disk JSONL history files (alert history.jsonl, etc).
+ * Without a cap these files grew without bound and were fully re-read every
+ * run (R7). Runs are bounded, but a long-lived deployment still accumulates one
+ * line per run/event; this tail-trim keeps the file bounded while preserving
+ * the most-recent records that analytics actually reads.
+ */
+export const JSONL_HISTORY_MAX_LINES = 10_000;
 
 function positiveEnvNumber(name: string, fallback: number): number {
   const value = Number(process.env[name] ?? fallback);
@@ -159,4 +169,57 @@ export async function writeTextAtomic(path: string, value: string): Promise<void
 
 export function isIsoTimestamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function boundedTail(lines: string[], maxLines: number): string {
+  const trimmed = lines.filter(Boolean);
+  return trimmed.slice(-maxLines).join("\n") + "\n";
+}
+
+function toJsonLine(record: string | unknown): string {
+  return (typeof record === "string" ? record : JSON.stringify(record)) + "\n";
+}
+
+/** Async bounded JSONL appender: appends one record and, when the file
+ * exceeds `maxLines`, atomically trims it to the most-recent tail. */
+export async function appendBoundedJsonl(
+  path: string,
+  record: string | unknown,
+  maxLines = JSONL_HISTORY_MAX_LINES,
+): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await appendFile(path, toJsonLine(record));
+  try {
+    // Plain line-count bound: appends are low-frequency (a new alert/resolution),
+    // so re-reading to enforce the cap every append is cheap next to the months
+    // of unbounded growth this replaces (R7).
+    const lines = (await readFile(path, "utf-8")).split("\n");
+    if (lines.filter(Boolean).length > maxLines) {
+      await writeTextAtomic(path, boundedTail(lines, maxLines));
+    }
+  } catch {
+    // A failed trim must never break an alert run; the file just stays unbounded.
+  }
+}
+
+/** Synchronous bounded JSONL appender for monitors that persist with fs sync
+ * APIs. Same cap/tail semantics as appendBoundedJsonl. */
+export function appendBoundedJsonlSync(
+  path: string,
+  record: string | unknown,
+  maxLines = JSONL_HISTORY_MAX_LINES,
+): void {
+  appendFileSync(path, toJsonLine(record));
+  try {
+    const lines = readFileSync(path, "utf-8").split("\n");
+    if (lines.filter(Boolean).length > maxLines) {
+      // Synchronous crash-safe trim: temp file + rename, so a partial write
+      // cannot corrupt the live history under the real path.
+      const tmp = `${path}.${process.pid}.${Date.now()}.trim`;
+      writeFileSync(tmp, boundedTail(lines, maxLines));
+      renameSync(tmp, path);
+    }
+  } catch {
+    // non-fatal
+  }
 }

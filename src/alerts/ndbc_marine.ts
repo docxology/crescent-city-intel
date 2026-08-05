@@ -23,7 +23,7 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from "../shared/source_health.js";
 
 const logger = createLogger("ndbc_marine_alert");
 
@@ -108,7 +108,7 @@ function appendHistory(obs: BuoyObservation): void {
     mkdirSync(HISTORY_DIR, { recursive: true });
     const id = `${obs.stationId}-${obs.timestamp}`;
     const record = JSON.stringify({ id, ...obs, fetchedAt: new Date().toISOString() });
-    appendFileSync(HISTORY_FILE, record + "\n", "utf-8");
+    appendBoundedJsonlSync(HISTORY_FILE, record);
   } catch (err) {
     logger.warn("Failed to append marine history", { error: String(err) });
   }

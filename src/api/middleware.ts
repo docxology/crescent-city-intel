@@ -92,6 +92,9 @@ export function getPrimaryApiKey(): string {
 /** Map of IP → sorted array of request timestamps within the current window. */
 const rateLimitStore = new Map<string, number[]>();
 
+/** Lifetime count of 429 responses returned (reset on process restart). */
+let rateLimitBlockedCount = 0;
+
 /** Clean up stale IP entries every 5 minutes to prevent unbounded memory growth.
  * Entries with only expired timestamps are removed entirely. */
 setInterval(() => {
@@ -252,6 +255,7 @@ export function rateLimitMiddleware() {
     const remaining = Math.max(0, limit - count);
 
     if (count > limit) {
+      rateLimitBlockedCount += 1;
       const retryAfter = retryAfterSeconds(ip, now);
       logger.warn(`Rate limit exceeded for ${ip} on ${path}`, { count, limit, retryAfter });
       return new Response(
@@ -288,14 +292,15 @@ export function apiKeyMiddleware() {
     const path = new URL(req.url).pathname;
     if (PUBLIC_PATHS.some(p => path.startsWith(p))) return null;
 
-    const apiKey =
-      req.headers.get("x-api-key") ??
-      new URL(req.url).searchParams.get("api_key");
+    // Header-only auth. The prior `?api_key=` query-parameter fallback leaked
+    // credentials into proxy/access logs and browser history, so it is no
+    // longer accepted (header-only is also what the GUI's apiFetch() sends).
+    const apiKey = req.headers.get("x-api-key");
 
     if (!apiKey) {
       logger.warn(`Missing API key for ${path}`);
       return new Response(
-        JSON.stringify({ error: "API key required", message: "Provide key via X-API-Key header or api_key param" }),
+        JSON.stringify({ error: "API key required", message: "Provide key via the X-API-Key header" }),
         { status: 401, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
       );
     }
@@ -358,7 +363,28 @@ export function _getNow(): number {
   return _injectedNow ?? Date.now();
 }
 
+/**
+ * Live rate-limiter diagnostics for /api/health and operational dashboards.
+ * `peakUsage` is the largest per-IP window count currently tracked;
+ * `blocked` counts 429s returned since process start.
+ */
+export interface RateLimitStats {
+  trackedIps: number;
+  peakUsage: number;
+  blocked: number;
+}
+
+export function getRateLimitStats(): RateLimitStats {
+  let peakUsage = 0;
+  for (const timestamps of rateLimitStore.values()) {
+    if (timestamps.length > peakUsage) peakUsage = timestamps.length;
+  }
+  return { trackedIps: rateLimitStore.size, peakUsage, blocked: rateLimitBlockedCount };
+}
+
 export const _testHooks = {
+  /** Reset the blocked-429 counter (test isolation). */
+  resetBlockedCount(): void { rateLimitBlockedCount = 0; },
   /** Override the clock used for rate-limit timestamps */
   setNow(ts: number): void { _injectedNow = ts; },
   /** Clear clock override — use real Date.now() again */

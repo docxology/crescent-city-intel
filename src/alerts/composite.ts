@@ -101,8 +101,13 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
   const wildfireR = asRecord(wildfire);
   const marineR = asRecord(marine);
 
-  const tides = buildTidesInput(tidesReport);
-  const fishing = buildFishingInput(fishingReport);
+  const tidesInput = buildTidesInput(tidesReport);
+  const fishingInput = buildFishingInput(fishingReport);
+  // Availability is freshness-gated here (consistent with air/wildfire/marine):
+  // a stale snapshot must not be presented as a current reading. The orchestrator
+  // always passes a just-generated report, so `now` defaults to Date.now().
+  const tides = { ...tidesInput, available: tidesInput.available && isFreshReport(tidesReport, now) };
+  const fishing = { ...fishingInput, available: fishingInput.available && isFreshReport(fishingReport, now) };
 
   // Tsunami: read the monitor's OWN threatLevel (warning/watch/advisory),
   // NOT the CAP `severity` enum (Minor/Moderate/Severe/Extreme).

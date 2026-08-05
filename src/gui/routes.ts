@@ -977,6 +977,9 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
     health.sourceCoverage = summarizeSourceHealth(completeHealth);
 
+    const { getRateLimitStats } = await import("../api/middleware.js");
+    health.rateLimit = getRateLimitStats();
+
     return json(health);
   }
 
@@ -1230,6 +1233,25 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ original: q, expanded: result.query, corrections: result.corrections });
     } catch (err: any) {
       return json({ error: `Fuzzy search failed: ${err.message}` }, 500);
+    }
+  }
+
+  // GET /api/alerts/:type/history?limit=&offset= — paginated history for one alert type
+  const alertHistoryMatch = path.match(/^\/api\/alerts\/([a-z]+)\/history$/);
+  if (alertHistoryMatch) {
+    const { getAlertsByType, ALERT_TYPES } = await import("../alert_analytics.js");
+    const type = alertHistoryMatch[1] as import("../alert_analytics.js").AlertType;
+    if (!ALERT_TYPES.includes(type)) {
+      return json({ error: `Unknown alert type "${type}"` }, 400);
+    }
+    try {
+      const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
+      const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
+      const typed = getAlertsByType(type);
+      const page = typed.slice(offset, offset + limit);
+      return json({ type, total: typed.length, offset, limit, count: page.length, alerts: page });
+    } catch (err: any) {
+      return json({ error: `Alert history failed: ${err.message}` }, 500);
     }
   }
 

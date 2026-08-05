@@ -36,10 +36,16 @@ function syllableCount(word: string): number {
  * 3+ syllables, not a common suffix form (-ing, -es, -ed with 3+ syllables after stripping).
  * Also excludes proper nouns (words starting with uppercase in the original).
  */
-function isComplexWord(word: string): boolean {
+function isComplexWord(word: string, isSentenceInitial = false): boolean {
   if (word.length === 0) return false;
-  // Exclude proper nouns heuristic (capitalized mid-sentence)
-  if (word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase()) return false;
+  const isCapitalized = word[0] === word[0].toUpperCase() && word[0] !== word[0].toLowerCase();
+  // Proper-noun heuristic: a capitalized word is usually a proper noun (not a
+  // complex word). BUT a sentence-initial word is capitalized for grammatical
+  // reasons — dropping it here under-reports complexity for polysyllabic
+  // content words like "Notwithstanding"/"Municipal" that legitimately start a
+  // sentence (TODO flagged this; see computeReadability for the caller that
+  // supplies sentence-initial context).
+  if (isCapitalized && !isSentenceInitial) return false;
   const syls = syllableCount(word);
   if (syls < 3) return false;
   // Exclude common suffix forms that inflate complexity
@@ -123,8 +129,16 @@ export function computeReadability(text: string): ReadabilityScore | null {
   const gradeLevel = Math.round((0.39 * ASL + 11.8 * ASW - 15.59) * 10) / 10;
   const readingEase = Math.round((206.835 - 1.015 * ASL - 84.6 * ASW) * 10) / 10;
 
+  // The first alphabetic token of every sentence is sentence-initial — its
+  // capitalization is grammatical, so it must not be treated as a proper noun.
+  const sentenceInitialWords = new Set<string>();
+  for (const sentence of sentences) {
+    const first = (sentence.match(/\b[a-zA-Z]+\b/) ?? [])[0];
+    if (first) sentenceInitialWords.add(first.toLowerCase());
+  }
+
   // Gunning Fog Index: 0.4 * (ASL + %complex_words)
-  const complexCount = words.filter(isComplexWord).length;
+  const complexCount = words.filter((w) => isComplexWord(w, sentenceInitialWords.has(w.toLowerCase()))).length;
   const complexWordPct = (complexCount / words.length) * 100;
   const gunningFog = Math.round((0.4 * (ASL + complexWordPct)) * 10) / 10;
 

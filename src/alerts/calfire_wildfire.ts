@@ -18,7 +18,7 @@ import { createLogger } from "../logger.js";
 import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "../shared/source_health.js";
+import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from "../shared/source_health.js";
 
 const logger = createLogger("calfire_wildfire_alert");
 
@@ -99,7 +99,7 @@ function appendHistory(incident: WildfireIncident): void {
   try {
     mkdirSync(HISTORY_DIR, { recursive: true });
     const record = JSON.stringify({ ...incident, fetchedAt: new Date().toISOString() });
-    appendFileSync(HISTORY_FILE, record + "\n", "utf-8");
+    appendBoundedJsonlSync(HISTORY_FILE, record);
   } catch (err) {
     logger.warn("Failed to append wildfire history", { error: String(err) });
   }

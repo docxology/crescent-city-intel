@@ -82,6 +82,18 @@ export function normalizeUrl(url: string): string {
   }
 }
 
+/**
+ * Build the persistent dedup key for a news item: the normalized URL plus the
+ * normalized title. A URL-only key (prior behavior) collapsed distinct
+ * paginated items that share a canonical path; the title qualifier keeps
+ * genuinely different articles while still de-duplicating the same article
+ * surfaced from multiple feeds. Pure — exported so the unit test can lock the
+ * contract (including tracking-param stripping) without a network fetch.
+ */
+export function dedupKey(url: string, title: string): string {
+  return `${normalizeUrl(url)}|${title.trim().toLowerCase()}`;
+}
+
 /** Keywords triggering inclusion — case-insensitive substring match */
 const CRESCENT_CITY_KEYWORDS = [
   'crescent city',
@@ -400,7 +412,13 @@ export async function monitorNews(
         if (!effectiveKeywords.some(kw => haystack.includes(kw))) continue;
       }
 
-      const key = normalizeUrl(item.link);
+      // Dedup key = normalized URL + normalized title. A bare URL key (the prior
+      // behavior) collapsed distinct paginated items that share a path; including
+      // the title keeps genuinely different articles while still de-duplicating the
+      // same article surfacing from multiple feeds / the same canonical path.
+      // (Legacy URL-only keys in the persisted store simply stop matching; those
+      // items may be re-surfaced once after upgrade — a harmless one-time cost.)
+      const key = dedupKey(item.link, item.title);
       const { isNew } = options.noDedup ? { isNew: true } : idempotency.seen(key); // presence-only dedup, cross-source + cross-run
       if (!isNew) continue;
       newCount++;

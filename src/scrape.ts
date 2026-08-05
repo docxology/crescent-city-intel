@@ -100,6 +100,9 @@ async function main() {
       .catch(() => null)
     : null;
   const cachedOnly = Bun.argv.includes("--cached-toc");
+  // Bypass the resume cache and re-fetch every article in the current TOC,
+  // even when an existing article file still matches its manifest hash.
+  const fullRescrape = Bun.argv.includes("--full-rescrape");
   let tocSource: "live" | "cached" = "live";
   if (cachedOnly) {
     if (!cachedToc) throw new Error("--cached-toc requested, but output/toc.json is absent or invalid");
@@ -188,7 +191,7 @@ async function main() {
 
   for (const article of articles) {
     processed++;
-    if (await readCachedArticleIfValid(article, manifest)) {
+    if (!fullRescrape && await readCachedArticleIfValid(article, manifest)) {
       skipped++;
       log.info(`[${processed}/${articles.length}] Cached and verified: ${article.indexNum} ${article.title}`);
       continue;

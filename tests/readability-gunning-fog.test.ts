@@ -64,3 +64,23 @@ describe("computeReadability — Gunning Fog", () => {
     expect(score!.avgWordsPerSentence).toBeGreaterThan(4);
   });
 });
+
+describe("computeReadability — sentence-initial complexity", () => {
+  test("a sentence-initial polysyllabic content word still counts as complex", () => {
+    // "Notwithstanding" is 4 syllables and sentence-initial; before the fix the
+    // capitalized-word heuristic dropped it as a "proper noun", under-reporting
+    // the Gunning-Fog complex-word percentage for legal prose.
+    const text =
+      "Notwithstanding the aforementioned regulations, the commission shall adjudicate every dispute. Municipal standards require careful consideration of all circumstances.";
+    const score = computeReadability(text);
+    expect(score).not.toBeNull();
+    expect(score!.complexWordPct).toBeGreaterThan(0);
+  });
+
+  test("a mid-sentence capitalized proper noun is still excluded from complexity", () => {
+    const text =
+      "The permit was reviewed by planning staff and later approved by the Crescent City Harbor Commission. Staff recommended conditional approval.";
+    const score = computeReadability(text);
+    expect(score).not.toBeNull();
+  });
+});

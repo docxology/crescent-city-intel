@@ -81,6 +81,7 @@ const parameterizedRoutes: Array<[string, string]> = [
   ["/api/history/{guid}", "path.match(/^\\/api\\/history\\/"],
   ["/api/similar/{guid}", "path.match(/^\\/api\\/similar\\/"],
   ["/api/citations/{guid}", "path.match(/^\\/api\\/citations\\/"],
+  ["/api/alerts/{type}/history", "path.match(/^\\/api\\/alerts\\/"],
 ];
 for (const [route, matcher] of parameterizedRoutes) {
   if (!routeSource.includes(matcher)) throw new Error(`OpenAPI route matcher missing in implementation: ${route}`);

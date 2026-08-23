@@ -142,6 +142,26 @@ describe("GET /api/sections", () => {
   });
 });
 
+describe("GET /api/geo-intel", () => {
+  test("returns 200 with the v1 contract and a map-ready feature view", async () => {
+    const res = await fetch(`${BASE}/api/geo-intel`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("application/json");
+    const body = await res.json() as {
+      schema: string;
+      anchor: { latitude: number; longitude: number };
+      view: { schema: string; crs: { properties: { name: string } }; features: unknown[]; sections: unknown[] };
+    };
+    expect(body.schema).toBe("crescent-city-geo-intel/v1");
+    expect(body.anchor.latitude).toBeCloseTo(41.76, 1);
+    expect(body.anchor.longitude).toBeCloseTo(-124.2, 1);
+    expect(body.view.schema).toBe("crescent-city-geo-view/v1");
+    expect(body.view.crs.properties.name).toBe("EPSG:4326");
+    expect(body.view.features.length).toBeGreaterThan(2); // bounds + anchor + hazard point(s)
+    expect(body.view.sections.length).toBeGreaterThan(0);
+  });
+});
+
 describe("Content-Type headers", () => {
   test("/api/health returns application/json", async () => {
     const res = await fetch(`${BASE}/api/health`);

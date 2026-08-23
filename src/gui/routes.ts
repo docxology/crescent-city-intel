@@ -8,6 +8,9 @@ import { paths } from "../shared/paths.js";
 import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, summarizeSourceHealth } from "../shared/source_health.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
 import { buildAnalyticsOverview, readAnalyticsOverview } from "../analytics_backend.js";
+import { domains } from "../domains.js";
+import { buildGeoIntel } from "../geo.js";
+import { buildGeoView } from "../geo_view.js";
 
 const log = createLogger("routes");
 
@@ -466,6 +469,20 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   if (path === "/api/domains") {
     const { getDomainSummaries } = await import("../domains.js");
     return json(getDomainSummaries());
+  }
+
+  // GET /api/geo-intel — Crescent City civic + hazard geo-intel contract and
+  // its map-ready feature view. Built purely from the in-repo 12-domain surface
+  // (no output/ or scraper run required), so it is always available and
+  // deterministic. The `view` field is `buildGeoView` output: a Del Norte
+  // bounds polygon + city anchor + one point per hazard-relevant domain +
+  // aggregated municipal-code section refs — renderable without a tiles provider.
+  if (path === "/api/geo-intel") {
+    const contract = buildGeoIntel(domains);
+    return json({
+      ...contract,
+      view: buildGeoView(contract),
+    });
   }
 
   // GET /api/domain/:id — get a specific domain with all topics

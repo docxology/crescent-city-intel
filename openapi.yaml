@@ -419,6 +419,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/geo-intel:
+    get:
+      summary: Get the Crescent City civic + hazard geo-intel contract and map view
+      description: Returns the Crescent City geo-intel contract (schema crescent-city-geo-intel/v1) and a map-ready feature view (schema crescent-city-geo-view/v1) — a Del Norte County bounds polygon, the city anchor point, one point per hazard-relevant civic domain, hazard-intent tags, and aggregated municipal-code section references. Built from the in-repo domain surface, so it requires no scraper output.
+      operationId: getGeoIntel
+      tags:
+        - Intelligence Domains
+      responses:
+        '200':
+          description: Successful retrieval of the geo-intel contract and map view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoIntelContract'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/domain/{id}:
     get:
       summary: Get a specific intelligence domain
@@ -1680,6 +1700,127 @@ components:
         updatedAt:
           type: string
           format: date
+    GeoAnchor:
+      type: object
+      required: [name, municipality, county, state, latitude, longitude, bounds]
+      properties:
+        name: {type: string}
+        municipality: {type: string}
+        county: {type: string}
+        state: {type: string}
+        latitude: {type: number}
+        longitude: {type: number}
+        bounds:
+          type: object
+          required: [west, south, east, north]
+          properties:
+            west: {type: number}
+            south: {type: number}
+            east: {type: number}
+            north: {type: number}
+    GeoSectionRef:
+      type: object
+      properties:
+        sectionNumber: {type: string}
+        relevance: {type: string}
+        domains: {type: array, items: {type: string}}
+        topics: {type: array, items: {type: string}}
+    GeoHazardDomain:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        icon: {type: string}
+        hazardTags: {type: array, items: {type: string}}
+        topics:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              tags: {type: array, items: {type: string}}
+              sections:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    sectionNumber: {type: string}
+                    relevance: {type: string}
+    GeoFeature:
+      type: object
+      properties:
+        type: {type: string, enum: [Feature]}
+        id: {type: string}
+        geometry:
+          type: object
+          properties:
+            type: {type: string, enum: [Polygon, Point]}
+            coordinates:
+              oneOf:
+                - type: array
+                  items: {type: number}
+                - type: array
+                  items:
+                    type: array
+                    items: {type: number}
+        properties:
+          type: object
+          additionalProperties: true
+    GeoIntelView:
+      type: object
+      required: [schema, crs, anchor, features, hazard, sections]
+      properties:
+        schema: {type: string, example: "crescent-city-geo-view/v1"}
+        crs:
+          type: object
+          properties:
+            type: {type: string, example: name}
+            properties:
+              type: object
+              properties:
+                name: {type: string, example: "EPSG:4326"}
+        anchor: {$ref: '#/components/schemas/GeoAnchor'}
+        features: {type: array, items: {$ref: '#/components/schemas/GeoFeature'}}
+        hazard:
+          type: object
+          properties:
+            domainCount: {type: integer}
+            hazardTags: {type: array, items: {type: string}}
+            topHazardTags: {type: array, items: {type: string}}
+        sections: {type: array, items: {$ref: '#/components/schemas/GeoSectionRef'}}
+    GeoIntelContract:
+      type: object
+      required: [schema, anchor, generatedAt, domainCount, domains, hazard, view]
+      properties:
+        schema: {type: string, example: "crescent-city-geo-intel/v1"}
+        anchor: {$ref: '#/components/schemas/GeoAnchor'}
+        generatedAt: {type: string, format: date-time}
+        domainCount: {type: integer}
+        domains:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              name: {type: string}
+              icon: {type: string}
+              description: {type: string}
+              updatedAt: {type: string, format: date}
+              topicCount: {type: integer}
+              tags: {type: array, items: {type: string}}
+              sections:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    sectionNumber: {type: string}
+                    relevance: {type: string}
+        hazard:
+          type: object
+          properties:
+            relevantDomains: {type: array, items: {$ref: '#/components/schemas/GeoHazardDomain'}}
+            relevantDomainCount: {type: integer}
+        view: {$ref: '#/components/schemas/GeoIntelView'}
     EmbeddingProjectionResponse:
       type: object
       properties:

@@ -1,26 +1,51 @@
 # Geo-Intel Module
 
-## `src/geo.ts` — Crescent City geo-intelligence contract
+## `src/geo.ts` — transferable municipality geo-intelligence contract
 
 Builds a **stable, machine-readable Geo-Intel snapshot** for external geospatial
-consumers (notably the GEO-INFER geodesign ecosystem). It distills the scraped
-municipal code + curated civic-domains surface into a focused JSON contract so a
-map-based dashboard can import and spatially weight Crescent City policy without
-re-scraping.
+consumers (notably the GEO-INFER geodesign ecosystem). The builder is
+**municipality-agnostic**: any city can emit a contract from a `MunicipalitySpec`
+(anchor + curated civic-domain surface). **Crescent City, CA is the default /
+anchor implementation**, and its contract schema (`crescent-city-geo-intel/v1`)
+is pinned so GEO-INFER's CrescentCityIntelMapper keeps importing it unchanged.
 
-There are 12 civic intelligence domains in the curated surface (defined in
-`src/domains.ts`, documented in `docs/modules/domains.md`); this module projects
-them into a geospatial contract plus a hazard-relevant subset.
+It distills a municipality's scraped municipal code + curated civic-domains
+surface into a focused JSON contract so a map-based dashboard can import and
+spatially weight city policy without re-scraping.
 
-## Contract shape (`buildGeoIntel`)
+Crescent City has 12 civic intelligence domains in the curated surface (defined
+in `src/domains.ts`, documented in `docs/modules/domains.md`); this module
+projects them into a geospatial contract plus a hazard-relevant subset.
 
-The returned object is a plain JSON value with this shape:
+## Municipality framework
+
+Any city is served by the same pure builder. Provide a spec and get a contract:
+
+```typescript
+type MunicipalitySpec = {
+  // Contract identifier — becomes the output `schema` (stable across re-runs).
+  id: string;
+  // Geographic + civic identity; fields are per-municipality.
+  anchor: {
+    name, guid, municipality, county, state,
+    latitude, longitude,
+    bounds: { west, south, east, north }   // WGS84 decimal degrees
+  };
+  // Curated civic-intelligence domain surface for this city.
+  domains: IntelligenceDomain[];
+};
+```
+
+## Contract shape (`buildGeoIntel` / `buildMunicipalityContract`)
+
+The returned object is a plain JSON value with this shape (anchor fields are
+per-municipality; the `schema` string is the caller's spec `id`):
 
 ```typescript
 {
-  schema: "crescent-city-geo-intel/v1",
+  schema: "crescent-city-geo-intel/v1",   // = spec.id; frozen for Crescent City
   anchor: {
-    name, guid, municipality, county, state,
+    name, guid, county, state,
     latitude: 41.76, longitude: -124.2,
     bounds: { west, south, east, north }   // Del Norte County extent
   },
@@ -46,11 +71,18 @@ The returned object is a plain JSON value with this shape:
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `CRESCENT_CITY_ANCHOR` | `object` | Authoritative city + Del Norte bounds (WGS84) |
-| `buildGeoIntel(domainList?)` | `(IntelligenceDomain[]) → Record<string, unknown>` | Build the full contract (pure) |
-| `hazardRelevantDomains()` | `() → Array<{…}>` | Subset of domains with hazard-tagged topics |
+| `CRESCENT_CITY_ANCHOR` | `MunicipalityAnchor` | Authoritative Crescent City + Del Norte bounds (WGS84) — the default anchor |
+| `getDefaultCrescentSpec()` | `() → MunicipalitySpec` | Current anchor + 12 domains as data (not hardcoded in the builder) |
+| `buildMunicipalityContract(spec)` | `(MunicipalitySpec) → Record<string, unknown>` | **Transferable** pure builder for any city's contract |
+| `buildGeoIntel(domainList?)` | `(IntelligenceDomain[]) → Record<string, unknown>` | Backward-compatible Crescent shorthand (resolves the default spec, delegates to the transferable builder) |
+| `hazardRelevantDomains(surface?)` | `(IntelligenceDomain[]?) → Array<{…}>` | Hazard-tagged subset; moves with the supplied surface (defaults to the in-repo 12) |
 | `geoPaths` | `{ pagesSeed, liveExport }` | `pages-data/geo-intel.json` + `output/geo-intel.json` |
-| `writeGeoIntelExports()` | `() → Promise<string[]>` | Write committed seed + live export (guarded) |
+| `writeGeoIntelExports()` | `() → Promise<string[]>` | Write the default (Crescent) contract to committed seed + live export (guarded) |
+
+Consumers that currently call `buildGeoIntel(domains)` or read
+`pages-data/geo-intel.json` observe **no change**: output structure and schema
+string are preserved. Sibling cities call `buildMunicipalityContract(spec)`
+directly for their own anchor + domains.
 
 ## CLI
 
@@ -60,19 +92,24 @@ bun run src/geo.ts       # direct
 ```
 
 Writes:
+
 - `pages-data/geo-intel.json` — committed public seed readable without a live `output/`
 - `output/geo-intel.json` — live export (skipped gracefully if `output/` absent)
 
 ## Geospatial consumers
 
 The `pages-data/geo-intel.json` seed is a dependency-free import for downstream
-maps: GEO-INFER's Del Norte / Crescent City dashboard reads it, maps its 12
-civic domains + hazard-relevant subset onto H3 hexes, and weights the municipal
-policy surface by natural-hazard intent (tsunami, seismic, flood, erosion).
+maps: GEO-INFER's Crescent City dashboard reads it, maps Crescent's 12 civic
+domains + hazard-relevant subset onto H3 hexes, and weights the municipal policy
+surface by natural-hazard intent (tsunami, seismic, flood, erosion). Because
+the builder is transferable, sibling cities export their own spec through the
+same `buildMunicipalityContract` path and are consumed identically.
 
 ## Tests
 
-`tests/geo-intel.test.ts` (7) — anchor coordinates/bounds, schema + 12-domain
-count, code cross-refs, hazard-relevant surface, injected-domain purity.
+`tests/geo-intel.test.ts` (10) — anchor coordinates/bounds, default-spec data
+shape, schema + 12-domain count, code cross-refs, hazard-relevant surface,
+injected-domain purity, and a second-municipality example proving the builder
+is transferable while Crescent City stays GEO-INFER-compatible.
 
 Run with: `bun run test` (suite) or `bun test tests/geo-intel.test.ts`.

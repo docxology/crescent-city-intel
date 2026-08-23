@@ -50,6 +50,7 @@ bun test --watch      # Watch mode
 | `fuzzy.test.ts` | `src/shared/fuzzy.ts` — Levenshtein and typo correction |
 | `legal_parser.test.ts` | `src/legal_parser.ts` — citations, definitions, and ordinances |
 | `structured_queries.test.ts` | `src/structured_queries.ts` — legislative history and similarity |
+| `geo-view.test.ts` | `src/geo_view.ts` — tiles-free map feature view (bounds/points/sections) from the geo-intel contract |
 | `readability-gunning-fog.test.ts` | `src/shared/readability.ts` — Gunning Fog |
 | `alert_analytics.test.ts` | `src/alert_analytics.ts` — timeline and type statistics |
 | `v2-endpoints*.test.ts` | API endpoint contracts and edge cases |

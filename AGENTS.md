@@ -49,7 +49,8 @@ src/
   scrape.ts             # Scraper orchestrator with resume
   verify.ts             # Verification engine
   export.ts             # Multi-format exporter (JSON, MD, TXT, CSV)
-  geo.ts                # Crescent City geo-intel contract builder (civic + hazard, machine-readable)
+  geo.ts                # Transferable municipality geo-intel contract builder (civic + hazard, Crescent City default, machine-readable)
+  geo_view.ts           # Tiles-free map-ready geo feature view (bounds polygon + hazard points + section refs)
   domains.ts            # 12 civic intelligence domains with code cross-refs
   monitor.ts            # Municipal code change detection
   news_monitor.ts       # RSS/Atom news aggregator (configured sources + health + dedup)

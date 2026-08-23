@@ -76,3 +76,4 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `llm/provider.ts` | Selected-provider routing and bounded preflight | `chatWithProvider()`, `checkChatProvider()` |
 | `shared/source_health.ts` | Typed source-health records and atomic artifact writes | `sourceHealth()`, `writeJsonAtomic()` |
 | `shared/orchestration.ts` | Durable step/run envelopes and runtime metadata | `executePipelineStep()`, `buildPipelineRun()` |
+| `geo_view.ts` | Tiles-free map-ready Crescent City feature view (Del Norte bounds polygon + anchor + hazard-domain points + section refs) from the geo-intel contract | `buildGeoView()` |

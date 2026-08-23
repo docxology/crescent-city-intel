@@ -1,11 +1,17 @@
 #!/usr/bin/env bun
 /**
- * Crescent City geo-intelligence contract builder.
+ * Municipality geo-intelligence contract.
  *
- * Produces a stable, machine-readable Geo-Intel snapshot that external
+ * Emits a stable, machine-readable geo-intel snapshot that external
  * geospatial consumers (notably the GEO-INFER geodesign ecosystem) can
- * import and map without re-scraping. It focuses the civic-domain +
- * hazard-aware municipal-code surface of Crescent City, CA:
+ * import and map without re-scraping. The framework is intentionally
+ * MUNICIPALITY-AGNOSTIC: any city can build a contract from a
+ * `MunicipalitySpec` (anchor + curated civic-domain surface), so sibling
+ * cities never need to fork this builder. Crescent City, CA is the default /
+ * anchor implementation, and its contract schema (`crescent-city-geo-intel/v1`)
+ * is frozen so GEO-INFER's CrescentCityIntelMapper keeps working unchanged.
+ *
+ * Each contract carries:
  *
  *   1. Municipality anchor — name, guid, source, and geographic bounds.
  *   2. Civic intelligence domains — id / name / icon / description and their
@@ -14,9 +20,9 @@
  *      natural-hazard tags (tsunami, seismic, flood, fire, erosion) so a
  *      geospatial dashboard can weight municipal policy by hazard intent.
  *
- * The builder is a PURE function (`buildGeoIntel`): it takes the curated
- * domain surface and returns a plain JSON-safe object without filesystem or
- * network side effects. Tests exercise it in isolation.
+ * The builders are PURE functions (`buildMunicipalityContract`, `buildGeoIntel`):
+ * they take a spec / domain surface and return plain JSON-safe objects without
+ * filesystem or network side effects. Tests exercise them in isolation.
  */
 import { mkdir } from "fs/promises";
 import { join } from "path";
@@ -26,17 +32,48 @@ import { createLogger } from "./logger.js";
 
 const log = createLogger("geo-intel");
 
-/** Authoritative Crescent City / Del Norte County geographic anchor. */
-export const CRESCENT_CITY_ANCHOR: {
+/** WGS84 bounds envelope shared by every municipality anchor. */
+export interface GeoBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+/** Geographic + civic identity anchor embedded in every municipality contract. */
+export interface MunicipalityAnchor {
+  /** Human-readable municipal name (e.g. "Crescent City"). */
   name: string;
+  /** Municipal-code platform guid (e.g. ecode360 code) used to cross-scrape. */
   guid: string;
+  /** "City, State" display string. */
   municipality: string;
+  /** County (or equivalent) containing the municipality. */
   county: string;
+  /** State / province. */
   state: string;
+  /** Decimal degrees WGS84 centroid. */
   latitude: number;
   longitude: number;
-  bounds: { west: number; south: number; east: number; north: number };
-} = {
+  /** Geographic extent (west, south, east, north) in decimal degrees. */
+  bounds: GeoBounds;
+}
+
+/**
+ * Fully-specified reusable municipality contract. Any city can supply one to
+ * emit its own geo-intel snapshot without touching this builder.
+ */
+export interface MunicipalitySpec {
+  /** Contract identifier — becomes the output `schema` (stable across re-runs). */
+  id: string;
+  /** Geographic + civic identity anchor. */
+  anchor: MunicipalityAnchor;
+  /** Curated civic-intelligence domain surface for this municipality. */
+  domains: typeof domains;
+}
+
+/** Authoritative Crescent City / Del Norte County anchor — the default. */
+export const CRESCENT_CITY_ANCHOR: MunicipalityAnchor = {
   name: "Crescent City",
   guid: "CR4919",
   municipality: "Crescent City, CA",
@@ -47,6 +84,19 @@ export const CRESCENT_CITY_ANCHOR: {
   // Del Norte County extent (west, south, east, north).
   bounds: { west: -124.408, south: 41.458, east: -123.536, north: 42.006 },
 };
+
+/**
+ * The built-in Crescent City municipality spec, returned as plain data so the
+ * builder itself stays generic. Anchor fields are per-municipality: only the
+ * `id` schema string is pinned for GEO-INFER compatibility.
+ */
+export function getDefaultCrescentSpec(): MunicipalitySpec {
+  return {
+    id: "crescent-city-geo-intel/v1",
+    anchor: CRESCENT_CITY_ANCHOR,
+    domains,
+  };
+}
 
 /** Tags whose presence marks a domain topic as hazard-relevant. */
 const HAZARD_RELEVANT_TAGS = new Set([
@@ -71,7 +121,7 @@ function extractDomainTags(topics: Array<{ tags?: string[] }>): string[] {
   return [...seen].sort();
 }
 
-/** Reduce a domain's topics to those carrying at least one hazard tag. */
+/** Reduce a surface's topics to those carrying at least one hazard tag. */
 function hazardTaggedTopics(topics: Array<{
   name: string;
   tags?: string[];
@@ -90,11 +140,15 @@ function hazardTaggedTopics(topics: Array<{
 }
 
 /**
- * Isolate the civic-domain surface that overlaps natural-hazard policy.
+ * Isolate a civic-domain surface that overlaps natural-hazard policy.
  * Each returned domain is reduced to its hazard-tagged topics + code refs so a
  * downstream map can weight municipal policy by hazard intent.
+ *
+ * @param surface Municipal domains to project; defaults to the in-repo surface.
  */
-export function hazardRelevantDomains(): Array<{
+export function hazardRelevantDomains(
+  surface: typeof domains = domains,
+): Array<{
   id: string;
   name: string;
   icon: string;
@@ -102,7 +156,7 @@ export function hazardRelevantDomains(): Array<{
   topics: Array<{ name: string; tags: string[]; sections: Array<{ sectionNumber: string; relevance: string }> }>;
 }> {
   const out: ReturnType<typeof hazardRelevantDomains> = [];
-  for (const domain of domains) {
+  for (const domain of surface) {
     const taggedTopics = hazardTaggedTopics(domain.topics);
     if (taggedTopics.length === 0) continue;
     out.push({
@@ -117,19 +171,16 @@ export function hazardRelevantDomains(): Array<{
 }
 
 /**
- * Build the full machine-readable Crescent City geo-intel contract.
- *
- * @param domainList Optional ordered domain list for pure testing; defaults to
- *   the in-repo 12-domain surface.
+ * Build a full municipality geo-intel contract from a defined spec.
+ * Pure and transferable: pass any `MunicipalitySpec` (anchor + domains) and
+ * get a plain JSON-safe contract keyed by that spec's `id`.
  */
-export function buildGeoIntel(
-  domainList: typeof domains = domains,
-): Record<string, unknown> {
-  const surface = domainList.length > 0 ? domainList : domains;
-  const relevant = hazardRelevantDomains();
+export function buildMunicipalityContract(spec: MunicipalitySpec): Record<string, unknown> {
+  const surface = spec.domains.length > 0 ? spec.domains : domains;
+  const relevant = hazardRelevantDomains(spec.domains);
   return {
-    schema: "crescent-city-geo-intel/v1",
-    anchor: CRESCENT_CITY_ANCHOR,
+    schema: spec.id,
+    anchor: spec.anchor,
     generatedAt: new Date().toISOString(),
     domainCount: surface.length,
     domains: surface.map((domain) => ({
@@ -151,6 +202,24 @@ export function buildGeoIntel(
   };
 }
 
+/**
+ * Build the full machine-readable Crescent City geo-intel contract (backward
+ * compatible with v2.5). Internally resolves the default Crescent City spec and
+ * delegates to the transferable pure builder.
+ *
+ * @param domainList Optional ordered domain concern for pure testing; defaults
+ *   to the built-in 12-domain surface.
+ */
+export function buildGeoIntel(
+  domainList: typeof domains = domains,
+): Record<string, unknown> {
+  const spec = getDefaultCrescentSpec();
+  return buildMunicipalityContract({
+    ...spec,
+    domains: domainList.length > 0 ? domainList : spec.domains,
+  });
+}
+
 /** Paths for the geo-intel contract. */
 export const geoPaths = {
   /** Committed public seed — external consumers read this without a live output/. */
@@ -161,10 +230,11 @@ export const geoPaths = {
 
 /**
  * Write the geo-intel contract to disk (committed seed + live export) when the
- * pipeline is ready. Never an import side effect.
+ * pipeline is ready. Never an import side effect. Defaults to the Crescent City
+ * contract so existing pages-data/geo-intel.json consumers stay valid.
  */
 export async function writeGeoIntelExports(): Promise<Array<string>> {
-  const payload = buildGeoIntel(domains);
+  const payload = buildGeoIntel();
   const written: Array<string> = [];
   try {
     await mkdir(join("pages-data"), { recursive: true });

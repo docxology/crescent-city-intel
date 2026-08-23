@@ -999,6 +999,13 @@
     .badge-yellow { background: #eab30822; color: #eab308; }
     .badge-orange { background: #f9731622; color: #f97316; }
     .badge-red { background: #ef444422; color: #ef4444; }
+    /* ─── Hazard Geo panel (tiles-free Crescent City map view) ─── */
+    .geo-tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background: #f9731622; color:#f97316; margin:0 3px 3px 0; }
+    .geo-swatch { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+    .geo-section-row { display:flex; gap:8px; padding:8px 10px; border-bottom:1px solid var(--border); font-size:13px; align-items:flex-start; }
+    .geo-section-row .num { min-width:64px; font-weight:600; color:var(--accent); white-space:nowrap; }
+    .geo-section-row .rel { flex:1; color:var(--text); }
+    .geo-section-row .dom { font-size:12px; color:var(--text-secondary); }
     .badge-blue { background: #3b82f622; color: #3b82f6; }
     .fuzzy-suggestion { padding: 4px 8px; font-size: 12px; color: var(--accent); cursor: pointer; }
     .fuzzy-suggestion:hover { text-decoration: underline; }
@@ -1177,6 +1184,7 @@
       <button class="intel-tab" data-tab="domains">🧭 Domains</button>
       <button class="intel-tab" data-tab="compare">⚖️ Compare Sections</button>
       <button class="intel-tab" data-tab="history">📜 Legislative History</button>
+      <button class="intel-tab" data-tab="geo">🗺️ Hazard Geo</button>
     </div>
     <div class="intel-content">
       <div class="intel-panel active" id="intel-stats">
@@ -1224,6 +1232,15 @@
         <input type="text" id="history-guid-input" placeholder="Section GUID (e.g. 12345...)" style="width:300px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;margin-bottom:8px">
         <button class="btn" id="history-load-btn" style="margin-left:8px">Load</button>
         <div id="history-content" style="margin-top:16px"></div>
+      </div>
+      <div class="intel-panel" id="intel-geo">
+        <div class="intel-section-header">Crescent City — Civic &amp; Hazard Geo View (tiles-free)</div>
+        <p style="color:var(--text-secondary);margin-bottom:12px">A Del Norte County extent map with the Crescent City anchor and one point per hazard-relevant civic domain, plus the municipality's hazard-weighted code sections. Drawn entirely from the machine-readable geo-intel contract — no tiles provider required.</p>
+        <div id="geo-map" style="max-width:720px;margin:0 auto"></div>
+        <div class="intel-section-header" style="margin-top:18px">Hazard-relevant civic domains</div>
+        <div class="intel-grid" id="geo-hazard-grid"><p style="color:var(--text-secondary)">Loading…</p></div>
+        <div class="intel-section-header" style="margin-top:18px">Hazard-weighted municipal-code sections</div>
+        <div id="geo-sections"><p style="color:var(--text-secondary)">Loading…</p></div>
       </div>
     </div>
   </div>
@@ -2690,6 +2707,7 @@
       search: loadSearchAnalytics,
       sources: loadSourceCoverage,
       'source-json': loadSourceJson,
+      geo: loadGeoIntelPanel,
       // stats loads via the Code Analytics toggle-button open handler; compare/
       // history load via their own explicit "Compare"/"Load" button, not on tab-open.
     };
@@ -3075,6 +3093,92 @@
         html += '</div>';
         el.innerHTML = html;
       } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load domains</p>'; }
+    }
+
+    // ─ Geo Panel ─ (Crescent City civic/hazard map view; tiles-free)
+    const GEO_PALETTE = ['#f97316', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f59e0b', '#ef4444', '#14b8a6', '#f43f5e', '#a855f7', '#0ea5e9', '#eab308'];
+    function geoColor(index) { return GEO_PALETTE[index % GEO_PALETTE.length]; }
+
+    /** Render the contract's feature view as a compact inline SVG map (no tiles). */
+    function renderGeoMap(view) {
+      const b = (view && view.anchor && view.anchor.bounds) || { west: -124.408, south: 41.458, east: -123.536, north: 42.006 };
+      const W = 720, H = 460, pad = 30;
+      const x = lon => pad + ((lon - b.west) / (b.east - b.west)) * (W - 2 * pad);
+      const y = lat => pad + ((b.north - lat) / (b.north - b.south)) * (H - 2 * pad);
+      const features = (view && view.features) || [];
+      const anchorLat = (view && view.anchor.latitude) ?? 41.76;
+      const anchorLon = (view && view.anchor.longitude) ?? -124.2;
+      const hazardPoints = features.filter(f => f.properties && f.properties.kind === 'hazard-domain');
+      const svg = [];
+      svg.push(`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Crescent City / Del Norte County hazard-domain map" style="width:100%;max-height:480px;height:auto;display:block;margin:0 auto">`);
+      svg.push('<defs><marker id="geo-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10" fill="#8a94a6"/></marker></defs>');
+      // Ocean (Pacific to the west) + land hint
+      svg.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="#10131f"/>`);
+      svg.push(`<rect x="${pad}" y="${pad}" width="${W - 2 * pad}" height="${H - 2 * pad}" rx="8" fill="#12263a" stroke="#335c81" stroke-width="1"/>`);
+      // Bounds polygon
+      const corners = [[b.west, b.south], [b.east, b.south], [b.east, b.north], [b.west, b.north], [b.west, b.south]];
+      const boundsPts = corners.map(c => `${x(c[0]).toFixed(1)},${y(c[1]).toFixed(1)}`).join(' ');
+      svg.push(`<polygon points="${boundsPts}" fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="8,4"/>`);
+      // North arrow
+      svg.push(`<line x1="${W - 42}" y1="${pad + 16}" x2="${W - 42}" y2="${pad + 2}" stroke="#8a94a6" stroke-width="2" marker-end="url(#geo-arrow)"/><text x="${W - 62}" y="${pad + 13}" font-size="11" fill="#8a94a6">N</text>`);
+      // Anchor
+      svg.push(`<circle cx="${x(anchorLon).toFixed(1)}" cy="${y(anchorLat).toFixed(1)}" r="7" fill="#fff" stroke="#3b82f6" stroke-width="2.5"/><text x="${x(anchorLon).toFixed(1) + 10}" y="${y(anchorLat).toFixed(1) + 4}" font-size="12" fill="#e2e8f0">Crescent City</text>`);
+      // Hazard-domain points
+      hazardPoints.forEach((f, i) => {
+        const pt = f.geometry.coordinates || [0, 0];
+        const [lon, lat] = pt;
+        const cx = x(lon).toFixed(1), cy = y(lat).toFixed(1);
+        const label = `${f.properties.icon} ${f.properties.name}`;
+        svg.push(`<circle cx="${cx}" cy="${cy}" r="6" fill="${geoColor(i)}" stroke="#fff" stroke-width="1.5"><title>${escapeHtml(label)}</title></circle>`);
+        svg.push(`<text x="${cx}" y="${cy - 9}" font-size="10" fill="${geoColor(i)}">${escapeHtml(f.properties.icon)}</text>`);
+      });
+      // Legend
+      const lx = W - 150, lyStart = pad + 30;
+      svg.push(`<rect x="${lx - 16}" y="${lyStart - 18}" width="160" height="${22 + hazardPoints.length * 18}" rx="6" fill="#101828" stroke="#335c81"/>`);
+      svg.push(`<text x="${lx}" y="${lyStart}" font-size="12" fill="#cbd5e1" font-weight="600">Hazard domains</text>`);
+      hazardPoints.forEach((f, i) => {
+        svg.push(`<circle cx="${lx}" cy="${lyStart + 18 + i * 18}" r="5" fill="${geoColor(i)}"/>`);
+        svg.push(`<text x="${lx + 10}" y="${lyStart + 21 + i * 18}" font-size="11" fill="#cbd5e1">${escapeHtml(f.properties.name)}</text>`);
+      });
+      svg.push('</svg>');
+      return svg.join('\n');
+    }
+
+    /** Load and render the Crescent City civic/hazard geo panel. */
+    async function loadGeoIntelPanel() {
+      const mapEl = document.getElementById('geo-map');
+      const gridEl = document.getElementById('geo-hazard-grid');
+      const sectionsEl = document.getElementById('geo-sections');
+      try {
+        const data = await apiFetch('/api/geo-intel').then(r => r.json());
+        const view = data.view || {};
+        mapEl.innerHTML = renderGeoMap(view);
+
+        // Hazard-relevant civic domains (from the contract's hazard subset)
+        const relevant = (data.hazard && data.hazard.relevantDomains) || [];
+        gridEl.innerHTML = relevant.length === 0
+          ? '<p style="color:var(--text-secondary)">No hazard-relevant domains in the contract.</p>'
+          : `<div class="intel-grid">${relevant.map((d, i) => `
+            <div class="intel-card">
+              <h4><span class="geo-swatch" style="background:${geoColor(i)}"></span>${d.icon} ${escapeHtml(d.name)}</h4>
+              <div style="margin:6px 0">${(d.hazardTags || []).map(t => `<span class="geo-tag">${escapeHtml(t)}</span>`).join('')}</div>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:8px">${(d.topics || []).length} hazard-weighted topic(s) · ${view.hazard ? view.hazard.domainCount : relevant.length} hazard-relevant domain(s)</p>
+            </div>`).join('')}</div>`;
+
+        // Hazard-weighted municipal-code sections
+        const sections = view.sections || [];
+        sectionsEl.innerHTML = sections.length === 0
+          ? '<p style="color:var(--text-secondary)">No sections cross-reference hazard-relevant domains.</p>'
+          : `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden">${sections.map(s => `
+            <div class="geo-section-row">
+              <span class="num">${escapeHtml(s.sectionNumber)}</span>
+              <div class="rel">${escapeHtml(s.relevance)}<div class="dom">${escapeHtml(s.domains.join(' · '))}</div></div>
+            </div>`).join('')}</div>`;
+      } catch (err) {
+        mapEl.innerHTML = '<p style="color:var(--text-secondary)">Geo view unavailable.</p>';
+        gridEl.innerHTML = '<p style="color:var(--text-secondary)">Could not load hazard domains.</p>';
+        sectionsEl.innerHTML = '<p style="color:var(--text-secondary)">Could not load sections.</p>';
+      }
     }
 
     // ─ Readability Panel ─

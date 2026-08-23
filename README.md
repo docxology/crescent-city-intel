@@ -450,6 +450,7 @@ The project maps the municipal code to **12 civic intelligence domains**, each c
 | **CSV** | `output/section-index.csv` | Section index with GUIDs for cross-referencing |
 | **Readability** | `output/readability.json` | Flesch-Kincaid scores for all sections in the current manifest |
 | **Coverage** | `output/domain-coverage.json` | Domain cross-reference coverage % |
+| **Geo-Intel** | `pages-data/geo-intel.json` + `output/geo-intel.json` | Machine-readable Crescent City civic + hazard contract for geospatial consumers (GEO-INFER) |
 | **RAG Log** | `output/rag-queries.jsonl` | All RAG queries with latency and sources |
 | **Pipeline run** | `output/state/latest-pipeline-run.json` | Stage-level status, duration, output paths, and source-health summary |
 | **Curation run** | `output/state/curation-report.json` | Provider/model, success counts, fingerprints, and retryable failures |
@@ -706,6 +707,7 @@ bun test tests/search.test.ts   # single file
 | `bun run weekly-check` | Full weekly health check + summary report |
 | `bun run cron-setup` | Install weekly-check as OS scheduled job |
 | `bun run pages:export` | Build a bounded static snapshot from `output/` |
+| `bun run geo:intel` | Build the machine-readable Crescent City civic + hazard contract (`pages-data/geo-intel.json` + `output/geo-intel.json`) |
 | `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
 | `bun run pages:validate` | Validate snapshot schema, health truthfulness, and public boundaries |
 

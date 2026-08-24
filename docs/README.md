@@ -26,6 +26,7 @@ queries, legal analysis, and civic intelligence domains.
 | [Domains](modules/domains.md) | 12 civic intelligence domains with code cross-references |
 | [Monitoring](modules/monitoring.md) | Code change detection, news, and government meeting monitors |
 | [Alerts](modules/alerts.md) | 8 real-time alert monitors + composite severity + alert analytics |
+| [Geo-Intel](modules/geo-intel.md) | Transferable municipality geo-intel contract + tiles-free map-ready feature view |
 | [v2 Intelligence](modules/v2-intelligence.md) | New v2.0 modules: structured queries, legal parser, fuzzy, streaming, analytics |
 | [API Middleware](modules/api.md) | Rate limiting, API key authentication, request logging |
 

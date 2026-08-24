@@ -166,6 +166,7 @@ Complete reference for all exported functions, interfaces, and constants.
 | `geoPaths` | `geo.ts` | `{ pagesSeed, liveExport }` | `pages-data/geo-intel.json` + `output/geo-intel.json` |
 | `writeGeoIntelExports()` | `geo.ts` | `() → Promise<string[]>` | Write Crescent seed + live export (guarded) |
 | `buildGeoView(intel)` | `geo_view.ts` | `(contract) → GeoIntelView` | Tiles-free SVG map features (bounds, anchor, hazard points, sections), `crescent-city-geo-view/v1` |
+| `buildGeoIntelSurface(intel)` | `geo_view.ts` | `(contract) → GeoIntelSurface` | Preserve top-level contract fields and add the canonical tiles-free `view`; shared by API and Pages |
 | `/api/geo-intel` | `gui/routes.ts` | `GET` | Serves the contract + geo-view feature surface (pure, no scraper needed) |
 
 ## Shared (`src/shared/`)
@@ -216,8 +217,11 @@ Complete reference for all exported functions, interfaces, and constants.
 | :--- | :--- | :--- |
 | `buildPagesSnapshot` | `(outputDir?, generatedAt?) → Promise<PagesSnapshot>` | Read bounded public data and preserve source health/provenance |
 | `exportPagesSnapshot` | `(options?) → Promise<PagesExportResult>` | Atomically build the static `.pages/` artifact |
+| `buildPagesGeoIntel` | `(contract?) → GeoIntelSurface` | Pure API-shaped public geo contract + view builder |
+| `summarizePagesGeoIntel` | `(value) → PagesGeoIntelSummary \| null` | Derive bounded geo counts and schemas for the snapshot envelope |
+| `validatePagesGeoIntel` | `(value, byteLength?) → string[]` | Offline size, schema, CRS, parity, and public-boundary validation |
 | `validatePagesSource` | `(indexHtml) → string[]` | Check the static dashboard for API-key/local-service leakage and required data links |
-| `PagesSnapshot` | `interface` | Versioned public snapshot envelope with code, source, alert, report, and policy metadata |
+| `PagesSnapshot` | `interface` | Versioned public snapshot envelope with code, geo, source, alert, report, and policy metadata |
 | `PagesExportResult` | `interface` | Destination, status, generated files, and exported item counts |
 
 ### Operational and lineage routes

@@ -81,9 +81,44 @@ const sections = await loadAllSections();
 const single = await loadSection("some-guid");
 ```
 
+---
+
+## `src/shared/idempotency.ts` — Shared Idempotency Store
+
+A single `(id, contentHash)`-keyed, JSON-persisted, atomic-write dedup store
+used by the news, government-meeting, and curation monitors (and extensible to
+any source) instead of each source reinventing its own persistence shape.
+
+### Key points
+
+- **Presence-only or change-aware dedup**: `seen(id)` with no hash records
+  "have we seen this" (news-style URL dedup); pass a content hash to get real
+  change detection (`changed: true` when the hash differs from the last
+  observation).
+- **Legacy migration**: `load()` transparently recognizes the old
+  `news_monitor.ts` bare `string[]` seen-ids shape and migrates it to
+  presence-only records — no history is lost, nothing is reprocessed as new.
+- **Durability**: `save()` writes a temp file, `fsync`s it, then renames — a
+  power loss between write and rename can no longer leave a partially-written
+  file that would be silently discarded as "start empty".
+- **Bounded**: retains at most `cap` entries (default 10 000), dropping the
+  oldest-`firstSeen` first.
+
+### Exports
+
+| Export | Signature | Description |
+| :--- | :--- | :--- |
+| `IdempotencyStore` | `class` | `new IdempotencyStore(path, cap?)`; `load()`, `has(id)`, `get(id)`, `seen(id, hash?, meta?)`, `record(id, hash?, meta?)`, `save()`, `size` |
+| `hashContent` | `(string) → string` | SHA-256 (re-export of `computeSha256`) so callers import from one place |
+| `IdempotencyRecord` | `type` | `{ hash, firstSeen, lastSeen, meta? }` |
+| `SeenResult` | `type` | `{ isNew, changed }` |
+
+Tests: `tests/idempotency.test.ts`.
+
 ### Tests
 
 ```bash
 bun test tests/shared-paths.test.ts   # 10 tests
 bun test tests/shared-data.test.ts    # 20 tests
+bun test tests/idempotency.test.ts
 ```

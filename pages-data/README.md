@@ -3,7 +3,10 @@
 This directory contains the reviewed, public municipal-code seed used when a
 GitHub Actions checkout has no local `output/` directory. It contains only
 public generated artifacts: the consolidated code export, TOC, manifest,
-passing verification report, coverage, and readability data.
+passing verification report, coverage, readability data, and the backward-
+compatible `geo-intel.json` contract. The Pages exporter derives the map-ready
+view from that reviewed contract and publishes the combined API-shaped surface
+as `.pages/data/geo-intel.json`.
 
 Refresh only after a successful scrape, verification, and export:
 

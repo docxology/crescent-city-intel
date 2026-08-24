@@ -10,7 +10,7 @@ import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprin
 import { buildAnalyticsOverview, readAnalyticsOverview } from "../analytics_backend.js";
 import { domains } from "../domains.js";
 import { buildGeoIntel } from "../geo.js";
-import { buildGeoView } from "../geo_view.js";
+import { buildGeoIntelSurface } from "../geo_view.js";
 
 const log = createLogger("routes");
 
@@ -479,10 +479,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // aggregated municipal-code section refs — renderable without a tiles provider.
   if (path === "/api/geo-intel") {
     const contract = buildGeoIntel(domains);
-    return json({
-      ...contract,
-      view: buildGeoView(contract),
-    });
+    return json(buildGeoIntelSurface(contract));
   }
 
   // GET /api/domain/:id — get a specific domain with all topics

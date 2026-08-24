@@ -74,6 +74,13 @@ export interface GeoIntelView {
   sections: GeoSectionRef[];
 }
 
+/**
+ * Public integration surface shared by the live API and static Pages export.
+ * The contract fields remain at the top level for backward compatibility;
+ * `view` is the additive, map-ready projection of that same contract.
+ */
+export type GeoIntelSurface = Record<string, unknown> & { view: GeoIntelView };
+
 // ─── Contract input shape (defensive — the raw contract is `Record<...>`) ──
 interface ContractTopic {
   name: string;
@@ -316,5 +323,16 @@ export function buildGeoView(raw: Record<string, unknown>): GeoIntelView {
       topHazardTags,
     },
     sections,
+  };
+}
+
+/**
+ * Add the map-ready view to a geo-intel contract without mutating the input.
+ * This is the canonical `/api/geo-intel` and public Pages JSON shape.
+ */
+export function buildGeoIntelSurface(raw: Record<string, unknown>): GeoIntelSurface {
+  return {
+    ...raw,
+    view: buildGeoView(raw),
   };
 }

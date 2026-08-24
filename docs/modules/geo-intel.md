@@ -84,6 +84,36 @@ Consumers that currently call `buildGeoIntel(domains)` or read
 string are preserved. Sibling cities call `buildMunicipalityContract(spec)`
 directly for their own anchor + domains.
 
+## `src/geo_view.ts` — map-ready feature view (`buildGeoView`)
+
+Turns the geo-intel contract into a **tiles-free, GeoJSON-shaped feature
+surface** a client can render directly onto a blank canvas or any projection:
+
+1. **Del Norte County bounds polygon** — a closed 4-vertex `Polygon` ring.
+2. **City anchor point** — Crescent City centroid (`kind: "anchor"`).
+3. **One point per hazard-relevant civic domain** — deterministic, anchor-relative
+   offsets (`HAZARD_OFFSETS`), each flagged `nominal: true` because the contract
+   carries no per-domain surveyed coordinates (honest placement — no fabricated
+   locations).
+4. **Aggregated municipal-code section references** — each section with the
+   domains + topics that cite it, sorted numerically.
+5. **Hazard-intent summary** — tag frequency across relevant domains
+   (`hazardTags` + top-6 `topHazardTags`).
+
+Output schema: `crescent-city-geo-view/v1`, CRS `EPSG:4326`. The builder is a
+**pure function** — it takes the `buildGeoIntel()` output (or any
+schema-compatible object) and returns a JSON-safe structure, with defensive
+normalization so malformed/partial contracts degrade to Crescent defaults
+rather than throwing.
+
+| Export | Signature | Description |
+| :--- | :--- | :--- |
+| `buildGeoView(raw)` | `(Record<string, unknown>) → GeoIntelView` | Build the map-ready feature view from a geo-intel contract |
+| `buildGeoIntelSurface(raw)` | `(Record<string, unknown>) → GeoIntelSurface` | Add the tiles-free `view` without mutating the contract; shared by `/api/geo-intel` and Pages |
+
+`GET /api/geo-intel` returns the contract **and** this feature view together;
+see `openapi.yaml` for the response schema.
+
 ## CLI
 
 ```bash
@@ -105,6 +135,11 @@ surface by natural-hazard intent (tsunami, seismic, flood, erosion). Because
 the builder is transferable, sibling cities export their own spec through the
 same `buildMunicipalityContract` path and are consumed identically.
 
+The static Pages exporter preserves that seed shape for direct consumers and
+publishes an additive API-shaped `data/geo-intel.json`: all contract fields stay
+at the top level and `view` is produced by `buildGeoIntelSurface`. The live API
+route calls the same pure builder, preventing API/Pages shape drift.
+
 ## Tests
 
 `tests/geo-intel.test.ts` (13) — anchor coordinates/bounds, default-spec data
@@ -112,6 +147,10 @@ shape, schema + 12-domain count, code cross-refs, hazard-relevant surface,
 injected-domain purity, a second-municipality example proving the builder is
 transferable while Crescent City stays GEO-INFER-compatible, and word-boundary
 hazard matching.
+
+`tests/geo-view.test.ts` — bounds polygon closure + ring order, anchor point,
+per-hazard-domain points with `nominal` flags + section counts, section
+aggregation, hazard-tag summary, defensive fallback on malformed input.
 
 ### Hazard matching
 

@@ -12,9 +12,10 @@ bun run pages:validate -- .pages
 ```
 
 `pages-data/` is a tracked, reviewed public seed containing the last verified
-municipal-code JSON, TOC, and manifest. Refresh it after a successful scrape,
-verification, and export with `bun run pages:seed`; live source-health and
-monitor artifacts still come from the current deployment run.
+municipal-code JSON, TOC, manifest, and backward-compatible geo-intel contract.
+Refresh the code artifacts after a successful scrape, verification, and export
+with `bun run pages:seed`; live source-health and monitor artifacts still come
+from the current deployment run.
 
 The generated `.pages/` directory can be previewed with any static server, for
 example `cd .pages && python3 -m http.server 4173`, then open
@@ -23,11 +24,18 @@ directory and replaces the exact destination only after all files are ready.
 
 ## Public artifact
 
-The export contains the dashboard, JSON snapshot, source-health artifact, and
-the fingerprinted source registry/discovery artifacts,
-the municipal code JSON/TOC/manifest plus verification, coverage, and
-readability artifacts when available, recent deduplicated news
-and government meeting items, YouTube video metadata, Triplicate metadata and
+The export contains the dashboard, JSON snapshot, source-health artifact, the
+fingerprinted source registry/discovery artifacts, and
+`data/geo-intel.json`. The geo artifact matches the additive `/api/geo-intel`
+shape: the top-level `crescent-city-geo-intel/v1` contract remains compatible
+with existing consumers and its `view` field carries the
+`crescent-city-geo-view/v1` bounds, anchor, nominal hazard-domain features, and
+section references. It is built from the reviewed seed or the same in-repo pure
+builders, so no network, API key, tiles provider, or local service is required.
+The export also includes the municipal code JSON/TOC/manifest plus
+verification, coverage, and readability artifacts when available, recent
+deduplicated news and government meeting items, YouTube video metadata,
+Triplicate metadata and
 links only, alert current snapshots and composite severity, the shared
 `analytics-overview.json` when the pipeline has generated it, and the latest
 monthly report.
@@ -58,7 +66,9 @@ The snapshot carries `healthSummary`, report metadata, the latest pipeline run,
 the source registry/discovery report, and curation telemetry. These fields explain when an item was collected, which
 provider produced a brief, and whether a failure is retryable. The public
 export never exposes prompts, chat history, API keys, request logs, or
-vector-store contents.
+vector-store contents. Pages validation requires the geo artifact, checks both
+schema IDs, EPSG:4326, contract/view count and anchor parity, a 256 KiB size
+ceiling, and rejects API-key fields or local-only endpoints entirely offline.
 
 The first viewport also renders the analytics overview headline, deterministic
 or LLM summary, evidence fingerprint, key metrics, and the first warning

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { CRESCENT_CITY_ANCHOR, buildGeoIntel } from "../src/geo";
 import { domains } from "../src/domains";
-import { buildGeoView, type GeoPointFeature } from "../src/geo_view";
+import { buildGeoIntelSurface, buildGeoView, type GeoPointFeature } from "../src/geo_view";
 
 /** Build a real contract from the in-repo 12-domain surface, cast to the raw shape. */
 function realContract(): Record<string, unknown> {
@@ -14,6 +14,17 @@ describe("Crescent City geospatial view-assembler", () => {
     expect(view.schema).toBe("crescent-city-geo-view/v1");
     expect(view.crs.type).toBe("name");
     expect(view.crs.properties.name).toBe("EPSG:4326");
+  });
+
+  test("buildGeoIntelSurface preserves the contract and adds the canonical view", () => {
+    const contract = realContract();
+    const surface = buildGeoIntelSurface(contract);
+    expect(surface).not.toBe(contract);
+    expect(contract.view).toBeUndefined();
+    expect(surface.schema).toBe("crescent-city-geo-intel/v1");
+    expect(surface.domainCount).toBe(contract.domainCount);
+    expect(surface.view.schema).toBe("crescent-city-geo-view/v1");
+    expect(surface.view.generatedAt).toBe(contract.generatedAt);
   });
 
   test("view carries the Crescent City / Del Norte anchor", () => {

@@ -2,8 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { dirname, join } from "path";
 import {
+  MAX_PAGES_GEO_INTEL_BYTES,
+  PAGES_GEO_INTEL_ARTIFACT,
+  buildPagesGeoIntel,
   buildPagesSnapshot,
   exportPagesSnapshot,
+  summarizePagesGeoIntel,
+  validatePagesGeoIntel,
   validatePagesSource,
 } from "../src/pages_snapshot.ts";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
@@ -20,6 +25,31 @@ async function withFixture(run: (root: string) => Promise<void>): Promise<void> 
 }
 
 describe("public Pages snapshot", () => {
+  test("builds a bounded API-shaped geo-intel surface with contract/view parity", () => {
+    const geoIntel = buildPagesGeoIntel();
+    const source = `${JSON.stringify(geoIntel, null, 2)}\n`;
+    expect(validatePagesGeoIntel(geoIntel, new TextEncoder().encode(source).byteLength)).toEqual([]);
+    expect(new TextEncoder().encode(source).byteLength).toBeLessThanOrEqual(MAX_PAGES_GEO_INTEL_BYTES);
+    expect(geoIntel.schema).toBe("crescent-city-geo-intel/v1");
+    expect(geoIntel.view.schema).toBe("crescent-city-geo-view/v1");
+    expect(geoIntel.view.generatedAt).toBe(geoIntel.generatedAt);
+    expect(summarizePagesGeoIntel(geoIntel)).toEqual({
+      available: true,
+      schema: "crescent-city-geo-intel/v1",
+      viewSchema: "crescent-city-geo-view/v1",
+      domainCount: 12,
+      hazardDomainCount: 4,
+      featureCount: 6,
+      sectionCount: geoIntel.view.sections.length,
+    });
+  });
+
+  test("rejects secret-bearing and local-only geo-intel additions", () => {
+    const geoIntel = buildPagesGeoIntel();
+    expect(validatePagesGeoIntel({ ...geoIntel, apiKey: "not-public" })).toContain("geo-intel artifact contains an API-key or authorization field");
+    expect(validatePagesGeoIntel({ ...geoIntel, endpoint: "http://localhost:8001" })).toContain("geo-intel artifact references a local-only service");
+  });
+
   test("preserves source health and publication boundaries", async () => {
     await withFixture(async root => {
       await put(root, "manifest.json", { articlePageCount: 2, sectionCount: 12 });
@@ -49,6 +79,9 @@ describe("public Pages snapshot", () => {
       expect(snapshot.triplicate[0].usagePolicy).toBe("reference-citation-only; NEVER AI-training input");
       expect(snapshot.publicationPolicy.curationInputs).not.toContain("triplicate");
       expect(snapshot.alerts.composite?.level).toBe("WARNING");
+      expect(snapshot.geoIntel.schema).toBe("crescent-city-geo-intel/v1");
+      expect(snapshot.geoIntel.viewSchema).toBe("crescent-city-geo-view/v1");
+      expect(snapshot.files.geoIntel).toBe(PAGES_GEO_INTEL_ARTIFACT);
     });
   });
 
@@ -63,6 +96,12 @@ describe("public Pages snapshot", () => {
       expect(await readFile(join(destination, "data/snapshot.json"), "utf8")).toContain('"schemaVersion": "1.0.0"');
       expect(await readFile(join(destination, "data/source-registry.json"), "utf8")).toContain("municipal-code-ecode360");
       expect(await readFile(join(destination, "data/source-discovery.json"), "utf8")).toContain('"coverageGaps"');
+      const geoIntelSource = await readFile(join(destination, PAGES_GEO_INTEL_ARTIFACT), "utf8");
+      const geoIntel = JSON.parse(geoIntelSource) as unknown;
+      expect(result.files).toContain(PAGES_GEO_INTEL_ARTIFACT);
+      expect(validatePagesGeoIntel(geoIntel, new TextEncoder().encode(geoIntelSource).byteLength)).toEqual([]);
+      expect(geoIntelSource).toContain('"schema": "crescent-city-geo-intel/v1"');
+      expect(geoIntelSource).toContain('"schema": "crescent-city-geo-view/v1"');
       expect(validatePagesSource(await readFile(join(destination, "index.html"), "utf8"))).toEqual([]);
     });
   });

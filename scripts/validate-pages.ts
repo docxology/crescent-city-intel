@@ -2,13 +2,18 @@
 /** Validate a generated public Pages artifact without making network calls. */
 import { readFile } from "fs/promises";
 import { join, resolve } from "path";
-import { validatePagesSource } from "../src/pages_snapshot.js";
+import {
+  PAGES_GEO_INTEL_ARTIFACT,
+  summarizePagesGeoIntel,
+  validatePagesGeoIntel,
+  validatePagesSource,
+} from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
 
 const destination = resolve(Bun.argv.find((arg, index) => index > 1 && !arg.startsWith("-")) ?? ".pages");
 const errors: string[] = [];
-const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json"];
+const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT];
 
 for (const relative of required) {
   try { await readFile(join(destination, relative)); }
@@ -22,6 +27,17 @@ let snapshot: PagesSnapshot | null = null;
 try {
   snapshot = JSON.parse(await readFile(join(destination, "data/snapshot.json"), "utf8")) as PagesSnapshot;
 } catch { errors.push("data/snapshot.json is not valid JSON"); }
+
+let geoIntel: unknown = null;
+const geoIntelSource = await readFile(join(destination, PAGES_GEO_INTEL_ARTIFACT), "utf8").catch(() => null);
+if (geoIntelSource !== null) {
+  try {
+    geoIntel = JSON.parse(geoIntelSource) as unknown;
+    errors.push(...validatePagesGeoIntel(geoIntel, new TextEncoder().encode(geoIntelSource).byteLength));
+  } catch {
+    errors.push(`${PAGES_GEO_INTEL_ARTIFACT} is not valid JSON`);
+  }
+}
 
 if (snapshot) {
   if (snapshot.schemaVersion !== "1.0.0") errors.push(`unsupported snapshot schema: ${String(snapshot.schemaVersion)}`);
@@ -65,6 +81,10 @@ if (snapshot) {
   if (snapshot.publicationPolicy?.curationInputs?.includes("triplicate")) errors.push("Triplicate is incorrectly listed as a curation input");
   if (snapshot.report?.metadata && snapshot.files.reportMetadata !== "data/report-metadata.json") errors.push("report metadata link is inconsistent");
   if (snapshot.analytics && snapshot.files.analyticsOverview !== "data/analytics-overview.json") errors.push("analytics overview link is inconsistent");
+  if (snapshot.files?.geoIntel !== PAGES_GEO_INTEL_ARTIFACT) errors.push("geo-intel artifact link is inconsistent");
+  const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
+  if (!geoIntelSummary) errors.push("geo-intel artifact summary cannot be derived");
+  else if (JSON.stringify(snapshot.geoIntel) !== JSON.stringify(geoIntelSummary)) errors.push("snapshot geoIntel summary does not match the geo-intel artifact");
 }
 
 if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("API key placeholder found in Pages HTML");

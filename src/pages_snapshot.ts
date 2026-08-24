@@ -15,11 +15,18 @@ import { runtimeMetadata } from "./shared/orchestration.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
 import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
+import { buildGeoIntel } from "./geo.js";
+import { buildGeoIntelSurface, type GeoIntelSurface } from "./geo_view.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
 const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;
+export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
+export const MAX_PAGES_GEO_INTEL_BYTES = 256 * 1024;
+const MAX_PAGES_GEO_DOMAINS = 100;
+const MAX_PAGES_GEO_FEATURES = 102;
+const MAX_PAGES_GEO_SECTIONS = 2_000;
 const SOURCE_HEALTH_FILES = [
   "news/source-health.json",
   "gov_meetings/source-health.json",
@@ -46,6 +53,7 @@ export interface PagesSnapshot {
     coverage: Record<string, unknown> | null;
     readability: Record<string, unknown> | null;
   };
+  geoIntel: PagesGeoIntelSummary;
   sourceHealth: SourceHealth[];
   news: Array<Record<string, unknown>>;
   meetings: Array<Record<string, unknown>>;
@@ -80,12 +88,23 @@ export interface PagesSnapshot {
     sourceRegistry: string;
     sourceDiscovery: string;
     analyticsOverview: string | null;
+    geoIntel: string;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
     curationInputs: string[];
     excludedFromSnapshot: string[];
   };
+}
+
+export interface PagesGeoIntelSummary {
+  available: true;
+  schema: string;
+  viewSchema: string;
+  domainCount: number;
+  hazardDomainCount: number;
+  featureCount: number;
+  sectionCount: number;
 }
 
 export interface PagesExportResult {
@@ -110,12 +129,142 @@ function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Build the API-shaped, JSON-safe geo-intel artifact used by public Pages. */
+export function buildPagesGeoIntel(contract: Record<string, unknown> = buildGeoIntel()): GeoIntelSurface {
+  return buildGeoIntelSurface(contract);
+}
+
+/** Derive the compact geo metadata embedded in the main snapshot envelope. */
+export function summarizePagesGeoIntel(value: unknown): PagesGeoIntelSummary | null {
+  if (!isRecord(value) || !isRecord(value.view)) return null;
+  const hazard = isRecord(value.hazard) ? value.hazard : {};
+  return {
+    available: true,
+    schema: typeof value.schema === "string" ? value.schema : "",
+    viewSchema: typeof value.view.schema === "string" ? value.view.schema : "",
+    domainCount: Array.isArray(value.domains) ? value.domains.length : 0,
+    hazardDomainCount: Array.isArray(hazard.relevantDomains) ? hazard.relevantDomains.length : 0,
+    featureCount: Array.isArray(value.view.features) ? value.view.features.length : 0,
+    sectionCount: Array.isArray(value.view.sections) ? value.view.sections.length : 0,
+  };
+}
+
+/**
+ * Validate the bounded, API-shaped geo-intel artifact without network or local
+ * service access. The checks couple the contract and derived view so Pages
+ * cannot publish a stale or structurally unrelated map surface.
+ */
+export function validatePagesGeoIntel(value: unknown, byteLength?: number): string[] {
+  const errors: string[] = [];
+  let serialized = "";
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    errors.push("geo-intel artifact is not JSON-serializable");
+  }
+  const actualBytes = byteLength ?? new TextEncoder().encode(serialized).byteLength;
+  if (actualBytes > MAX_PAGES_GEO_INTEL_BYTES) {
+    errors.push(`geo-intel artifact exceeds ${MAX_PAGES_GEO_INTEL_BYTES} bytes`);
+  }
+  if (serialized.includes("__CC_API_KEY__") || serialized.includes("__CC_API_KEY_INJECT__") || /\"(?:api[_-]?key|authorization)\"\s*:/i.test(serialized)) {
+    errors.push("geo-intel artifact contains an API-key or authorization field");
+  }
+  if (/localhost(?::\d+)?|127\.0\.0\.1/i.test(serialized)) {
+    errors.push("geo-intel artifact references a local-only service");
+  }
+  if (!isRecord(value)) {
+    errors.push("geo-intel artifact is not an object");
+    return errors;
+  }
+
+  if (value.schema !== "crescent-city-geo-intel/v1") errors.push("geo-intel contract schema is not crescent-city-geo-intel/v1");
+  if (typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt))) errors.push("geo-intel generatedAt is not an ISO timestamp");
+
+  const domains = Array.isArray(value.domains) ? value.domains : [];
+  if (!Array.isArray(value.domains) || domains.length === 0) errors.push("geo-intel domains are missing or empty");
+  if (domains.length > MAX_PAGES_GEO_DOMAINS) errors.push(`geo-intel domains exceed ${MAX_PAGES_GEO_DOMAINS}`);
+  if (value.domainCount !== domains.length) errors.push("geo-intel domainCount does not match domains");
+
+  const anchor = isRecord(value.anchor) ? value.anchor : null;
+  const bounds = anchor && isRecord(anchor.bounds) ? anchor.bounds : null;
+  const latitude = anchor?.latitude;
+  const longitude = anchor?.longitude;
+  if (typeof latitude !== "number" || !Number.isFinite(latitude) || latitude < -90 || latitude > 90) errors.push("geo-intel anchor latitude is invalid");
+  if (typeof longitude !== "number" || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) errors.push("geo-intel anchor longitude is invalid");
+  const west = bounds?.west;
+  const south = bounds?.south;
+  const east = bounds?.east;
+  const north = bounds?.north;
+  if (
+    typeof west !== "number" || typeof south !== "number" || typeof east !== "number" || typeof north !== "number" ||
+    ![west, south, east, north].every(Number.isFinite) || west >= east || south >= north
+  ) {
+    errors.push("geo-intel anchor bounds are invalid");
+  } else if (typeof latitude === "number" && typeof longitude === "number" && (longitude < west || longitude > east || latitude < south || latitude > north)) {
+    errors.push("geo-intel anchor falls outside its bounds");
+  }
+
+  const hazard = isRecord(value.hazard) ? value.hazard : null;
+  const relevantDomains = hazard && Array.isArray(hazard.relevantDomains) ? hazard.relevantDomains : [];
+  if (!hazard || !Array.isArray(hazard.relevantDomains)) errors.push("geo-intel hazard domains are missing");
+  if (hazard?.relevantDomainCount !== relevantDomains.length) errors.push("geo-intel hazard domain count is inconsistent");
+  if (relevantDomains.length > domains.length) errors.push("geo-intel hazard domains exceed all domains");
+
+  const view = isRecord(value.view) ? value.view : null;
+  if (!view) {
+    errors.push("geo-intel view is missing");
+    return errors;
+  }
+  if (view.schema !== "crescent-city-geo-view/v1") errors.push("geo-intel view schema is not crescent-city-geo-view/v1");
+  const crs = isRecord(view.crs) ? view.crs : null;
+  const crsProperties = crs && isRecord(crs.properties) ? crs.properties : null;
+  if (crsProperties?.name !== "EPSG:4326") errors.push("geo-intel view CRS is not EPSG:4326");
+  if (typeof value.generatedAt === "string" && view.generatedAt !== value.generatedAt) errors.push("geo-intel view generatedAt does not match the contract");
+
+  const viewAnchor = isRecord(view.anchor) ? view.anchor : null;
+  if (!viewAnchor || viewAnchor.latitude !== latitude || viewAnchor.longitude !== longitude) errors.push("geo-intel view anchor does not match the contract");
+
+  const features = Array.isArray(view.features) ? view.features : [];
+  if (!Array.isArray(view.features)) errors.push("geo-intel view features are missing");
+  if (features.length > MAX_PAGES_GEO_FEATURES) errors.push(`geo-intel view features exceed ${MAX_PAGES_GEO_FEATURES}`);
+  if (features.length !== relevantDomains.length + 2) errors.push("geo-intel view feature count does not match bounds, anchor, and hazard domains");
+  const featureIds = features.flatMap(feature => isRecord(feature) && typeof feature.id === "string" ? [feature.id] : []);
+  if (!featureIds.includes("del-norte-bounds")) errors.push("geo-intel view is missing the Del Norte bounds feature");
+  if (!featureIds.includes("city-anchor")) errors.push("geo-intel view is missing the city anchor feature");
+
+  const viewHazard = isRecord(view.hazard) ? view.hazard : null;
+  if (viewHazard?.domainCount !== relevantDomains.length) errors.push("geo-intel view hazard count does not match the contract");
+  const sections = Array.isArray(view.sections) ? view.sections : [];
+  if (!Array.isArray(view.sections) || sections.length === 0) errors.push("geo-intel view sections are missing or empty");
+  if (sections.length > MAX_PAGES_GEO_SECTIONS) errors.push(`geo-intel view sections exceed ${MAX_PAGES_GEO_SECTIONS}`);
+  return errors;
+}
+
 async function readJson<T>(path: string): Promise<T | null> {
   try {
     return JSON.parse(await readFile(path, "utf8")) as T;
   } catch {
     return null;
   }
+}
+
+async function loadPagesGeoIntel(outputDir: string, seedDir: string): Promise<GeoIntelSurface> {
+  const candidates = await Promise.all([
+    readJson<unknown>(join(outputDir, "geo-intel.json")),
+    readJson<unknown>(join(seedDir, "geo-intel.json")),
+  ]);
+  for (const candidate of candidates) {
+    if (!isRecord(candidate)) continue;
+    const surface = buildPagesGeoIntel(candidate);
+    if (validatePagesGeoIntel(surface).length === 0) return surface;
+  }
+
+  // The in-repo domain surface is the final offline fallback, so Pages never
+  // requires a scraper, API key, network request, or local service for geo data.
+  const surface = buildPagesGeoIntel();
+  const errors = validatePagesGeoIntel(surface);
+  if (errors.length > 0) throw new Error(`Cannot build public geo-intel artifact: ${errors.join("; ")}`);
+  return surface;
 }
 
 async function readJsonLines(path: string): Promise<JsonRecord[]> {
@@ -410,6 +559,9 @@ export async function buildPagesSnapshot(
   const curation = await readJson<JsonRecord>(join(resolvedOutput, "state/curation-report.json"));
   const analytics = await readJson<AnalyticsOverview>(join(resolvedOutput, "state/analytics-overview.json"));
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
+  const geoIntel = await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
+  const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
+  if (!geoIntelSummary) throw new Error("Cannot summarize public geo-intel artifact");
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
     collectBatchItems(join(resolvedOutput, "news"), "news-", normalizeNews, item => isActiveNewsSource(item.source)),
@@ -438,6 +590,7 @@ export async function buildPagesSnapshot(
       coverage,
       readability,
     },
+    geoIntel: geoIntelSummary,
     sourceHealth: health,
     news: dedupe(news, ["id", "link"]),
     meetings: dedupe(meetings, ["id", "link"]),
@@ -462,6 +615,7 @@ export async function buildPagesSnapshot(
       sourceHealth: "data/source-health.json",
       sourceRegistry: "data/source-registry.json",
       sourceDiscovery: "data/source-discovery.json",
+      geoIntel: PAGES_GEO_INTEL_ARTIFACT,
     },
     publicationPolicy: {
       triplicate: "reference-citation-only",
@@ -489,7 +643,10 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const destination = resolve(options.destination ?? ".pages");
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const seedDir = options.seedDir ?? "pages-data";
-  const snapshot = await buildPagesSnapshot(options.outputDir ?? "output", generatedAt, seedDir);
+  const sourceRoot = resolve(options.outputDir ?? "output");
+  const seedRoot = resolve(seedDir);
+  const snapshot = await buildPagesSnapshot(sourceRoot, generatedAt, seedRoot);
+  const geoIntel = await loadPagesGeoIntel(sourceRoot, seedRoot);
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
@@ -502,10 +659,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, "data/source-health.json"), snapshot.sourceHealth);
     await writeJson(join(temporary, "data/source-registry.json"), snapshot.sourceRegistry);
     await writeJson(join(temporary, "data/source-discovery.json"), snapshot.sourceDiscovery);
-    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json");
+    await writeJson(join(temporary, PAGES_GEO_INTEL_ARTIFACT), geoIntel);
+    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT);
 
-    const sourceRoot = resolve(options.outputDir ?? "output");
-    const seedRoot = resolve(seedDir);
     async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
       return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);
     }
@@ -572,6 +728,7 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (indexHtml.includes("localhost:3000") || indexHtml.includes("localhost:8001")) errors.push("Pages index references a local-only service");
   if (!indexHtml.includes("source-health.json")) errors.push("Pages index does not expose source health");
   if (!indexHtml.includes("source-discovery.json")) errors.push("Pages index does not expose source discovery");
+  if (!indexHtml.includes(PAGES_GEO_INTEL_ARTIFACT)) errors.push("Pages index does not expose geo-intel data");
   if (!indexHtml.includes("sourceRegistry")) errors.push("Pages index does not render the source registry");
   if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
   if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");

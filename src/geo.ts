@@ -112,6 +112,32 @@ const HAZARD_RELEVANT_TAGS = new Set([
   "landslide",
 ]);
 
+/**
+ * True when a tag carries a hazard-relevant keyword, using word-boundary
+ * matching so composite tags surface (`"flood zone"` ⇒ flood, `"sea level
+ * rise"` ⇒ sea level) without false positives on substrings.
+ */
+function isHazardTag(tag: string): boolean {
+  const lower = tag.toLowerCase().trim();
+  if (!lower) return false;
+  for (const keyword of HAZARD_RELEVANT_TAGS) {
+    // Multi-word keywords match as a whole phrase; single words match on
+    // word boundaries so "stormwater" does not read as "storm".
+    if (keyword.includes(" ")) {
+      if (lower.includes(keyword)) return true;
+    } else {
+      // eslint-disable-next-line no-useless-escape
+      if (new RegExp(`\\b${escapeRegExp(keyword)}\\b`).test(lower)) return true;
+    }
+  }
+  return false;
+}
+
+/** Escape regex-special characters for a literal word-boundary match. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /** Extract every unique tag referenced across a domain's topics (sorted). */
 function extractDomainTags(topics: Array<{ tags?: string[] }>): string[] {
   const seen = new Set<string>();
@@ -128,10 +154,10 @@ function hazardTaggedTopics(topics: Array<{
   sources?: Array<{ sectionNumber: string; relevance: string }>;
 }>): Array<{ name: string; tags: string[]; sections: Array<{ sectionNumber: string; relevance: string }> }> {
   return topics
-    .filter((topic) => (topic.tags ?? []).some((t) => HAZARD_RELEVANT_TAGS.has(t)))
+    .filter((topic) => (topic.tags ?? []).some(isHazardTag))
     .map((topic) => ({
       name: topic.name,
-      tags: (topic.tags ?? []).filter((t) => HAZARD_RELEVANT_TAGS.has(t)),
+      tags: (topic.tags ?? []).filter(isHazardTag),
       sections: (topic.sources ?? []).map((s) => ({
         sectionNumber: s.sectionNumber,
         relevance: s.relevance,
@@ -163,7 +189,7 @@ export function hazardRelevantDomains(
       id: domain.id,
       name: domain.name,
       icon: domain.icon,
-      hazardTags: extractDomainTags(domain.topics).filter((t) => HAZARD_RELEVANT_TAGS.has(t)),
+      hazardTags: extractDomainTags(domain.topics).filter(isHazardTag),
       topics: taggedTopics,
     });
   }

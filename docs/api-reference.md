@@ -154,6 +154,20 @@ Complete reference for all exported functions, interfaces, and constants.
 
 ---
 
+## Geo-Intel (`src/geo.ts`, `src/geo_view.ts`)
+
+| Export | Module | Signature | Description |
+| :--- | :--- | :--- | :--- |
+| `CRESCENT_CITY_ANCHOR` | `geo.ts` | `MunicipalityAnchor` | Authoritative Crescent City + Del Norte bounds (WGS84) |
+| `getDefaultCrescentSpec()` | `geo.ts` | `() → MunicipalitySpec` | Crescent City anchor + 12 domains as data |
+| `buildMunicipalityContract(spec)` | `geo.ts` | `(MunicipalitySpec) → Record<string, unknown>` | **Transferable** pure builder for any municipality |
+| `buildGeoIntel(domainList?)` | `geo.ts` | `(IntelligenceDomain[]) → Record<string, unknown>` | Legacy Crescent shorthand (delegates to transferable builder) |
+| `hazardRelevantDomains(surface?)` | `geo.ts` | `(IntelligenceDomain[]?) → Array<{…}>` | Hazard-tagged subset (word-boundary matching) |
+| `geoPaths` | `geo.ts` | `{ pagesSeed, liveExport }` | `pages-data/geo-intel.json` + `output/geo-intel.json` |
+| `writeGeoIntelExports()` | `geo.ts` | `() → Promise<string[]>` | Write Crescent seed + live export (guarded) |
+| `buildGeoView(intel)` | `geo_view.ts` | `(contract) → GeoIntelView` | Tiles-free SVG map features (bounds, anchor, hazard points, sections), `crescent-city-geo-view/v1` |
+| `/api/geo-intel` | `gui/routes.ts` | `GET` | Serves the contract + geo-view feature surface (pure, no scraper needed) |
+
 ## Shared (`src/shared/`)
 
 | Function | Module | Signature | Description |

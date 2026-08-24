@@ -107,9 +107,22 @@ same `buildMunicipalityContract` path and are consumed identically.
 
 ## Tests
 
-`tests/geo-intel.test.ts` (10) — anchor coordinates/bounds, default-spec data
+`tests/geo-intel.test.ts` (13) — anchor coordinates/bounds, default-spec data
 shape, schema + 12-domain count, code cross-refs, hazard-relevant surface,
-injected-domain purity, and a second-municipality example proving the builder
-is transferable while Crescent City stays GEO-INFER-compatible.
+injected-domain purity, a second-municipality example proving the builder is
+transferable while Crescent City stays GEO-INFER-compatible, and word-boundary
+hazard matching.
+
+### Hazard matching
+
+The hazard subset uses **word-boundary** keyword matching (not exact tag
+equality), so composite tags surface their hazard intent: `"flood zone"` matches
+`flood`, `"sea level rise"` matches `sea level`, `"climate adaptation"` matches
+`climate`, and `"tsunami zone"` / `"tsunami drill"` match `tsunami`. Words are
+matched on boundaries so `"stormwater"` does not falsely read as `storm`. With
+the in-repo Crescent surface this flags **4** hazard-relevant domains
+(emergency-management, environmental-protection, event-planning,
+climate-environment) and carries flood + sea-level policy the prior consumers
+(RISK/BAYES/ACT) receive as defaults.
 
 Run with: `bun run test` (suite) or `bun test tests/geo-intel.test.ts`.

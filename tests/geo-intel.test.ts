@@ -153,4 +153,75 @@ describe("transferable municipality contract", () => {
     expect(viaSpec.domains).toHaveLength(12);
     expect((viaLegacy.domains as Array<unknown>)).toHaveLength(12);
   });
+
+  test("word-boundary hazard matching surfaces composite tags (flood zone, sea level rise)", () => {
+    const spec = {
+      id: "test/v1",
+      anchor: CRESCENT_CITY_ANCHOR,
+      domains: [
+        {
+          id: "climate-environment",
+          name: "Climate",
+          icon: "🌍",
+          description: "Coastal climate policy",
+          updatedAt: "2026-01-01",
+          topics: [
+            {
+              name: "Sea Level Rise",
+              description: "Coastal adaptation",
+              tags: ["sea level rise", "flood zone", "climate adaptation"],
+              sources: [{ sectionNumber: "§ 13.04", relevance: "test" }],
+            },
+          ],
+        },
+      ] as typeof domains,
+    };
+    const payload = buildMunicipalityContract(spec);
+    const hazard = payload.hazard as { relevantDomains: Array<{ hazardTags: string[] }> };
+    // Composite tags must match their hazard keyword (not substring-only).
+    expect(hazard.relevantDomains).toHaveLength(1);
+    const tags = hazard.relevantDomains[0].hazardTags;
+    expect(tags).toContain("sea level rise");
+    expect(tags).toContain("flood zone");
+    expect(tags).toContain("climate adaptation");
+  });
+
+  test("word-boundary matching does not over-match on substrings (stormwater ≠ storm)", () => {
+    const spec = {
+      id: "test/v1",
+      anchor: CRESCENT_CITY_ANCHOR,
+      domains: [
+        {
+          id: "infrastructure",
+          name: "Infrastructure",
+          icon: "🏗️",
+          description: "Drainage",
+          updatedAt: "2026-01-01",
+          topics: [
+            {
+              name: "Stormwater Management",
+              description: "Drainage systems",
+              tags: ["stormwater", "drainage"],
+              sources: [{ sectionNumber: "§ 13.12", relevance: "test" }],
+            },
+          ],
+        },
+      ] as typeof domains,
+    };
+    const payload = buildMunicipalityContract(spec);
+    const hazard = payload.hazard as { relevantDomainCount: number };
+    // "stormwater" is not a storm hazard — should not surface as hazard-relevant.
+    expect(hazard.relevantDomainCount).toBe(0);
+  });
+
+  test("Crescent default hazard surface now covers flood + sea level across 4 domains", () => {
+    const spec = getDefaultCrescentSpec();
+    const hazard = hazardRelevantDomains(spec.domains);
+    expect(hazard.length).toBeGreaterThanOrEqual(4);
+    const allTags = hazard.flatMap((d) => d.hazardTags);
+    // The cross-cutting gap the GEO-INFER consumers flagged: flood + sea-level
+    // policy must actually reach the hazard subset.
+    expect(allTags.some((t) => t.includes("flood"))).toBe(true);
+    expect(allTags.some((t) => t.includes("sea level"))).toBe(true);
+  });
 });

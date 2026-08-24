@@ -4,6 +4,7 @@ import { readFile } from "fs/promises";
 import { join, resolve } from "path";
 import {
   PAGES_GEO_INTEL_ARTIFACT,
+  PAGES_GEO_VIEW_PLACEHOLDER,
   summarizePagesGeoIntel,
   validatePagesGeoIntel,
   validatePagesSource,
@@ -22,6 +23,8 @@ for (const relative of required) {
 
 const indexHtml = await readFile(join(destination, "index.html"), "utf8").catch(() => "");
 errors.push(...validatePagesSource(indexHtml));
+if (indexHtml.includes(PAGES_GEO_VIEW_PLACEHOLDER)) errors.push("Pages geo-view placeholder was not replaced");
+if (!indexHtml.includes('data-geo-view-schema="crescent-city-geo-view/v1"')) errors.push("Pages artifact does not contain the rendered geo-view SVG");
 
 let snapshot: PagesSnapshot | null = null;
 try {

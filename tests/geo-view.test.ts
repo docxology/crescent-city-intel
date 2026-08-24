@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { CRESCENT_CITY_ANCHOR, buildGeoIntel } from "../src/geo";
 import { domains } from "../src/domains";
-import { buildGeoIntelSurface, buildGeoView, type GeoPointFeature } from "../src/geo_view";
+import { buildGeoIntelSurface, buildGeoView, buildGeoViewSvg, type GeoPointFeature } from "../src/geo_view";
 
 /** Build a real contract from the in-repo 12-domain surface, cast to the raw shape. */
 function realContract(): Record<string, unknown> {
@@ -123,5 +123,34 @@ describe("Crescent City geospatial view-assembler", () => {
     const { generatedAt: _g2, ...secondRest } = second;
     expect(firstRest).toEqual(secondRest);
     expect(typeof JSON.stringify(first)).toBe("string");
+  });
+
+  test("buildGeoViewSvg renders every real map layer without a DOM or tiles provider", () => {
+    const view = buildGeoView(realContract());
+    const svg = buildGeoViewSvg(view);
+    expect(svg.startsWith('<svg class="geo-view-svg"')).toBe(true);
+    expect(svg).toContain('data-geo-view-schema="crescent-city-geo-view/v1"');
+    expect(svg).toContain('data-feature-id="del-norte-bounds"');
+    expect(svg).toContain('data-feature-id="city-anchor"');
+    expect(svg.match(/data-feature-kind="hazard-domain"/g)?.length).toBe(view.hazard.domainCount);
+    expect(svg).toContain("Nominal marker inset");
+    expect(svg).toContain(`${view.sections.length} hazard-weighted section(s)`);
+    expect(svg).not.toContain("<script");
+    expect(svg).not.toContain("tile.openstreetmap");
+    expect(buildGeoViewSvg(view)).toBe(svg);
+  });
+
+  test("buildGeoViewSvg escapes contract labels before embedding them", () => {
+    const view = buildGeoView(realContract());
+    const point = view.features.find(
+      (feature): feature is GeoPointFeature => feature.properties.kind === "hazard-domain",
+    );
+    expect(point).toBeDefined();
+    if (!point) return;
+    point.properties.name = '<script>alert("map")</script> & domain';
+    point.properties.label = point.properties.name;
+    const svg = buildGeoViewSvg(view);
+    expect(svg).not.toContain("<script>");
+    expect(svg).toContain("&lt;script&gt;alert(&quot;map&quot;)&lt;/script&gt; &amp; domain");
   });
 });

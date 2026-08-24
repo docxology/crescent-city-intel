@@ -10,9 +10,9 @@
  * render the returned GeoJSON-shaped features directly onto a blank canvas or
  * any projection.
  *
- * The builder is a PURE function (`buildGeoView`): it takes a geo-intel
- * contract object and returns a plain JSON-safe structure with no filesystem
- * or network side effects. Tests exercise it in isolation.
+ * The builders are PURE functions: `buildGeoView` returns the JSON-safe feature
+ * surface and `buildGeoViewSvg` projects that surface into an escaped inline
+ * SVG. Neither requires a DOM, filesystem, network, or tiles provider.
  *
  * Honest placement note: the contract carries the city anchor + Del Norte
  * bounds but no per-domain coordinates. Hazard-domain points are therefore
@@ -324,6 +324,187 @@ export function buildGeoView(raw: Record<string, unknown>): GeoIntelView {
     },
     sections,
   };
+}
+
+const GEO_VIEW_PALETTE = [
+  "#f97316",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f59e0b",
+  "#ef4444",
+  "#14b8a6",
+  "#f43f5e",
+  "#a855f7",
+  "#0ea5e9",
+  "#eab308",
+];
+
+function escapeSvg(value: unknown): string {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    })[character] ?? character,
+  );
+}
+
+function shortSvgLabel(value: string, maxLength = 27): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
+}
+
+function isPointFeature(feature: GeoBoundsFeature | GeoPointFeature): feature is GeoPointFeature {
+  return feature.geometry.type === "Point";
+}
+
+/**
+ * Project a canonical geo view into a compact, accessible inline SVG.
+ *
+ * The county extent remains the primary frame. Because the contract's
+ * hazard-domain coordinates are explicitly nominal and intentionally cluster
+ * around the city anchor, a labeled inset shows their relative positions
+ * without suggesting surveyed facilities or incident locations.
+ */
+export function buildGeoViewSvg(view: GeoIntelView): string {
+  const width = 720;
+  const height = 410;
+  const map = { x: 24, y: 48, width: 448, height: 322 };
+  const legend = { x: 492, y: 48, width: 204, height: 322 };
+  const fallbackBounds = CRESCENT_CITY_ANCHOR.bounds;
+  const rawBounds = view.anchor?.bounds ?? fallbackBounds;
+  const bounds = rawBounds.east > rawBounds.west && rawBounds.north > rawBounds.south
+    ? rawBounds
+    : fallbackBounds;
+  const projectX = (longitude: number): number =>
+    map.x + 14 + ((longitude - bounds.west) / (bounds.east - bounds.west)) * (map.width - 28);
+  const projectY = (latitude: number): number =>
+    map.y + 14 + ((bounds.north - latitude) / (bounds.north - bounds.south)) * (map.height - 28);
+  const format = (value: number): string => value.toFixed(1);
+
+  const features = Array.isArray(view.features) ? view.features : [];
+  const boundsFeature = features.find((feature): feature is GeoBoundsFeature => feature.geometry.type === "Polygon");
+  const anchorFeature = features.find(
+    (feature): feature is GeoPointFeature => isPointFeature(feature) && feature.properties.kind === "anchor",
+  );
+  const hazardPoints = features.filter(
+    (feature): feature is GeoPointFeature => isPointFeature(feature) && feature.properties.kind === "hazard-domain",
+  );
+  const fallbackRing = [
+    [bounds.west, bounds.south],
+    [bounds.east, bounds.south],
+    [bounds.east, bounds.north],
+    [bounds.west, bounds.north],
+    [bounds.west, bounds.south],
+  ];
+  const featureRing = boundsFeature?.geometry.coordinates[0] ?? [];
+  const ring = featureRing.length >= 4 && featureRing.every(
+    (position) => position.length >= 2 && Number.isFinite(position[0]) && Number.isFinite(position[1]),
+  ) ? featureRing : fallbackRing;
+  const anchorLongitude = anchorFeature?.geometry.coordinates[0] ?? view.anchor.longitude;
+  const anchorLatitude = anchorFeature?.geometry.coordinates[1] ?? view.anchor.latitude;
+
+  const insetPoints = [[anchorLongitude, anchorLatitude], ...hazardPoints.map((feature) => feature.geometry.coordinates)]
+    .filter((position) => position.length >= 2 && Number.isFinite(position[0]) && Number.isFinite(position[1]));
+  const insetLongitudes = insetPoints.map((position) => position[0]);
+  const insetLatitudes = insetPoints.map((position) => position[1]);
+  const longitudeCenter = (Math.min(...insetLongitudes) + Math.max(...insetLongitudes)) / 2;
+  const latitudeCenter = (Math.min(...insetLatitudes) + Math.max(...insetLatitudes)) / 2;
+  const longitudeSpan = Math.max(0.05, (Math.max(...insetLongitudes) - Math.min(...insetLongitudes)) * 1.5);
+  const latitudeSpan = Math.max(0.05, (Math.max(...insetLatitudes) - Math.min(...insetLatitudes)) * 1.5);
+  const inset = { x: map.x + map.width - 174, y: map.y + map.height - 142, width: 158, height: 126 };
+  const insetX = (longitude: number): number =>
+    inset.x + 10 + ((longitude - (longitudeCenter - longitudeSpan / 2)) / longitudeSpan) * (inset.width - 20);
+  const insetY = (latitude: number): number =>
+    inset.y + 20 + (((latitudeCenter + latitudeSpan / 2) - latitude) / latitudeSpan) * (inset.height - 30);
+
+  const titleId = "crescent-city-geo-view-title";
+  const descriptionId = "crescent-city-geo-view-description";
+  const svg: string[] = [
+    `<svg class="geo-view-svg" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="${titleId} ${descriptionId}" data-geo-view-schema="${escapeSvg(view.schema)}" xmlns="http://www.w3.org/2000/svg">`,
+    `<title id="${titleId}">Crescent City civic and hazard geo view</title>`,
+    `<desc id="${descriptionId}">Tiles-free WGS84 map of the Del Norte County extent, Crescent City anchor, and ${hazardPoints.length} nominal hazard-domain markers. The legend reports municipal-code section counts.</desc>`,
+    "<defs><linearGradient id=\"geo-view-land\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#142b43\"/><stop offset=\"1\" stop-color=\"#173524\"/></linearGradient></defs>",
+    `<rect width="${width}" height="${height}" rx="12" fill="#08111f"/>`,
+    `<text x="${map.x}" y="27" fill="#e8f0fb" font-size="15" font-weight="700">Del Norte County extent · WGS84</text>`,
+    `<text x="${map.x + map.width}" y="27" text-anchor="end" fill="#9fb1c8" font-size="11">tiles-free · not a surveyed boundary</text>`,
+    `<rect x="${map.x}" y="${map.y}" width="${map.width}" height="${map.height}" rx="9" fill="url(#geo-view-land)" stroke="#335c81"/>`,
+  ];
+
+  const ringPoints = ring.map((position) => `${format(projectX(position[0]))},${format(projectY(position[1]))}`).join(" ");
+  svg.push(
+    `<polygon data-feature-id="${escapeSvg(boundsFeature?.id ?? "del-norte-bounds")}" data-feature-kind="bounds" points="${ringPoints}" fill="rgba(105,183,255,0.06)" stroke="#69b7ff" stroke-width="2" stroke-dasharray="8 5"/>`,
+    `<text x="${map.x + 12}" y="${map.y + 19}" fill="#9fb1c8" font-size="10">${escapeSvg(boundsFeature?.properties.label ?? "Del Norte County extent")}</text>`,
+    `<text x="${map.x + 12}" y="${map.y + map.height - 9}" fill="#9fb1c8" font-size="9">${bounds.west.toFixed(3)}° W</text>`,
+    `<text x="${map.x + map.width - 12}" y="${map.y + map.height - 9}" text-anchor="end" fill="#9fb1c8" font-size="9">${bounds.east.toFixed(3)}° W</text>`,
+    `<path d="M ${map.x + map.width - 24} ${map.y + 42} V ${map.y + 18} M ${map.x + map.width - 30} ${map.y + 26} L ${map.x + map.width - 24} ${map.y + 18} L ${map.x + map.width - 18} ${map.y + 26}" fill="none" stroke="#e8f0fb" stroke-width="1.5"/>`,
+    `<text x="${map.x + map.width - 24}" y="${map.y + 54}" text-anchor="middle" fill="#e8f0fb" font-size="10">N</text>`,
+  );
+
+  const mainAnchorX = format(projectX(anchorLongitude));
+  const mainAnchorY = format(projectY(anchorLatitude));
+  svg.push(
+    `<g data-feature-id="${escapeSvg(anchorFeature?.id ?? "city-anchor")}" data-feature-kind="anchor">`,
+    `<circle cx="${mainAnchorX}" cy="${mainAnchorY}" r="11" fill="#08111f" fill-opacity="0.72" stroke="#ffffff" stroke-width="2"/>`,
+    `<circle cx="${mainAnchorX}" cy="${mainAnchorY}" r="2.5" fill="#ffffff"/>`,
+    `<text x="${format(projectX(anchorLongitude) + 15)}" y="${format(projectY(anchorLatitude) + 4)}" fill="#ffffff" font-size="11" font-weight="700">${escapeSvg(view.anchor.name)}</text>`,
+    "</g>",
+  );
+
+  hazardPoints.forEach((feature, index) => {
+    const [longitude, latitude] = feature.geometry.coordinates;
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+    const color = GEO_VIEW_PALETTE[index % GEO_VIEW_PALETTE.length];
+    svg.push(
+      `<circle data-feature-id="${escapeSvg(feature.id)}" data-feature-kind="hazard-domain" data-nominal="${feature.properties.nominal}" cx="${format(projectX(longitude))}" cy="${format(projectY(latitude))}" r="5" fill="${color}" stroke="#ffffff" stroke-width="1.25"><title>${escapeSvg(feature.properties.label)} · ${feature.properties.sectionCount} code section reference(s) · nominal marker</title></circle>`,
+    );
+  });
+
+  svg.push(
+    `<g aria-label="Nominal marker inset">`,
+    `<rect x="${inset.x}" y="${inset.y}" width="${inset.width}" height="${inset.height}" rx="7" fill="#0d1929" fill-opacity="0.96" stroke="#55708f"/>`,
+    `<text x="${inset.x + 9}" y="${inset.y + 14}" fill="#c7d4e4" font-size="9" font-weight="700">Nominal marker inset</text>`,
+    `<circle cx="${format(insetX(anchorLongitude))}" cy="${format(insetY(anchorLatitude))}" r="8" fill="none" stroke="#ffffff" stroke-width="1.5"/>`,
+  );
+  hazardPoints.forEach((feature, index) => {
+    const [longitude, latitude] = feature.geometry.coordinates;
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+    const color = GEO_VIEW_PALETTE[index % GEO_VIEW_PALETTE.length];
+    svg.push(
+      `<circle cx="${format(insetX(longitude))}" cy="${format(insetY(latitude))}" r="7" fill="${color}" stroke="#ffffff" stroke-width="1"><title>${escapeSvg(feature.properties.label)}</title></circle>`,
+      `<text x="${format(insetX(longitude))}" y="${format(insetY(latitude) + 3.5)}" text-anchor="middle" fill="#08111f" font-size="9" font-weight="800">${index + 1}</text>`,
+    );
+  });
+  svg.push("</g>");
+
+  svg.push(
+    `<rect x="${legend.x}" y="${legend.y}" width="${legend.width}" height="${legend.height}" rx="9" fill="#101d31" stroke="#27415f"/>`,
+    `<text x="${legend.x + 14}" y="${legend.y + 24}" fill="#e8f0fb" font-size="13" font-weight="700">Hazard-relevant domains</text>`,
+    `<text x="${legend.x + 14}" y="${legend.y + 42}" fill="#9fb1c8" font-size="10">${hazardPoints.length} nominal marker(s)</text>`,
+  );
+  const legendLimit = Math.min(hazardPoints.length, 6);
+  hazardPoints.slice(0, legendLimit).forEach((feature, index) => {
+    const color = GEO_VIEW_PALETTE[index % GEO_VIEW_PALETTE.length];
+    const rowY = legend.y + 72 + index * 42;
+    svg.push(
+      `<circle cx="${legend.x + 20}" cy="${rowY - 4}" r="8" fill="${color}"/>`,
+      `<text x="${legend.x + 20}" y="${rowY - 1}" text-anchor="middle" fill="#08111f" font-size="9" font-weight="800">${index + 1}</text>`,
+      `<text x="${legend.x + 34}" y="${rowY - 7}" fill="#e8f0fb" font-size="10.5" font-weight="700"><title>${escapeSvg(feature.properties.name)}</title>${escapeSvg(shortSvgLabel(feature.properties.name))}</text>`,
+      `<text x="${legend.x + 34}" y="${rowY + 8}" fill="#9fb1c8" font-size="9.5">${feature.properties.sectionCount} code section reference(s)</text>`,
+    );
+  });
+  if (hazardPoints.length > legendLimit) {
+    svg.push(`<text x="${legend.x + 14}" y="${legend.y + legend.height - 32}" fill="#9fb1c8" font-size="10">+ ${hazardPoints.length - legendLimit} domain(s) in JSON</text>`);
+  }
+  svg.push(
+    `<text x="${legend.x + 14}" y="${legend.y + legend.height - 14}" fill="#69b7ff" font-size="10">${view.sections.length} hazard-weighted section(s) · EPSG:4326</text>`,
+    "</svg>",
+  );
+  return svg.join("\n");
 }
 
 /**

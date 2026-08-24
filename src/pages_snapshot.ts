@@ -16,13 +16,14 @@ import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprin
 import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
 import { buildGeoIntel } from "./geo.js";
-import { buildGeoIntelSurface, type GeoIntelSurface } from "./geo_view.js";
+import { buildGeoIntelSurface, buildGeoViewSvg, type GeoIntelSurface, type GeoIntelView } from "./geo_view.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
 const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;
 export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
+export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
 export const MAX_PAGES_GEO_INTEL_BYTES = 256 * 1024;
 const MAX_PAGES_GEO_DOMAINS = 100;
 const MAX_PAGES_GEO_FEATURES = 102;
@@ -132,6 +133,15 @@ function isRecord(value: unknown): value is JsonRecord {
 /** Build the API-shaped, JSON-safe geo-intel artifact used by public Pages. */
 export function buildPagesGeoIntel(contract: Record<string, unknown> = buildGeoIntel()): GeoIntelSurface {
   return buildGeoIntelSurface(contract);
+}
+
+/** Replace the static template marker with a backend-free map from the exact view being published. */
+export function embedPagesGeoView(indexHtml: string, view: GeoIntelView): string {
+  const markerCount = indexHtml.split(PAGES_GEO_VIEW_PLACEHOLDER).length - 1;
+  if (markerCount !== 1) {
+    throw new Error(`Pages index must contain exactly one geo-view placeholder; found ${markerCount}`);
+  }
+  return indexHtml.replace(PAGES_GEO_VIEW_PLACEHOLDER, buildGeoViewSvg(view));
 }
 
 /** Derive the compact geo metadata embedded in the main snapshot envelope. */
@@ -650,7 +660,8 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
-    await copyIfPresent(join(STATIC_DIR, "index.html"), join(temporary, "index.html"));
+    const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
+    await writeFile(join(temporary, "index.html"), embedPagesGeoView(indexTemplate, geoIntel.view), "utf8");
     await copyIfPresent(join(STATIC_DIR, "404.html"), join(temporary, "404.html"));
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
     files.push("index.html", "404.html", ".nojekyll");
@@ -729,6 +740,11 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (!indexHtml.includes("source-health.json")) errors.push("Pages index does not expose source health");
   if (!indexHtml.includes("source-discovery.json")) errors.push("Pages index does not expose source discovery");
   if (!indexHtml.includes(PAGES_GEO_INTEL_ARTIFACT)) errors.push("Pages index does not expose geo-intel data");
+  if (!indexHtml.includes('id="geo"')) errors.push("Pages index does not expose the hazard geo-view section");
+  if (!indexHtml.includes('id="geo-map"')) errors.push("Pages index does not expose the geo-view map container");
+  if (!indexHtml.includes(PAGES_GEO_VIEW_PLACEHOLDER) && !indexHtml.includes('data-geo-view-schema="crescent-city-geo-view/v1"')) {
+    errors.push("Pages index does not embed the geo-view SVG");
+  }
   if (!indexHtml.includes("sourceRegistry")) errors.push("Pages index does not render the source registry");
   if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
   if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");

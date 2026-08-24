@@ -6,7 +6,10 @@
  *   1. The SPA renders (header present).
  *   2. The local/loopback API-key injection delivers a real key to the page
  *      (the security-critical trust boundary from gui-server.test.ts).
- *   3. /api/toc returns OK via the page's authenticated fetch.
+ *   3. /api/toc returns a truthful 200 or fresh-clone 404 envelope via the
+ *      page's authenticated fetch.
+ *   4. The Alerts panel renders its bounded trend + heatmap from the real
+ *      timeline/history APIs with accessible source-state labels.
  *
  * Run with: bun run test:browser
  * Exits non-zero on failure (CI-gatable). Requires a Playwright browser; the
@@ -26,6 +29,7 @@ import { join } from "path";
 function resolveChromiumExecutable(): string | undefined {
   const viaEnv = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
   if (viaEnv && existsSync(viaEnv)) return viaEnv;
+  if (existsSync("/bin/google-chrome")) return "/bin/google-chrome";
   const cacheCandidates = [
     process.env.PLAYWRIGHT_BROWSERS_PATH,
     join(process.env.HOME ?? "~", "Library", "Caches", "ms-playwright"),
@@ -84,8 +88,16 @@ async function main() {
     }
 
     const executablePath = resolveChromiumExecutable();
+    console.log(`[browser-smoke] chromium=${executablePath ?? "playwright-managed"}`);
     browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
     const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    const alertRequests: string[] = [];
+    page.on("pageerror", error => pageErrors.push(error.message));
+    page.on("request", request => {
+      const url = new URL(request.url());
+      if (url.pathname.startsWith("/api/alerts/")) alertRequests.push(`${url.pathname}${url.search}`);
+    });
     await page.goto(`${BASE}/`, { waitUntil: "networkidle", timeout: 20_000 });
 
     const headerCount = await page.locator("#header").count();
@@ -96,13 +108,16 @@ async function main() {
       markFail("loopback page did not receive the injected API key (trust boundary)");
     }
 
-    const tocOk = await page.evaluate(async (base: string) => {
+    const tocResult = await page.evaluate(async (base: string) => {
       try {
         const res = await fetch(`${base}/api/toc`);
-        return res.ok;
-      } catch { return false; }
+        const body = await res.json().catch(() => null);
+        return { reachable: true, status: res.status, hasBody: body !== null };
+      } catch { return { reachable: false, status: 0, hasBody: false }; }
     }, BASE);
-    if (!tocOk) markFail("/api/toc did not return OK from the page context");
+    if (!tocResult.reachable || ![200, 404].includes(tocResult.status) || !tocResult.hasBody) {
+      markFail(`/api/toc returned an invalid fresh-clone envelope (status=${tocResult.status})`);
+    }
 
     // The semantic-search endpoint must return a 200 envelope (mode semantic or
     // bm25-fallback) whether or not the vector stack is running.
@@ -118,8 +133,50 @@ async function main() {
     else if (semantic.mode !== "semantic" && semantic.mode !== "bm25-fallback") markFail(`unexpected semantic mode: ${semantic.mode}`);
     else console.log(`[browser-smoke] semantic mode=${semantic.mode} results=${semantic.count}`);
 
-    console.log(`[browser-smoke] header=${headerCount} keyInjected=${Boolean(injectedKey)} tocOk=${tocOk}`);
-    if (!failed) console.log("[browser-smoke] PASS: page rendered, key injected, api authenticated");
+    await page.locator("#alerts-toggle").click();
+    await page.locator('#alert-trends-content[aria-busy="false"]').waitFor({ state: "visible", timeout: 20_000 });
+    const alertView = await page.evaluate(() => {
+      const heatRows = document.querySelectorAll(".alert-heatmap tbody tr");
+      const heatCells = document.querySelectorAll(".alert-heatmap tbody td");
+      const labelledCells = [...heatCells].filter(cell => (cell.getAttribute("aria-label") ?? "").includes("recorded event"));
+      const legendStates = [...document.querySelectorAll(".alert-state-legend [data-state]")]
+        .map(element => element.getAttribute("data-state"));
+      const rowStates = [...heatRows].map(row => row.getAttribute("data-state"));
+      return {
+        selectOptions: document.querySelectorAll("#alert-trend-type option").length,
+        trendColumns: document.querySelectorAll("#alert-trend-chart .alert-trend-column").length,
+        heatRows: heatRows.length,
+        heatCells: heatCells.length,
+        labelledCells: labelledCells.length,
+        legendStates,
+        rowStates,
+        note: document.querySelector(".alert-trend-note")?.textContent ?? "",
+      };
+    });
+    if (alertView.selectOptions !== 8) markFail(`alert type selector rendered ${alertView.selectOptions} options, expected 8`);
+    if (alertView.trendColumns !== 14) markFail(`alert trend rendered ${alertView.trendColumns} days, expected 14`);
+    if (alertView.heatRows !== 8 || alertView.heatCells !== 112) {
+      markFail(`alert heatmap shape was ${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)}, expected 8x14`);
+    }
+    if (alertView.labelledCells !== alertView.heatCells) markFail("alert heatmap cells are missing accessible recorded-event labels");
+    for (const state of ["calm", "empty", "stale", "unavailable"]) {
+      if (!alertView.legendStates.includes(state)) markFail(`alert legend is missing distinct ${state} state`);
+    }
+    if (alertView.rowStates.some(state => !["calm", "active", "available", "empty", "stale", "unavailable", "unknown"].includes(state ?? ""))) {
+      markFail(`alert heatmap exposed an invalid source state: ${alertView.rowStates.join(",")}`);
+    }
+    if (!alertView.note.includes("rendering is capped at 5,000 records")) markFail("alert rendering bound is not visible");
+    if (!alertRequests.some(path => path === "/api/alerts/timeline")) markFail("alert view did not request /api/alerts/timeline");
+    for (const type of ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"]) {
+      if (!alertRequests.some(path => path.startsWith(`/api/alerts/${type}/history?`))) {
+        markFail(`alert view did not request ${type} history`);
+      }
+    }
+    if (pageErrors.length > 0) markFail(`page error(s): ${pageErrors.join(" | ")}`);
+    console.log(`[browser-smoke] alertTrend=${alertView.trendColumns}d heatmap=${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)} states=${[...new Set(alertView.rowStates)].join(",")}`);
+
+    console.log(`[browser-smoke] header=${headerCount} keyInjected=${Boolean(injectedKey)} tocStatus=${tocResult.status}`);
+    if (!failed) console.log("[browser-smoke] PASS: page rendered, key injected, api authenticated, alert trend/heatmap accessible");
   } catch (error) {
     markFail(error instanceof Error ? error.message : String(error));
   } finally {

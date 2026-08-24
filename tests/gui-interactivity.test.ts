@@ -25,6 +25,11 @@ describe("GUI interactivity contracts", () => {
     expect(html).toContain('id="welcome"');
     expect(html).toContain("Find the local signal");
     expect(html).toContain("Structured public data");
+    expect(html).toContain('id="geo"');
+    expect(html).toContain('id="geo-map"');
+    expect(html).toContain("data-pages-geo-view");
+    expect(html).toContain("renderGeoIntel");
+    expect(html).toContain("data/geo-intel.json");
   });
 
   test("local GUI exposes source coverage drill-down and structured output", async () => {

@@ -438,6 +438,16 @@ The project maps the municipal code to **12 civic intelligence domains**, each c
 - 🌲 Environment: [Redwood NPS](https://www.nps.gov/redw/) · [California Coastal Commission](https://www.coastal.ca.gov/)
 - 🏠 Housing: [CalHFA](https://www.calhfa.ca.gov/) · [HUD California](https://www.hud.gov/states/california) · [CARE Court](https://carecourt.ca.gov/)
 
+### Tiles-free civic and hazard geo view
+
+`buildGeoIntel()` emits the transferable municipality contract (anchor plus
+civic domains), and `buildGeoView()` derives its
+`crescent-city-geo-view/v1` feature view: Del Norte bounds, the Crescent City
+anchor, nominal hazard-domain points, and hazard-weighted code sections. The
+GUI **Hazard Geo** subtab and public Pages snapshot render that same view
+without a tiles provider; GEO-INFER consumes the contract directly instead of
+re-scraping this platform.
+
 ---
 
 ## 📦 Export Formats

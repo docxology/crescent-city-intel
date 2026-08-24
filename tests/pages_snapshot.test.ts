@@ -4,8 +4,10 @@ import { dirname, join } from "path";
 import {
   MAX_PAGES_GEO_INTEL_BYTES,
   PAGES_GEO_INTEL_ARTIFACT,
+  PAGES_GEO_VIEW_PLACEHOLDER,
   buildPagesGeoIntel,
   buildPagesSnapshot,
+  embedPagesGeoView,
   exportPagesSnapshot,
   summarizePagesGeoIntel,
   validatePagesGeoIntel,
@@ -42,6 +44,17 @@ describe("public Pages snapshot", () => {
       featureCount: 6,
       sectionCount: geoIntel.view.sections.length,
     });
+  });
+
+  test("embeds the published geo view into the Pages template exactly once", () => {
+    const geoIntel = buildPagesGeoIntel();
+    const template = `<main id="geo"><div id="geo-map">${PAGES_GEO_VIEW_PLACEHOLDER}</div></main>`;
+    const rendered = embedPagesGeoView(template, geoIntel.view);
+    expect(rendered).not.toContain(PAGES_GEO_VIEW_PLACEHOLDER);
+    expect(rendered).toContain('<svg class="geo-view-svg"');
+    expect(rendered).toContain('data-geo-view-schema="crescent-city-geo-view/v1"');
+    expect(() => embedPagesGeoView("<main></main>", geoIntel.view)).toThrow("exactly one geo-view placeholder");
+    expect(() => embedPagesGeoView(`${template}${PAGES_GEO_VIEW_PLACEHOLDER}`, geoIntel.view)).toThrow("found 2");
   });
 
   test("rejects secret-bearing and local-only geo-intel additions", () => {
@@ -92,7 +105,12 @@ describe("public Pages snapshot", () => {
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-07-24T01:00:00Z" });
       expect(result.status).toBe("ok");
-      expect(await readFile(join(destination, "index.html"), "utf8")).toContain("data/snapshot.json");
+      const indexHtml = await readFile(join(destination, "index.html"), "utf8");
+      expect(indexHtml).toContain("data/snapshot.json");
+      expect(indexHtml).toContain('id="geo"');
+      expect(indexHtml).toContain('data-geo-view-schema="crescent-city-geo-view/v1"');
+      expect(indexHtml).toContain("Hazard-weighted code sections");
+      expect(indexHtml).not.toContain(PAGES_GEO_VIEW_PLACEHOLDER);
       expect(await readFile(join(destination, "data/snapshot.json"), "utf8")).toContain('"schemaVersion": "1.0.0"');
       expect(await readFile(join(destination, "data/source-registry.json"), "utf8")).toContain("municipal-code-ecode360");
       expect(await readFile(join(destination, "data/source-discovery.json"), "utf8")).toContain('"coverageGaps"');
@@ -102,7 +120,7 @@ describe("public Pages snapshot", () => {
       expect(validatePagesGeoIntel(geoIntel, new TextEncoder().encode(geoIntelSource).byteLength)).toEqual([]);
       expect(geoIntelSource).toContain('"schema": "crescent-city-geo-intel/v1"');
       expect(geoIntelSource).toContain('"schema": "crescent-city-geo-view/v1"');
-      expect(validatePagesSource(await readFile(join(destination, "index.html"), "utf8"))).toEqual([]);
+      expect(validatePagesSource(indexHtml)).toEqual([]);
     });
   });
 

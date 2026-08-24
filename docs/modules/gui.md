@@ -35,6 +35,9 @@ the missing row as evidence that the source was checked.
 | GET | `/api/stats` | Municipality stats (article/section counts, timestamps) |
 | GET | `/api/domains` | All 12 intelligence domains (from `domains.ts`) |
 | GET | `/api/monitor/status` | Latest monitor report `output/monitor-report.json` |
+| GET | `/api/monitor/alerts` | Latest persisted output from each alert monitor, composite level, and alert source-health artifact |
+| GET | `/api/alerts/timeline` | Bounded unified timeline plus per-type statistics across all eight monitors |
+| GET | `/api/alerts/{type}/history?limit=&offset=` | Bounded paginated history for one canonical alert type |
 | GET | `/api/metadata` | Build, provider, artifact, and source-lineage metadata |
 | GET | `/api/sources` | Canonical source registry and discovery joins; add `?format=csv` for a flat download |
 | GET | `/api/source-discovery` | Fingerprinted source coverage report and explicit gaps |
@@ -118,6 +121,42 @@ calm.
 
 ---
 
+## `src/gui/alert_trends.ts` — Alert Trend Aggregation
+
+Pure UTC-day aggregation for the local GUI's compact per-type trend and
+eight-monitor heatmap. The browser combines the existing bounded
+`/api/alerts/timeline` response with at most 500 records from each
+`/api/alerts/{type}/history` endpoint, deduplicates exact overlaps, and caps the
+combined view at 5,000 records over 14 days.
+
+Source health from `/api/health` is deliberately independent from historical
+event count and the latest monitor level from `/api/monitor/alerts`:
+
+- `empty` means the source was checked successfully but returned no matching
+  regional items; it is not calm.
+- `stale` and `unavailable` remain explicit even when a prior monitor payload
+  reported `CALM`.
+- A zero-count heatmap cell means only that no event was recorded on that UTC
+  day.
+- The UI labels `CALM` only when a current monitor payload supplies an explicit
+  calm-equivalent level (`CALM`, `GOOD`, `NONE`, `NORMAL`, or `OK`).
+
+### Exports
+
+| Export | Description |
+| :--- | :--- |
+| `buildAlertTrendView(input)` | Build bounded 14-day buckets for all eight alert types, with health/current-state metadata and deduplication diagnostics |
+| `classifyAlertCondition(level)` | Classify an explicit monitor level as `calm`, `active`, or `unknown` |
+| `deriveAlertDisplayState(health, condition)` | Preserve health-state precedence so missing evidence is never rendered as calm |
+| `alertHeatIntensity(count, maximum)` | Scale a count into the stable heatmap range 0–4 |
+
+The single-file frontend mirrors this pure model because the GUI has no browser
+build step. Pure zero-mock tests exercise the TypeScript contract, and the real
+Playwright smoke opens the Alerts panel and verifies the rendered trend,
+heatmap, source-state rows, and accessible cell labels.
+
+---
+
 ## `src/gui/static/index.html` — Frontend
 
 Single-file SPA with no build step.
@@ -162,6 +201,7 @@ landing page is navigation rather than a second copy of the data model.
 | **Dark/light mode** | Toggle persisted in localStorage |
 | **Domains panel** | Intelligence domain browser with municipal code cross-refs |
 | **Source Coverage panel** | Filterable monitored/discovery/reference registry, per-source drill-down, coverage gaps, and structured JSON download |
+| **Alert activity view** | Selectable 14-day per-type trend plus an eight-type heatmap with explicit calm/empty/stale/unavailable/unknown labeling |
 
 ### Tests
 
@@ -169,6 +209,7 @@ landing page is navigation rather than a second copy of the data model.
 bun test tests/routes.test.ts      # 7 tests
 bun test tests/search.test.ts      # 8 tests
 bun test tests/analytics.test.ts   # 7 tests
+bun test tests/alert-trends.test.ts
 ```
 
 ### Search, chat & resilience additions

@@ -84,6 +84,20 @@
     .welcome-external { display:flex; flex-wrap:wrap; gap:8px; }
     .welcome-external a { border:1px solid var(--line); border-radius:999px; padding:7px 10px; color:var(--blue); text-decoration:none; background:rgba(16,29,49,.75); font-size:.82rem; }
     .welcome-external a:hover { border-color:var(--blue); color:#fff; }
+    .geo-showcase { display:grid; grid-template-columns:minmax(0,2fr) minmax(230px,.8fr); gap:12px; align-items:start; }
+    .geo-map-frame,.geo-details { border:1px solid var(--line); border-radius:11px; background:rgba(16,29,49,.9); }
+    .geo-map-frame { padding:8px; overflow:hidden; }
+    .geo-map-frame svg { display:block; width:100%; height:auto; }
+    .geo-details { padding:14px; }
+    .geo-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-bottom:12px; }
+    .geo-metric { border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--panel2); }
+    .geo-metric strong { display:block; color:var(--blue); font-size:1.1rem; }
+    .geo-tag { display:inline-block; margin:3px 3px 0 0; padding:2px 7px; border-radius:999px; background:#f9731622; color:#ffad73; font-size:.75rem; }
+    .geo-sections { display:grid; gap:6px; margin-top:8px; max-height:190px; overflow:auto; }
+    .geo-section { border-left:2px solid var(--blue); padding-left:8px; font-size:.82rem; }
+    .geo-section strong { color:var(--blue); }
+    .geo-details summary { cursor:pointer; color:var(--ink); font-weight:700; }
+    @media (max-width:760px) { .geo-showcase { grid-template-columns:1fr; } }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   </style>
 </head>
@@ -93,7 +107,7 @@
     <h1>Crescent City civic intelligence</h1>
     <p class="subtle">Welcome to a provenance-preserving public snapshot for local news, public sources, municipal code, alerts, analysis, and source-grounded summaries. It is not a live API and does not imply that an unavailable source is calm.</p>
     <nav aria-label="Sections">
-      <a href="#welcome">Welcome</a><a href="#overview">Overview</a><a href="#sources">Source health</a><a href="#registry">Source registry</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
+      <a href="#welcome">Welcome</a><a href="#overview">Overview</a><a href="#geo">Hazard geo</a><a href="#sources">Source health</a><a href="#registry">Source registry</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
     </nav>
   </header>
   <main>
@@ -113,6 +127,7 @@
           <a class="welcome-link" href="#registry"><span class="icon">🧭</span><strong>Source registry &amp; freshness</strong><span>Canonical sources, automation boundaries, health states, and coverage gaps.</span></a>
           <a class="welcome-link" href="#code"><span class="icon">📖</span><strong>Municipal code</strong><span>Search the public code export and follow its ecode360 provenance.</span></a>
           <a class="welcome-link" href="#alerts"><span class="icon">🚨</span><strong>Safety &amp; live alerts</strong><span>Tsunami, earthquake, weather, tides, fishing, air, wildfire, and marine status.</span></a>
+          <a class="welcome-link" href="#geo"><span class="icon">🗺️</span><strong>Civic &amp; hazard geo view</strong><span>Tiles-free Del Norte extent, Crescent City anchor, hazard domains, and linked code sections.</span></a>
           <a class="welcome-link" href="#report"><span class="icon">📊</span><strong>Analysis &amp; civic report</strong><span>Period metrics, pipeline state, source highlights, warnings, and freshness metadata.</span></a>
           <a class="welcome-link" href="data/snapshot.json" download><span class="icon">🧾</span><strong>Structured public data</strong><span>Download the snapshot envelope, geo-intel, health, registry, discovery, and report artifacts.</span></a>
         </div>
@@ -147,6 +162,23 @@
           <button id="copy-fingerprint" class="button secondary" type="button">Copy registry fingerprint</button>
           <span id="structured-state" class="meta" role="status"></span>
         </div>
+      </div>
+    </section>
+    <section id="geo" class="section">
+      <h2>Crescent City civic &amp; hazard map</h2>
+      <p class="subtle">The same transferable <code>crescent-city-geo-intel/v1</code> contract served by the local GUI is projected here without a tiles provider or backend. It carries the Del Norte extent, Crescent City anchor, nominal hazard-domain points, and municipal-code references consumed by GEO-INFER.</p>
+      <div class="geo-showcase">
+        <div id="geo-map" class="geo-map-frame"><template data-pages-geo-view></template></div>
+        <aside class="geo-details" aria-label="Geo-view contract details">
+          <div id="geo-metrics" class="geo-metrics"><div class="geo-metric"><strong>—</strong><span class="meta">domains</span></div><div class="geo-metric"><strong>—</strong><span class="meta">features</span></div><div class="geo-metric"><strong>—</strong><span class="meta">sections</span></div></div>
+          <div><strong>Hazard tags</strong><div id="geo-tags" class="meta">Loading published contract details…</div></div>
+          <details open style="margin-top:12px">
+            <summary>Hazard-weighted code sections</summary>
+            <div id="geo-sections" class="geo-sections"><div class="meta">Loading section references…</div></div>
+          </details>
+          <p id="geo-contract-meta" class="meta">Markers are nominal policy-domain offsets around the city anchor, not incident or facility locations.</p>
+          <div class="action-bar"><a class="button" href="data/geo-intel.json" download>Download geo-intel + view JSON</a></div>
+        </aside>
       </div>
     </section>
     <section id="sources" class="section">
@@ -240,6 +272,17 @@
       const sourceCard = overviewGrid?.lastElementChild;
       if (sourceCard && sourceMetrics) sourceCard.innerHTML = `<strong>${esc(sourceMetrics.present ?? (sourceMetrics.total - (sourceMetrics.missing ?? sourceMetrics.degraded ?? 0)))}/${esc(sourceMetrics.total)}</strong><div class="meta">source checks present · ${esc(sourceMetrics.coveragePercent ?? 0)}% · ${esc(sourceMetrics.missing ?? sourceMetrics.degraded ?? 0)} missing</div>`;
     }
+    function renderGeoIntel(geoIntel) {
+      const view = geoIntel && geoIntel.view;
+      if (!view || !Array.isArray(view.features)) throw new Error("Geo view is missing from the published contract");
+      const hazardPoints = view.features.filter(feature => feature?.properties?.kind === "hazard-domain");
+      const sections = Array.isArray(view.sections) ? view.sections : [];
+      const tags = Array.isArray(view.hazard?.topHazardTags) ? view.hazard.topHazardTags : [];
+      $("geo-metrics").innerHTML = [[hazardPoints.length,"domains"],[view.features.length,"features"],[sections.length,"sections"]].map(([value,label]) => `<div class="geo-metric"><strong>${esc(value)}</strong><span class="meta">${esc(label)}</span></div>`).join("");
+      $("geo-tags").innerHTML = tags.length ? tags.map(tag => `<span class="geo-tag">${esc(tag)}</span>`).join("") : "No hazard tags were published.";
+      $("geo-sections").innerHTML = sections.length ? sections.slice(0, 8).map(section => `<div class="geo-section"><strong>${esc(section.sectionNumber)}</strong> ${esc(section.relevance)}<div class="meta">${esc((section.domains || []).join(" · "))}</div></div>`).join("") : "<div class=\"meta\">No hazard-weighted section references were published.</div>";
+      $("geo-contract-meta").textContent = `${view.schema || "geo-view schema not recorded"} · ${view.crs?.properties?.name || "CRS not recorded"} · ${sections.length > 8 ? `showing 8 of ${sections.length} sections · ` : ""}markers are nominal policy-domain offsets, not incident or facility locations.`;
+    }
     function registryRecords(snapshot) {
       const discovery = snapshot.sourceDiscovery || {};
       return Array.isArray(discovery.sources) && discovery.sources.length ? discovery.sources : (snapshot.sourceRegistry || []).map(source => ({ ...source, operationalStatus: "not-checked", itemCount: 0 }));
@@ -305,6 +348,7 @@
         $("banner").className = `banner ${esc(snapshot.status)}`;
         $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "The export pipeline reported a failure; inspect pipeline metadata and Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below; empty is a successful check with no matching records."}`;
         renderWelcome(snapshot); renderAnalytics(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
+        try { renderGeoIntel(await load(snapshot.files?.geoIntel || "data/geo-intel.json")); } catch (error) { $("geo-tags").innerHTML = `<span class="error">Contract details unavailable: ${esc(error.message || error)}</span>`; $("geo-sections").innerHTML = empty("Download the geo-intel JSON to inspect the map-ready view."); }
         if (snapshot.files && snapshot.files.code) { try { renderCode(await load(snapshot.files.code)); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
         $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre>${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
       } catch (error) {

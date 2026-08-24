@@ -29,6 +29,8 @@ severity scoring system and unified alert analytics timeline.
 | `calfire_wildfire.ts` | `runWildfireMonitor()` | `output/alerts/wildfire/` | CAL FIRE incident API |
 | `ndbc_marine.ts` | `runMarineMonitor()` | `output/alerts/marine/` | NDBC buoy realtime data |
 | `severity.ts` | `computeAlertSeverity()` | (computed) | Aggregates all 8 monitors |
+| `composite.ts` | `buildCompositeInput()`, `classifySourceHealth()`, `isFreshReport()` | (computed) | Pure composite-input shaping + source-health classification for `scripts/run-alerts.ts` |
+| `notify.ts` | `maybeSendSeverityWebhook()` | (webhook) | Optional `ALERT_WEBHOOK_URL` POST on composite WARNING/EMERGENCY (fire-and-forget) |
 
 ## Key Patterns
 
@@ -36,7 +38,8 @@ severity scoring system and unified alert analytics timeline.
 - **Persistent JSONL history**: all monitors append to `history.jsonl` for alert analytics.
 - **Crescent City relevance filter**: each module filters alerts by `areaDesc` keyword matching and/or bounding-box / point-in-polygon geometry checks.
 - **Severity categorization**: NWS categorizes alerts into `advisory`, `watch`, `warning`; USGS uses magnitude + tsunami flag; AQI uses 6-level classification; wildfire uses evac orders + fire size; marine uses wave/wind thresholds.
-- **Composite severity**: `severity.ts` aggregates all 8 monitors into CALM → EMERGENCY.
+- **Composite severity**: `severity.ts` aggregates all 8 monitors into CALM → EMERGENCY; `composite.ts` shapes the per-monitor inputs + classifies source health so the runner stays thin.
+- **High-severity webhook**: `notify.ts` fires `ALERT_WEBHOOK_URL` when the composite reaches WARNING/EMERGENCY (bounded by `ALERT_WEBHOOK_TIMEOUT_MS`); fire-and-forget so a failure never fails an alert run.
 - **GeoJSON output**: USGS saves both raw properties and a `Feature` GeoJSON object for GIS tooling.
 
 ## Running Individually

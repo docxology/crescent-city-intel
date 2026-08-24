@@ -471,7 +471,8 @@ while `unavailable` and `stale` are named coverage gaps. A source gap does
 not make an otherwise complete snapshot `degraded`, and it is never rendered
 as an unexplained calm state.
 
-The public artifact includes the municipal-code export when present, source
+The public artifact includes the municipal-code export when present, an
+API-shaped `data/geo-intel.json` contract with its tiles-free geo view, source
 health, recent news and meeting items, alert snapshots, source-grounded
 curation, and the latest civic report. It excludes API keys, chat/request/
 search/RAG logs, Chroma data, and Triplicate article content. Triplicate

@@ -3,15 +3,14 @@
  * Zero-mock: spins a real local Bun.serve listener to capture the POST.
  */
 import { describe, test, expect, afterAll } from "bun:test";
-import { maybeSendSeverityWebhook, sendWebhook, isWebhookConfigured } from "../src/alerts/notify.ts";
+import { maybeSendSeverityWebhook, sendWebhook, isWebhookConfigured, webhookTimeoutMs } from "../src/alerts/notify.ts";
 
 let server: ReturnType<typeof Bun.serve> | null = null;
 let captured: { body: unknown } | null = null;
-const port = 45999;
 
 function startServer(): void {
   server = Bun.serve({
-    port,
+    port: 0,
     fetch: async (req) => {
       if (req.method === "POST") {
         if (new URL(req.url).pathname === "/fail") return new Response("boom", { status: 500 });
@@ -24,8 +23,9 @@ function startServer(): void {
 }
 startServer();
 
-const url = `http://127.0.0.1:${port}`;
+const url = `http://127.0.0.1:${server!.port}`;
 const prevUrl = process.env.ALERT_WEBHOOK_URL;
+const prevTimeout = process.env.ALERT_WEBHOOK_TIMEOUT_MS;
 
 describe("alert webhook", () => {
   test("WARNING severity fires a webhook with the expected payload", async () => {
@@ -64,10 +64,29 @@ describe("alert webhook", () => {
     expect(result.ok).toBe(false);
     expect(result.status).toBe(500);
   });
+
+  test("webhookTimeoutMs honors ALERT_WEBHOOK_TIMEOUT_MS and falls back to 5000", () => {
+    delete process.env.ALERT_WEBHOOK_TIMEOUT_MS;
+    expect(webhookTimeoutMs()).toBe(5000);
+    process.env.ALERT_WEBHOOK_TIMEOUT_MS = "1200";
+    expect(webhookTimeoutMs()).toBe(1200);
+    process.env.ALERT_WEBHOOK_TIMEOUT_MS = "-5";
+    expect(webhookTimeoutMs()).toBe(5000);
+    process.env.ALERT_WEBHOOK_TIMEOUT_MS = "0";
+    expect(webhookTimeoutMs()).toBe(5000);
+    process.env.ALERT_WEBHOOK_TIMEOUT_MS = "12.5";
+    expect(webhookTimeoutMs()).toBe(5000);
+    process.env.ALERT_WEBHOOK_TIMEOUT_MS = "1200ms";
+    expect(webhookTimeoutMs()).toBe(5000);
+    process.env.ALERT_WEBHOOK_TIMEOUT_MS = "not-a-number";
+    expect(webhookTimeoutMs()).toBe(5000);
+  });
 });
 
 afterAll(() => {
   if (prevUrl === undefined) delete process.env.ALERT_WEBHOOK_URL;
   else process.env.ALERT_WEBHOOK_URL = prevUrl;
+  if (prevTimeout === undefined) delete process.env.ALERT_WEBHOOK_TIMEOUT_MS;
+  else process.env.ALERT_WEBHOOK_TIMEOUT_MS = prevTimeout;
   server?.stop(true);
 });

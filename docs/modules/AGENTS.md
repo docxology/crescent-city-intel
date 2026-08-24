@@ -12,14 +12,15 @@ Per-module documentation. Each file covers one logical component of the system.
 | `verification.md` | `verify.ts` |
 | `export.md` | `export.ts` |
 | `pages.md` | `pages_snapshot.ts`, `scripts/export-pages.ts`, `scripts/validate-pages.ts` |
-| `gui.md` | `gui/server.ts`, `gui/routes.ts`, `gui/search.ts`, `gui/analytics.ts`, `gui/static/index.html` |
+| `gui.md` | `gui/server.ts`, `gui/routes.ts`, `gui/search.ts`, `gui/semantic_search.ts`, `gui/analytics.ts`, `gui/static/index.html` |
 | `llm.md` | `llm/config.ts`, `llm/provider.ts`, `llm/ollama.ts`, `llm/openrouter.ts`, `llm/chroma.ts`, `llm/embeddings.ts`, `llm/rag.ts`, `llm/streaming_rag.ts`, `llm/index.ts` |
-| `shared.md` | `shared/paths.ts`, `shared/source_health.ts`, `shared/data.ts`, `shared/porter_stem.ts`, `shared/readability.ts`, `shared/fuzzy.ts` |
+| `shared.md` | `shared/paths.ts`, `shared/source_health.ts`, `shared/data.ts`, `shared/idempotency.ts`, `shared/porter_stem.ts`, `shared/readability.ts`, `shared/fuzzy.ts` |
 | `logger.md` | `logger.ts` |
 | `domains.md` | `domains.ts` (12 domains) |
 | `monitoring.md` | `monitor.ts`, `news_monitor.ts`, `gov_meeting_monitor.ts`, `youtube_monitor.ts`, `triplicate_monitor.ts`, `curation.ts`, `monthly_report.ts` |
-| `alerts.md` | `alerts/severity.ts`, `alerts/noaa_tsunami.ts`, `alerts/usgs_earthquake.ts`, `alerts/nws_weather.ts`, `alerts/noaa_tides.ts`, `alerts/cdfw_fishing.ts`, `alerts/epa_airnow.ts`, `alerts/calfire_wildfire.ts`, `alerts/ndbc_marine.ts` |
-| `v2-intelligence.md` | `structured_queries.ts`, `legal_parser.ts`, `alert_analytics.ts` |
+| `alerts.md` | `alerts/severity.ts`, `alerts/composite.ts`, `alerts/notify.ts`, `alerts/noaa_tsunami.ts`, `alerts/usgs_earthquake.ts`, `alerts/nws_weather.ts`, `alerts/noaa_tides.ts`, `alerts/cdfw_fishing.ts`, `alerts/epa_airnow.ts`, `alerts/calfire_wildfire.ts`, `alerts/ndbc_marine.ts` |
+| `v2-intelligence.md` | `structured_queries.ts`, `legal_parser.ts`, `alert_analytics.ts`, `analytics_backend.ts` |
+| `geo-intel.md` | `geo.ts`, `geo_view.ts` |
 | `api.md` | `api/middleware.ts` |
 
 ## Convention

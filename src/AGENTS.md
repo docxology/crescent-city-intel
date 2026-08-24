@@ -43,6 +43,8 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `alert_analytics.ts` | Yes (filesystem) | `tests/alert_analytics.test.ts` |
 | `analytics_backend.ts` | Yes (filesystem; shared GUI/Pages evidence envelope) | `tests/analytics-backend.test.ts` |
 | `manuscript_variables.ts` | No (pure analytics-to-publication adapter) | `tests/manuscript.test.ts` |
+| `geo.ts` | No (pure municipality geo-intel contract builders) | `tests/geo-intel.test.ts` |
+| `geo_view.ts` | No (pure map-ready feature-view builder) | `tests/geo-view.test.ts` |
 | `monthly_report.ts` | Yes (filesystem) | No (integration) |
 | `shared/orchestration.ts` | Yes (filesystem; run metadata) | `tests/orchestration.test.ts` |
 | `source_registry.ts` | Yes (filesystem; optional bounded probes) | `tests/source-registry.test.ts` |
@@ -76,4 +78,10 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `llm/provider.ts` | Selected-provider routing and bounded preflight | `chatWithProvider()`, `checkChatProvider()` |
 | `shared/source_health.ts` | Typed source-health records and atomic artifact writes | `sourceHealth()`, `writeJsonAtomic()` |
 | `shared/orchestration.ts` | Durable step/run envelopes and runtime metadata | `executePipelineStep()`, `buildPipelineRun()` |
+| `shared/idempotency.ts` | Shared (id, contentHash)-keyed persisted dedup store used by news/meetings/curation (replaces bespoke per-source shapes) | `IdempotencyStore`, `hashContent` |
+| `alerts/notify.ts` | Config-driven high-severity composite webhook notifier | `maybeSendSeverityWebhook()`, `webhookUrl()`, `sendWebhook()` |
+| `gui/semantic_search.ts` | Ollama-embed + ChromaDB semantic search with BM25 fallback | `semanticSearch()` |
+| `llm/openrouter.ts` | OpenRouter chat provider wrapper | `chat()`, `streamChat()`, `checkOpenRouterHealth()` |
+| `domains/coverage.ts` | Domain coverage % with prefix matching | `computeDomainCoverage()` |
+| `geo.ts` | Transferable municipality geo-intel contract (Crescent default civic + hazard) | `buildGeoIntel()`, `buildMunicipalityContract()`, `hazardRelevantDomains()`, `CRESCENT_CITY_ANCHOR` |
 | `geo_view.ts` | Tiles-free map-ready Crescent City feature view (Del Norte bounds polygon + anchor + hazard-domain points + section refs) from the geo-intel contract | `buildGeoView()` |

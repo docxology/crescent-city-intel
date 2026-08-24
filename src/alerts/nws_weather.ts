@@ -376,12 +376,12 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
 
       // Save alert to file
       await saveAlertToFile(alert, severityLevel);
-      
-      // TODO: Trigger automated notifications via existing monitoring channels
-      logger.info('Would trigger automated notifications (email, SMS, dashboard update, etc.)', {
-        alertId: alert.id,
-        severityLevel
-      });
+
+      // Notifications are handled by the alert pipeline, not per monitor:
+      // scripts/run-alerts.ts scores the 8-monitor composite and fires the
+      // ALERT_WEBHOOK_URL notifier (src/alerts/notify.ts) on WARNING/EMERGENCY,
+      // while dashboards read current.json + history.jsonl. Nothing further to
+      // trigger here — this monitor's job is detection + persistence.
     }
     
     if (newAlertsCount === 0) {

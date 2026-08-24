@@ -4,11 +4,31 @@
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix) — reviewed 2026-08-04 (Round 3 completion pass)
 >
-> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-08-04 (Round 3 completion pass)
+> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-08-24 (geo-intel completion pass)
 
 ---
 
 ## Completed / Closed
+
+### Geo-Intel contracts (2026-08-23 → 2026-08-24) — implemented and verified
+
+- ✅ **Transferable municipality geo-intel contract** (`src/geo.ts`): pure
+  `buildMunicipalityContract(spec)` emits a stable machine-readable contract
+  (anchor + civic-domain surface + hazard subset) for any city; Crescent City
+  stays the default with the `crescent-city-geo-intel/v1` schema frozen for
+  GEO-INFER. `buildGeoIntel()` remains backward compatible; `bun run geo:intel`
+  writes `pages-data/geo-intel.json` + `output/geo-intel.json`.
+- ✅ **Tiles-free map-ready feature view** (`src/geo_view.ts`): `buildGeoView()`
+  emits Del Norte bounds polygon + city anchor + per-hazard-domain points
+  (nominal, anchor-relative) + aggregated section refs + hazard-tag summary
+  (`crescent-city-geo-view/v1`). `GET /api/geo-intel` serves contract + view.
+- ✅ **Word-boundary hazard matching** (`isHazardTag`): composite tags surface
+  flood / sea level / climate / tsunami intent without substring false
+  positives; Crescent hazard-relevant domains grow 2 → 4 (flood + sea-level
+  policy now reaches GEO-INFER RISK/BAYES/ACT consumers).
+- ✅ Tests (`tests/geo-intel.test.ts` 13, `tests/geo-view.test.ts` 8), OpenAPI
+  route registration, CHANGELOG, and module docs all in place. Suite at geo
+  round: 794 pass / 0 fail.
 
 ### Round 3 completion pass (2026-08-04) — implemented and verified
 
@@ -168,4 +188,4 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   extracted body text with graceful fallback. **Reason:** depends on the live CDFW page.
 
 ---
-_Last updated: 2026-08-04 (Round 3 "proceed with all" completion) · v2.5.1 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-08-24 (geo-intel completion pass) · v2.5.1 · run `bun run validate` for current test and contract counts_

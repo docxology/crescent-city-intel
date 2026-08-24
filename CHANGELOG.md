@@ -10,6 +10,37 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Geo-Intel contracts (2026-08-23 → 2026-08-24) — machine-readable municipality geo-intel
+
+### Added
+
+- **Transferable municipality geo-intel contract** (`src/geo.ts`): a pure,
+  municipality-agnostic builder (`buildMunicipalityContract(spec)`) that emits a
+  stable machine-readable contract (anchor + civic-domain surface + hazard-relevant
+  subset) for any city from a `MunicipalitySpec`. Crescent City, CA remains the
+  default/anchor implementation with its `crescent-city-geo-intel/v1` schema
+  frozen so GEO-INFER's `CrescentCityIntelMapper` keeps importing unchanged.
+  `buildGeoIntel()` stays backward-compatible; `pages-data/geo-intel.json` seed +
+  `output/geo-intel.json` live export are written by `bun run geo:intel`.
+- **Tiles-free map-ready geo feature view** (`src/geo_view.ts`): `buildGeoView()`
+  turns the contract into a GeoJSON-shaped surface — Del Norte County bounds
+  polygon, city anchor point, one point per hazard-relevant civic domain
+  (deterministic anchor-relative offsets, flagged `nominal: true`), aggregated
+  municipal-code section refs, and hazard-intent tag summary (`crescent-city-geo-view/v1`).
+- **`GET /api/geo-intel`** returns both the contract and the map-ready feature
+  view; registered in the OpenAPI route-contract gate.
+- **Word-boundary hazard matching** (`src/geo.ts` `isHazardTag`): composite
+  municipal tags now surface their hazard intent — `"flood zone"` ⇒ flood,
+  `"sea level rise"` ⇒ sea level, `"climate adaptation"` ⇒ climate, `"tsunami
+  zone"`/`"tsunami drill"` ⇒ tsunami — while substrings do not false-positive
+  (`"stormwater"` ≠ `storm`). Crescent hazard-relevant domains grow 2 → 4
+  (emergency-management, environmental-protection, event-planning,
+  climate-environment), so flood + sea-level policy reaches RISK/BAYES/ACT
+  consumers instead of falling back to default weights.
+- Tests: `tests/geo-intel.test.ts` (13) + `tests/geo-view.test.ts`; docs:
+  `docs/modules/geo-intel.md`, geo exports in `docs/api-reference.md`,
+  geo-intel rows in README + OpenAPI.
+
 ### Deepest review pass (2026-08-04) — Hermes + LifeOS intelligence setup
 
 ### Added

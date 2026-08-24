@@ -6,8 +6,8 @@
  * fire-and-forget by contract: a webhook failure must never break an alert
  * run, and the notifier never throws out of `maybeSendSeverityWebhook`.
  *
- * Env: ALERT_WEBHOOK_URL (optional). Timeout: ALERT_WEBHOOK_TIMEOUT_MS
- * (default 5000).
+ * Env: ALERT_WEBHOOK_URL (optional), ALERT_WEBHOOK_TIMEOUT_MS (optional,
+ * default 5000).
  */
 import { createLogger } from "../logger.js";
 
@@ -20,6 +20,15 @@ export function webhookUrl(): string {
 
 export function isWebhookConfigured(): boolean {
   return webhookUrl().length > 0;
+}
+
+/**
+ * Bounded webhook POST timeout in ms (`ALERT_WEBHOOK_TIMEOUT_MS`, default
+ * 5000). Reads env at call time; invalid/non-positive values fall back to 5000.
+ */
+export function webhookTimeoutMs(): number {
+  const parsed = Number((process.env.ALERT_WEBHOOK_TIMEOUT_MS ?? "").trim());
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 5000;
 }
 
 export interface WebhookResult {
@@ -54,7 +63,7 @@ export async function maybeSendSeverityWebhook(report: { level?: string; reason?
       assessedAt: report.assessedAt ?? new Date().toISOString(),
       source: "crescent-city-intel/alerts",
     };
-    const result = await sendWebhook(url, payload);
+    const result = await sendWebhook(url, payload, webhookTimeoutMs());
     log.info(`Webhook delivered (${result.status}) for ${level}`);
   } catch (error) {
     // A webhook failure must never fail the alert run.

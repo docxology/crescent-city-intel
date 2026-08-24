@@ -262,6 +262,30 @@ contributes a `MonitorStatus` with level, summary, and count.
 
 ---
 
+## `src/alerts/composite.ts` — Composite Input Shaping + Source Health (v2.0)
+
+Pure helpers that keep `scripts/run-alerts.ts` thin: they shape the eight
+per-monitor reports into the composite scorer's input and classify each
+source's health after a run.
+
+### Exports
+
+| Export | Signature | Description |
+| :--- | :--- | :--- |
+| `buildCompositeInput({tsunami, earthquake, weather, airquality, wildfire, marine, tidesReport, fishingReport})` | `(object) → CompositeInput` | Normalize per-monitor reports (including the tides + fishing history-path reports) into `computeAlertSeverity` inputs |
+| `buildTidesInput(report)` / `buildFishingInput(report)` | `(report) → MonitorStatus` | Shape the two report-only monitors into scorer inputs (re-exported by `scripts/run-alerts.ts` for backward-compatible test imports) |
+| `classifySourceHealth(definition, settledResult, errors, checkedAt)` | `(...) → SourceHealth` | Map a settled monitor result to `ok` / `empty` / `unavailable` / `stale` with reason + item count |
+| `isFreshReport(report, windowMs?)` | `(report, number?) → boolean` | Freshness gate (matches air/wildfire/marine): stale reports count as unavailable |
+
+### Source-health classification
+
+`ok` and `empty` count as **present**; `unavailable` and `stale` count as
+**missing** — so source gaps surface as coverage metadata (GUI, Pages,
+analytics, and pipeline envelopes all expose present/missing counts) instead
+of failing the run.
+
+---
+
 ## `src/alert_analytics.ts` — Alert Analytics (v2.0)
 
 Aggregates all alert history JSONL files across all 8 monitor types into
@@ -323,8 +347,11 @@ See [scripts/README.md](../../scripts/README.md) for cron setup.
 
 - **Webhook** (`src/alerts/notify.ts`): when `ALERT_WEBHOOK_URL` is set and the
   run-alerts composite reaches **WARNING** or **EMERGENCY**, a JSON POST
-  (`{severity, reason, assessedAt, source}`) is fired at that URL with a 5s
-  timeout. Fire-and-forget — a webhook failure never fails an alert run.
+  (`{severity, reason, assessedAt, source}`) is fired at that URL with a bounded
+  timeout (`ALERT_WEBHOOK_TIMEOUT_MS`, default 5000). Fire-and-forget — a
+  webhook failure never fails an alert run. Per-monitor TODOs about "triggering
+  notifications" are intentionally not wired: notification is a composite-level
+  concern.
 - **Fire weather (Red Flag)** is already covered by the `CAZ006` zone fetch; the
   NWS weather monitor now flags each alert with `isRedFlag` and reports
   `redFlagCount` in `current.json`, so Del Norte red-flag/warning conditions are

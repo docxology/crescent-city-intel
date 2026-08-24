@@ -120,5 +120,6 @@ AIRNOW_API_KEY=your-key-here bun run alerts:airquality
 | Variable | Default | Description |
 | --- | --- | --- |
 | `ALERT_WEBHOOK_URL` | _(unset)_ | Optional URL; `scripts/run-alerts.ts` POSTs a JSON payload when the composite reaches WARNING/EMERGENCY |
+| `ALERT_WEBHOOK_TIMEOUT_MS` | `5000` | Positive-integer webhook POST timeout (`src/alerts/notify.ts`); invalid/non-positive values fall back to 5000 |
 | `RERANK_ENABLED` | `false` | Enable the post-retrieval lexical-hybrid rerank (`src/llm/rag.ts`) |
 | `RERANK_TOP_N` | `5` | Chunks retained by the rerank when `RERANK_ENABLED=true` |

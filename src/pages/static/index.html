@@ -3,125 +3,132 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Crescent City civic intelligence — a provenance-preserving static snapshot.">
-  <title>Crescent City Intel — Public Snapshot</title>
+  <meta name="description" content="Crescent City civic intelligence — a provenance-preserving newspaper-style public snapshot of local government, safety monitors, and source-grounded reporting.">
+  <title>The Crescent City Monitor — Public Intelligence Snapshot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: dark; --bg:#08111f; --panel:#101d31; --panel2:#16263e; --ink:#e8f0fb; --muted:#9fb1c8; --line:#27415f; --blue:#69b7ff; --green:#54d29a; --yellow:#ffd166; --red:#ff7b83; --purple:#c7a2ff; }
+    :root { color-scheme: light; --paper:#faf6ef; --paper2:#f4efe6; --ink:#1a1410; --ink-dim:#5c5248; --ink-faint:#8a7e72; --red:#b1271a; --red-light:#fce8e6; --gold:#8b6f3a; --gold-light:#f5edd6; --green:#2a6f3e; --green-light:#e4f0e6; --blue:#1f5080; --blue-light:#e2ebf4; --purple:#6b4080; --rule:#d6cdbf; --rule-light:#e9e1d6; --panel:rgba(244,239,230,.82); --panel-hover:rgba(234,225,214,.82); }
     * { box-sizing:border-box; }
-    body { margin:0; background:linear-gradient(150deg,#07101d,#0b1728 45%,#0e1c30); color:var(--ink); font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    a { color:var(--blue); }
-    header { border-bottom:1px solid var(--line); padding:28px max(20px,calc((100% - 1180px)/2)); background:rgba(8,17,31,.9); }
-    h1,h2,h3 { line-height:1.2; margin:0 0 10px; }
-    h1 { font-size:clamp(1.6rem,4vw,2.5rem); letter-spacing:-.03em; }
-    h2 { font-size:1.25rem; margin-top:28px; }
-    h3 { font-size:1rem; }
-    .eyebrow { color:var(--blue); font-size:.76rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; }
-    .subtle,.meta { color:var(--muted); font-size:.88rem; }
-    main { max-width:1180px; margin:0 auto; padding:24px 20px 60px; }
-    nav { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0 4px; }
-    nav a,.button { border:1px solid var(--line); border-radius:999px; color:var(--ink); padding:7px 12px; text-decoration:none; background:rgba(22,38,62,.75); font-size:.88rem; }
-    nav a:hover,.button:hover { border-color:var(--blue); color:#fff; }
-    .banner { border:1px solid var(--line); border-left:4px solid var(--blue); border-radius:10px; padding:14px 16px; background:rgba(16,29,49,.86); }
-    .banner.degraded { border-left-color:var(--yellow); }
-    .banner.unavailable { border-left-color:var(--red); }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; }
-    .card,.item,.source { background:rgba(16,29,49,.9); border:1px solid var(--line); border-radius:10px; padding:15px; }
-    .card .value { font-size:1.65rem; font-weight:750; color:var(--blue); }
-    .card .label { color:var(--muted); font-size:.83rem; }
-    .section { scroll-margin-top:18px; }
-    .items { display:grid; gap:10px; }
-    .item { border-left:3px solid var(--line); }
-    .item h3 { margin-bottom:5px; }
-    .item p { margin:6px 0 0; color:#c7d4e4; }
-    .item .tag { display:inline-block; margin:4px 4px 0 0; padding:2px 7px; border-radius:999px; background:var(--panel2); color:var(--purple); font-size:.76rem; }
-    .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
-    .source { position:relative; padding-left:18px; }
-    .source::before { content:""; position:absolute; left:7px; top:18px; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+    body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.6 "Source Serif 4","Georgia","Times New Roman",serif; -webkit-font-smoothing:antialiased; }
+    a { color:var(--red); text-decoration-color:var(--rule); text-underline-offset:2px; }
+    a:hover { color:#8a1c11; }
+    ::selection { background:var(--gold-light); color:var(--ink); }
+    .masthead { text-align:center; padding:24px 20px 8px; border-bottom:3px double var(--ink); margin-bottom:0; }
+    .masthead-h1 { font:900 clamp(2rem,5.5vw,3.6rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.02em; margin:0; }
+    .masthead-sub { font:400 italic .94rem/1.3 "Source Serif 4",Georgia,serif; color:var(--ink-dim); margin:3px 0 0; }
+    .masthead-date { font:600 .72rem/1 Inter,sans-serif; letter-spacing:.15em; text-transform:uppercase; color:var(--ink-faint); margin:8px 0 0; }
+    .masthead-nav { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; padding:10px 0 6px; border-bottom:1px solid var(--rule); }
+    .masthead-nav a { font:500 .78rem/1 Inter,sans-serif; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-dim); text-decoration:none; padding:4px 10px; border-radius:3px; transition:background .15s,color .15s; }
+    .masthead-nav a:hover { background:var(--panel); color:var(--ink); text-decoration:none; }
+    .page { max-width:1260px; margin:0 auto; padding:0 20px 60px; }
+    .section-head { display:flex; align-items:baseline; gap:12px; margin:32px 0 14px; padding-bottom:6px; border-bottom:2px solid var(--ink); }
+    .section-head h2 { font:700 clamp(1.2rem,2.2vw,1.6rem)/1.15 "Playfair Display",Georgia,serif; margin:0; letter-spacing:-.01em; }
+    .section-head .meta { font:.78rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.08em; margin-left:auto; white-space:nowrap; }
+    .banner { border:1px solid var(--rule); border-left:4px solid var(--blue); background:var(--panel); padding:14px 18px; border-radius:4px; font-size:.94rem; margin-bottom:12px; }
+    .banner.degraded { border-left-color:var(--gold); background:var(--gold-light); }
+    .banner.unavailable { border-left-color:var(--red); background:var(--red-light); }
+    .cards-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:12px 0; }
+    .card { background:var(--panel); border:1px solid var(--rule-light); border-radius:4px; padding:12px 14px; text-align:center; }
+    .card .value { font:700 1.5rem/1.1 "Playfair Display",Georgia,serif; color:var(--red); }
+    .card .label { font:.78rem/1.3 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+    .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px; }
+    .source { background:var(--panel); border:1px solid var(--rule-light); border-radius:4px; padding:13px 15px 13px 20px; position:relative; }
+    .source::before { content:""; position:absolute; left:7px; top:19px; width:5px; height:5px; border-radius:50%; background:var(--ink-faint); }
     .source.ok::before { background:var(--green); }
     .source.empty::before { background:var(--blue); }
     .source.unavailable::before,.source.stale::before { background:var(--red); }
-    .status { font-weight:750; letter-spacing:.04em; }
-    .status.ok { color:var(--green); }.status.empty { color:var(--blue); }.status.unavailable,.status.stale { color:var(--red); }.status.not-checked { color:var(--yellow); }
-    table { border-collapse:collapse; width:100%; background:rgba(16,29,49,.9); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-    th,td { text-align:left; padding:9px 11px; border-bottom:1px solid var(--line); vertical-align:top; }
-    th { color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; }
+    .source h3 { font:600 .92rem/1.2 "Source Serif 4",Georgia,serif; margin:0 0 3px; }
+    .status { font-weight:700; letter-spacing:.03em; }
+    .status.ok { color:var(--green); } .status.empty { color:var(--blue); } .status.unavailable,.status.stale { color:var(--red); } .status.not-checked { color:var(--gold); }
+    .items { display:grid; gap:10px; }
+    .item { background:var(--panel); border:1px solid var(--rule-light); border-radius:4px; padding:14px 16px; border-left:3px solid var(--rule); }
+    .item h3 { font:600 1.02rem/1.25 "Source Serif 4",Georgia,serif; margin:0 0 4px; }
+    .item h3 a { color:var(--ink); text-decoration:none; }
+    .item h3 a:hover { color:var(--red); }
+    .item .meta { font:.78rem/1.3 Inter,sans-serif; color:var(--ink-faint); margin-bottom:4px; }
+    .item p { font:.92rem/1.5 "Source Serif 4",Georgia,serif; color:#2c241e; margin:6px 0 0; }
+    .item .tag { display:inline-block; margin:4px 4px 0 0; padding:2px 8px; border-radius:3px; background:var(--blue-light); color:var(--blue); font-size:.76rem; font-family:Inter,sans-serif; }
+    .registry-table { overflow:auto; margin:10px 0; }
+    table { border-collapse:collapse; width:100%; background:var(--panel); border:1px solid var(--rule); font-size:.88rem; }
+    th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule-light); vertical-align:top; }
+    th { font:.72rem/1 Inter,sans-serif; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); background:var(--paper2); }
     tr:last-child td { border-bottom:0; }
-    input { width:min(100%,520px); border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); padding:10px 12px; font:inherit; }
-    pre { white-space:pre-wrap; background:rgba(6,13,24,.8); border:1px solid var(--line); border-radius:10px; padding:16px; max-height:560px; overflow:auto; color:#d7e2f0; }
-    footer { border-top:1px solid var(--line); margin-top:34px; padding-top:18px; color:var(--muted); font-size:.82rem; }
-    .empty-state { color:var(--muted); border:1px dashed var(--line); border-radius:10px; padding:16px; }
-    .error { color:var(--red); }
-    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0; }
-    select,.button { border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); padding:9px 11px; font:inherit; }
-    .button { cursor:pointer; }
-    .button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
-    .registry-table { overflow:auto; }
-    .registry-table table { min-width:860px; }
-    .pill { display:inline-block; padding:2px 7px; border-radius:999px; border:1px solid var(--line); font-size:.76rem; white-space:nowrap; }
-    .pill.monitored { color:var(--green); }.pill.discovery-only { color:var(--yellow); }.pill.reference-only { color:var(--purple); }
-    .action-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
-    .button.secondary { background:transparent; color:var(--muted); }
-    .button[disabled] { cursor:not-allowed; opacity:.55; }
-    .details-panel { margin-top:10px; border:1px solid var(--line); border-radius:10px; background:rgba(6,13,24,.55); padding:14px; }
-    .details-panel pre { margin:10px 0 0; max-height:320px; font-size:.78rem; }
-    .source-select { padding:4px 8px; font-size:.78rem; }
-    th button.sort-button { border:0; background:transparent; color:var(--muted); padding:0; font:inherit; cursor:pointer; text-transform:uppercase; letter-spacing:.06em; }
-    th button.sort-button:hover { color:var(--ink); }
-    .welcome-linktree { padding:8px 0 4px; }
-    .welcome-hero { border:1px solid var(--line); border-radius:16px; padding:24px; background:linear-gradient(135deg,rgba(105,183,255,.16),rgba(16,29,49,.92)); }
-    .welcome-kicker { color:var(--blue); font-size:.76rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; margin-bottom:9px; }
-    .welcome-hero h2 { font-size:clamp(1.55rem,4vw,2.3rem); margin-bottom:10px; }
-    .welcome-hero p { max-width:760px; color:#c7d4e4; margin:0 0 10px; }
-    .welcome-status { color:var(--muted); font-size:.86rem; }
-    .welcome-section-title { color:var(--muted); font-size:.78rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; margin:18px 0 9px; }
-    .welcome-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
-    .welcome-link { display:block; min-height:118px; padding:15px; border:1px solid var(--line); border-radius:11px; background:rgba(16,29,49,.9); color:var(--ink); text-decoration:none; transition:transform .15s ease,border-color .15s ease,background .15s ease; }
-    .welcome-link:hover { transform:translateY(-2px); border-color:var(--blue); background:var(--panel2); }
-    .welcome-link:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
-    .welcome-link .icon { display:block; font-size:21px; margin-bottom:7px; }
-    .welcome-link strong { display:block; margin-bottom:4px; }
-    .welcome-link span { display:block; color:var(--muted); font-size:.82rem; line-height:1.45; }
-    .welcome-external { display:flex; flex-wrap:wrap; gap:8px; }
-    .welcome-external a { border:1px solid var(--line); border-radius:999px; padding:7px 10px; color:var(--blue); text-decoration:none; background:rgba(16,29,49,.75); font-size:.82rem; }
-    .welcome-external a:hover { border-color:var(--blue); color:#fff; }
-    .geo-showcase { display:grid; grid-template-columns:minmax(0,2fr) minmax(230px,.8fr); gap:12px; align-items:start; }
-    .geo-map-frame,.geo-details { border:1px solid var(--line); border-radius:11px; background:rgba(16,29,49,.9); }
+    .pill { display:inline-block; padding:2px 7px; border-radius:3px; border:1px solid var(--rule); font-size:.74rem; white-space:nowrap; font-family:Inter,sans-serif; }
+    .pill.monitored { color:var(--green); border-color:var(--green); background:var(--green-light); }
+    .pill.discovery-only { color:var(--gold); border-color:var(--gold); background:var(--gold-light); }
+    .pill.reference-only { color:var(--purple); }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+    input,select,.button { border:1px solid var(--rule); border-radius:4px; background:var(--paper); color:var(--ink); padding:7px 11px; font:500 .84rem/1 Inter,sans-serif; }
+    input:focus,select:focus,.button:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+    .button { cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px; transition:background .15s,border-color .15s; }
+    .button:hover { background:var(--panel-hover); border-color:var(--ink-faint); }
+    .button.secondary { background:transparent; color:var(--ink-dim); }
+    .geo-showcase { display:grid; grid-template-columns:minmax(0,2.2fr) minmax(240px,.8fr); gap:14px; align-items:start; }
+    .geo-map-frame,.geo-details { border:1px solid var(--rule); border-radius:4px; background:var(--panel); }
     .geo-map-frame { padding:8px; overflow:hidden; }
     .geo-map-frame svg { display:block; width:100%; height:auto; }
     .geo-details { padding:14px; }
-    .geo-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-bottom:12px; }
-    .geo-metric { border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--panel2); }
-    .geo-metric strong { display:block; color:var(--blue); font-size:1.1rem; }
-    .geo-tag { display:inline-block; margin:3px 3px 0 0; padding:2px 7px; border-radius:999px; background:#f9731622; color:#ffad73; font-size:.75rem; }
-    .geo-sections { display:grid; gap:6px; margin-top:8px; max-height:190px; overflow:auto; }
-    .geo-section { border-left:2px solid var(--blue); padding-left:8px; font-size:.82rem; }
-    .geo-section strong { color:var(--blue); }
-    .geo-details summary { cursor:pointer; color:var(--ink); font-weight:700; }
-    @media (max-width:760px) { .geo-showcase { grid-template-columns:1fr; } }
+    .geo-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:10px; }
+    .geo-metric { background:var(--paper2); border:1px solid var(--rule-light); border-radius:4px; padding:7px; text-align:center; }
+    .geo-metric strong { display:block; font:700 1.1rem/1 "Playfair Display",Georgia,serif; color:var(--ink); }
+    .geo-tag { display:inline-block; margin:3px 3px 0 0; padding:2px 8px; border-radius:3px; background:var(--gold-light); color:var(--gold); font-size:.74rem; font-family:Inter,sans-serif; }
+    .geo-sections { display:grid; gap:5px; margin-top:8px; max-height:200px; overflow:auto; }
+    .geo-section { border-left:2px solid var(--red); padding-left:8px; font-size:.84rem; }
+    .geo-section strong { color:var(--ink); }
+    .geo-details summary { cursor:pointer; font-weight:600; font-family:Inter,sans-serif; font-size:.86rem; }
+    .welcome-linktree { padding:18px 0 6px; }
+    .welcome-hero { border:1px solid var(--rule); border-radius:4px; padding:22px 24px; background:var(--panel); }
+    .welcome-kicker { font:.72rem/1 Inter,sans-serif; letter-spacing:.15em; text-transform:uppercase; color:var(--red); font-weight:700; margin-bottom:8px; }
+    .welcome-hero h2 { font:700 italic clamp(1.4rem,3vw,2rem)/1.2 "Playfair Display",Georgia,serif; margin:0 0 8px; }
+    .welcome-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+    .welcome-link { display:block; min-height:110px; padding:14px; border:1px solid var(--rule-light); border-radius:4px; background:var(--panel); color:var(--ink); text-decoration:none; transition:background .15s,border-color .15s; }
+    .welcome-link:hover { background:var(--panel-hover); border-color:var(--gold); }
+    .welcome-link .icon { display:block; font-size:20px; margin-bottom:6px; }
+    .welcome-link strong { display:block; font:600 .92rem/1.2 "Source Serif 4",Georgia,serif; margin-bottom:3px; }
+    .welcome-link span { display:block; font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
+    .welcome-external { display:flex; flex-wrap:wrap; gap:8px; }
+    .welcome-external a { border:1px solid var(--rule); border-radius:4px; padding:5px 10px; color:var(--ink-dim); text-decoration:none; font:.82rem/1 Inter,sans-serif; }
+    .welcome-external a:hover { background:var(--panel-hover); color:var(--ink); }
+    .action-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; }
+    pre { white-space:pre-wrap; background:var(--paper2); border:1px solid var(--rule); border-radius:4px; padding:14px; max-height:500px; overflow:auto; font-size:.82rem; font-family:"SF Mono","Fira Code","Cascadia Code",monospace; }
+    .empty-state { color:var(--ink-faint); border:1px dashed var(--rule); border-radius:4px; padding:14px; font-style:italic; }
+    .error { color:var(--red); font-weight:600; }
+    .subtle { font:.82rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
+    .meta { font:.78rem/1.4 Inter,sans-serif; color:var(--ink-faint); }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .details-panel { margin-top:10px; border:1px solid var(--rule); border-radius:4px; background:var(--paper2); padding:14px; }
+    .details-panel pre { margin:10px 0 0; max-height:300px; }
+    .welcome-section-title { font:.72rem/1 Inter,sans-serif; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); margin:16px 0 8px; font-weight:700; }
+    .footer { border-top:1px solid var(--rule); margin-top:32px; padding-top:16px; font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
+    .footer a { color:var(--ink-dim); }
+    @media (max-width:700px) { .geo-showcase { grid-template-columns:1fr; } }
+    @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } }
+    @media print { body { background:#fff; color:#000; font-size:11pt; } .masthead-nav,.controls,.action-bar { display:none; } .page { max-width:100%; padding:0; } .source,.item,.card,.banner { break-inside:avoid; } }
   </style>
 </head>
 <body>
-  <header>
-    <div class="eyebrow">Crescent City, California</div>
-    <h1>Crescent City civic intelligence</h1>
-    <p class="subtle">Welcome to a provenance-preserving public snapshot for local news, public sources, municipal code, alerts, analysis, and source-grounded summaries. It is not a live API and does not imply that an unavailable source is calm.</p>
-    <nav aria-label="Sections">
-      <a href="#welcome">Welcome</a><a href="#overview">Overview</a><a href="#geo">Hazard geo</a><a href="#sources">Source health</a><a href="#registry">Source registry</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#alerts">Alerts</a><a href="#curated">Curation</a><a href="#code">Code search</a><a href="#report">Report</a>
+  <div class="masthead">
+    <h1 class="masthead-h1">The Crescent City Monitor</h1>
+    <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
+    <p class="masthead-date" id="masthead-date">Provenance-preserving public snapshot for Crescent City, California</p>
+    <nav class="masthead-nav" aria-label="Sections">
+      <a href="#welcome">Front page</a><a href="#overview">In brief</a><a href="#geo">Hazard map</a><a href="#sources">Dateline</a><a href="#registry">Source desk</a><a href="#news">Local</a><a href="#meetings">Council</a><a href="#alerts">Bulletin</a><a href="#curated">Briefs</a><a href="#code">Code search</a><a href="#report">Analysis</a>
     </nav>
-  </header>
-  <main>
-    <div id="banner" class="banner">Loading the latest snapshot…</div>
+  </div>
+  <div class="page">
+    <div id="banner" class="banner">Loading the latest public snapshot&hellip;</div>
     <section id="welcome" class="section">
       <div class="welcome-linktree">
         <div class="welcome-hero">
-          <div class="welcome-kicker">Start here</div>
+          <div class="welcome-kicker">Today&rsquo;s intelligence</div>
           <h2>Find the local signal, then follow the evidence.</h2>
-          <p>Choose a destination to explore local reporting, LLM-summarized items with citations, public meeting records, the municipal code, live safety monitors, analytics, and downloadable structured data.</p>
-          <div id="welcome-status" class="welcome-status" role="status">Loading snapshot status…</div>
-          <div id="welcome-summary" class="banner" style="margin-top:14px">Loading the current analytical signal…</div>
+          <p style="font:.92rem/1.5">Choose a section to explore curated briefs with sourced citations, public meeting records, the municipal code, live safety monitors, and downloadable structured data.</p>
+          <div id="welcome-status" class="meta" style="margin-top:10px" role="status">Loading snapshot status&hellip;</div>
+          <div id="welcome-summary" class="banner" style="margin-top:14px">Loading the current analytical signal&hellip;</div>
         </div>
-        <div class="welcome-section-title">Explore this snapshot</div>
+        <div class="welcome-section-title">Explore this edition</div>
         <div class="welcome-grid">
           <a class="welcome-link" href="#news"><span class="icon">📰</span><strong>Local news &amp; summaries</strong><span>News feeds, cited LLM briefs, public meetings, and YouTube records.</span></a>
           <a class="welcome-link" href="#registry"><span class="icon">🧭</span><strong>Source registry &amp; freshness</strong><span>Canonical sources, automation boundaries, health states, and coverage gaps.</span></a>
@@ -131,7 +138,7 @@
           <a class="welcome-link" href="#report"><span class="icon">📊</span><strong>Analysis &amp; civic report</strong><span>Period metrics, pipeline state, source highlights, warnings, and freshness metadata.</span></a>
           <a class="welcome-link" href="data/snapshot.json" download><span class="icon">🧾</span><strong>Structured public data</strong><span>Download the snapshot envelope, geo-intel, health, registry, discovery, and report artifacts.</span></a>
         </div>
-        <div class="welcome-section-title">Official and local source hubs</div>
+        <div class="welcome-section-title">Official source hubs</div>
         <div class="welcome-external" aria-label="Official source links">
           <a href="https://www.crescentcity.org/" target="_blank" rel="noopener">City of Crescent City</a>
           <a href="https://www.co.del-norte.ca.us/" target="_blank" rel="noopener">Del Norte County</a>
@@ -143,14 +150,14 @@
       </div>
     </section>
     <section id="overview" class="section">
-      <h2>Overview</h2>
-      <div id="cards" class="grid"></div>
-      <p id="provenance" class="subtle"></p>
-      <div id="metadata" class="banner" style="margin-top:12px"></div>
-      <div id="overview-summary" class="banner" style="margin-top:12px"></div>
-      <div class="banner data-contract" style="margin-top:12px">
+      <div class="section-head"><h2>In brief</h2><span class="meta">Snapshot overview</span></div>
+      <div id="cards" class="cards-row"></div>
+      <p id="provenance" class="subtle" style="margin-bottom:8px"></p>
+      <div id="metadata" class="banner"></div>
+      <div id="overview-summary" class="banner"></div>
+      <div class="banner" style="margin-top:12px">
         <strong>Structured snapshot outputs</strong>
-        <div class="meta">Download the exact public data envelope or its bounded component artifacts. These files preserve status, timestamps, provenance, and source policy.</div>
+        <div class="meta">Download the exact public data envelope or its bounded component artifacts.</div>
         <div class="action-bar">
           <a class="button" href="data/snapshot.json" download>Snapshot JSON</a>
           <a class="button" href="data/source-health.json" download>Health JSON</a>
@@ -165,48 +172,83 @@
       </div>
     </section>
     <section id="geo" class="section">
-      <h2>Crescent City civic &amp; hazard map</h2>
-      <p class="subtle">The same transferable <code>crescent-city-geo-intel/v1</code> contract served by the local GUI is projected here without a tiles provider or backend. It carries the Del Norte extent, Crescent City anchor, nominal hazard-domain points, and municipal-code references consumed by GEO-INFER.</p>
+      <div class="section-head"><h2>Civic &amp; hazard map</h2><span class="meta">Del Norte County</span></div>
+      <p class="subtle">The same transferable <code>crescent-city-geo-intel/v1</code> contract served by the local GUI projects without a tiles provider or backend.</p>
       <div class="geo-showcase">
         <div id="geo-map" class="geo-map-frame"><template data-pages-geo-view></template></div>
-        <aside class="geo-details" aria-label="Geo-view contract details">
-          <div id="geo-metrics" class="geo-metrics"><div class="geo-metric"><strong>—</strong><span class="meta">domains</span></div><div class="geo-metric"><strong>—</strong><span class="meta">features</span></div><div class="geo-metric"><strong>—</strong><span class="meta">sections</span></div></div>
-          <div><strong>Hazard tags</strong><div id="geo-tags" class="meta">Loading published contract details…</div></div>
-          <details open style="margin-top:12px">
-            <summary>Hazard-weighted code sections</summary>
-            <div id="geo-sections" class="geo-sections"><div class="meta">Loading section references…</div></div>
-          </details>
-          <p id="geo-contract-meta" class="meta">Markers are nominal policy-domain offsets around the city anchor, not incident or facility locations.</p>
-          <div class="action-bar"><a class="button" href="data/geo-intel.json" download>Download geo-intel + view JSON</a></div>
+        <aside class="geo-details">
+          <div id="geo-metrics" class="geo-metrics"><div class="geo-metric"><strong>&mdash;</strong><span class="meta">domains</span></div><div class="geo-metric"><strong>&mdash;</strong><span class="meta">features</span></div><div class="geo-metric"><strong>&mdash;</strong><span class="meta">sections</span></div></div>
+          <div><strong>Hazard tags</strong><div id="geo-tags" class="meta">Loading published contract details&hellip;</div></div>
+          <details open style="margin-top:12px"><summary>Hazard-weighted code sections</summary><div id="geo-sections" class="geo-sections"><div class="meta">Loading section references&hellip;</div></div></details>
+          <p id="geo-contract-meta" class="meta">Markers are nominal policy-domain offsets around the city anchor.</p>
+          <div class="action-bar"><a class="button" href="data/geo-intel.json" download>Download geo-intel JSON</a></div>
         </aside>
       </div>
     </section>
     <section id="sources" class="section">
-      <h2>Source health</h2>
-      <p class="subtle">Each source retains its operational state, check time, item count, error, and provenance. <a href="data/source-health.json">Download the health artifact</a>.</p>
-      <div class="controls"><label for="health-filter" class="sr-only">Filter source health</label><select id="health-filter"><option value="all">All source states</option><option value="ok">OK</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option></select><button id="refresh" class="button" type="button">Refresh snapshot</button><button id="download-health" class="button secondary" type="button">Download filtered health</button><span id="refresh-state" class="meta"></span></div>
+      <div class="section-head"><h2>Dateline &mdash; source health</h2><span class="meta"><a href="data/source-health.json">Download health report</a></span></div>
+      <p class="subtle">Each source retains its operational state, check time, item count, error, and provenance.</p>
+      <div class="controls">
+        <select id="health-filter"><option value="all">All states</option><option value="ok">Healthy</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option></select>
+        <button id="refresh" class="button" type="button">Refresh edition</button>
+        <button id="download-health" class="button secondary" type="button">Download filtered</button>
+        <span id="refresh-state" class="meta"></span>
+      </div>
       <div id="health" class="health-grid"></div>
     </section>
     <section id="registry" class="section">
-      <h2>Discovered source registry</h2>
-      <p class="subtle">The registry separates monitored sources from discovery-only coverage and reference-only citations. “Not checked” is an explicit state, never a claim of calm or availability. <a href="data/source-registry.json">registry JSON</a> · <a href="data/source-discovery.json">discovery JSON</a>.</p>
-      <div class="controls"><label for="registry-filter" class="sr-only">Filter source registry</label><input id="registry-filter" type="search" placeholder="Filter source name, kind, region, or URL…" aria-label="Filter source registry"><label for="automation-filter" class="sr-only">Filter source automation</label><select id="automation-filter"><option value="all">All automation states</option><option value="monitored">Monitored</option><option value="discovery-only">Discovery only</option><option value="reference-only">Reference only</option></select><label for="registry-sort" class="sr-only">Sort source registry</label><select id="registry-sort"><option value="name">Sort: name</option><option value="operationalStatus">Sort: operational state</option><option value="automation">Sort: automation</option><option value="kind">Sort: kind</option><option value="region">Sort: region</option></select><button id="registry-sort-direction" class="button secondary" type="button" aria-label="Reverse source registry sort">A → Z</button><button id="download-registry-json" class="button secondary" type="button">Download filtered JSON</button><button id="download-registry-csv" class="button secondary" type="button">Download CSV</button></div>
+      <div class="section-head"><h2>Source desk</h2><span class="meta"><a href="data/source-registry.json">Registry</a> &middot; <a href="data/source-discovery.json">Discovery</a></span></div>
+      <p class="subtle">The registry separates monitored sources from discovery-only coverage and reference-only citations.</p>
+      <div class="controls">
+        <input id="registry-filter" type="search" placeholder="Filter name, kind, region, or URL&hellip;">
+        <select id="automation-filter"><option value="all">All automation</option><option value="monitored">Monitored</option><option value="discovery-only">Discovery</option><option value="reference-only">Reference</option></select>
+        <select id="registry-sort"><option value="name">Sort: name</option><option value="operationalStatus">Sort: state</option><option value="automation">Sort: automation</option><option value="kind">Sort: kind</option><option value="region">Sort: region</option></select>
+        <button id="registry-sort-direction" class="button secondary" type="button">A &rarr; Z</button>
+        <button id="download-registry-json" class="button secondary" type="button">Download JSON</button>
+        <button id="download-registry-csv" class="button secondary" type="button">Download CSV</button>
+      </div>
       <div id="registry-summary" class="banner"></div>
-      <div id="source-registry" class="registry-table" style="margin-top:10px"></div>
-      <div id="source-detail" class="details-panel" aria-live="polite">Select a source to inspect its complete structured record.</div>
+      <div id="source-registry" class="registry-table"></div>
+      <div id="source-detail" class="details-panel" aria-live="polite">Select a source to inspect.</div>
       <div id="coverage-gaps" class="subtle" style="margin-top:12px"></div>
     </section>
-    <section id="news" class="section"><h2>Recent news</h2><div class="controls"><label for="content-filter" class="sr-only">Filter public items</label><input id="content-filter" type="search" placeholder="Filter news, meetings, and briefs…" aria-label="Filter news, meetings, and briefs"><button id="download-content" class="button secondary" type="button">Download filtered content</button></div><div id="news-items" class="items"></div></section>
-    <section id="meetings" class="section"><h2>Government meetings</h2><div id="meeting-items" class="items"></div></section>
-    <section id="alerts" class="section"><h2>Alert monitors</h2><div id="alert-summary"></div><div id="alert-items" class="items"></div></section>
-    <section id="curated" class="section"><h2>Source-grounded curation</h2><p class="subtle">Curated briefs are provider-generated summaries, not independent reporting. Triplicate is excluded from curation, embeddings, and training.</p><div id="curated-items" class="items"></div></section>
-    <section id="code" class="section"><h2>Municipal code snapshot</h2><p id="code-meta" class="subtle"></p><input id="code-search" type="search" placeholder="Search section number, title, or text…" aria-label="Search municipal code"><div id="code-results" class="items" style="margin-top:10px"></div></section>
-    <section id="report" class="section"><h2>Latest civic health report</h2><div id="report-content"></div></section>
-    <footer>
-      <div>Snapshot source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> · Municipal code source: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
-      <div>Public export excludes chat history, request/search/RAG logs, Chroma data, credentials, and Triplicate article content.</div>
-    </footer>
-  </main>
+    <section id="news" class="section">
+      <div class="section-head"><h2>Local news</h2><span class="meta">Curated feeds</span></div>
+      <div class="controls">
+        <input id="content-filter" type="search" placeholder="Filter items&hellip;">
+        <button id="download-content" class="button secondary" type="button">Download filtered</button>
+      </div>
+      <div id="news-items" class="items"></div>
+    </section>
+    <section id="meetings" class="section">
+      <div class="section-head"><h2>City council &amp; boards</h2><span class="meta">Meetings</span></div>
+      <div id="meeting-items" class="items"></div>
+    </section>
+    <section id="alerts" class="section">
+      <div class="section-head"><h2>Safety bulletin</h2><span class="meta">8-monitor alert board</span></div>
+      <div id="alert-summary"></div>
+      <div id="alert-items" class="items"></div>
+    </section>
+    <section id="curated" class="section">
+      <div class="section-head"><h2>Grounded briefs</h2><span class="meta">LLM curation</span></div>
+      <p class="subtle">Curated briefs are provider-generated summaries, not independent reporting.</p>
+      <div id="curated-items" class="items"></div>
+    </section>
+    <section id="code" class="section">
+      <div class="section-head"><h2>Municipal code</h2><span class="meta">ecode360.com/CR4919</span></div>
+      <p id="code-meta" class="subtle"></p>
+      <input id="code-search" type="search" placeholder="Search section number, title, or text&hellip;">
+      <div id="code-results" class="items" style="margin-top:10px"></div>
+    </section>
+    <section id="report" class="section">
+      <div class="section-head"><h2>Civic health report</h2><span class="meta">Period analysis</span></div>
+      <div id="report-content"></div>
+    </section>
+    <div class="footer">
+      <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
+      <div>Excludes chat history, RAG logs, Chroma data, credentials, and Triplicate content.</div>
+    </div>
+  </div>
   <script>
     const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null };
     const $ = id => document.getElementById(id);

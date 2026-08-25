@@ -156,7 +156,7 @@ async function sendVapidPush(
   try {
     const cryptoKey = await crypto.subtle.importKey(
       "raw",
-      privateKeyBytes,
+      privateKeyBytes.slice(),
       { name: "ECDSA", namedCurve: "P-256" },
       false,
       ["sign"],

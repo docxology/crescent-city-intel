@@ -172,7 +172,7 @@ export function parseVotes(text: string): VoteResult | null {
   //   e.g. "Vote: 5 yea, 2 nay, 0 abstain"
   //   e.g. "5 AYES, 2 NOES, 0 ABSTENTIONS"
   const voteTallyMatch = cleaned.match(
-    /(\d+)\s+(yea|ayes?|yes|in\s+favor)\D+(\d+)\s+(nay|noes?|no|opposed|against)\D*?(?:(\d+)\s+(abstain|abstentions?|absent))?/i
+    /(\d+)\s+(yea|ayes?|yes|in\s+favor)\D+(\d+)\s+(nay|noes?|no|opposed|against)\D*(?:(\d+)\s+(abstain|abstentions?|absent))?/i
   );
   if (voteTallyMatch) {
     yea = parseInt(voteTallyMatch[1], 10);

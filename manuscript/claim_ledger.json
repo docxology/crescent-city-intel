@@ -41,7 +41,7 @@
       "evidence": ["output/state/analytics-overview.json", "output/data/manuscript_variables.json"],
       "scope": "one generated local snapshot",
       "notEstablished": "A persistent condition in Crescent City or a longitudinal trend"
-    }
+    },
   
     {
       "id": "implementation-newspaper-pages",

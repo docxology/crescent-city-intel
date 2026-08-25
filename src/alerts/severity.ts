@@ -197,48 +197,6 @@ export interface SchoolClosureInput {
  * Assess tsunami monitor severity.
  */
 
-
-export interface DroughtInput {
-  /** D0-D4 drought category for Del Norte County (0-4, -1 if unavailable) */
-  category: number;
-  /** Percentage of Del Norte County in that category */
-  percentage: number;
-  /** Whether data was available */
-  available: boolean;
-}
-
-export interface PSPSInput {
-  /** Whether a PSPS event is active for Del Norte County */
-  active: boolean;
-  /** Optional PSPS description */
-  description?: string;
-  /** Whether data was available */
-  available: boolean;
-}
-
-export interface SmokeInput {
-  /** PM2.5 concentration in μg/m³ (null if unavailable) */
-  pm25: number | null;
-  /** Whether smoke forecast data was available */
-  available: boolean;
-}
-
-export interface RoadClosureInput {
-  /** Number of active road closures on Del Norte routes */
-  closureCount: number;
-  /** Whether data was available */
-  available: boolean;
-}
-
-export interface SchoolClosureInput {
-  /** Whether DUSD schools are closed */
-  closed: boolean;
-  /** Optional reason for closure */
-  reason?: string;
-  /** Whether data was available */
-  available: boolean;
-}
-
 function assessTsunami(input: TsunamiInput): MonitorStatus {
   if (input.available === false) {
     return { level: "CALM", summary: "Tsunami data unavailable", count: 0, availability: "unavailable" };
@@ -616,78 +574,6 @@ function assessSchools(input: SchoolClosureInput): MonitorStatus {
     };
   }
   return { level: "CALM", summary: "No school closures", count: 0 };
-}
-
-
-/**
- * Assess USDM drought monitor severity.
- */
-function assessDrought(input: DroughtInput): MonitorStatus {
-  if (!input.available) {
-    return { level: "CALM", summary: "Drought data unavailable", count: 0, availability: "unavailable" };
-  }
-  if (input.category >= 3) {
-    return { level: "WARNING", summary: `🔴 Drought D${input.category} (${input.percentage}% of county)`, count: 1 };
-  }
-  if (input.category >= 2) {
-    return { level: "WATCH", summary: `🟡 Drought D${input.category} (${input.percentage}% of county)`, count: 1 };
-  }
-  return { level: "CALM", summary: `No significant drought (D${input.category})`, count: 0 };
-}
-
-/**
- * Assess PG&E PSPS monitor severity.
- */
-function assessPSPS(input: PSPSInput): MonitorStatus {
-  if (!input.available) {
-    return { level: "CALM", summary: "PSPS data unavailable", count: 0, availability: "unavailable" };
-  }
-  if (input.active) {
-    return { level: "WARNING", summary: `🔴 PG&E PSPS active${input.description ? ": " + input.description : ""}`, count: 1 };
-  }
-  return { level: "CALM", summary: "No active PSPS event", count: 0 };
-}
-
-/**
- * Assess HRRR smoke forecast monitor severity.
- */
-function assessSmoke(input: SmokeInput): MonitorStatus {
-  if (!input.available || input.pm25 === null) {
-    return { level: "CALM", summary: "Smoke forecast data unavailable", count: 0, availability: "unavailable" };
-  }
-  if (input.pm25 > 150) {
-    return { level: "WARNING", summary: `🔴 Unhealthy smoke PM2.5 ${input.pm25} μg/m³`, count: 1 };
-  }
-  if (input.pm25 > 55) {
-    return { level: "WATCH", summary: `🟡 Elevated smoke PM2.5 ${input.pm25} μg/m³`, count: 1 };
-  }
-  return { level: "CALM", summary: `Normal air quality (PM2.5 ${input.pm25} μg/m³)`, count: 0 };
-}
-
-/**
- * Assess Caltrans road closure monitor severity.
- */
-function assessRoadClosure(input: RoadClosureInput): MonitorStatus {
-  if (!input.available) {
-    return { level: "CALM", summary: "Road closure data unavailable", count: 0, availability: "unavailable" };
-  }
-  if (input.closureCount > 0) {
-    return { level: "WARNING", summary: `🔴 ${input.closureCount} road closure(s) on Del Norte routes`, count: input.closureCount };
-  }
-  return { level: "CALM", summary: "No active road closures on major routes", count: 0 };
-}
-
-/**
- * Assess DUSD school closure monitor severity.
- */
-function assessSchoolClosure(input: SchoolClosureInput): MonitorStatus {
-  if (!input.available) {
-    return { level: "CALM", summary: "School closure data unavailable", count: 0, availability: "unavailable" };
-  }
-  if (input.closed) {
-    return { level: "WATCH", summary: `🟡 DUSD schools closed${input.reason ? ": " + input.reason : ""}`, count: 1 };
-  }
-  return { level: "CALM", summary: "DUSD schools operating normally", count: 0 };
 }
 
 /** Priority ordering for severity levels */

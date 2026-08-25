@@ -16,7 +16,7 @@ drought, PSPS, smoke forecast, road closures, and school closures), a
 self-healing monitor system with automatic retry, persistent event analytics,
 retrieval-augmented code search, provider-aware language-model curation, and a
 shared analytics overview consumed by both the local GUI and a
-newspaper-themed GitHub Pages snapshot — The Quadruplicate (CrescentCity@tuta.com — “Sea Something. Say Something.”). The implementation represents
+newspaper-themed GitHub Pages snapshot — The Quadruplicate (CrescentCity[at]tuta.com — “Sea Something. Say Something.”). The implementation represents
 source state as a four-valued operational contract—ok, empty, unavailable, or
 stale—and treats provenance as a first-class field rather than as display
 decoration. Run-specific analytics are bound to a SHA-256 fingerprint of

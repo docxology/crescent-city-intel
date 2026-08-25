@@ -41,6 +41,8 @@ import type { SourceHealth } from "../src/types.ts";
 import { paths } from "../src/shared/paths.ts";
 import { writeJsonAtomic } from "../src/shared/source_health.ts";
 import { maybeSendSeverityWebhook } from "../src/alerts/notify.ts";
+import { runHealingCycle } from "../src/alerts/healer.ts";
+import { sendPushNotification } from "../src/notifications/push.ts";
 
 export { buildTidesInput, buildFishingInput };
 
@@ -178,6 +180,21 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     // Optional high-severity webhook (ALERT_WEBHOOK_URL). Fire-and-forget; a
     // webhook failure never fails the alert run.
     await maybeSendSeverityWebhook(severityReport);
+
+    // ─── Self-healing cycle ─────────────────────────────────────────
+    // Run the healing cycle after alerts complete. Never throws.
+    const healingResult = await runHealingCycle();
+    if (healingResult.monitorsRetried.length > 0) {
+      logger.info("Healing cycle triggered retries for monitors", { retried: healingResult.monitorsRetried });
+      // Also send a push notification for monitors being retried
+      await sendPushNotification(
+        "Alert Monitor Healing",
+        `Retrying ${healingResult.monitorsRetried.length} monitor(s): ${healingResult.monitorsRetried.join(", ")}`,
+      ).catch(() => {});
+    }
+    if (healingResult.monitorsRecovered.length > 0) {
+      logger.info("Healing cycle: monitors recovered", { recovered: healingResult.monitorsRecovered });
+    }
 
     const checkedAt = new Date().toISOString();
     const monitorDefinitions: AlertMonitorDefinition[] = [

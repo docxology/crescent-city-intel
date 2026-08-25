@@ -45,6 +45,8 @@ export interface FishingBulletin {
   date: string;
   content: string;
   url: string;
+  /** Full article body text fetched from the linked page, if available. */
+  fullContent?: string;
 }
 
 export interface FishingReport {
@@ -52,6 +54,92 @@ export interface FishingReport {
   crabStatus: CrabSeasonStatus;
   bulletins: FishingBulletin[];
   summary: string;
+}
+
+// ─── HTML body extraction ─────────────────────────────────────────
+
+/**
+ * Extract the main article body text from a CDFW Marine Management News HTML
+ * page. Tries common article containers in order, then falls back to joining
+ * all <p> tags. Returns plain text with HTML stripped.
+ */
+export function extractBulletinBody(html: string): string {
+  // Try <article>...</article> first
+  const articleMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  let body = articleMatch ? articleMatch[1] : html;
+
+  // Try <main> or #content or .content if <article> was not found
+  if (!articleMatch) {
+    const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+    if (mainMatch) {
+      body = mainMatch[1];
+    } else {
+      const contentMatch = html.match(/<div[^>]*(?:id=["']content["']|class=["'][^"']*content[^"']*["'])[^>]*>([\s\S]*?)<\/div>/i);
+      if (contentMatch) {
+        body = contentMatch[1];
+      }
+    }
+  }
+
+  // Extract <p> tag text, join with newlines
+  const pMatches = [...body.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
+  let text: string;
+  if (pMatches.length > 0) {
+    text = pMatches.map(m => m[1]).join("\n\n");
+  } else {
+    // Fallback: strip all HTML tags
+    text = body.replace(/<[^>]+>/g, "").trim();
+  }
+
+  // Decode common HTML entities
+  text = text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/\s*\n\s*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return text;
+}
+
+/**
+ * Fetch the full body text of a CDFW Marine Management News bulletin page.
+ * Gracefully returns an empty string on any failure (network error, timeout,
+ * non-200, or parse failure). Never throws.
+ */
+export async function fetchBulletinBody(url: string): Promise<string> {
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
+        Accept: "text/html",
+      },
+      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
+    });
+
+    if (!resp.ok) {
+      logger.warn(`Bulletin body fetch returned HTTP ${resp.status} for ${url}`);
+      return "";
+    }
+
+    const html = await resp.text();
+    const body = extractBulletinBody(html);
+
+    if (!body) {
+      logger.warn(`Could not extract body text from ${url}`);
+      return "";
+    }
+
+    return body;
+  } catch (err: any) {
+    logger.warn(`Failed to fetch bulletin body from ${url}`, { error: err.message });
+    return "";
+  }
 }
 
 // ─── CDFW Bulletin Fetch ──────────────────────────────────────────
@@ -105,9 +193,7 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
         // The anchor/link sometimes carries a publish date (YYYY-MM-DD or
         // MM/DD/YYYY). Extract it if present rather than stamping every bulletin
         // with today's date (the prior behavior misrepresented publish date).
-        // When no date is parseable, leave it empty (honest "unknown") — the
-        // caller should not invent one. `content` stays a title-derived stub;
-        // fetching the bulletin body requires following each link (deferred).
+        // When no date is parseable, leave it empty (honest "unknown").
         const dateMatch = `${href} ${title}`.match(/(\d{4})-(\d{2})-(\d{2})|(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         const date = dateMatch
           ? (dateMatch[1]
@@ -121,6 +207,18 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
           content: `CDFW bulletin: ${title}`,
           url: fullUrl,
         });
+      }
+    }
+
+    // Fetch full body text for each bulletin URL in parallel
+    if (bulletins.length > 0) {
+      const bodies = await Promise.all(
+        bulletins.map(b => fetchBulletinBody(b.url))
+      );
+      for (let i = 0; i < bulletins.length; i++) {
+        if (bodies[i]) {
+          bulletins[i].fullContent = bodies[i];
+        }
       }
     }
 

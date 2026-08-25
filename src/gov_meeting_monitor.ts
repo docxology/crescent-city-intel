@@ -103,7 +103,7 @@ export function extractLinkItems(htmlAnchors: string[] | undefined): LinkItem[] 
   if (!htmlAnchors) return [];
   const items: LinkItem[] = [];
   for (const anchor of htmlAnchors) {
-    const hrefMatch = anchor.match(/href=["'']([^"'']+)["'']/);
+    const hrefMatch = anchor.match(/href=["']([^"']+)["']/);
     if (!hrefMatch) continue;
     const url = new URL(hrefMatch[1], "https://www.crescentcity.org").toString();
     const titleText = anchor
@@ -131,6 +131,162 @@ function extractLinkUrls(htmlAnchors: string[] | undefined): string[] {
   }
   return urls;
 }
+
+// ─── Vote extraction ──────────────────────────────────────────────
+
+/** Structured result of parsing yea/nay/abstain votes from meeting minutes text. */
+export interface VoteResult {
+  yea: number;
+  nay: number;
+  abstain: number;
+  passed: boolean;
+  details: string[];
+}
+
+/**
+ * Parse vote tallies from meeting minutes or agenda text.
+ *
+ * Detects patterns such as:
+ *   "Vote: 5 yea, 2 nay, 0 abstain"
+ *   "Motion: ... passes 5-2"
+ *   "Motion: ... fails 3-4"
+ *   "Councilmember Smith: Yea, Councilmember Jones: Nay" (roll call)
+ *   "5 AYES, 2 NOES, 0 ABSTENTIONS"
+ *   "Approved 5-0" / "Denied 3-2"
+ *
+ * Returns a structured VoteResult when a vote pattern is recognisable,
+ * or null when the text contains no parseable vote data. Never throws.
+ */
+export function parseVotes(text: string): VoteResult | null {
+  if (!text || typeof text !== 'string') return null;
+
+  const cleaned = text.replace(/\s+/g, ' ').trim();
+  const details: string[] = [];
+  let yea: number | null = null;
+  let nay: number | null = null;
+  let abstain: number | null = null;
+  let passed: boolean | null = null;
+  const lower = cleaned.toLowerCase();
+
+  // Pattern 1: "Vote: X yea, Y nay, Z abstain" (and variants)
+  //   e.g. "Vote: 5 yea, 2 nay, 0 abstain"
+  //   e.g. "5 AYES, 2 NOES, 0 ABSTENTIONS"
+  const voteTallyMatch = cleaned.match(
+    /(\d+)\s+(yea|ayes?|yes|in\s+favor)\D+(\d+)\s+(nay|noes?|no|opposed|against)\D*?(?:(\d+)\s+(abstain|abstentions?|absent))?/i
+  );
+  if (voteTallyMatch) {
+    yea = parseInt(voteTallyMatch[1], 10);
+    nay = parseInt(voteTallyMatch[3], 10);
+    abstain = voteTallyMatch[5] ? parseInt(voteTallyMatch[5], 10) : 0;
+    details.push(`Vote tally: ${yea}-${nay}-${abstain}`);
+  }
+
+  // Pattern 2: "Motion ... passes/fails/adopted/denied X-Y" or "Passed X-Y"
+  //   e.g. "Motion passes 5-2"
+  //   e.g. "Motion carries 5-0"
+  //   e.g. "Motion fails 3-4"
+  //   e.g. "Approved 5-0"
+  //   e.g. "Denied 3-2"
+  const motionMatch = cleaned.match(
+    /(?:motion\s+|\b)(passes|passed|carries|carried|adopted?|approved|fails?|failed|denied|rejected|defeated|lost)\b\s*(\d+)\s*[-–]\s*(\d+)/i
+  );
+  if (motionMatch) {
+    const verb = motionMatch[1].toLowerCase();
+    // passed verbs
+    if (/^(passes|passed|carries|carried|adopted|approved)$/i.test(verb)) {
+      passed = true;
+    } else {
+      passed = false;
+    }
+    // The first number is the winning side
+    const num1 = parseInt(motionMatch[2], 10);
+    const num2 = parseInt(motionMatch[3], 10);
+    // num1 is always the yea/for count, num2 is the nay/against count
+    // regardless of whether the motion passed or failed
+    yea = yea ?? num1;
+    nay = nay ?? num2;
+    abstain = abstain ?? 0;
+    details.push(`Motion ${verb}: ${num1}-${num2}`);
+  }
+
+  // Pattern 3: Roll call — extract named votes
+  //   e.g. "Councilmember Smith: Yea, Councilmember Jones: Nay"
+  //   e.g. "Smith - Yea / Jones - Nay / Brown - Abstain"
+  const rollCallMatches = cleaned.matchAll(
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*[:–\-—]\s*(Yea|Aye|Yes|Nay|No|Abstain|Absent)/gi
+  );
+  let rollCallCount = 0;
+  for (const rc of rollCallMatches) {
+    const person = rc[1].trim();
+    const vote = rc[2].toLowerCase();
+    details.push(`${person}: ${rc[2]}`);
+    rollCallCount++;
+  }
+  if (rollCallCount > 0 && yea === null) {
+    // Count the roll call votes if we didn't already get a tally
+    // We re-collect here since we already consumed the iterator
+    const rcMatches = cleaned.matchAll(
+      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*[:–\-—]\s*(Yea|Aye|Yes|Nay|No|Abstain|Absent)/gi
+    );
+    let rcYea = 0, rcNay = 0, rcAbs = 0;
+    for (const rc of rcMatches) {
+      const vote = rc[2].toLowerCase();
+      if (/^(yea|aye|yes)$/i.test(vote)) rcYea++;
+      else if (/^(nay|no)$/i.test(vote)) rcNay++;
+      else if (/^(abstain|absent)$/i.test(vote)) rcAbs++;
+    }
+    // Only use roll call counts if we have enough named entries (>= 2)
+    if (rcYea + rcNay + rcAbs >= 2) {
+      yea = rcYea;
+      nay = rcNay;
+      abstain = rcAbs;
+    }
+  }
+
+  // Pattern 4: "X yea, Y nay" without the word "Vote:" (common in agenda descriptions)
+  if (yea === null) {
+    const simpleTally = cleaned.match(
+      /(\d+)\s+(yea|aye)\D+(\d+)\s+(nay|no)\b/i
+    );
+    if (simpleTally) {
+      yea = parseInt(simpleTally[1], 10);
+      nay = parseInt(simpleTally[3], 10);
+      abstain = abstain ?? 0;
+      details.push(`Tally: ${yea}-${nay}`);
+    }
+  }
+
+  // If we have numbers, determine passed
+  if (yea !== null && nay !== null) {
+    if (passed === null) {
+      passed = yea > nay;
+    }
+    return {
+      yea,
+      nay,
+      abstain: abstain ?? 0,
+      passed,
+      details: details.filter((d, i, a) => a.indexOf(d) === i), // dedupe
+    };
+  }
+
+  // Pattern 5: "Approved/Denied/Passed/Failed" without numbers — mark as passed/failed but cannot count
+  const approvalMatch = cleaned.match(
+    /\b(unanimously\s+)?(approved|denied|rejected|defeated|passed|failed|adopted)\b/i
+  );
+  if (approvalMatch) {
+    const verb = approvalMatch[2].toLowerCase();
+    if (/^(approved|adopted|passed)$/i.test(verb)) {
+      return { yea: 0, nay: 0, abstain: 0, passed: true, details: [`Motion ${verb}`] };
+    } else if (/^(denied|rejected|defeated|failed)$/i.test(verb)) {
+      return { yea: 0, nay: 0, abstain: 0, passed: false, details: [`Motion ${verb}`] };
+    }
+  }
+
+  return null;
+}
+
+// ─── EvoGov fetch ─────────────────────────────────────────────────
 
 // City Council/Planning Commission/Harbor Commission all read from the same
 // EvoGov endpoint, filtered down by title per source (see GOV_SOURCES
@@ -164,7 +320,7 @@ async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]>
  * filtering the shared feed down to items whose title names this source.
  */
 export interface GovMeetingFetchResult {
-  items: Array<{title: string, link: string, date: string, content: string, hash: string}>;
+  items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[], vote?: VoteResult | null}>;
   health: SourceHealth;
 }
 
@@ -176,7 +332,7 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
     const allItems = await fetchEvoGovMeetings(url);
     const matching = allItems.filter(item => item.title.toLowerCase().includes(sourceName.toLowerCase()));
 
-    const items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[]}> = [];
+    const items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[], vote?: VoteResult | null}> = [];
     for (const item of matching) {
       const link = `https://www.crescentcity.org/events/${item.id}/`;
       const date = item.start_date_short ?? item.start_date_day_of_week ?? '';
@@ -190,10 +346,13 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
       if (minuteUrls.length) contentParts.push(`Minutes: ${minuteUrls.join(', ')}`);
       const content = contentParts.filter(Boolean).join(' | ');
 
+      // Try to parse votes from the description text
+      const vote = parseVotes(item.description ?? '');
+
       const hashContent = `${item.title}|${link}|${date}|${content}`;
       const hash = await generateContentHash(hashContent);
 
-      items.push({ title: item.title, link, date, content, hash, ...(agendaItems.length ? { agendaItems } : {}), ...(minuteItems.length ? { minuteItems } : {}) });
+      items.push({ title: item.title, link, date, content, hash, vote, ...(agendaItems.length ? { agendaItems } : {}), ...(minuteItems.length ? { minuteItems } : {}) });
     }
 
     logger.info(`Found ${items.length} meeting-related items from ${sourceName}`, { count: items.length });
@@ -229,7 +388,7 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
 /**
  * Save meeting items to a JSON file for historical tracking with change detection
  */
-export async function saveMeetingItems(items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean}>): Promise<void> {
+export async function saveMeetingItems(items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean, vote?: VoteResult | null}>): Promise<void> {
   const fs = await import('fs/promises');
   const path = await import('path');
   
@@ -286,6 +445,7 @@ export interface GovMeetingItem {
   fetchedAt: string;
   isNew: boolean;
   changed: boolean;
+  vote?: VoteResult | null;
 }
 
 export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {

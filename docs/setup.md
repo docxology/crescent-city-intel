@@ -1,4 +1,4 @@
-# Start Here — Crescent City Intelligence Platform
+# Start Here — The Quadruplicate
 
 Complete setup guide to get the scraper, web viewer, RAG chat, and 8 alert monitors running.
 

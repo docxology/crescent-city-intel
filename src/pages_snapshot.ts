@@ -19,6 +19,9 @@ import { buildGeoIntel } from "./geo.js";
 import { buildGeoIntelSurface, buildGeoViewSvg, type GeoIntelSurface, type GeoIntelView } from "./geo_view.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
+const NEWSPAPER_NAME = "The Quadruplicate";
+const CONTACT_EMAIL = "CrescentCity@tuta.com";
+const TAGLINE = "Sea Something. Say Something.";
 const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
 const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;

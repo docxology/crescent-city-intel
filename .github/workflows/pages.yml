@@ -28,6 +28,7 @@ jobs:
       LOG_LEVEL: info
       SOURCE_DISCOVERY_LIVE_CHECK: "1"
       PAGES_BUILD: "1"
+      PAGES_DOMAIN: quadruplicate.org
 
     steps:
       - name: Checkout repository
@@ -57,6 +58,10 @@ jobs:
 
       - name: Export public Pages snapshot
         run: bun run pages:export -- --source output --seed pages-data --output .pages
+
+
+      - name: Create CNAME for custom domain
+        run: cp CNAME .pages/CNAME
 
       - name: Validate public Pages snapshot
         run: bun run pages:validate -- .pages

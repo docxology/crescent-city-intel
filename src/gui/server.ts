@@ -148,6 +148,6 @@ const server = Bun.serve({
   },
 });
 
-log.info(`Municipal Code Viewer running at http://localhost:${server.port}`);
+log.info(`The Quadruplicate running at http://localhost:${server.port}`);
 
 }

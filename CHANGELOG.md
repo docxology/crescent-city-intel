@@ -10,9 +10,14 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### GitHub Pages — Vintage newspaper aesthetic (2026-08-25)
+### GitHub Pages — Vintage newspaper aesthetic — renamed to The Quadruplicate (2026-08-25)
 
 ### Added
+
+### Changed
+
+- **Newspaper brand renamed**: The public GitHub Pages snapshot is now "The Quadruplicate" (formerly "The Crescent City Monitor"). Served at quadruplicate.org.
+- **Pages workflow domain**: Updated custom domain configuration for quadruplicate.org, replacing the old GitHub Pages default URL.
 
 - **Grayscale vintage newspaper redesign** for GitHub Pages: removed all bright
   color accents (red/blue/gold/green/purple), replaced with charcoal, sepia,
@@ -34,6 +39,8 @@ Versioned by [Semantic Versioning](https://semver.org/).
 ### Geo-Intel contracts (2026-08-23 → 2026-08-24) — machine-readable municipality geo-intel
 
 ### Added
+
+
 
 - **Transferable municipality geo-intel contract** (`src/geo.ts`): a pure,
   municipality-agnostic builder (`buildMunicipalityContract(spec)`) that emits a
@@ -66,6 +73,8 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+
+
 - **LifeOS / Pulse integration**: the platform now feeds the LifeOS `LocalIntelligence`
   digest (Pulse LOCAL tab) with real **North Coast** data (Del Norte + Humboldt, anchored on
   Crescent City — not Crescent City only) via `scripts/lifeos-bridge.ts`
@@ -86,6 +95,8 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+
+
 - **Real browser smoke test** (`scripts/browser-smoke.ts`, `bun run test:browser`): starts the
   actual GUI server and drives it in headless Chromium, asserting the SPA renders, the
   loopback API-key trust boundary injects a real key, `/api/toc` authenticates, and
@@ -102,6 +113,8 @@ Versioned by [Semantic Versioning](https://semver.org/).
 ### Deepest review pass (2026-08-04) — "proceed with all" completion
 
 ### Added
+
+
 
 - **Semantic search** `GET /api/search/semantic`: Ollama-embed + ChromaDB retrieval with
   graceful BM25 fallback (`src/gui/semantic_search.ts`). Registered in the OpenAPI
@@ -312,6 +325,8 @@ TODO.md). See the issue-by-issue notes in TODO.md.
 ### Functional observability and interaction pass (promoted from [Unreleased])
 
 ### Added
+
+
 
 - Durable weekly pipeline-run envelopes with run IDs, stage durations,
   output-path lineage, commit/runtime metadata, and aggregate source health.

@@ -1,4 +1,4 @@
-# Crescent City Intelligence Platform — Documentation
+# The Quadruplicate — Documentation
 
 Comprehensive documentation for the full pipeline: scraping, verification,
 export, web viewer, RAG chat, streaming, monitoring, alerting, structured

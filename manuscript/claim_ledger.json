@@ -45,7 +45,7 @@
   
     {
       "id": "implementation-newspaper-pages",
-      "statement": "The public GitHub Pages snapshot uses a newspaper-themed design with proper typography, date-lined sections, and print-optimized CSS.",
+      "statement": "The public GitHub Pages snapshot uses The Quadruplicate newspaper-themed design with proper typography, date-lined sections, and print-optimized CSS.",
       "status": "implemented",
       "evidence": ["src/pages/static/index.html", "scripts/validate-pages.ts"],
       "scope": "software contract",

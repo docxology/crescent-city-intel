@@ -1,4 +1,4 @@
-# TODO — Crescent City Intelligence Platform
+# TODO — The Quadruplicate
 
 > Upcoming development backlog · v2.5.1 · validation counts are reported by `bun run validate`
 >

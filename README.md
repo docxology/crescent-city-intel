@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">🌊 Crescent City Intelligence Platform</h1>
+  <h1 align="center">🌊 The Quadruplicate</h1>
   <p align="center">
     <strong>Scrape · Verify · Export · View · Chat · Stream · Monitor · Alert · Analyze · Query</strong><br/>
     The most comprehensive local intelligence platform for the

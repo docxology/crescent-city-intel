@@ -5,7 +5,7 @@
 # writes the evidence-bound, run-specific copy to output/manuscript/.
 
 paper:
-  title: "Evidence-Bounded Civic Intelligence for Crescent City, California"
+  title: "Evidence-Bounded Civic Intelligence: The Quadruplicate Platform"
   subtitle: "A provenance-preserving platform for municipal code, local sources, safety signals, and grounded summaries"
   version: "2.5.1"
   date: "2026-07-30"

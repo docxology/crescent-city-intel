@@ -1,4 +1,4 @@
-# AGENTS.md — Crescent City Intelligence Platform
+# AGENTS.md — The Quadruplicate
 
 ## Project Overview
 

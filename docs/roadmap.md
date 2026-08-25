@@ -1,4 +1,4 @@
-# Roadmap — Crescent City Intelligence Platform
+# Roadmap — The Quadruplicate
 
 > For the full detailed backlog with priority tags, see [TODO.md](../TODO.md).
 > This page provides a high-level strategic overview.

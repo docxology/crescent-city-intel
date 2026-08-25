@@ -239,7 +239,7 @@ export interface SchoolClosureInput {
   available: boolean;
 }
 
-/**ction assessTsunami(input: TsunamiInput): MonitorStatus {
+function assessTsunami(input: TsunamiInput): MonitorStatus {
   if (input.available === false) {
     return { level: "CALM", summary: "Tsunami data unavailable", count: 0, availability: "unavailable" };
   }
@@ -727,11 +727,6 @@ export function computeAlertSeverity(
     airQuality: assessAirQuality(airQuality),
     wildfire: assessWildfire(wildfire),
     marine: assessMarine(marine),
-    drought: assessDrought(drought),
-    psps: assessPsps(psps),
-    smokeForecast: assessSmoke(smoke),
-    roadClosures: assessRoadClosure(roadClosure),
-    schoolClosures: assessSchoolClosure(schoolClosure),
     drought: assessDrought(drought),
     psps: assessPsps(psps),
     smoke: assessSmoke(smoke),

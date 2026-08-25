@@ -84,8 +84,7 @@ function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
   if (!existsSync(HISTORY_FILE)) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("
-").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }

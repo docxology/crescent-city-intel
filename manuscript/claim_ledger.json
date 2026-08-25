@@ -42,5 +42,30 @@
       "scope": "one generated local snapshot",
       "notEstablished": "A persistent condition in Crescent City or a longitudinal trend"
     }
+  
+    {
+      "id": "implementation-newspaper-pages",
+      "statement": "The public GitHub Pages snapshot uses a newspaper-themed design with proper typography, date-lined sections, and print-optimized CSS.",
+      "status": "implemented",
+      "evidence": ["src/pages/static/index.html", "scripts/validate-pages.ts"],
+      "scope": "software contract",
+      "notEstablished": "That the newspaper presentation increases reader comprehension or trust"
+    },
+    {
+      "id": "implementation-extended-monitors",
+      "statement": "The platform monitors up to 13 hazard and civic condition sources, each with graceful degradation and source-health reporting.",
+      "status": "implemented",
+      "evidence": ["src/alerts/severity.ts", "src/alerts/composite.ts"],
+      "scope": "software contract",
+      "notEstablished": "Monitor coverage, accuracy, or timeliness of upstream data"
+    },
+    {
+      "id": "implementation-self-healing",
+      "statement": "A self-healing monitor system tracks consecutive failures across all monitors and triggers exponential-backoff retries.",
+      "status": "implemented",
+      "evidence": ["src/alerts/healer.ts"],
+      "scope": "software contract",
+      "notEstablished": "That self-healing improves real-world availability or reduces user-visible gaps"
+    }
   ]
 }

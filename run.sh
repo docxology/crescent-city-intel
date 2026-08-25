@@ -43,8 +43,8 @@ print_banner() {
   echo -e "${BOLD}${CYAN}"
   cat << 'EOF'
   ╔══════════════════════════════════════════════════════════════════╗
-  ║   🌊  Crescent City Intelligence Platform   v2.5.1             ║
-  ║   Scrape · Verify · Export · View · Chat · Stream · Monitor     ║
+  ║   🌊  Crescent City Intelligence Platform   v2.6.0             ║
+  ║   Scrape · Verify · Export · View · Chat · Stream · Monitor · Pages     ║
   ╠══════════════════════════════════════════════════════════════════╣
   ║   City of Crescent City, CA  |  41.76°N 124.20°W               ║
   ║   Del Norte County  |  Counts from output/manifest.json        ║
@@ -500,6 +500,9 @@ main_menu() {
   echo -e "  ${BOLD}[A]${RESET}  📊 Analytics & readability menu"
   echo -e "  ${BOLD}[S]${RESET}  📋 Show system status"
   echo ""
+  echo ""
+  echo -e "  ${BOLD}PUBLIC SNAPSHOT${RESET}"
+  echo -e "  ${BOLD}[E]${RESET}  📰 Export newspaper-themed Pages snapshot"
   echo -e "  ${BOLD}FULL PIPELINE${RESET}"
   echo -e "  ${BOLD}[P]${RESET}  🚀 Run full pipeline (setup → test → scrape → verify → export → GUI)"
   echo ""
@@ -572,6 +575,7 @@ while true; do
     9) run_monitor_menu ;;
     a|A) run_analytics_menu ;;
     s|S) show_status ;;
+    e|E) bun run pages:export && info "Pages snapshot exported to .pages/" ;;
     p|P) run_full_pipeline; break ;;
     q|Q) echo -e "\n${CYAN}🌊 Goodbye!${RESET}"; exit 0 ;;
     *) warn "Invalid choice '${choice}'" ;;

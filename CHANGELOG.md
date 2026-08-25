@@ -10,6 +10,27 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### GitHub Pages — Vintage newspaper aesthetic (2026-08-25)
+
+### Added
+
+- **Grayscale vintage newspaper redesign** for GitHub Pages: removed all bright
+  color accents (red/blue/gold/green/purple), replaced with charcoal, sepia,
+  and black tones; aged newsprint background (#f5efe4); DM Mono monospace font
+  for dateline elements; column-divider rules in geo-showcase; section labels
+  renamed to newspaper convention: Metro, Opinion, Business.
+- **Contact info** in masthead: CrescentCity@tuta.com | "Sea Something. Say Something."
+- **404.html** rewritten as newspaper Stop Press errata page with matching theme.
+- **validatePagesSource** updated: checks for contact email, tagline, grayscale-only CSS.
+- **5 new alert monitors**: USDM Drought, PG&E PSPS, HRRR Smoke, Caltrans Roads, DUSD Schools.
+- **Self-healing monitor system**: tracks consecutive failures, exponential backoff
+  (5min to 4hr cap), persisted state in output/state/healer-state.json.
+- **Desktop push notifications**: VAPID-based web push, sendPushNotification + isPushConfigured.
+- **Fishing bulletin full-text**: fetchBulletinBody with HTML fallback extraction chain.
+- **Meeting vote extraction**: parseVotes with 5 patterns (roll call, motion, numeric, unanimous).
+- **Composite severity**: expanded from 8 to 13 monitors in computeAlertSeverity.
+
+
 ### Geo-Intel contracts (2026-08-23 → 2026-08-24) — machine-readable municipality geo-intel
 
 ### Added

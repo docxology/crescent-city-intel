@@ -749,6 +749,17 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
   if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");
   if (!indexHtml.includes("snapshot.analytics")) errors.push("Pages index does not render the shared analytics overview");
+  if (!indexHtml.includes("CrescentCity@tuta.com")) errors.push("Pages index is missing the contact email");
+  if (!indexHtml.includes("Sea Something")) errors.push("Pages index is missing the 'Sea Something. Say Something.' tagline");
+  const styleMatch = indexHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+  if (styleMatch && styleMatch[1]) {
+    const styleContent = styleMatch[1];
+    const brightColors = ["--red", "--blue", "--gold", "--green", "--purple"];
+    const found = brightColors.filter(c => styleContent.includes(c));
+    if (found.length > 0) {
+      errors.push("Pages index style block contains bright color CSS variables (grayscale aesthetic required): " + found.join(", "));
+    }
+  }
   return errors;
 }
 

@@ -40,8 +40,8 @@ describe("public Pages snapshot", () => {
       schema: "crescent-city-geo-intel/v1",
       viewSchema: "crescent-city-geo-view/v1",
       domainCount: 12,
-      hazardDomainCount: 4,
-      featureCount: 6,
+      hazardDomainCount: 6,
+      featureCount: 8,
       sectionCount: geoIntel.view.sections.length,
     });
   });

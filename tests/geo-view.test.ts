@@ -74,7 +74,7 @@ describe("Crescent City geospatial view-assembler", () => {
     const contract = buildGeoIntel(domains) as { hazard: { relevantDomainCount: number } };
     expect(view.hazard.domainCount).toBe(contract.hazard.relevantDomainCount);
     // The flagship tsunami/seismic domain must surface a tsunami tag.
-    expect(view.hazard.topHazardTags).toContain("tsunami");
+    expect(view.hazard.hazardTags).toContain("tsunami");
     expect(view.hazard.hazardTags.length).toBeGreaterThan(0);
   });
 

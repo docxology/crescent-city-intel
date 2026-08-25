@@ -483,6 +483,8 @@ export interface DomainTopic {
   externalRefs?: string[];
   /** Tags for search/filtering */
   tags: string[];
+  /** Cross-references to crescent_city scholarly manuscript chapters (by sec:anchor). */
+  manuscriptRefs?: string[];
 }
 
 /** A top-level civic intelligence domain */

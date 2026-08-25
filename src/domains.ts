@@ -23,12 +23,12 @@ export const domains: IntelligenceDomain[] = [
     id: "emergency-management",
     name: "Emergency Management",
     icon: "🌊",
-    description: "Tsunami preparedness, evacuation routes, emergency protocols, and mutual aid agreements for Crescent City — the most tsunami-impacted city in the contiguous United States.",
-    updatedAt: "2026-03-13",
+    description: "Tsunami preparedness, Cascadia subduction-zone earthquake planning, evacuation infrastructure, and mutual aid for Crescent City — the most tsunami-impacted city in the contiguous United States, sitting on the locked southern segment of the Cascadia margin (37% M8+ probability in 50 years; last full-margin rupture AD 1700).",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Tsunami Preparedness & Evacuation",
-        description: "Crescent City has experienced major tsunamis (1964 Alaska earthquake destroyed 29 blocks). The city's emergency management focuses heavily on tsunami warning systems, evacuation routes, and vertical evacuation structures.",
+        description: "Crescent City has experienced major tsunamis (1964 Alaska M9.2 earthquake: 21 ft waves, 11 deaths, 289 buildings destroyed). The city's harbor geometry amplifies trans-Pacific tsunami energy via a Bessel-function basin resonance (22-25 min seiche period). Planning focuses on warning systems, vertical evacuation structures (Howland Hill Road refuge), evacuation route signage, and the FEMA Cascadia Rising exercises.",
         sources: [
           { sectionNumber: "§ 8.04", relevance: "Health and Safety — emergency management authority" },
           { sectionNumber: "§ 9.04", relevance: "Public Peace — emergency powers and declarations" },
@@ -37,29 +37,51 @@ export const domains: IntelligenceDomain[] = [
         externalRefs: [
           "https://www.tsunami.gov/",
           "https://www.weather.gov/eka/",
+          "https://www.co.del-norte.ca.us/departments/office-of-emergency-services",
         ],
-        tags: ["tsunami", "evacuation", "emergency", "natural disaster", "seismic"],
+        tags: ["tsunami", "evacuation", "emergency", "natural disaster", "seismic", "dt:1964", "dt:1700", "dt:2011"],
+        manuscriptRefs: ["sec:cascadia", "sec:tsunami", "sec:tsunami_context"],
+      },
+      {
+        name: "Cascadia Megathrust Preparedness",
+        description: "Crescent City sits on the locked southern Cascadia margin (41 events in 10,000 years; ~240-year mean recurrence). The next full-margin rupture (Mw 8.7-9.2) is expected to produce 3-6 minutes of MMI VIII-IX shaking, coseismic subsidence of 1-2 m, and tsunami arrival within 20-30 minutes. Harbor resonance physics (22-25 min bay seiche period) will amplify the wave train. The M9 Project ensemble scenarios inform current operational planning.",
+        sources: [
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — emergency management authority" },
+          { sectionNumber: "§ 9.04", relevance: "Public Peace — emergency powers and mutual aid" },
+          { sectionNumber: "§ 15.04", relevance: "Building code — seismic zone construction requirements" },
+          { sectionNumber: "§ 17.04", relevance: "Zoning — coastal overlay district and tsunami inundation zone" },
+        ],
+        externalRefs: [
+          "https://earthquake.usgs.gov/hazards/",
+          "https://www.co.del-norte.ca.us/departments/office-of-emergency-services",
+          "https://www.caloes.ca.gov/hazard-mitigation/tsunami/",
+        ],
+        tags: ["cascadia", "megathrust", "earthquake", "seismic", "subduction zone", "liquefaction", "coseismic subsidence", "dt:1700", "dt:ets"],
+        manuscriptRefs: ["sec:cascadia", "sec:tsunami"],
       },
       {
         name: "Mutual Aid Agreements",
-        description: "Agreements with Del Norte County, Pelican Bay State Prison, and neighboring jurisdictions for emergency response coordination.",
+        description: "Agreements with Del Norte County, Pelican Bay State Prison (CDCR), Curry County OR, and neighboring jurisdictions for emergency response coordination. The 1964 disaster response involved California National Guard, US Coast Guard, and American Red Cross within 48 hours.",
         sources: [
           { sectionNumber: "§ 2.04", relevance: "Administration — intergovernmental agreements" },
           { sectionNumber: "§ 9.04", relevance: "Public Peace — mutual aid provisions" },
         ],
-        tags: ["mutual aid", "pelican bay", "del norte county", "emergency response"],
+        tags: ["mutual aid", "pelican bay", "del norte county", "emergency response", "dt:1964-resp"],
+        manuscriptRefs: ["sec:tsunami"],
       },
       {
         name: "Emergency Communication Systems",
-        description: "Warning sirens, reverse 911, NOAA weather radio, and community alert systems.",
+        description: "Warning sirens, reverse 911, NOAA weather radio, TsunamiReady certification (first CA municipality), Redwood Coast Tsunami Work Group academic-municipal partnership, and community alert systems. NOAA Pacific Tsunami Warning Center (Palmer, AK) provides automated alerts.",
         sources: [
           { sectionNumber: "§ 9.04", relevance: "Emergency alert and notification systems" },
           { sectionNumber: "§ 13.04", relevance: "Public services — communication infrastructure" },
         ],
         externalRefs: [
           "https://www.co.del-norte.ca.us/departments/office-of-emergency-services",
+          "https://www.tsunami.gov/",
         ],
-        tags: ["sirens", "alerts", "warning systems", "communication"],
+        tags: ["sirens", "alerts", "warning systems", "communication", "tsunamiready"],
+        manuscriptRefs: ["sec:tsunami_context"],
       },
     ],
   },
@@ -70,7 +92,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Business Development",
     icon: "🦀",
     description: "Business licensing, fishing and crabbing regulations, tourism permits, harbor operations, and economic development for Crescent City's marine-based economy.",
-    updatedAt: "2026-03-13",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Business Licenses & Permits",
@@ -124,11 +146,11 @@ export const domains: IntelligenceDomain[] = [
     name: "Environmental Protection",
     icon: "🌿",
     description: "Coastal protection, tsunami inundation zones, wetland buffers, stormwater management, and environmental regulations for Crescent City's sensitive coastal ecosystem.",
-    updatedAt: "2026-03-13",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Tsunami Inundation Zone Regulations",
-        description: "Special building requirements, land-use restrictions, and development standards within FEMA-designated tsunami inundation zones.",
+        description: "Special building requirements, land-use restrictions, and development standards within FEMA-designated tsunami inundation zones. Crescent City's 1964 tsunami destroyed 29 downtown blocks; post-disaster land-use rezoning raised the Front Street buffer by ~10 ft to create Beachfront Park, the first comprehensive post-tsunami land-use rezoning on the US west coast. The harbor breakwater is armored with 38-metric-ton dolos concrete units installed during the 1980s.",
         sources: [
           { sectionNumber: "§ 15.04", relevance: "Building code — flood zone construction standards" },
           { sectionNumber: "§ 17.04", relevance: "Zoning — coastal overlay district" },
@@ -136,8 +158,10 @@ export const domains: IntelligenceDomain[] = [
         ],
         externalRefs: [
           "https://www.conservation.ca.gov/cgs/tsunami/maps",
+          "https://www.tsunamizone.org/",
         ],
-        tags: ["tsunami zone", "inundation", "flood zone", "hazard", "FEMA"],
+        tags: ["tsunami zone", "inundation", "flood zone", "hazard", "FEMA", "dt:1964-rebuild"],
+        manuscriptRefs: ["sec:tsunami", "sec:space"],
       },
       {
         name: "Coastal Erosion & Shoreline Protection",
@@ -147,7 +171,8 @@ export const domains: IntelligenceDomain[] = [
           { sectionNumber: "§ 17.04", relevance: "Coastal zone land use regulations" },
           { sectionNumber: "§ 16.04", relevance: "Subdivision — geologic hazard review requirements" },
         ],
-        tags: ["erosion", "shoreline", "coastal", "setback", "bluff"],
+        tags: ["erosion", "shoreline", "coastal", "setback", "bluff", "dt:slr"],
+        manuscriptRefs: ["sec:sea_level_rise"],
       },
       {
         name: "Wetland & Riparian Protections",
@@ -157,7 +182,8 @@ export const domains: IntelligenceDomain[] = [
           { sectionNumber: "§ 8.04", relevance: "Water quality and discharge standards" },
           { sectionNumber: "§ 13.04", relevance: "Stormwater management" },
         ],
-        tags: ["wetland", "riparian", "buffer", "habitat", "stormwater"],
+        tags: ["wetland", "riparian", "buffer", "habitat", "stormwater", "smith river"],
+        manuscriptRefs: ["sec:smith_river_ecology", "sec:environment"],
       },
     ],
   },
@@ -168,7 +194,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Public Safety",
     icon: "🛡️",
     description: "Law enforcement, noise ordinances, prison-related regulations, and community safety protocols for Crescent City, home to Pelican Bay State Prison.",
-    updatedAt: "2026-03-13",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Noise Ordinances",
@@ -209,7 +235,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Event Planning",
     icon: "🎪",
     description: "Special event permitting, mass gathering safety, waterfront events, tsunami drill coordination, and public assembly regulations.",
-    updatedAt: "2026-03-13",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Special Event Permits",
@@ -259,7 +285,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Housing & Homelessness",
     icon: "🏠",
     description: "Housing policy, emergency shelter, camper/RV regulations, code enforcement, and social services for Crescent City — where a 17% poverty rate and limited affordable stock drive ongoing civic debate.",
-    updatedAt: "2026-03-18",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Affordable Housing & Zoning",
@@ -340,7 +366,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Tourism & Recreation",
     icon: "🏕️",
     description: "Parks, camping permits, beach access, vacation rentals, Battery Point Lighthouse tours, and recreational facilities in Crescent City — gateway to Redwood National Park and the Smith River National Recreation Area.",
-    updatedAt: "2026-03-18",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Vacation Rentals & Short-Term Lodging",
@@ -370,7 +396,7 @@ export const domains: IntelligenceDomain[] = [
       },
       {
         name: "Battery Point Lighthouse & Heritage Tourism",
-        description: "Visitor regulations, guided tours, historical preservation requirements for the Battery Point Lighthouse (1856). One of California's most photographed lighthouses, accessible only at low tide.",
+        description: "Visitor regulations, guided tours, historical preservation requirements for the Battery Point Lighthouse (1856). One of California's most photographed lighthouses, accessible only at low tide. The lighthouse survived the 1964 tsunami; it now serves as a museum and tsunami education center operated by the Del Norte County Historical Society.",
         sources: [
           { sectionNumber: "§ 2.04", relevance: "Historical preservation — City Administration authority" },
           { sectionNumber: "§ 17.04", relevance: "Zoning — historic overlay districts" },
@@ -378,7 +404,24 @@ export const domains: IntelligenceDomain[] = [
         externalRefs: [
           "https://delnortehistory.org/battery-point-lighthouse/",
         ],
-        tags: ["battery point lighthouse", "heritage tourism", "historical preservation", "guided tours"],
+        tags: ["battery point lighthouse", "heritage tourism", "historical preservation", "guided tours", "tsunami museum", "dt:1856"],
+        manuscriptRefs: ["sec:tsunami", "sec:space"],
+      },
+      {
+        name: "Redwood National & State Parks Gateway",
+        description: "Crescent City is the primary gateway to Redwood National and State Parks (Jedediah Smith Redwoods SP, Del Norte Coast Redwoods SP, Prairie Creek Redwoods SP). ~4M annual visitors; old-growth coast redwood declined from ~2M acres (1850) to ~75,000 acres (2025). The Smith River National Recreation Area and the Klamath Knot bioregion adjoin the parks. The Tolowa Dee-ni' Nation and Yurok Tribe are active partners in Indigenous Marine Stewardship Area collaborations.",
+        sources: [
+          { sectionNumber: "§ 17.04", relevance: "Zoning — visitor-serving commercial and tourism zones" },
+          { sectionNumber: "§ 5.04", relevance: "Business licenses — tourism-oriented business registration" },
+          { sectionNumber: "§ 12.04", relevance: "Streets — visitor access and signage" },
+        ],
+        externalRefs: [
+          "https://www.nps.gov/redw/",
+          "https://www.parks.ca.gov/?page_id=413",
+          "https://www.fs.usda.gov/recarea/rognf/smith-river-nra",
+        ],
+        tags: ["redwood national park", "jedediah smith", "old-growth", "tourism gateway", "smith river", "klamath knot", "dt:1850-og"],
+        manuscriptRefs: ["sec:redwood_parks", "sec:smith_river_ecology", "sec:environment"],
       },
       {
         name: "Fishing Charters & Recreational Fishing",
@@ -402,7 +445,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Harbor & Marine Operations",
     icon: "⚓",
     description: "Vessel registration, docking fees, slip assignments, dredging permits, fuel dock regulations, and port operations at the Port of Crescent City — the northernmost California working commercial fishing harbor south of the Oregon border.",
-    updatedAt: "2026-03-18",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Vessel Registration & Docking Fees",
@@ -453,7 +496,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Education & Youth",
     icon: "📚",
     description: "School zone regulations, youth program permits, library use, parks & recreation facility reservations, and educational facility land-use rules — served by Del Norte Unified School District and College of the Redwoods.",
-    updatedAt: "2026-03-18",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "School Zone Regulations",
@@ -503,7 +546,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Climate & Environment",
     icon: "🌡️",
     description: "Climate resilience, drought monitoring, sea-level rise adaptation, carbon footprint, and environmental justice for Crescent City — a frontline coastal community facing Cascadia earthquake, tsunami inundation, and changing marine ecosystems.",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Climate Adaptation & Sea-Level Rise",
@@ -517,11 +560,12 @@ export const domains: IntelligenceDomain[] = [
           "https://earthquake.usgs.gov/hazards/",
           "https://www.conservation.ca.gov/cgs/tsunami/maps",
         ],
-        tags: ["climate adaptation", "sea level rise", "coastal resilience", "flood zone"],
+        tags: ["climate adaptation", "sea level rise", "coastal resilience", "flood zone", "coseismic subsidence", "dt:slr-2100"],
+        manuscriptRefs: ["sec:sea_level_rise", "sec:cascadia"],
       },
       {
         name: "Drought & Water Conservation",
-        description: "Water conservation ordinances, drought contingency planning, and Smith River watershed protection. The Smith River is California's last undammed major river.",
+        description: "Water conservation ordinances, drought contingency planning, and Smith River watershed protection. The Smith River is California's last undammed major river; its free-flowing status is essential to regional water security and the post-Klamath dam removal salmon recovery (largest dam removal in US history, completed August 2024).",
         sources: [
           { sectionNumber: "§ 13.04", relevance: "Public services — water utility conservation" },
           { sectionNumber: "§ 8.04", relevance: "Health and safety — water quality standards" },
@@ -529,12 +573,14 @@ export const domains: IntelligenceDomain[] = [
         externalRefs: [
           "https://www.waterboards.ca.gov/",
           "https://droughtmonitor.unl.edu/",
+          "https://www.klamathrenewal.org/",
         ],
-        tags: ["drought", "water conservation", "smith river", "watershed"],
+        tags: ["drought", "water conservation", "smith river", "watershed", "klamath dam removal", "dt:2024-kdr"],
+        manuscriptRefs: ["sec:smith_river_ecology", "sec:currents", "sec:klamath"],
       },
       {
         name: "Air Quality & Environmental Justice",
-        description: "Wildfire smoke impacts, industrial emissions monitoring, and environmental justice considerations for disadvantaged communities. Crescent City's coastal location exposes it to seasonal wildfire smoke from interior Northern California and Oregon.",
+        description: "Wildfire smoke impacts from interior Northern California and Oregon fires (Slater Fire 2020: 157,270 acres; Smith River Complex 2023: 95,107 acres). The Slater Fire forced evacuations along US 199; the Smith River Complex reburned portions of the 2020 scar (accelerating fire-return interval), triggered a Governor's State of Emergency, and caused multi-week highway closures. Climate change has intensified the fire regime: rising temperatures, longer dry seasons, declining snowpack, and increased dry-lightning frequency all contribute. The Tolowa Dee-ni' Nation and Yurok Tribe lead cultural fire programs to restore Indigenous pyrodiversity.",
         sources: [
           { sectionNumber: "§ 8.04", relevance: "Health and Safety — air quality authority" },
           { sectionNumber: "§ 8.08", relevance: "Nuisance abatement — air pollution" },
@@ -542,8 +588,10 @@ export const domains: IntelligenceDomain[] = [
         externalRefs: [
           "https://www.airnow.gov/",
           "https://ww2.arb.ca.gov/",
+          "https://www.fire.ca.gov/incidents",
         ],
-        tags: ["air quality", "wildfire smoke", "environmental justice", "emissions"],
+        tags: ["air quality", "wildfire smoke", "environmental justice", "emissions", "climate change", "cultural fire", "seas:dry", "dt:2020-slater", "dt:2023-src"],
+        manuscriptRefs: ["sec:wildfire", "sec:environment", "sec:indigenous"],
       },
     ],
   },
@@ -554,7 +602,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Demographics & Social Indicators",
     icon: "👥",
     description: "Population trends, poverty indicators, prison-adjacent demographics, homelessness data, and social vulnerability indices for Crescent City — where ~3,000 of the ~6,000 residents are incarcerated at Pelican Bay State Prison.",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Population & Demographic Profile",
@@ -607,7 +655,7 @@ export const domains: IntelligenceDomain[] = [
     name: "Public Health & Safety",
     icon: "🏥",
     description: "Public health services, emergency medical response, pandemic preparedness, food safety, water quality, and mental health services coordination for Crescent City and Del Norte County.",
-    updatedAt: "2026-07-22",
+    updatedAt: "2026-08-25",
     topics: [
       {
         name: "Emergency Medical Services",
@@ -649,6 +697,21 @@ export const domains: IntelligenceDomain[] = [
           "https://www.delnortecounty.gov/departments/health-human-services",
         ],
         tags: ["mental health", "crisis intervention", "care court", "behavioral health"],
+        manuscriptRefs: ["sec:healthcare", "sec:demographics"],
+      },
+      {
+        name: "Wildfire Smoke & Air Quality Health Response",
+        description: "Wildfire smoke from interior Northern California and Oregon fires (Slater Fire 2020, Smith River Complex 2023) creates seasonal PM2.5 exposure risk, particularly for elderly residents, children, and people with pre-existing pulmonary conditions. Sutter Coast Hospital's limited licensed capacity means respiratory emergencies during fire events put pressure on the rural health network. EPA AirNow monitor provides real-time AQI data for Crescent City area.",
+        sources: [
+          { sectionNumber: "§ 8.04", relevance: "Health and Safety — air quality authority" },
+          { sectionNumber: "§ 8.08", relevance: "Nuisance abatement — air pollution" },
+        ],
+        externalRefs: [
+          "https://www.airnow.gov/",
+          "https://ww2.arb.ca.gov/",
+        ],
+        tags: ["wildfire smoke", "air quality", "pm2.5", "respiratory health", "sutter coast hospital", "seas:dry", "dt:2020-slater", "dt:2023-src"],
+        manuscriptRefs: ["sec:wildfire", "sec:healthcare", "sec:currents"],
       },
     ],
   },

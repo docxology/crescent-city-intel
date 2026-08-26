@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    :root { color-scheme: light; --ink:#0a0a0a; --ink-dim:#3a3a3a; --ink-faint:#6a6a6a; --paper:#faf8f5; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#e8d5d5; --rule:#d0cac4; --rule-light:#e0dcd6; --rule-thin:#e8e4de; --panel:rgba(255,255,255,.92); --panel-hover:rgba(245,240,235,.82); }
+    :root { color-scheme: light; --ink:#000000; --ink-dim:#333333; --ink-faint:#666666; --paper:#ffffff; --paper2:#f2f2f2; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#f7dcdc; --sepia:#999999; --rule:#444444; --rule-light:#888888; --rule-thin:#dddddd; --panel:rgba(255,255,255,.96); --panel-hover:rgba(242,242,242,.9); }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.6 "Source Serif 4","Georgia","Times New Roman",serif; -webkit-font-smoothing:antialiased; }
     a { color:var(--ink); text-decoration-color:var(--rule); text-underline-offset:2px; }
@@ -132,7 +132,7 @@
   <div class="masthead-nav-wrap">
     <div class="inner">
       <nav class="masthead-nav" aria-label="Sections">
-        <a href="#sources">Monitors</a><a href="#geo">Geo-Intel</a><a href="#registry">Sources</a><a href="#alerts">Alerts</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#welcome">About</a><a href="/gui/" class="gui-link">GUI</a>
+        <a href="#sources">Monitors</a><a href="#geo">Geo-Intel</a><a href="#registry">Sources</a><a href="#alerts">Alerts</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#events">Events</a><a href="#welcome">About</a><a href="/gui/" class="gui-link">GUI</a>
       </nav>
     </div>
   </div>
@@ -243,6 +243,20 @@
       <div class="section-head"><span class="newspaper-label">Public Record</span><h2>City council &amp; boards</h2><span class="meta">Meetings</span></div>
       <div id="meeting-items" class="items"></div>
     </section>
+    <section id="events" class="section">
+      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a href="data/events.json">Download events JSON</a></span></div>
+      <div class="controls">
+        <select id="event-filter">
+          <option value="all">All events</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="past">Past</option>
+          <option value="meetings">Meetings</option>
+          <option value="community">Community &amp; news</option>
+        </select>
+        <span id="event-count" class="meta" role="status"></span>
+      </div>
+      <div id="event-items" class="items"></div>
+    </section>
     <section id="alerts" class="section">
       <div class="section-head"><span class="newspaper-label">Alert Log</span><h2>Safety bulletin</h2><span class="meta">13-monitor alert board</span></div>
       <div id="alert-summary"></div>
@@ -270,7 +284,7 @@
     </div>
   </div>
   <script>
-    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null };
+    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all" };
     const $ = id => document.getElementById(id);
     const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
     const href = value => /^https?:\/\//i.test(String(value || "")) ? String(value) : "#";
@@ -323,6 +337,42 @@
       $("welcome-summary").innerHTML = `<strong>${esc(overview.headline)}</strong><div style=\"margin-top:6px\">${esc(overview.summary)}</div><div class=\"meta\" style=\"margin-top:8px\">${esc(overview.llm.status === "ok" ? `LLM summary · ${overview.llm.provider}/${overview.llm.model}` : `Deterministic summary · LLM ${overview.llm.status}`)} · evidence ${esc(overview.inputFingerprint.slice(0, 16))}…</div>`;
       $("overview-summary").innerHTML = `<strong>${esc(overview.entryPoint.title)}</strong><div style=\"margin-top:6px\">${esc(overview.entryPoint.startHere)}</div><div class=\"meta\" style=\"margin-top:6px\">${esc(overview.entryPoint.interpretation)}</div><div class=\"grid\" style=\"margin-top:12px\"><div><strong>${esc(overview.metrics.code.sections)}</strong><div class=\"meta\">code sections</div></div><div><strong>${esc(overview.metrics.content.curated)}</strong><div class=\"meta\">LLM briefs</div></div><div><strong>${esc(overview.metrics.alerts.totalEvents)}</strong><div class=\"meta\">alert events</div></div><div><strong>${esc(overview.metrics.sources.missing)}</strong><div class=\"meta\">unavailable/stale</div></div></div><div style=\"margin-top:12px\">${signalHtml}</div>`;
       $("analytics-download").innerHTML = snapshot.files?.analyticsOverview ? `<a class=\"button\" href=\"${esc(snapshot.files.analyticsOverview)}\" download>Analytics JSON</a>` : "";
+    }
+    const EVENT_KIND_LABELS = { "government-meeting": "Government meeting", "community-listing": "Community listing", "civic-news": "Civic news", youtube: "YouTube", "holiday-closure": "Holiday closure" };
+    function eventStatusPill(status) {
+      if (status === "scheduled") return '<span class="pill" style="border-color:var(--cc);color:var(--cc);font-weight:700">SCHEDULED</span>';
+      return `<span class="pill">${esc(String(status || "unknown").toUpperCase())}</span>`;
+    }
+    function filteredEvents(snapshot) {
+      const events = Array.isArray(snapshot.events?.events) ? snapshot.events.events : [];
+      const filter = state.eventFilter;
+      if (filter === "upcoming") return events.filter(item => item.status === "scheduled");
+      if (filter === "past") return events.filter(item => item.status === "completed");
+      if (filter === "meetings") return events.filter(item => item.kind === "government-meeting");
+      if (filter === "community") return events.filter(item => item.kind !== "government-meeting");
+      return events;
+    }
+    function renderEventCard(event) {
+      const kindLabel = esc(EVENT_KIND_LABELS[event.kind] || event.kind || "event");
+      const when = esc(event.dateStart || "date not recorded");
+      const place = [event.location, event.organizer].filter(Boolean).map(part => esc(part)).join(" · ");
+      const summary = eventSummary(event);
+      const links = (Array.isArray(event.sourceLinks) ? event.sourceLinks : []).filter(link => /^https?:\/\//i.test(String(link))).slice(0, 8);
+      const linksHtml = links.length ? `<div class="meta">Sources: ${links.map((link, index) => `<a href="${esc(href(link))}" rel="noopener noreferrer">[${index + 1}]</a>`).join(" ")}</div>` : "";
+      const primaryLink = /^https?:\/\//i.test(String(links[0] || "")) ? links[0] : null;
+      const titleHtml = primaryLink ? `<h3><a href="${esc(primaryLink)}" rel="noopener noreferrer">${esc(event.title)}</a></h3>` : `<h3>${esc(event.title)}</h3>`;
+      const summaryHtml = summary && summary.text ? `<p><strong>LLM summary — verify against the linked source.</strong> ${esc(summary.text)}</p><div class="meta">${esc(summary.provider)}${summary.model ? `/${esc(summary.model)}` : ""} · generated ${esc(date(summary.generatedAt))}</div>` : "";
+      return `<article class="item">${titleHtml}<div class="meta">${kindLabel} · ${when}</div><div>${eventStatusPill(event.status)}</div>${place ? `<div class="meta">${place}</div>` : ""}${summaryHtml}${linksHtml}</article>`;
+    }
+    function eventSummary(event) {
+      const summaries = state.snapshot?.events?.summaries;
+      const entry = summaries && typeof summaries === "object" ? summaries[event.id] : null;
+      return entry && typeof entry === "object" ? entry : null;
+    }
+    function renderEvents(snapshot) {
+      const filtered = filteredEvents(snapshot);
+      $("event-count").textContent = `${filtered.length} of ${snapshot.events?.count ?? (snapshot.events?.events || []).length} event(s)`;
+      $("event-items").innerHTML = filtered.length ? filtered.map(renderEventCard).join("") : empty(state.eventFilter === "all" ? "No structured events were available in this snapshot." : "No events matched the current filter.");
     }
     function renderWelcome(snapshot) {
       const summary = snapshot.healthSummary || {};
@@ -409,7 +459,7 @@
         state.snapshot = snapshot;
         $("banner").className = `banner ${esc(snapshot.status)}`;
         $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "The export pipeline reported a failure; inspect pipeline metadata and Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below; empty is a successful check with no matching records."}`;
-        renderWelcome(snapshot); renderAnalytics(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
+        renderWelcome(snapshot); renderAnalytics(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News"); renderList("meeting-items", snapshot.meetings || [], "Meetings"); renderEvents(snapshot); renderList("curated-items", snapshot.curated || [], "Curation"); renderAlerts(snapshot);
         try { renderGeoIntel(await load(snapshot.files?.geoIntel || "data/geo-intel.json")); } catch (error) { $("geo-tags").innerHTML = `<span class="error">Contract details unavailable: ${esc(error.message || error)}</span>`; $("geo-sections").innerHTML = empty("Download the geo-intel JSON to inspect the map-ready view."); }
         if (snapshot.files && snapshot.files.code) { try { renderCode(await load(snapshot.files.code)); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
         $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre>${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
@@ -418,6 +468,7 @@
         $("banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(error.message || error)}. The deployment is not presenting a false-success dashboard.`;
       }
     }
+    $("event-filter").addEventListener("change", event => { state.eventFilter = event.target.value; if (state.snapshot) renderEvents(state.snapshot); });
     $("health-filter").addEventListener("change", event => { state.healthFilter = event.target.value; renderHealth(state.snapshot?.sourceHealth || []); });
     $("download-health").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-health.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, status: state.snapshot.status, filter: state.healthFilter, sources: filteredHealth(state.snapshot.sourceHealth || []) }); });
     $("registry-filter").addEventListener("input", event => { state.registryFilter = event.target.value; if (state.snapshot) renderRegistry(state.snapshot); });
@@ -429,7 +480,7 @@
     $("download-registry-json").addEventListener("click", () => { if (!state.snapshot) return; const records = registryRecords(state.snapshot).filter(source => { const needle = state.registryFilter.trim().toLowerCase(); return (!needle || JSON.stringify(source).toLowerCase().includes(needle)) && (state.automationFilter === "all" || source.automation === state.automationFilter); }); downloadJson("crescent-city-source-registry-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, registryFingerprint: state.snapshot.sourceRegistryFingerprint, filter: state.registryFilter, automation: state.automationFilter, sources: records }); });
     $("download-registry-csv").addEventListener("click", () => { if (!state.snapshot) return; const records = registryRecords(state.snapshot).filter(source => { const needle = state.registryFilter.trim().toLowerCase(); return (!needle || JSON.stringify(source).toLowerCase().includes(needle)) && (state.automationFilter === "all" || source.automation === state.automationFilter); }); downloadText("crescent-city-source-registry.csv", sourceCsv(records), "text/csv"); });
     $("content-filter").addEventListener("input", event => { state.contentFilter = event.target.value; if (state.snapshot) { renderList("news-items", state.snapshot.news || [], "News"); renderList("meeting-items", state.snapshot.meetings || [], "Meetings"); renderList("curated-items", state.snapshot.curated || [], "Curation"); } });
-    $("download-content").addEventListener("click", () => { if (!state.snapshot) return; const needle = state.contentFilter.trim().toLowerCase(); const filter = items => items.filter(item => !needle || JSON.stringify(item).toLowerCase().includes(needle)); downloadJson("crescent-city-content-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, query: state.contentFilter, news: filter(state.snapshot.news || []), meetings: filter(state.snapshot.meetings || []), curated: filter(state.snapshot.curated || []) }); });
+    $("download-content").addEventListener("click", () => { if (!state.snapshot) return; const needle = state.contentFilter.trim().toLowerCase(); const filter = items => items.filter(item => !needle || JSON.stringify(item).toLowerCase().includes(needle)); downloadJson("crescent-city-content-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, query: state.contentFilter, news: filter(state.snapshot.news || []), meetings: filter(state.snapshot.meetings || []), curated: filter(state.snapshot.curated || []), events: filter(state.snapshot.events?.events || []) }); });
     $("download-snapshot").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-snapshot.json", state.snapshot); });
     $("copy-fingerprint").addEventListener("click", async event => { if (!state.snapshot?.sourceRegistryFingerprint) return; await copyValue(state.snapshot.sourceRegistryFingerprint); event.currentTarget.textContent = "Fingerprint copied"; $("structured-state").textContent = "The registry fingerprint is now in your clipboard."; });
     $("refresh").addEventListener("click", () => { $("refresh-state").textContent = "Refreshing…"; start().then(() => { $("refresh-state").textContent = `Updated ${new Date().toLocaleTimeString()}`; }).catch(() => { $("refresh-state").textContent = "Refresh failed"; }); });

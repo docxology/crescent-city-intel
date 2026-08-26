@@ -17,6 +17,7 @@ import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
 import { buildGeoIntel } from "./geo.js";
 import { buildGeoIntelSurface, buildGeoViewSvg, type GeoIntelSurface, type GeoIntelView } from "./geo_view.js";
+import { buildEventsArtifact, collectEvents, type EventsArtifact } from "./events.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const NEWSPAPER_NAME = "The Quadruplicate";
@@ -26,6 +27,7 @@ const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
 const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;
 export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
+export const PAGES_EVENTS_ARTIFACT = "data/events.json";
 export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
 export const MAX_PAGES_GEO_INTEL_BYTES = 256 * 1024;
 const MAX_PAGES_GEO_DOMAINS = 100;
@@ -58,6 +60,7 @@ export interface PagesSnapshot {
     readability: Record<string, unknown> | null;
   };
   geoIntel: PagesGeoIntelSummary;
+  events: EventsArtifact;
   sourceHealth: SourceHealth[];
   news: Array<Record<string, unknown>>;
   meetings: Array<Record<string, unknown>>;
@@ -93,6 +96,7 @@ export interface PagesSnapshot {
     sourceDiscovery: string;
     analyticsOverview: string | null;
     geoIntel: string;
+    events: string;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
@@ -124,6 +128,7 @@ export interface PagesExportResult {
     triplicate: number;
     curated: number;
     alerts: number;
+    events: number;
   };
 }
 
@@ -574,6 +579,11 @@ export async function buildPagesSnapshot(
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
   const geoIntel = await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
   const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
+  const persistedEvents = await readFirstJson<EventsArtifact>("events/events.json");
+  const events: EventsArtifact =
+    persistedEvents?.schemaVersion === "crescent-city-events/v1" && Array.isArray(persistedEvents.events)
+      ? persistedEvents
+      : buildEventsArtifact(generatedAt, await collectEvents(resolvedOutput));
   if (!geoIntelSummary) throw new Error("Cannot summarize public geo-intel artifact");
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
@@ -604,6 +614,7 @@ export async function buildPagesSnapshot(
       readability,
     },
     geoIntel: geoIntelSummary,
+    events,
     sourceHealth: health,
     news: dedupe(news, ["id", "link"]),
     meetings: dedupe(meetings, ["id", "link"]),
@@ -629,6 +640,7 @@ export async function buildPagesSnapshot(
       sourceRegistry: "data/source-registry.json",
       sourceDiscovery: "data/source-discovery.json",
       geoIntel: PAGES_GEO_INTEL_ARTIFACT,
+      events: PAGES_EVENTS_ARTIFACT,
     },
     publicationPolicy: {
       triplicate: "reference-citation-only",
@@ -674,7 +686,8 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, "data/source-registry.json"), snapshot.sourceRegistry);
     await writeJson(join(temporary, "data/source-discovery.json"), snapshot.sourceDiscovery);
     await writeJson(join(temporary, PAGES_GEO_INTEL_ARTIFACT), geoIntel);
-    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT);
+    await writeJson(join(temporary, PAGES_EVENTS_ARTIFACT), snapshot.events);
+    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT);
 
     async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
       return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);
@@ -726,6 +739,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
         triplicate: snapshot.triplicate.length,
         curated: snapshot.curated.length,
         alerts: snapshot.alerts.current.length,
+        events: snapshot.events.count ?? snapshot.events.events.length,
       },
     };
   } catch (error) {
@@ -752,6 +766,12 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
   if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");
   if (!indexHtml.includes("snapshot.analytics")) errors.push("Pages index does not render the shared analytics overview");
+  if (!indexHtml.includes('<a href="#events">')) errors.push("Pages index does not expose an Events nav link");
+  if (!indexHtml.includes('id="events"')) errors.push("Pages index does not expose the events section");
+  if (!indexHtml.includes('id="event-items"')) errors.push("Pages index does not expose the event items container");
+  if (!indexHtml.includes('id="event-filter"')) errors.push("Pages index does not expose the event filter control");
+  if (!indexHtml.includes(PAGES_EVENTS_ARTIFACT)) errors.push("Pages index does not expose the events JSON artifact");
+  if (!indexHtml.includes("renderEvents")) errors.push("Pages index does not render structured events");
   if (!indexHtml.includes("CrescentCity@tuta.com")) errors.push("Pages index is missing the contact email");
   if (!indexHtml.includes("Sea Something")) errors.push("Pages index is missing the 'Sea Something. Say Something.' tagline");
   const styleMatch = indexHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);

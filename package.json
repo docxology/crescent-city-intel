@@ -17,6 +17,7 @@
     "news": "bun run scripts/run-news.ts",
     "gov-meetings": "bun run scripts/run-meetings.ts",
     "youtube": "bun run scripts/run-youtube.ts",
+    "events": "bun run src/events.ts",
     "curate": "bun run scripts/run-curation.ts",
     "alerts": "bun run scripts/run-alerts.ts",
     "alerts:tsunami": "bun run src/alerts/noaa_tsunami.ts",

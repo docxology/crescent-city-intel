@@ -5,7 +5,7 @@
  * the module writes to output/state/healer-state.json.
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdir, writeFile, unlink, rm } from "fs/promises";
+import { mkdir, writeFile, unlink, rm, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -209,11 +209,27 @@ describe("Healer — runHealingCycle", () => {
   });
 
   test("never throws even on corrupt input", async () => {
-    await mkdir(join(OUTPUT_DIR, "alerts"), { recursive: true });
-    await writeFile(ALERTS_HEALTH_PATH, "{{{ total garbage }}}\n");
-    const { runHealingCycle } = await importHealer();
-    // Should not throw
-    const result = await runHealingCycle();
-    expect(result.monitorsChecked).toBe(0);
+    // This test deliberately corrupts the REAL output/alerts/source-health.json;
+    // snapshot and restore it so the suite never poisons downstream gates.
+    const backupPath = `${ALERTS_HEALTH_PATH}.test-backup`;
+    const originalExisted = existsSync(ALERTS_HEALTH_PATH);
+    if (originalExisted) {
+      await copyFile(ALERTS_HEALTH_PATH, backupPath);
+    }
+    try {
+      await mkdir(join(OUTPUT_DIR, "alerts"), { recursive: true });
+      await writeFile(ALERTS_HEALTH_PATH, "{{{ total garbage }}}\n");
+      const { runHealingCycle } = await importHealer();
+      // Should not throw
+      const result = await runHealingCycle();
+      expect(result.monitorsChecked).toBe(0);
+    } finally {
+      if (originalExisted) {
+        await copyFile(backupPath, ALERTS_HEALTH_PATH);
+        await unlink(backupPath).catch(() => {});
+      } else {
+        await unlink(ALERTS_HEALTH_PATH).catch(() => {});
+      }
+    }
   });
 });

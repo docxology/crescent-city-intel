@@ -21,7 +21,10 @@ const log = createLogger("healer");
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
-const HEALER_STATE_PATH = join(process.cwd(), "output", "state", "healer-state.json");
+// Dependency-injection seam: tests point HEALER_OUTPUT_DIR at a temp dir so the
+// healing cycle never reads or writes the real output/ tree.
+const HEALER_OUTPUT_DIR = process.env.HEALER_OUTPUT_DIR ?? join(process.cwd(), "output");
+const HEALER_STATE_PATH = join(HEALER_OUTPUT_DIR, "state", "healer-state.json");
 
 /** The 8 alert monitor source names (matching source-health.json keys). */
 const MONITOR_SOURCE_NAMES = [
@@ -82,7 +85,7 @@ const MAX_CONSECUTIVE_FAILURES = envInt("HEALER_MAX_CONSECUTIVE_FAILURES", 3);
 
 /** Read the source-health.json file produced by the alert monitor runner. */
 async function readSourceHealthFile(): Promise<Record<string, unknown> | null> {
-  const path = join(process.cwd(), "output", "alerts", "source-health.json");
+  const path = join(HEALER_OUTPUT_DIR, "alerts", "source-health.json");
   if (!existsSync(path)) {
     log.warn("Alerts source-health.json not found; healing cycle skipped");
     return null;
@@ -152,7 +155,7 @@ async function loadState(): Promise<HealerState> {
 /** Persist healer state atomically. Never throws. */
 async function saveState(state: HealerState): Promise<void> {
   try {
-    await mkdir(join(process.cwd(), "output", "state"), { recursive: true });
+    await mkdir(join(HEALER_OUTPUT_DIR, "state"), { recursive: true });
     const tmp = `${HEALER_STATE_PATH}.${process.pid}.${Date.now()}.tmp`;
     await writeFile(tmp, JSON.stringify(state, null, 2) + "\n", "utf-8");
     await rename(tmp, HEALER_STATE_PATH);

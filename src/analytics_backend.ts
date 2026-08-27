@@ -36,6 +36,40 @@ export interface OverviewSignal {
   detail: string;
   evidence: string[];
   nextStep: string;
+  /** §5.5: operator-only signals (e.g. missing build-machine executables) are
+   * routed to operator channels; public surfaces render a neutral notice. */
+  operatorOnly?: boolean;
+}
+
+/** §5.5: a signal detail reporting a missing executable is an operator
+ * problem, not civic intelligence; it must never be published to readers. */
+export function isOperatorOnlySignal(signal: OverviewSignal): boolean {
+  if (signal.operatorOnly === true) return true;
+  return /not found in \$PATH/i.test(signal.detail);
+}
+
+/** §5.5: public replacement copy for operator-only signals. */
+export function publicSignalNotice(signal: OverviewSignal): OverviewSignal {
+  const source = String(signal.title || "").replace(/\s*needs review\s*$/, "").trim() || "A data source";
+  return {
+    ...signal,
+    severity: "watch",
+    title: `${source} monitoring unavailable`,
+    detail: `${source} monitoring is unavailable this edition. This is an operator-side condition; no availability or calmness should be inferred from it.`,
+    evidence: [],
+    nextStep: "Check the operator build log; the underlying source data will return in a later edition.",
+  };
+}
+
+/** §5.5: split signals into the public set and the operator-only set. */
+export function splitPublicOperatorSignals(signals: OverviewSignal[]): { publicSignals: OverviewSignal[]; operatorSignals: OverviewSignal[] } {
+  const publicSignals: OverviewSignal[] = [];
+  const operatorSignals: OverviewSignal[] = [];
+  for (const signal of signals) {
+    if (isOperatorOnlySignal(signal)) operatorSignals.push(signal);
+    else publicSignals.push(signal);
+  }
+  return { publicSignals, operatorSignals };
 }
 
 export interface OverviewItem {
@@ -118,11 +152,20 @@ async function readHealthReports(checkedAt = new Date().toISOString()): Promise<
   return completeSourceHealth(reports.flatMap(report => Array.isArray(report?.sources) ? report.sources : []), checkedAt);
 }
 
-async function readSearchAnalytics(): Promise<{ totalQueries: number; topTerms: Array<{ term: string; count: number }> }> {
+async function readSearchAnalytics(): Promise<{ totalQueries: number; totalBytes: string; topTerms: Array<{ term: string; count: number }> }> {
   const logPath = join(process.cwd(), "output", "search-queries.jsonl");
-  if (!existsSync(logPath)) return { totalQueries: 0, topTerms: [] };
+  if (!existsSync(logPath)) return { totalQueries: 0, totalBytes: "0", topTerms: [] };
   try {
-    const lines = (await readFile(logPath, "utf8")).split(/\r?\n/).filter(Boolean);
+    // Snapshot the input at call time: one atomic byte read feeds both the
+    // counters and the fingerprint, so a concurrent append can never split
+    // the read into two different views (the inputFingerprint flake root cause).
+    // A trailing line without a terminating newline is a torn concurrent write
+    // and is excluded from the snapshot rather than half-counted.
+    const bytes = new Uint8Array(await readFile(logPath));
+    const text = new TextDecoder().decode(bytes);
+    const completeText = text.endsWith("\n") || text.length === 0 ? text : text.slice(0, text.lastIndexOf("\n") + 1);
+    const snapshotHash = new Bun.CryptoHasher("sha256").update(bytes.subarray(0, Buffer.byteLength(completeText, "utf8"))).digest("hex");
+    const lines = completeText.split(/\r?\n/).filter(Boolean);
     const counts = new Map<string, number>();
     for (const line of lines) {
       try {
@@ -135,9 +178,10 @@ async function readSearchAnalytics(): Promise<{ totalQueries: number; topTerms: 
     }
     return {
       totalQueries: lines.length,
+      totalBytes: snapshotHash,
       topTerms: [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 20).map(([term, count]) => ({ term, count })),
     };
-  } catch { return { totalQueries: 0, topTerms: [] }; }
+  } catch { return { totalQueries: 0, totalBytes: "0", topTerms: [] }; }
 }
 
 function itemDate(item: JsonRecord): number {
@@ -223,14 +267,19 @@ function deterministicSummary(input: { status: OverviewStatus; alertLevel: strin
 function buildSignals(input: { health: SourceHealth[]; alerts: JsonRecord | null; alertAnalytics: AlertAnalyticsReport; code: CodeStats; curated: OverviewItem[]; pipeline: JsonRecord | null }): OverviewSignal[] {
   const signals: OverviewSignal[] = [];
   for (const source of input.health.filter(source => source.status === "unavailable" || source.status === "stale")) {
+    const detail = source.error ?? `The source is ${source.status}; no availability or calmness should be inferred.`;
+    // §5.5: a missing build-machine executable routes to the operator log; the
+    // public surface renders the neutral monitoring-unavailable notice.
+    const operatorOnly = /not found in \$PATH/i.test(detail);
     signals.push({
       id: `source-${source.source.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
       category: "source",
       severity: "warning",
       title: `${source.source} needs review`,
-      detail: source.error ?? `The source is ${source.status}; no availability or calmness should be inferred.`,
+      detail,
       evidence: [`status=${source.status}`, `checkedAt=${source.checkedAt}`],
       nextStep: "Open Source health and inspect the source record or retry its monitor.",
+      ...(operatorOnly ? { operatorOnly: true } : {}),
     });
   }
   const alertLevel = String(input.alerts?.level ?? "CALM");
@@ -302,7 +351,13 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
     ? (health.length === 0 ? "unavailable" : "degraded")
     : (pipeline?.status === "failed" ? "degraded" : "ok");
   const alertLevel = String(alerts?.level ?? "CALM");
-  const signals = buildSignals({ health, alerts, alertAnalytics, code, curated, pipeline });
+  const allSignals = buildSignals({ health, alerts, alertAnalytics, code, curated, pipeline });
+  // §5.5: public analytics never publish operator-side error strings. The
+  // operator-only set is carried separately as an operator channel (stripped
+  // from public export surfaces), never silently dropped.
+  const { publicSignals, operatorSignals } = splitPublicOperatorSignals(allSignals);
+  const signals = publicSignals.map(signal => isOperatorOnlySignal(signal) ? publicSignalNotice(signal) : signal);
+  const operatorSignalsNoticed = operatorSignals.map(publicSignalNotice);
   const evidence = {
     code: { totalArticles: code.totalArticles, totalSections: code.totalSections, totalWords: code.totalWords, titleBreakdown: code.titleBreakdown },
     // Exclude check timestamps: polling an unchanged source should not trigger
@@ -315,6 +370,7 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
     pipeline: pipeline ? { status: pipeline.status } : null,
     reportPeriod: reportMetadata?.period ?? null,
     search,
+    searchLogSnapshot: search.totalBytes,
   };
   const inputFingerprint = await computeSha256(stableInput(evidence));
   const summary = deterministicSummary({ status, alertLevel, sourceSummary, curatedCount: curatedItems.length, recentCount: recent.length });

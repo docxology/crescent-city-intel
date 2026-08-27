@@ -11,7 +11,10 @@ import { mkdir, readdir, rm, writeFile } from "fs/promises";
 import { join } from "path";
 import { IdempotencyStore } from "../src/shared/idempotency";
 
-const TEST_DIR = join(process.cwd(), "output", "test-idempotency");
+// Temp-dir isolation: never write into the real output/ tree (lane G).
+const { mkdtempSync } = await import("fs");
+const { tmpdir } = await import("os");
+const TEST_DIR = mkdtempSync(join(tmpdir(), "idempotency-test-"));
 
 beforeEach(async () => {
   await mkdir(TEST_DIR, { recursive: true });

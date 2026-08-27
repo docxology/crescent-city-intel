@@ -9,12 +9,23 @@ import { mkdir, writeFile, unlink, rm, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 
+
+// The healer module computes its output dir from HEALER_OUTPUT_DIR at import
+// time, so the temp dir must be set before the first import.
+if (!process.env.HEALER_OUTPUT_DIR) {
+  const { mkdtempSync } = await import("fs");
+  const { tmpdir } = await import("os");
+  process.env.HEALER_OUTPUT_DIR = mkdtempSync(join(tmpdir(), "healer-test-"));
+}
 // Import the module fresh each test so env changes take effect
 async function importHealer() {
   return await import("../src/alerts/healer.ts");
 }
 
-const OUTPUT_DIR = join(process.cwd(), "output");
+
+// Tests run against a temp dir via the HEALER_OUTPUT_DIR seam: the real
+// output/ tree is never read or written (lane G deferred-item fix).
+const OUTPUT_DIR = process.env.HEALER_OUTPUT_DIR ?? join(process.cwd(), "output");
 const ALERTS_HEALTH_PATH = join(OUTPUT_DIR, "alerts", "source-health.json");
 const HEALER_STATE_PATH = join(OUTPUT_DIR, "state", "healer-state.json");
 const COMPOSITE_DIR = join(OUTPUT_DIR, "alerts", "composite");

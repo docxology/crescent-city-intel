@@ -111,8 +111,8 @@
     ::selection { background:var(--rtint); color:var(--ink); }
     .red-banner { background:var(--cc); color:#fff; text-align:center; padding:22px 20px 12px; }
     .red-banner .masthead-h1 { font:900 clamp(2.4rem,6vw,4.2rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.03em; margin:0; text-transform:uppercase; color:#fff; }
-    .red-banner .masthead-sub { font:400 italic .85rem/1.3 "Source Serif 4",Georgia,serif; color:rgba(255,255,255,.85); margin:2px 0 0; letter-spacing:.02em; }
-    .red-banner .masthead-contact { font:400 .78rem/1.4 "DM Mono","Courier New",monospace; color:rgba(255,255,255,.7); margin:6px 0 2px; letter-spacing:.04em; }
+    .red-banner .masthead-sub { font:400 italic .85rem/1.3 "Source Serif 4",Georgia,serif; color:#ffffff; margin:2px 0 0; letter-spacing:.02em; }
+    .red-banner .masthead-contact { font:400 .78rem/1.4 "DM Mono","Courier New",monospace; color:#ffffff; margin:6px 0 2px; letter-spacing:.04em; }
     .red-banner .masthead-contact em { font-style:italic; font-family:"Source Serif 4",Georgia,serif; }
     .masthead-date-row { border-bottom:3px solid var(--ink); }
     .masthead-date-row .inner { max-width:1260px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; padding:4px 20px; }
@@ -128,6 +128,7 @@
     .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; white-space:nowrap; }
     .banner { border:1px solid var(--rule); border-left:4px solid var(--cc); background:var(--panel); padding:12px 16px; font-size:.92rem; margin-bottom:10px; }
     .banner.degraded { border-left-color:var(--rdark); background:var(--rtint); }
+    .banner.degraded .meta, .banner.degraded .item .meta { color:var(--ink-dim); }
     .banner.unavailable { border-left-color:var(--ink); background:var(--rule-light); }
     .banner strong { font-weight:600; }
     .cards-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin:10px 0; }
@@ -175,6 +176,7 @@
     .geo-details { padding:12px; border-left:0; }
     .geo-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:8px; }
     .geo-metric { background:var(--rule-light); border:1px solid var(--rule-thin); padding:6px; text-align:center; }
+    .geo-metric .meta, .banner.unavailable .meta { color:var(--ink); }
     .geo-metric strong { display:block; font:700 1rem/1 "Playfair Display",Georgia,serif; color:var(--cc); }
     .geo-tag { display:inline-block; margin:2px 2px 0 0; padding:2px 7px; border:1px solid var(--rule); font-size:.72rem; font-family:Inter,sans-serif; color:var(--ink-dim); }
     .geo-sections { display:grid; gap:4px; margin-top:6px; max-height:180px; overflow:auto; }
@@ -257,14 +259,22 @@
     }
     /* --- Print stylesheet --- */
     @media print { body { background:#fff; color:#000; font-size:11pt; } .red-banner { background:#000!important; } body::before { display:none!important; } .masthead-h1 { color:#fff!important; } .red-banner .masthead-sub,.red-banner .masthead-contact { color:#eee!important; } a { text-decoration:none; } #event-items .cal-entry,#event-items .cal-dateline { border-color:#999!important; background:#fff!important; } #event-items .cal-dateline { background:#000!important; color:#fff!important; } .masthead-nav-wrap,.masthead-date-row,.controls,.action-bar { display:none; } .page { max-width:100%; padding:0; } .source,.item,.card,.banner { break-inside:avoid; } }
+    /* --- Accessibility (lane3) --- */
+    a:focus-visible, .welcome-link:focus-visible, .ics-badge:focus-visible, .button:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
+    .skip-link { position:absolute; left:-9999px; }
+    .skip-link:focus, .skip-link:focus-visible { position:fixed; top:8px; left:8px; width:auto; height:auto; margin:0; padding:10px 16px; clip:auto; overflow:visible; white-space:nowrap; background:var(--paper); color:var(--ink); border:2px solid var(--cc); z-index:2147483646; font:600 .85rem/1 Inter,sans-serif; text-decoration:none; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } body::before { display:none; } }
+    @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
+    .newspaper-label { display:block; font:700 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); margin-bottom:6px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
   </style>
 </head>
 <body>
-  <a class="sr-only" href="#main">Skip to content</a>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="red-banner">
     <h1 class="masthead-h1">The Quadruplicate</h1>
     <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
-    <div class="masthead-contact">CrescentCity@tuta.com &nbsp;|&nbsp; <em>Sea Something. Say Something.</em></div>
+    <div class="masthead-contact">CrescentCity@tuta.com &nbsp;&middot;&nbsp; <em>Sea Something. Say Something.</em></div>
   </header>
   <div class="masthead-date-row">
     <div class="inner">
@@ -377,7 +387,7 @@
         <select id="health-filter" aria-label="Filter source health by operational state"><option value="all">All states</option><option value="ok">Healthy</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option></select>
         <button id="refresh" class="button" type="button">Refresh edition</button>
         <button id="download-health" class="button secondary" type="button">Download filtered</button>
-        <span id="refresh-state" class="meta"></span>
+        <span id="refresh-state" class="meta" role="status"></span>
       </div>
       <div id="health" class="health-grid"></div>
     </section>
@@ -445,11 +455,11 @@
       <div class="section-head"><span class="newspaper-label">Civic Analysis</span><h2>Civic health report</h2><span class="meta">Period analysis</span></div>
       <div id="report-content"></div>
     </section>
-    <div class="footer">
+    <footer class="footer">
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
       <div>Excludes chat history, RAG logs, Chroma data, credentials, and Triplicate content.</div>
       <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
-    </div>
+    </footer>
   </main>
   <script>
     const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all" };

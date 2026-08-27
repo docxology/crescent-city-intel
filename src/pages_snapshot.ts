@@ -29,6 +29,93 @@ const MAX_ITEMS = 100;
 export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
 export const PAGES_EVENTS_ARTIFACT = "data/events.json";
 export const PAGES_EVENTS_ICS_ARTIFACT = "data/events.ics";
+export const PAGES_NEWS_ARTIFACT = "data/news.json";
+export const PAGES_MEETINGS_ARTIFACT = "data/meetings.json";
+export const PAGES_ALERTS_ARTIFACT = "data/alerts.json";
+export const PAGES_ANALYTICS_ARTIFACT = "data/analytics.json";
+export const PAGES_SEARCH_INDEX_ARTIFACT_PREFIX = "data/code-search.";
+
+/**
+ * Content-hashed artifact filename (§1.6). Immutable snapshot artifacts get a
+ * `name.<8-hex-of-sha256>.<ext>` form so they can be served with normal
+ * (effectively immutable) caching. Phase 6 asset hashing reuses this exact
+ * helper for CSS/JS bundles.
+ */
+export function pagesContentHashName(path: string, bytes: Uint8Array | string): string {
+  const data = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes;
+  const digest = new Bun.CryptoHasher("sha256").update(data).digest("hex").slice(0, 8);
+  const dot = path.lastIndexOf(".");
+  return dot === -1 ? `${path}.${digest}` : `${path.slice(0, dot)}.${digest}${path.slice(dot)}`;
+}
+
+/** Per-page byte budgets (§1.2 acceptance: first-load transfer < 150 KB excluding fonts). */
+export const PAGES_ARTIFACT_BYTE_BUDGETS: Readonly<Record<string, number>> = {
+  [PAGES_NEWS_ARTIFACT]: 150 * 1024,
+  [PAGES_MEETINGS_ARTIFACT]: 150 * 1024,
+  [PAGES_ANALYTICS_ARTIFACT]: 150 * 1024,
+  [PAGES_ALERTS_ARTIFACT]: 150 * 1024,
+  "data/source-health.json": 150 * 1024,
+  "data/source-discovery.json": 150 * 1024,
+  "data/source-registry.json": 150 * 1024,
+};
+
+/**
+ * Build a field-sharded inverted search index over the municipal code (§1.3).
+ * Shards hold `t` (title/number), `x` (body text) tokens per section id so a
+ * keystroke scans only the relevant shard. Section text is preserved verbatim
+ * for rendering; provenance URLs are never rewritten.
+ */
+export function buildPagesCodeSearchIndex(code: unknown): {
+  schema: "crescent-city-code-search/v1";
+  articleCount: number;
+  sectionCount: number;
+  shards: Record<string, Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }>>;
+} {
+  const articles = code && typeof code === "object" && Array.isArray((code as { articles?: unknown[] }).articles)
+    ? (code as { articles: Array<Record<string, unknown>> }).articles
+    : [];
+  const shards: Record<string, Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }>> = { t: [], x: [] };
+  let sectionCount = 0;
+  articles.forEach((article, articleIndex) => {
+    const articleTitle = String(article.title ?? "");
+    const articleUrl = typeof article.url === "string" ? article.url : null;
+    const sections = Array.isArray(article.sections) ? article.sections : [];
+    sections.forEach((section, sectionIndex) => {
+      const record = section && typeof section === "object" ? section as Record<string, unknown> : {};
+      const number = String(record.number ?? "");
+      const title = String(record.title ?? "");
+      const text = String(record.text ?? "");
+      const entry = {
+        id: `${articleIndex}-${sectionIndex}`,
+        n: number,
+        t: `${number} ${title} ${articleTitle}`.toLowerCase(),
+        x: text.toLowerCase(),
+        a: articleTitle,
+        u: articleUrl,
+      };
+      shards.t.push(entry);
+      shards.x.push(entry);
+      sectionCount += 1;
+    });
+  });
+  return { schema: "crescent-city-code-search/v1", articleCount: articles.length, sectionCount, shards };
+}
+
+/** Search the sharded index: title/number shard first, then full text. */
+export function searchPagesCodeIndex(index: ReturnType<typeof buildPagesCodeSearchIndex>, needle: string, limit = 30): Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }> {
+  const query = needle.trim().toLowerCase();
+  if (!query) return [];
+  const seen = new Set<string>();
+  const matches: Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }> = [];
+  for (const entry of index.shards.t) {
+    if (entry.t.includes(query) && !seen.has(entry.id)) { seen.add(entry.id); matches.push(entry); }
+  }
+  for (const entry of index.shards.x) {
+    if (matches.length >= limit) break;
+    if (entry.x.includes(query) && !seen.has(entry.id)) { seen.add(entry.id); matches.push(entry); }
+  }
+  return matches.slice(0, limit);
+}
 const PAGES_SITE_URL = "https://quadruplicate.org";
 export const PAGES_ROBOTS_TXT = "robots.txt";
 export const PAGES_SITEMAP_XML = "sitemap.xml";
@@ -71,10 +158,10 @@ export interface PagesSnapshot {
   municipalCode: {
     available: boolean;
     source: string;
-    manifest: Record<string, unknown> | null;
-    verification: Record<string, unknown> | null;
-    coverage: Record<string, unknown> | null;
-    readability: Record<string, unknown> | null;
+    /** Small manifest-derived counts for front-page cards. The full manifest,
+     * verification, coverage, and readability artifacts ship standalone and are
+     * referenced by path in `files` — never inlined into this envelope (§1.1). */
+    counts: { articlePageCount: number | null; sectionCount: number | null };
   };
   geoIntel: PagesGeoIntelSummary;
   events: EventsArtifact;
@@ -114,6 +201,13 @@ export interface PagesSnapshot {
     analyticsOverview: string | null;
     geoIntel: string;
     events: string;
+    /** Per-page artifacts (§1.2): each subpage fetches only what it renders. */
+    news: string;
+    meetings: string;
+    alerts: string;
+    analytics: string | null;
+    /** Content-hashed sharded municipal-code search index (§1.3), lazy-loaded on first keystroke. */
+    codeSearchIndex: string | null;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
@@ -171,23 +265,398 @@ export function buildPagesRobotsTxt(): string {
  * console over the exported ./data/*.json artifacts; the other pages are
  * fully rendered views over the same snapshot data.
  */
-export const PAGES_STATIC_PAGES: ReadonlyArray<{ file: string; title: string }> = [
-  { file: "gui.html", title: "Civic intelligence console" },
-  { file: "news.html", title: "Local news" },
-  { file: "meetings.html", title: "Meetings" },
-  { file: "events.html", title: "Community calendar" },
-  { file: "code.html", title: "Municipal code" },
-  { file: "sources.html", title: "Sources" },
+export const PAGES_STATIC_PAGES: ReadonlyArray<{ file: string; title: string; navLabel: string; datelineKicker: string }> = [
+  { file: "gui.html", title: "Civic intelligence console", navLabel: "GUI console", datelineKicker: "Public read-only console" },
+  { file: "news.html", title: "Local news", navLabel: "News", datelineKicker: "Metro desk" },
+  { file: "meetings.html", title: "Meetings", navLabel: "Meetings", datelineKicker: "Public record" },
+  { file: "events.html", title: "Community calendar", navLabel: "Events", datelineKicker: "Community calendar" },
+  { file: "code.html", title: "Municipal code", navLabel: "Municipal code", datelineKicker: "Municipal code" },
+  { file: "sources.html", title: "Sources", navLabel: "Sources", datelineKicker: "Source registry" },
 ];
 
-/** Sitemap covering the canonical root plus the major anchor sections of Pages index. */
-export function buildPagesSitemapXml(): string {
+/** Front-page section anchors shared by every page masthead nav (canonical labels). */
+export const PAGES_SECTION_NAV: ReadonlyArray<{ label: string; hash: string }> = [
+  { label: "Geo-intel", hash: "geo" },
+  { label: "Alerts", hash: "alerts" },
+  { label: "Methods", hash: "methods" },
+  { label: "FAQ", hash: "faq" },
+];
+
+export const PAGES_FRONT_PAGE_NAV_LABEL = "Front page";
+
+export const PAGES_OG_IMAGE_PNG = "og-image.png";
+export const PAGES_FAVICON_SVG = "favicon.svg";
+export const PAGES_FAVICON_ICO = "favicon.ico";
+export const PAGES_APPLE_TOUCH_ICON_PNG = "apple-touch-icon.png";
+export const PAGES_WEB_MANIFEST = "site.webmanifest";
+
+/**
+ * Sitemap covering the canonical root plus the standalone pages.
+ *
+ * `lastmodByPath` maps a sitemap path ("" for the root, "gui.html", ...) to an
+ * honest last-modified date (YYYY-MM-DD) derived from source mtime. When no
+ * mapping is supplied the <lastmod> element is omitted entirely rather than
+ * fabricated from the build date: a sitemap must never claim every URL changed
+ * today just because the exporter ran (§3.7).
+ */
+export function buildPagesSitemapXml(lastmodByPath: Record<string, string> = {}): string {
   const paths = ["", ...PAGES_STATIC_PAGES.map(page => page.file)];
-  const today = new Date().toISOString().slice(0, 10);
   const entries = paths
-    .map(path => `  <url><loc>${PAGES_SITE_URL}/${path}</loc><lastmod>${today}</lastmod></url>`)
+    .map(path => {
+      const lastmod = lastmodByPath[path];
+      const lastmodXml = typeof lastmod === "string" && /^\d{4}-\d{2}-\d{2}$/.test(lastmod) ? `<lastmod>${lastmod}</lastmod>` : "";
+      return `  <url><loc>${PAGES_SITE_URL}/${path}</loc>${lastmodXml}</url>`;
+    })
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
+}
+
+/**
+ * Canonical masthead nav generated from PAGES_STATIC_PAGES so nav, sitemap, and
+ * breadcrumbs cannot disagree. `currentFile` is the page carrying
+ * aria-current="page" (null for the front page and the 404 page).
+ * `rootAbsolute` emits root-absolute hrefs - required for 404.html, which
+ * GitHub Pages serves at arbitrary nested paths where relative links 404 (§2.2).
+ */
+export function buildPagesNavHtml(currentFile: string | null, options: { rootAbsolute?: boolean } = {}): string {
+  const root = options.rootAbsolute ? "/" : "./";
+  const anchor = (href: string, label: string, isCurrent: boolean): string =>
+    `<a href="${href}"${isCurrent ? ' aria-current="page"' : ""}>${label}</a>`;
+  const links: string[] = [anchor(root, PAGES_FRONT_PAGE_NAV_LABEL, currentFile === null)];
+  for (const page of PAGES_STATIC_PAGES) {
+    links.push(anchor(options.rootAbsolute ? `/${page.file}` : page.file, page.navLabel, currentFile === page.file));
+  }
+  for (const section of PAGES_SECTION_NAV) {
+    links.push(anchor(options.rootAbsolute ? `/#${section.hash}` : `./#${section.hash}`, section.label, false));
+  }
+  return `<nav class="masthead-nav" aria-label="Page sections">${links.join("")}</nav>`;
+}
+
+/** Breadcrumb trail markup for one page (§2.8). The 404 page passes its own label. */
+export function buildPagesBreadcrumbHtml(currentFile: string | null, options: { rootAbsolute?: boolean; label?: string } = {}): string {
+  const root = options.rootAbsolute ? "/" : "./";
+  const label = options.label
+    ?? (currentFile === null ? PAGES_FRONT_PAGE_NAV_LABEL : PAGES_STATIC_PAGES.find(page => page.file === currentFile)?.navLabel ?? currentFile);
+  const homeItem = currentFile === null
+    ? `<li aria-current="page">${PAGES_FRONT_PAGE_NAV_LABEL}</li>`
+    : `<li><a href="${root}">${PAGES_FRONT_PAGE_NAV_LABEL}</a></li><li aria-current="page">${label}</li>`;
+  return `<nav class="breadcrumb" aria-label="Breadcrumb"><div class="inner"><ol>${homeItem}</ol></div></nav>`;
+}
+
+/** Canonical footer generated once for every page (§2.1); the 404 page uses the errata variant. */
+export function buildPagesFooterHtml(variant: "snapshot" | "errata" = "snapshot"): string {
+  const secondLine = variant === "errata"
+    ? `<div>Public snapshot &middot; no live service &middot; no credentials &middot; no chat history</div>`
+    : `<div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>`;
+  return `<footer class="footer"><div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>${secondLine}</footer>`;
+}
+
+/** Replace the authored masthead nav with the generated canonical nav (exactly one per page). */
+export function embedPagesNav(html: string, currentFile: string | null, options: { rootAbsolute?: boolean } = {}): string {
+  const matches = html.match(/<nav class="masthead-nav"[\s\S]*?<\/nav>/g) ?? [];
+  if (matches.length !== 1) {
+    throw new Error(`Pages page must contain exactly one masthead nav; found ${matches.length}`);
+  }
+  return html.replace(/<nav class="masthead-nav"[\s\S]*?<\/nav>/, buildPagesNavHtml(currentFile, options));
+}
+
+/** Replace the authored breadcrumb trail with the generated one (exactly one per page). */
+export function embedPagesBreadcrumb(html: string, currentFile: string | null, options: { rootAbsolute?: boolean; label?: string } = {}): string {
+  const matches = html.match(/<nav class="breadcrumb"[\s\S]*?<\/nav>/g) ?? [];
+  if (matches.length !== 1) {
+    throw new Error(`Pages page must contain exactly one breadcrumb nav; found ${matches.length}`);
+  }
+  return html.replace(/<nav class="breadcrumb"[\s\S]*?<\/nav>/, buildPagesBreadcrumbHtml(currentFile, options));
+}
+
+/** Replace the authored footer with the generated canonical footer (exactly one per page). */
+export function embedPagesFooter(html: string, variant: "snapshot" | "errata" = "snapshot"): string {
+  const matches = html.match(/<footer class="footer">[\s\S]*?<\/footer>/g) ?? [];
+  if (matches.length !== 1) {
+    throw new Error(`Pages page must contain exactly one footer element; found ${matches.length}`);
+  }
+  return html.replace(/<footer class="footer">[\s\S]*?<\/footer>/, buildPagesFooterHtml(variant));
+}
+
+/** Export-time injection point for per-page canonical/OG/Twitter head metadata (§3.3). */
+export const PAGES_HEAD_META_PLACEHOLDER = "<!--PAGES_HEAD_META-->";
+
+/** Replace the head-meta marker with per-page canonical, Open Graph, and Twitter card metadata. */
+export function embedPagesHeadMeta(html: string, pageFile: string): string {
+  const markerCount = html.split(PAGES_HEAD_META_PLACEHOLDER).length - 1;
+  if (markerCount !== 1) {
+    throw new Error(`Pages page ${pageFile} must contain exactly one head-meta placeholder; found ${markerCount}`);
+  }
+  const page = PAGES_STATIC_PAGES.find(candidate => candidate.file === pageFile);
+  if (!page) throw new Error(`head metadata requested for unknown Pages page: ${pageFile}`);
+  const url = `${PAGES_SITE_URL}/${page.file}`;
+  const title = `${page.title} — The Quadruplicate`;
+  const description = `The Quadruplicate — ${page.title.toLowerCase()} for Crescent City, CA: provenance-preserving civic intelligence with cited public sources.`;
+  const meta = [
+    `<link rel="canonical" href="${url}">`,
+    `<meta property="og:title" content="${title}">`,
+    `<meta property="og:description" content="${description}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:url" content="${url}">`,
+    `<meta property="og:site_name" content="The Quadruplicate">`,
+    `<meta property="og:image" content="${PAGES_SITE_URL}/${PAGES_OG_IMAGE_PNG}">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:title" content="${title}">`,
+    `<meta name="twitter:description" content="${description}">`,
+    `<meta name="twitter:image" content="${PAGES_SITE_URL}/${PAGES_OG_IMAGE_PNG}">`,
+  ].join("\n  ");
+  return html.replace(PAGES_HEAD_META_PLACEHOLDER, meta);
+}
+
+/** Canonical favicon links + theme-color shared by every page head (§3.2). */
+export function buildPagesFaviconHeadHtml(): string {
+  return [
+    `<link rel="icon" href="/${PAGES_FAVICON_SVG}" type="image/svg+xml">`,
+    `<link rel="icon" href="/${PAGES_FAVICON_ICO}" sizes="32x32">`,
+    `<link rel="apple-touch-icon" href="/${PAGES_APPLE_TOUCH_ICON_PNG}">`,
+    `<meta name="theme-color" content="#c41e1e">`,
+    `<link rel="manifest" href="/${PAGES_WEB_MANIFEST}">`,
+  ].join("\n  ");
+}
+
+/** Monogram "Q" SVG favicon in the broadsheet palette (§3.2). */
+export function buildPagesFaviconSvg(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="#c41e1e"/><circle cx="32" cy="28" r="15" fill="none" stroke="#ffffff" stroke-width="6"/><line x1="40" y1="38" x2="50" y2="50" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/></svg>\n`;
+}
+
+// --- Build-time image encoders (no new runtime dependencies) ---
+// The repo has no canvas/image library, so the OG card and touch icon are
+// emitted as deterministic PNGs encoded byte-by-byte below: zlib (Bun builtin)
+// for IDAT, CRC32 over the chunk payloads. No CDN, no framework, no new deps.
+
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (let index = 0; index < bytes.length; index++) {
+    crc ^= bytes[index]!;
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Uint8Array): Uint8Array {
+  const out = new Uint8Array(12 + data.length);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, data.length);
+  for (let index = 0; index < 4; index++) out[4 + index] = type.charCodeAt(index);
+  out.set(data, 8);
+  view.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+  return out;
+}
+
+/** Encode RGB pixels (row-major, 3 bytes/px) as a minimal truecolor PNG. */
+export function encodePngRgb(width: number, height: number, pixels: Uint8Array): Uint8Array {
+  if (pixels.length !== width * height * 3) throw new Error(`PNG pixel buffer must be ${width * height * 3} bytes`);
+  const raw = new Uint8Array(height * (1 + width * 3));
+  for (let row = 0; row < height; row++) {
+    raw[row * (1 + width * 3)] = 0; // filter: none
+    raw.set(pixels.subarray(row * width * 3, (row + 1) * width * 3), row * (1 + width * 3) + 1);
+  }
+  const compressed = new Uint8Array(Bun.deflateSync(raw, { level: 9 }));
+  const ihdr = new Uint8Array(13);
+  const view = new DataView(ihdr.buffer);
+  view.setUint32(0, width);
+  view.setUint32(4, height);
+  ihdr[8] = 8;  // bit depth
+  ihdr[9] = 2;  // color type: truecolor RGB
+  const signature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdrChunk = pngChunk("IHDR", ihdr);
+  const idatChunk = pngChunk("IDAT", compressed);
+  const endChunk = pngChunk("IEND", new Uint8Array(0));
+  const out = new Uint8Array(signature.length + ihdrChunk.length + idatChunk.length + endChunk.length);
+  let offset = 0;
+  for (const chunk of [signature, ihdrChunk, idatChunk, endChunk]) { out.set(chunk, offset); offset += chunk.length; }
+  return out;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const value = Number.parseInt(hex.replace("#", ""), 16);
+  if (!Number.isFinite(value) || hex.replace("#", "").length !== 6) throw new Error(`invalid hex color: ${hex}`);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+/** A 5x7 bitmap font keeps the OG card deterministic and dependency-free. */
+const OG_FONT: Record<string, string[]> = {
+  A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+  B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+  C: ["01111", "10000", "10000", "10000", "10000", "10000", "01111"],
+  D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+  E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+  F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+  G: ["01111", "10000", "10000", "10111", "10001", "10001", "01111"],
+  H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+  I: ["11111", "00100", "00100", "00100", "00100", "00100", "11111"],
+  K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+  L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+  M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"],
+  N: ["10001", "11001", "10101", "10011", "10001", "10001", "10001"],
+  O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"],
+  P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+  Q: ["01110", "10001", "10001", "10001", "10101", "10011", "01101"],
+  R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+  S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+  T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+  U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"],
+  V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+  W: ["10001", "10001", "10001", "10101", "10101", "11011", "10001"],
+  Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"],
+  ".": ["00000", "00000", "00000", "00000", "00000", "00110", "00110"],
+  ",": ["00000", "00000", "00000", "00000", "00110", "00110", "01100"],
+  ":": ["00000", "00110", "00110", "00000", "00110", "00110", "00000"],
+  "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
+  " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"],
+  "0": ["01110", "10001", "10011", "10101", "11001", "10001", "01110"],
+  "1": ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+  "2": ["01110", "10001", "00001", "00110", "01000", "10000", "11111"],
+  "3": ["11110", "00001", "00001", "01110", "00001", "00001", "11110"],
+  "4": ["00010", "00110", "01010", "10010", "11111", "00010", "00010"],
+  "5": ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+  "6": ["01110", "10000", "11110", "10001", "10001", "10001", "01110"],
+  "7": ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+  "8": ["01110", "10001", "10001", "01110", "10001", "10001", "01110"],
+  "9": ["01110", "10001", "10001", "01111", "00001", "00001", "01110"],
+};
+
+const OG_CHAR_WIDTH = 6;
+const OG_CHAR_HEIGHT = 7;
+
+function drawText(pixels: Uint8Array, width: number, text: string, x: number, y: number, scale: number, color: [number, number, number]): void {
+  let cursor = x;
+  for (const character of text.toUpperCase()) {
+    const glyph = OG_FONT[character];
+    if (!glyph) continue;
+    for (let row = 0; row < OG_CHAR_HEIGHT; row++) {
+      for (let column = 0; column < glyph[row]!.length; column++) {
+        if (glyph[row]![column] !== "1") continue;
+        for (let dy = 0; dy < scale; dy++) {
+          for (let dx = 0; dx < scale; dx++) {
+            const px = cursor + column * scale + dx;
+            const py = y + row * scale + dy;
+            if (px < 0 || px >= width || py < 0) continue;
+            const offset = (py * width + px) * 3;
+            if (offset + 2 < pixels.length) { pixels[offset] = color[0]; pixels[offset + 1] = color[1]; pixels[offset + 2] = color[2]; }
+          }
+        }
+      }
+    }
+    cursor += OG_CHAR_WIDTH * scale;
+  }
+}
+
+function drawRect(pixels: Uint8Array, width: number, height: number, x: number, y: number, w: number, h: number, color: [number, number, number]): void {
+  for (let py = Math.max(0, y); py < Math.min(height, y + h); py++) {
+    for (let px = Math.max(0, x); px < Math.min(width, x + w); px++) {
+      const offset = (py * width + px) * 3;
+      pixels[offset] = color[0]; pixels[offset + 1] = color[1]; pixels[offset + 2] = color[2];
+    }
+  }
+}
+
+/**
+ * Deterministic 1200x630 OG card (§3.1): masthead band, edition date, and
+ * headline counts from the exact snapshot being exported. No fonts fetched,
+ * no runtime dependencies — a 5x7 bitmap font drawn into an RGB buffer.
+ */
+export function buildPagesOgImagePng(snapshot: Pick<PagesSnapshot, "generatedAt" | "news" | "meetings" | "events" | "sourceHealth">): Uint8Array {
+  const width = 1200;
+  const height = 630;
+  const paper = hexToRgb("#faf6ef");
+  const ink = hexToRgb("#0a0a0a");
+  const cc = hexToRgb("#c41e1e");
+  const dim = hexToRgb("#3a3a3a");
+  const pixels = new Uint8Array(width * height * 3);
+  drawRect(pixels, width, height, 0, 0, width, height, paper);
+  drawRect(pixels, width, height, 0, 0, width, 96, cc);
+  drawRect(pixels, width, height, 0, 96, width, 6, ink);
+  drawText(pixels, width, "THE QUADRUPLICATE", 64, 30, 5, [0xff, 0xff, 0xff]);
+  drawText(pixels, width, "CIVIC INTELLIGENCE - CRESCENT CITY, CA", 64, 140, 3, cc);
+  drawText(pixels, width, "A PROVENANCE-PRESERVING PUBLIC SNAPSHOT", 64, 180, 3, dim);
+  drawRect(pixels, width, height, 64, 230, 1072, 3, ink);
+  const editionDate = snapshot.generatedAt.slice(0, 10);
+  drawText(pixels, width, `EDITION ${editionDate}`, 64, 270, 4, ink);
+  const eventCount = snapshot.events?.count ?? snapshot.events?.events?.length ?? 0;
+  const lines: Array<[string, string]> = [
+    ["NEWS", `${snapshot.news.length} ITEMS`],
+    ["MEETINGS", `${snapshot.meetings.length} ITEMS`],
+    ["EVENTS", `${eventCount} LISTED`],
+    ["SOURCE CHECKS", `${snapshot.sourceHealth.length} RECORDED`],
+  ];
+  let y = 350;
+  for (const [label, value] of lines) {
+    drawText(pixels, width, label, 64, y, 4, cc);
+    drawText(pixels, width, value, 420, y, 4, ink);
+    y += 60;
+  }
+  drawRect(pixels, width, height, 0, height - 12, width, 12, cc);
+  return encodePngRgb(width, height, pixels);
+}
+
+/** 180x180 solid-brand apple-touch-icon PNG (no background transparency). */
+export function buildPagesAppleTouchIconPng(): Uint8Array {
+  const size = 180;
+  const pixels = new Uint8Array(size * size * 3);
+  drawRect(pixels, size, size, 0, 0, size, size, hexToRgb("#c41e1e"));
+  drawText(pixels, size, "Q", 66, 66, 8, [0xff, 0xff, 0xff]);
+  return encodePngRgb(size, size, pixels);
+}
+
+/** Deterministic 16x16 ICO wrapping a 32bpp BMP entry (no image library). */
+export function buildPagesFaviconIco(): Uint8Array {
+  const size = 16;
+  const cc = hexToRgb("#c41e1e");
+  const white: [number, number, number] = [0xff, 0xff, 0xff];
+  const xor = new Uint8Array(size * size * 4);
+  drawRect(xor, size, size, 0, 0, size, size, cc);
+  // 4x4 white mark in the middle of the brand square.
+  drawRect(xor, size, size, 6, 6, 4, 4, white);
+  const and = new Uint8Array(size * 4); // 1bpp AND mask, all opaque
+  const header = new Uint8Array(40);
+  const headerView = new DataView(header.buffer);
+  headerView.setUint32(0, 40);
+  headerView.setInt32(4, size);
+  headerView.setInt32(8, size * 2); // double-height (XOR+AND)
+  headerView.setUint16(12, 1);
+  headerView.setUint16(14, 32);
+  const imageBytes = header.length + xor.length + and.length;
+  const entry = new Uint8Array(16 + imageBytes);
+  const entryView = new DataView(entry.buffer);
+  entryView.setUint8(0, size);
+  entryView.setUint8(1, size);
+  entryView.setUint16(2, 1);
+  entryView.setUint16(4, 32);
+  entryView.setUint32(8, imageBytes);
+  entryView.setUint32(12, 22); // offset of the BMP entry inside the ICO file
+  entry.set(header, 16);
+  entry.set(xor, 16 + header.length);
+  entry.set(and, 16 + header.length + xor.length);
+  const out = new Uint8Array(6 + entry.length);
+  const outView = new DataView(out.buffer);
+  outView.setUint16(0, 0);
+  outView.setUint16(2, 1);
+  outView.setUint16(4, 1);
+  out.set(entry, 6);
+  return out;
+}
+
+/** Minimal installable web manifest with the brand color. */
+export function buildPagesWebManifest(): string {
+  return `${JSON.stringify({
+    name: "The Quadruplicate",
+    short_name: "Quadruplicate",
+    description: "Provenance-preserving civic intelligence snapshot for Crescent City, CA.",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#faf6ef",
+    theme_color: "#c41e1e",
+    icons: [
+      { src: `/${PAGES_FAVICON_SVG}`, type: "image/svg+xml", sizes: "any" },
+      { src: `/${PAGES_APPLE_TOUCH_ICON_PNG}`, type: "image/png", sizes: "180x180" },
+    ],
+  }, null, 2)}\n`;
 }
 
 function xmlEscape(value: string): string {
@@ -309,6 +778,39 @@ export function buildPagesDatasetJsonLd(generatedAt: string): string {
     dateModified: generatedAt,
   }));
   return `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "DataCatalog", name: `${NEWSPAPER_NAME} public data exports`, url: `${PAGES_SITE_URL}/`, dataset: datasets })}</script>`;
+}
+
+/**
+ * Build Event JSON-LD for events.html from the exact events artifact being
+ * published. Events without a parseable date or title are skipped rather than
+ * invented; source links are preserved as `sameAs` for provenance.
+ */
+export function buildPagesEventsJsonLd(events: EventsArtifact["events"], generatedAt: string): string {
+  const items = events
+    .filter(event => typeof event.title === "string" && event.title.trim() && typeof event.dateStart === "string" && event.dateStart)
+    .slice(0, 100)
+    .map(event => {
+      const record: Record<string, unknown> = {
+        "@type": "Event",
+        name: event.title.trim(),
+        startDate: event.dateStart,
+        url: `${PAGES_SITE_URL}/events.html`,
+      };
+      if (typeof event.location === "string" && event.location.trim()) {
+        record.location = { "@type": "Place", name: event.location.trim() };
+      }
+      if (typeof event.organizer === "string" && event.organizer.trim()) {
+        record.organizer = { "@type": "Organization", name: event.organizer.trim() };
+      }
+      const sourceLinks = Array.isArray(event.sourceLinks) ? event.sourceLinks.filter((link): link is string => typeof link === "string" && /^https?:\/\//i.test(link)) : [];
+      if (sourceLinks.length > 0) {
+        record.sameAs = sourceLinks;
+      }
+      record.dateModified = generatedAt;
+      return record;
+    });
+  const block = { "@context": "https://schema.org", "@type": "ItemList", itemListElement: items.map((item, index) => ({ "@type": "ListItem", position: index + 1, item })) };
+  return `<script type="application/ld+json">${JSON.stringify(block)}</script>`;
 }
 
 /** Replace an export-time JSON-LD marker; the marker must appear exactly once. */
@@ -823,10 +1325,10 @@ export async function buildPagesSnapshot(
     municipalCode: {
       available: codeAvailable,
       source: MUNICIPAL_CODE_URL,
-      manifest,
-      verification,
-      coverage,
-      readability,
+      counts: {
+        articlePageCount: manifest && typeof manifest.articlePageCount === "number" ? manifest.articlePageCount : null,
+        sectionCount: manifest && typeof manifest.sectionCount === "number" ? manifest.sectionCount : null,
+      },
     },
     geoIntel: geoIntelSummary,
     events,
@@ -856,6 +1358,11 @@ export async function buildPagesSnapshot(
       sourceDiscovery: "data/source-discovery.json",
       geoIntel: PAGES_GEO_INTEL_ARTIFACT,
       events: PAGES_EVENTS_ARTIFACT,
+      news: PAGES_NEWS_ARTIFACT,
+      meetings: PAGES_MEETINGS_ARTIFACT,
+      alerts: PAGES_ALERTS_ARTIFACT,
+      analytics: analytics?.schemaVersion === "1.0.0" ? PAGES_ANALYTICS_ARTIFACT : null,
+      codeSearchIndex: null,
     },
     publicationPolicy: {
       triplicate: "reference-citation-only",
@@ -892,14 +1399,32 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   try {
     const editionDate = generatedAt.slice(0, 10);
     const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
-    const indexHtmlFinal = embedPagesMethodsCounts(embedPagesGeoView(indexTemplate, geoIntel.view), buildPagesMethodsCounts(snapshot))
-      .replace(PAGES_DATE_PUBLISHED_PLACEHOLDER, editionDate)
-      .replace(PAGES_DATE_MODIFIED_PLACEHOLDER, editionDate);
+    const faviconHead = buildPagesFaviconHeadHtml();
+    // index.html keeps its hand-authored canonical/OG/Twitter head block; the
+    // generated head-meta path covers the six standalone pages from the manifest.
+    const indexChromed = embedPagesFooter(
+      embedPagesBreadcrumb(
+        embedPagesNav(indexTemplate, null),
+        null,
+      ),
+    );
+    const indexHtmlFinal = embedPagesMethodsCounts(embedPagesGeoView(indexChromed, geoIntel.view), buildPagesMethodsCounts(snapshot))
+      .split(PAGES_DATE_PUBLISHED_PLACEHOLDER).join(editionDate)
+      .split(PAGES_DATE_MODIFIED_PLACEHOLDER).join(editionDate);
     if (indexHtmlFinal.includes(PAGES_DATE_PUBLISHED_PLACEHOLDER) || indexHtmlFinal.includes(PAGES_DATE_MODIFIED_PLACEHOLDER)) {
       throw new Error("Pages index JSON-LD date placeholders were not replaced");
     }
     await writeFile(join(temporary, "index.html"), indexHtmlFinal, "utf8");
-    await copyIfPresent(join(STATIC_DIR, "404.html"), join(temporary, "404.html"));
+    const page404Template = await readFile(join(STATIC_DIR, "404.html"), "utf8");
+    const page404Chromed = embedPagesFooter(
+      embedPagesBreadcrumb(
+        embedPagesNav(page404Template, null, { rootAbsolute: true }),
+        null,
+        { rootAbsolute: true, label: "Page not found" },
+      ),
+      "errata",
+    );
+    await writeFile(join(temporary, "404.html"), page404Chromed.replace("</head>", `${faviconHead}\n</head>`), "utf8");
     for (const page of PAGES_STATIC_PAGES) {
       if (!(await copyIfPresent(join(STATIC_DIR, page.file), join(temporary, page.file)))) {
         throw new Error(`Pages static page is missing from ${STATIC_DIR}: ${page.file}`);
@@ -908,8 +1433,17 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       const pageHtml = await readFile(pagePath, "utf8");
       // Per-page SEO: syndication link, WebPage/CollectionPage, BreadcrumbList,
       // and Dataset JSON-LD injected at export time from the page manifest.
-      const hydrated = pageHtml
-        .replace("</head>", `${PAGES_FEED_LINK_HTML}\n${buildPagesWebPageJsonLd(page, generatedAt)}\n${buildPagesBreadcrumbJsonLd(page)}\n${buildPagesDatasetJsonLd(generatedAt)}\n</head>`)
+      const chromed = embedPagesHeadMeta(
+        embedPagesFooter(
+          embedPagesBreadcrumb(
+            embedPagesNav(pageHtml, page.file),
+            page.file,
+          ),
+        ),
+        page.file,
+      );
+      const hydrated = chromed
+        .replace("</head>", `${faviconHead}\n${PAGES_FEED_LINK_HTML}\n${buildPagesWebPageJsonLd(page, generatedAt)}\n${buildPagesBreadcrumbJsonLd(page)}\n${buildPagesDatasetJsonLd(generatedAt)}\n${page.file === "events.html" ? buildPagesEventsJsonLd(snapshot.events?.events ?? [], generatedAt) : ""}\n</head>`)
         .replace(PAGES_JSONLD_WEBPAGE_PLACEHOLDER, "")
         .replace(PAGES_JSONLD_BREADCRUMB_PLACEHOLDER, "")
         .replace(PAGES_JSONLD_DATASET_PLACEHOLDER, "");
@@ -919,8 +1453,26 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     }
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
     files.push("index.html", "404.html", ".nojekyll");
+    // --- SEO artifacts (§3.1, §3.2): OG card, favicons, manifest ---
+    await writeFile(join(temporary, PAGES_OG_IMAGE_PNG), buildPagesOgImagePng(snapshot));
+    await writeFile(join(temporary, PAGES_APPLE_TOUCH_ICON_PNG), buildPagesAppleTouchIconPng());
+    await writeFile(join(temporary, PAGES_FAVICON_ICO), buildPagesFaviconIco());
+    await writeFile(join(temporary, PAGES_FAVICON_SVG), buildPagesFaviconSvg(), "utf8");
+    await writeFile(join(temporary, PAGES_WEB_MANIFEST), buildPagesWebManifest(), "utf8");
+    files.push(PAGES_OG_IMAGE_PNG, PAGES_APPLE_TOUCH_ICON_PNG, PAGES_FAVICON_ICO, PAGES_FAVICON_SVG, PAGES_WEB_MANIFEST);
+
+    // --- Honest sitemap lastmod (§3.7): derive from source mtime, never the build date ---
+    const lastmodByPath: Record<string, string> = {};
+    const sourceFiles: Array<[string, string]> = [["", "index.html"], ...PAGES_STATIC_PAGES.map(page => [page.file, page.file] as [string, string])];
+    for (const [path, filename] of sourceFiles) {
+      try {
+        const stat = await Bun.file(join(STATIC_DIR, filename)).stat();
+        const mtime = stat?.mtime;
+        if (mtime) lastmodByPath[path] = mtime.toISOString().slice(0, 10);
+      } catch { /* omit lastmod rather than fabricate it from the build date */ }
+    }
     await writeFile(join(temporary, PAGES_ROBOTS_TXT), buildPagesRobotsTxt(), "utf8");
-    await writeFile(join(temporary, PAGES_SITEMAP_XML), buildPagesSitemapXml(), "utf8");
+    await writeFile(join(temporary, PAGES_SITEMAP_XML), buildPagesSitemapXml(lastmodByPath), "utf8");
     await writeFile(join(temporary, PAGES_FEED_XML), buildPagesFeedXml(snapshot), "utf8");
     files[files.length] = PAGES_ROBOTS_TXT;
     files[files.length] = PAGES_SITEMAP_XML;
@@ -933,7 +1485,27 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, PAGES_GEO_INTEL_ARTIFACT), geoIntel);
     await writeJson(join(temporary, PAGES_EVENTS_ARTIFACT), snapshot.events);
     await writeFile(join(temporary, PAGES_EVENTS_ICS_ARTIFACT), buildEventsIcs(snapshot.events?.events ?? []), "utf8");
-    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT);
+    // --- Per-page artifacts (§1.2): subpages fetch only the slice they render ---
+    await writeJson(join(temporary, PAGES_NEWS_ARTIFACT), snapshot.news);
+    await writeJson(join(temporary, PAGES_MEETINGS_ARTIFACT), snapshot.meetings);
+    await writeJson(join(temporary, PAGES_ALERTS_ARTIFACT), snapshot.alerts);
+    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT, PAGES_NEWS_ARTIFACT, PAGES_MEETINGS_ARTIFACT, PAGES_ALERTS_ARTIFACT);
+    if (snapshot.analytics) {
+      await writeJson(join(temporary, PAGES_ANALYTICS_ARTIFACT), snapshot.analytics);
+      files.push(PAGES_ANALYTICS_ARTIFACT);
+    }
+    // --- Sharded municipal-code search index (§1.3), content-hashed for normal caching (§1.6) ---
+    const codeJsonBytes = await readFile(join(temporary, "data/code.json")).catch(() => null);
+    if (codeJsonBytes !== null) {
+      const searchIndex = buildPagesCodeSearchIndex(JSON.parse(new TextDecoder().decode(codeJsonBytes)));
+      const searchIndexSource = `${JSON.stringify(searchIndex)}\n`;
+      const searchIndexPath = pagesContentHashName(PAGES_SEARCH_INDEX_ARTIFACT_PREFIX + "json", searchIndexSource);
+      await writeFile(join(temporary, searchIndexPath), searchIndexSource, "utf8");
+      snapshot.files.codeSearchIndex = searchIndexPath;
+      // Persist the envelope again so files.codeSearchIndex matches the emitted artifact.
+      await writeJson(join(temporary, "data/snapshot.json"), snapshot);
+      files.push(searchIndexPath);
+    }
 
     async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
       return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);

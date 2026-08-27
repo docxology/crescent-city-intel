@@ -25,16 +25,36 @@
     "url": "https://quadruplicate.org/",
     "description": "A provenance-preserving newspaper-style public snapshot of Crescent City, California city government: council meetings, municipal code, safety monitors, and source-grounded reporting.",
     "inLanguage": "en",
+    "datePublished": "__PAGES_DATE_PUBLISHED__",
+    "dateModified": "__PAGES_DATE_MODIFIED__",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://quadruplicate.org/index.html#code-search"
+      },
+      "query-input": "required name=search_term_string"
+    },
     "publisher": {
-      "@type": "GovernmentOrganization",
+      "@type": "NewsMediaOrganization",
       "name": "The Quadruplicate",
       "url": "https://quadruplicate.org/",
       "email": "CrescentCity@tuta.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://quadruplicate.org/og-image.png"
+      },
+      "sameAs": [
+        "https://github.com/docxology/crescent-city-intel"
+      ],
       "areaServed": {
         "@type": "City",
         "name": "Crescent City",
-        "addressRegion": "CA",
-        "addressCountry": "US"
+        "address": {
+          "@type": "PostalAddress",
+          "addressRegion": "CA",
+          "addressCountry": "US"
+        }
       }
     }
   }

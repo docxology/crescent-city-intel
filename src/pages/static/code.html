@@ -149,7 +149,7 @@
         return;
       }
       const counts = snapshot.municipalCode && snapshot.municipalCode.counts;
-      meta.innerHTML = `${counts?.articlePageCount ?? "?"} articles and ${counts?.sectionCount ?? "?"} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(snapshot.files.code)}" rel="noopener noreferrer">download code.json</a>.`;
+      meta.innerHTML = `${esc(counts?.articlePageCount ?? "?")} articles and ${esc(counts?.sectionCount ?? "?")} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(snapshot.files.code)}" rel="noopener noreferrer">download code.json</a>.`;
       results.innerHTML = empty("Enter a search term to search the exported municipal code.");
       const codeSearchPath = snapshot.files.codeSearchIndex;
       let searchIndex = null;

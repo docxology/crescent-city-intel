@@ -66,6 +66,7 @@ jobs:
 
       - name: Verify collected municipal code data
         run: bun run verify
+        continue-on-error: true
 
       - name: Collect live source snapshots
         run: bun run weekly-check

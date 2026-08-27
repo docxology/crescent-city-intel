@@ -559,7 +559,7 @@
       const filtered = filteredHealth(sources);
       $("health").innerHTML = filtered.length ? filtered.map(source => `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}${source.fetchedAt ? ` · fetched ${esc(date(source.fetchedAt))}` : ""}${source.ageMs != null ? ` · age ${esc(Math.round(source.ageMs / 3600000))}h` : ""}</div>${source.provenance ? `<div class="meta">${esc(source.provenance)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}${source.error ? `<div class="error">${esc(source.error)}</div>` : ""}</article>`).join("") : empty(state.healthFilter === "all" ? "No source-health artifact was available for this snapshot." : `No sources are ${state.healthFilter}.`);
     }
-    function renderList(id, items, kind, fields, limit = SEARCH_CAP) { const needle = state.contentFilter.trim().toLowerCase(); const filtered = needle ? items.filter(item => matchesFields(item, fields, needle)) : items; const shown = filtered.slice(0, limit); $(id).innerHTML = (filtered.length ? shown.map(item => itemCard(item, kind)).join("") + (filtered.length > shown.length ? `<div class="meta">Showing ${shown.length} of ${filtered.length} matching ${kind.toLowerCase()} items — refine the filter to see more.</div>` : "") : empty(needle ? `No ${kind.toLowerCase()} items matched the filter.` : `No ${kind.toLowerCase()} items were available in this snapshot.`)) + (needle ? `<div class="meta">Showing ${shown.length} of ${filtered.length} matching ${kind.toLowerCase()} items.</div>` : ""); }
+    function renderList(id, items, kind, fields, limit = SEARCH_CAP) { const needle = state.contentFilter.trim().toLowerCase(); const filtered = needle ? items.filter(item => matchesFields(item, fields, needle)) : items; const shown = filtered.slice(0, limit); $(id).innerHTML = (filtered.length ? shown.map(item => itemCard(item, kind)).join("") + (filtered.length > shown.length ? `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} matching ${esc(kind.toLowerCase())} items — refine the filter to see more.</div>` : "") : empty(needle ? `No ${kind.toLowerCase()} items matched the filter.` : `No ${kind.toLowerCase()} items were available in this snapshot.`)) + (needle ? `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} matching ${esc(kind.toLowerCase())} items.</div>` : ""); }
     function renderMetadata(snapshot) {
       const summary = snapshot.healthSummary || {};
       const curation = snapshot.report && snapshot.report.curation;
@@ -759,7 +759,7 @@
       const articles = counts && counts.articlePageCount;
       const sections = counts && counts.sectionCount;
       $("code-meta").innerHTML = snapshot.files?.code
-        ? `${articles ?? "?"} articles and ${sections ?? "?"} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(snapshot.files.code)}" rel="noopener noreferrer">download code.json</a>.`
+        ? `${esc(articles ?? "?")} articles and ${esc(sections ?? "?")} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(snapshot.files.code)}" rel="noopener noreferrer">download code.json</a>.`
         : "The municipal code export is not available in this snapshot.";
     }
     function renderCodeMatches(matches, needle) {
@@ -769,7 +769,7 @@
         : (shown.length
           ? shown.map(section => `<article class="item"><h3>${esc(section.n || section.number || "")} ${esc(section.title || "")}</h3><div class="meta">${esc(section.a || section.articleTitle || "")}</div><p>${esc(String(section.x || section.text || "").slice(0,420))}${String(section.x || section.text || "").length > 420 ? "…" : ""}</p>${(section.u || section.articleUrl) ? `<a href="${esc(href(section.u || section.articleUrl))}" rel="noopener noreferrer">source article</a>` : ""}</article>`).join("")
           : empty("No code sections matched this query."));
-      if (needle) $("code-results").innerHTML += `<div class="meta">Showing ${shown.length} of ${matches.length} matching code sections.</div>`;
+      if (needle) $("code-results").innerHTML += `<div class="meta">Showing ${esc(shown.length)} of ${esc(matches.length)} matching code sections.</div>`;
     }
     function renderCode(code) {
       state.code = code;

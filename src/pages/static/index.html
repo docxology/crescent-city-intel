@@ -39,6 +39,45 @@
     }
   }
   </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "url": "https://quadruplicate.org/",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is The Quadruplicate?",
+        "acceptedAnswer": { "@type": "Answer", "text": "The Quadruplicate is a provenance-preserving public snapshot of Crescent City, California civic information: local news items, government meetings, community events, safety alerts, municipal code exports, and source health records." }
+      },
+      {
+        "@type": "Question",
+        "name": "Where do the facts come from?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Every fact is taken from a cited public source such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does AI write the content?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Local language models only summarize and tag material that was already collected from sources. They do not invent facts; anything unverifiable from a cited source is dropped rather than published." }
+      },
+      {
+        "@type": "Question",
+        "name": "How current is this snapshot?",
+        "acceptedAnswer": { "@type": "Answer", "text": "The snapshot is regenerated on schedule and carries its generation timestamp at the top of the page. Source health states show when each feed was last checked successfully." }
+      },
+      {
+        "@type": "Question",
+        "name": "How can I subscribe to community events?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Use the Subscribe button in the Community Calendar section to add the events calendar to any calendar app that supports the iCalendar format. A downloadable events JSON file is also provided." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is the municipal code official?",
+        "acceptedAnswer": { "@type": "Answer", "text": "The code export is derived from the published eCode360 edition of the Crescent City Municipal Code and links back to the source. For legal decisions always consult the official published code directly." }
+      }
+    ]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -149,6 +188,21 @@
     .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
     @media (max-width:700px) { .geo-showcase { grid-template-columns:1fr; } .geo-showcase > :first-child { border-right:0; padding-right:0; } }
     @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } }
+    /* --- Events .ics subscribe badge (palette vars only) --- */
+    .ics-badge { display:inline-block; padding:5px 12px; border:2px solid var(--cc); background:var(--rtint); color:var(--rdark); font:700 .78rem/1 Inter,sans-serif; letter-spacing:.05em; text-transform:uppercase; text-decoration:none; border-radius:2px; transition:background .15s,color .15s; }
+    .ics-badge:hover { background:var(--cc); color:#fff; text-decoration:none; }
+    /* --- Methods & Provenance --- */
+    #methods-counts-list { columns:2; gap:18px; margin:8px 0; padding-left:20px; font:.86rem/1.7 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
+    #methods-counts-list strong { color:var(--ink); }
+    @media (max-width:600px) { #methods-counts-list { columns:1; } }
+    .methods-pipeline { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; margin:10px 0; }
+    .methods-stage { border:1px solid var(--rule-thin); border-top:3px solid var(--cc); background:var(--card-bg); padding:10px 12px; font-size:.82rem; }
+    .methods-stage strong { font-family:"Source Serif 4",Georgia,serif; font-size:.92rem; display:block; margin-bottom:3px; }
+    /* --- FAQ --- */
+    .faq-list { max-width:860px; }
+    .faq-item { border:1px solid var(--rule-thin); border-left:3px solid var(--cc); background:var(--card-bg); margin-bottom:8px; padding:12px 16px; }
+    .faq-item h3 { font:600 1rem/1.3 "Source Serif 4",Georgia,serif; margin:0 0 4px; }
+    .faq-item p { font:.9rem/1.55 "Source Serif 4",Georgia,serif; color:var(--ink-dim); margin:0; }
     /* --- Broadsheet paper texture (CSS-only grain, no image fetches) --- */
     body { position:relative; }
     body::before { content:""; position:fixed; inset:0; z-index:2147483647; pointer-events:none; opacity:.55; background:repeating-linear-gradient(0deg, rgba(0,0,0,.011) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0,0,0,.007) 0 1px, transparent 1px 4px); }
@@ -185,6 +239,7 @@
   </style>
 </head>
 <body>
+  <a class="sr-only" href="#main">Skip to content</a>
   <header class="red-banner">
     <h1 class="masthead-h1">The Quadruplicate</h1>
     <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
@@ -198,11 +253,11 @@
   <div class="masthead-nav-wrap">
     <div class="inner">
       <nav class="masthead-nav" aria-label="Sections">
-        <a href="#sources">Monitors</a><a href="#geo">Geo-Intel</a><a href="#registry">Sources</a><a href="#alerts">Alerts</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#events">Events</a><a href="#welcome">About</a><a href="/gui/" class="gui-link">GUI</a>
+        <a href="#sources">Monitors</a><a href="#geo">Geo-Intel</a><a href="#registry">Sources</a><a href="#alerts">Alerts</a><a href="#news">News</a><a href="#meetings">Meetings</a><a href="#events">Events</a><a href="#methods">Methods</a><a href="#faq">FAQ</a><a href="#welcome">About</a><a href="/gui/" class="gui-link">GUI</a>
       </nav>
     </div>
   </div>
-  <div class="page">
+  <main class="page" id="main">
     <div id="banner" class="banner">Loading the latest public snapshot&hellip;</div>
     <section id="welcome" class="section">
       <div class="welcome-linktree">
@@ -256,6 +311,30 @@
         </div>
       </div>
     </section>
+    <section id="methods" class="section" aria-labelledby="methods-heading">
+      <div class="section-head"><span class="newspaper-label">Methods &amp; Provenance</span><h2 id="methods-heading">How this edition is made</h2><span class="meta">Pipeline &amp; integrity</span></div>
+      <div class="methods-pipeline">
+        <div class="methods-stage"><strong>1 &middot; Collect</strong>Scheduled scrapers and agency feeds gather public records from crescentcity.org, Del Norte County, the Harbor, alert APIs, and meeting video channels. Every fetch is recorded with its source URL, check time, and operational state.</div>
+        <div class="methods-stage"><strong>2 &middot; Verify</strong>Source health checks classify each feed as healthy, empty, unavailable, or stale. Unavailable sources are never converted into calm results; an empty feed means the check succeeded but found nothing.</div>
+        <div class="methods-stage"><strong>3 &middot; Summarize &amp; tag</strong>Local language models write short summaries and tags over collected material only. They are labeled with their provider and model, and you are always told to verify against the linked source.</div>
+        <div class="methods-stage"><strong>4 &middot; Export</strong>The atomic exporter builds this static artifact from one immutable snapshot envelope. Counts below are injected at export time from that exact manifest, so this page cannot drift from data/snapshot.json.</div>
+      </div>
+      <p class="subtle">What the models do not do: they do not invent events, quotes, numbers, or dates. Facts always come from sources; anything unverifiable is dropped, never guessed. Chat history, request logs, vector indexes, credentials, and Triplicate article content are excluded from every public export.</p>
+      <!--PAGES_METHODS_COUNTS-->
+      <p class="paper-rule-note">Schema versioning: the snapshot envelope carries schemaVersion 1.0.0; geo artifacts carry crescent-city-geo-intel/v1 plus view crescent-city-geo-view/v1; events carry crescent-city-events/v1. Additive changes keep older consumers working.</p>
+      <div class="action-bar"><a class="button" href="data/snapshot.json" download>Download snapshot JSON</a><a class="button secondary" href="https://github.com/docxology/crescent-city-intel" rel="noopener noreferrer" target="_blank">Read the source code</a></div>
+    </section>
+    <section id="faq" class="section" aria-labelledby="faq-heading">
+      <div class="section-head"><span class="newspaper-label">Reader FAQ</span><h2 id="faq-heading">Frequently asked questions</h2><span class="meta">Civic info &amp; project</span></div>
+      <div class="faq-list">
+      <div class="faq-item"><h3>What is The Quadruplicate?</h3><p>The Quadruplicate is a provenance-preserving public snapshot of Crescent City, California civic information: local news items, government meetings, community events, safety alerts, municipal code exports, and source health records.</p></div>
+      <div class="faq-item"><h3>Where do the facts come from?</h3><p>Every fact is taken from a cited public source such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record.</p></div>
+      <div class="faq-item"><h3>Does AI write the content?</h3><p>Local language models only summarize and tag material that was already collected from sources. They do not invent facts; anything unverifiable from a cited source is dropped rather than published.</p></div>
+      <div class="faq-item"><h3>How current is this snapshot?</h3><p>The snapshot is regenerated on schedule and carries its generation timestamp at the top of the page. Source health states show when each feed was last checked successfully.</p></div>
+      <div class="faq-item"><h3>How can I subscribe to community events?</h3><p>Use the Subscribe button in the Community Calendar section to add the events calendar to any calendar app that supports the iCalendar format. A downloadable events JSON file is also provided.</p></div>
+      <div class="faq-item"><h3>Is the municipal code official?</h3><p>The code export is derived from the published eCode360 edition of the Crescent City Municipal Code and links back to the source. For legal decisions always consult the official published code directly.</p></div>
+    </div>
+    </section>
     <section id="geo" class="section">
       <div class="section-head"><h2>Civic &amp; hazard map</h2><span class="meta">Del Norte County</span></div>
       <p class="subtle">The same transferable <code>crescent-city-geo-intel/v1</code> contract served by the local GUI projects without a tiles provider or backend.</p>
@@ -274,7 +353,7 @@
       <div class="section-head"><h2>Dateline &mdash; source health</h2><span class="meta"><a href="data/source-health.json">Download health report</a></span></div>
       <p class="subtle">Each source retains its operational state, check time, item count, error, and provenance.</p>
       <div class="controls">
-        <select id="health-filter"><option value="all">All states</option><option value="ok">Healthy</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option></select>
+        <select id="health-filter" aria-label="Filter source health by operational state"><option value="all">All states</option><option value="ok">Healthy</option><option value="empty">Empty</option><option value="unavailable">Unavailable</option><option value="stale">Stale</option></select>
         <button id="refresh" class="button" type="button">Refresh edition</button>
         <button id="download-health" class="button secondary" type="button">Download filtered</button>
         <span id="refresh-state" class="meta"></span>
@@ -285,9 +364,9 @@
       <div class="section-head"><span class="newspaper-label">Source Registry</span><h2>Source desk</h2><span class="meta"><a href="data/source-registry.json">Registry</a> &middot; <a href="data/source-discovery.json">Discovery</a></span></div>
       <p class="subtle">The registry separates monitored sources from discovery-only coverage and reference-only citations.</p>
       <div class="controls">
-        <input id="registry-filter" type="search" placeholder="Filter name, kind, region, or URL&hellip;">
-        <select id="automation-filter"><option value="all">All automation</option><option value="monitored">Monitored</option><option value="discovery-only">Discovery</option><option value="reference-only">Reference</option></select>
-        <select id="registry-sort"><option value="name">Sort: name</option><option value="operationalStatus">Sort: state</option><option value="automation">Sort: automation</option><option value="kind">Sort: kind</option><option value="region">Sort: region</option></select>
+        <input id="registry-filter" type="search" aria-label="Filter the source registry by name, kind, region, or URL" placeholder="Filter name, kind, region, or URL&hellip;">
+        <select id="automation-filter" aria-label="Filter source registry by automation state"><option value="all">All automation</option><option value="monitored">Monitored</option><option value="discovery-only">Discovery</option><option value="reference-only">Reference</option></select>
+        <select id="registry-sort" aria-label="Sort order for the source registry table"><option value="name">Sort: name</option><option value="operationalStatus">Sort: state</option><option value="automation">Sort: automation</option><option value="kind">Sort: kind</option><option value="region">Sort: region</option></select>
         <button id="registry-sort-direction" class="button secondary" type="button">A &rarr; Z</button>
         <button id="download-registry-json" class="button secondary" type="button">Download JSON</button>
         <button id="download-registry-csv" class="button secondary" type="button">Download CSV</button>
@@ -300,7 +379,7 @@
     <section id="news" class="section">
       <div class="section-head"><span class="newspaper-label">Local Intelligence</span><h2>Metro</h2><span class="meta">Local news</span></div>
       <div class="controls">
-        <input id="content-filter" type="search" placeholder="Filter items&hellip;">
+        <input id="content-filter" type="search" placeholder="Filter items&hellip;" aria-label="Filter news, meetings, and briefs by text">
         <button id="download-content" class="button secondary" type="button">Download filtered</button>
       </div>
       <div id="news-items" class="items"></div>
@@ -310,9 +389,9 @@
       <div id="meeting-items" class="items"></div>
     </section>
     <section id="events" class="section">
-      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a href="data/events.json">Download events JSON</a> · <a href="data/events.ics" type="text/calendar" download="crescent-city-events.ics">Subscribe / download .ics</a></span></div>
+      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe to the Crescent City community events calendar in iCalendar format">📅 Subscribe · .ics</a>&nbsp;<a href="data/events.json">Download events JSON</a></span></div>
       <div class="controls">
-        <select id="event-filter">
+        <select id="event-filter" aria-label="Filter community events by kind or date range">
           <option value="all">All events</option>
           <option value="upcoming">Upcoming</option>
           <option value="past">Past</option>
@@ -338,7 +417,7 @@
     <section id="code" class="section">
       <div class="section-head"><span class="newspaper-label">Business</span><h2>Business</h2><span class="meta">Municipal code &middot; ecode360.com/CR4919</span></div>
       <p id="code-meta" class="subtle"></p>
-      <input id="code-search" type="search" placeholder="Search section number, title, or text&hellip;">
+      <input id="code-search" type="search" aria-label="Search the exported municipal code" placeholder="Search section number, title, or text&hellip;">
       <div id="code-results" class="items" style="margin-top:10px"></div>
     </section>
     <section id="report" class="section">
@@ -351,6 +430,7 @@
       <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
     </div>
   </div>
+  </main>
   <script>
     const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all" };
     const $ = id => document.getElementById(id);

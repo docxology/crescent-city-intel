@@ -33,6 +33,9 @@ const PAGES_SITE_URL = "https://quadruplicate.org";
 export const PAGES_ROBOTS_TXT = "robots.txt";
 export const PAGES_SITEMAP_XML = "sitemap.xml";
 export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
+
+/** Export-time injection point for manifest-derived counts inside the Methods & Provenance section. */
+export const PAGES_METHODS_COUNTS_PLACEHOLDER = "<!--PAGES_METHODS_COUNTS-->";
 export const MAX_PAGES_GEO_INTEL_BYTES = 256 * 1024;
 const MAX_PAGES_GEO_DOMAINS = 100;
 const MAX_PAGES_GEO_FEATURES = 102;
@@ -154,7 +157,7 @@ export function buildPagesRobotsTxt(): string {
 
 /** Sitemap covering the canonical root plus the major anchor sections of Pages index. */
 export function buildPagesSitemapXml(): string {
-  const sections = ["", "#analytics", "#code", "#events", "#geo", "#news", "#meetings", "#curated"];
+  const sections = ["", "#analytics", "#code", "#events", "#faq", "#geo", "#methods", "#news", "#meetings", "#curated"];
   const today = new Date().toISOString().slice(0, 10);
   const entries = sections
     .map(section => `  <url><loc>${PAGES_SITE_URL}/${section}</loc><lastmod>${today}</lastmod></url>`)
@@ -554,6 +557,36 @@ async function collectCurrentAlerts(outputDir: string): Promise<{ composite: Jso
   return { composite, current };
 }
 
+/**
+ * Render the manifest-derived counts shown in the Methods & Provenance section.
+ * Counts come from the exact snapshot being exported, so the static page never
+ * carries hand-authored numbers that could drift from data/snapshot.json.
+ */
+export function buildPagesMethodsCounts(snapshot: PagesSnapshot): string {
+  const items: Array<[string, unknown]> = [
+    ["Snapshot schema version", snapshot.schemaVersion],
+    ["Generated", snapshot.generatedAt],
+    ["Export status", snapshot.status],
+    ["Source-health records", snapshot.sourceHealth.length],
+    ["Discovered sources", snapshot.sourceRegistry.length],
+    ["News items", snapshot.news.length],
+    ["Meeting items", snapshot.meetings.length],
+    ["YouTube records", snapshot.youtube.length],
+    ["Curated briefs", snapshot.curated.length],
+    ["Calendar events", snapshot.events.count ?? snapshot.events.events.length],
+  ];
+  return `<ul id="methods-counts-list">${items.map(([label, value]) => `<li><strong>${label.replace(/</g, "&lt;")}:</strong> ${String(value ?? "not recorded").replace(/</g, "&lt;")}</li>`).join("")}</ul>`;
+}
+
+/** Replace the export-time counts marker with manifest-derived values. */
+export function embedPagesMethodsCounts(indexHtml: string, counts: string): string {
+  const markerCount = indexHtml.split(PAGES_METHODS_COUNTS_PLACEHOLDER).length - 1;
+  if (markerCount !== 1) {
+    throw new Error(`Pages index must contain exactly one methods-counts placeholder; found ${markerCount}`);
+  }
+  return indexHtml.replace(PAGES_METHODS_COUNTS_PLACEHOLDER, counts);
+}
+
 function snapshotStatus(codeAvailable: boolean, pipelineRun: JsonRecord | null): PagesSnapshot["status"] {
   // Missing source checks are represented in healthSummary and sourceHealth;
   // they do not invalidate an otherwise complete static snapshot.
@@ -695,7 +728,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const files: string[] = [];
   try {
     const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
-    await writeFile(join(temporary, "index.html"), embedPagesGeoView(indexTemplate, geoIntel.view), "utf8");
+    await writeFile(join(temporary, "index.html"), embedPagesMethodsCounts(embedPagesGeoView(indexTemplate, geoIntel.view), buildPagesMethodsCounts(snapshot)), "utf8");
     await copyIfPresent(join(STATIC_DIR, "404.html"), join(temporary, "404.html"));
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
     files.push("index.html", "404.html", ".nojekyll");
@@ -797,6 +830,9 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (!indexHtml.includes("renderEvents")) errors.push("Pages index does not render structured events");
   if (!indexHtml.includes("CrescentCity@tuta.com")) errors.push("Pages index is missing the contact email");
   if (!indexHtml.includes("Sea Something")) errors.push("Pages index is missing the 'Sea Something. Say Something.' tagline");
+  if (!indexHtml.includes('id="methods"')) errors.push("Pages index does not expose the Methods & Provenance section");
+  if (!indexHtml.includes('id="faq"')) errors.push("Pages index does not expose the FAQ section");
+  if (!indexHtml.includes("FAQPage")) errors.push("Pages index does not include FAQPage structured data");
   const styleMatch = indexHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
   if (styleMatch && styleMatch[1]) {
     const styleContent = styleMatch[1];

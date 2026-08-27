@@ -44,6 +44,9 @@ if (sitemapXml === null) {
   if (!/<urlset[^>]*xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9"/.test(sitemapXml)) errors.push("sitemap.xml is missing the sitemap namespace");
   if (locMatches.length === 0) errors.push("sitemap.xml has no <loc> entries");
   if (!locMatches.includes("https://quadruplicate.org/")) errors.push("sitemap.xml is missing the canonical root URL");
+  for (const anchor of ["#methods", "#faq"]) {
+    if (!locMatches.includes(`https://quadruplicate.org/${anchor}`)) errors.push(`sitemap.xml is missing the ${anchor} section URL`);
+  }
 }
 
 let snapshot: PagesSnapshot | null = null;
@@ -110,18 +113,45 @@ if (snapshot) {
   else if (JSON.stringify(snapshot.geoIntel) !== JSON.stringify(geoIntelSummary)) errors.push("snapshot geoIntel summary does not match the geo-intel artifact");
 }
 
-const jsonLdMatch = indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-if (!jsonLdMatch) {
+const jsonLdBlocks = [...indexHtml.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(match => match[1]);
+if (jsonLdBlocks.length === 0) {
   errors.push("index.html is missing the JSON-LD structured data script");
 } else {
-  try {
-    const structuredData = JSON.parse(jsonLdMatch[1]) as Record<string, unknown>;
-    if (structuredData["@type"] !== "WebSite") errors.push("JSON-LD @type is not WebSite");
-    if (structuredData.url !== "https://quadruplicate.org/") errors.push("JSON-LD url does not match the canonical site URL");
-    const publisher = typeof structuredData.publisher === "object" && structuredData.publisher !== null ? structuredData.publisher as Record<string, unknown> : null;
+  const parsed: Record<string, unknown>[] = [];
+  jsonLdBlocks.forEach((block, index) => {
+    try {
+      const value = JSON.parse(block) as unknown;
+      if (typeof value === "object" && value !== null && !Array.isArray(value)) parsed.push(value as Record<string, unknown>);
+      else errors.push(`JSON-LD block ${index + 1} is not an object`);
+    } catch {
+      errors.push(`JSON-LD block ${index + 1} does not parse as JSON`);
+    }
+  });
+  const website = parsed.find(entry => entry["@type"] === "WebSite");
+  if (!website) errors.push("JSON-LD @type WebSite is missing");
+  else {
+    if (website.url !== "https://quadruplicate.org/") errors.push("JSON-LD url does not match the canonical site URL");
+    const publisher = typeof website.publisher === "object" && website.publisher !== null ? website.publisher as Record<string, unknown> : null;
     if (publisher?.["@type"] !== "GovernmentOrganization") errors.push("JSON-LD publisher is not GovernmentOrganization");
-  } catch {
-    errors.push("JSON-LD structured data does not parse as JSON");
+  }
+  // FAQPage JSON-LD must exist and every Q&A must exactly match the visible FAQ text.
+  const faqPage = parsed.find(entry => entry["@type"] === "FAQPage");
+  if (!faqPage) {
+    errors.push("FAQPage JSON-LD is missing");
+  } else {
+    const mainEntity = Array.isArray(faqPage.mainEntity) ? faqPage.mainEntity : [];
+    if (mainEntity.length < 5 || mainEntity.length > 8) errors.push("FAQPage mainEntity should hold 5-8 questions");
+    const stripTags = (text: string) => text.replace(/<[^>]+>/g, "");
+    for (const [index, question] of mainEntity.entries()) {
+      const q = typeof (question as Record<string, unknown>)?.name === "string" ? String((question as Record<string, unknown>).name).trim() : "";
+      if (!q) { errors.push(`FAQ question ${index + 1} has no name`); continue; }
+      const answer = (question as Record<string, unknown>).acceptedAnswer as Record<string, unknown> | undefined;
+      const a = typeof answer?.text === "string" ? String(answer.text).trim() : "";
+      if (!a) { errors.push(`FAQ question "${q}" has no acceptedAnswer text`); continue; }
+      const normalizedHtml = indexHtml.replace(/\s+/g, " ");
+      if (!normalizedHtml.includes(`<h3>${stripTags(q)}</h3>`)) errors.push(`FAQ JSON-LD question not found verbatim in visible text: "${q}"`);
+      if (!normalizedHtml.includes(`<p>${stripTags(a)}</p>`)) errors.push(`FAQ JSON-LD answer not found verbatim in visible text for: "${q}"`);
+    }
   }
 }
 

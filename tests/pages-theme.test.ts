@@ -100,3 +100,29 @@ describe("Shared newspaper palette vars (GUI surfaces)", () => {
     }
   });
 });
+
+describe("Events .ics subscribe badge contract", () => {
+  test("badge exists with palette-only styling and an accessible name", async () => {
+    const html = await readFile("src/pages/static/index.html", "utf8");
+    expect(html).toContain('class="ics-badge" href="data/events.ics"');
+    expect(html).toContain("aria-label=\"Subscribe to the Crescent City community events calendar in iCalendar format\"");
+    const css = styleBlock(html);
+    expect(css).toContain(".ics-badge");
+    expect(css).toContain("var(--cc)");
+    expect(css).toContain("var(--rtint)");
+    expect(css).toContain("var(--rdark)");
+  });
+});
+
+describe("Accessibility landmarks and labels", () => {
+  test("page has a skip link, main landmark, and labelled controls", async () => {
+    const html = await readFile("src/pages/static/index.html", "utf8");
+    expect(html).toContain('class="sr-only" href="#main">Skip to content</a>');
+    expect(html).toContain('<main class="page" id="main">');
+    expect(html).toContain("</main>");
+    expect((html.match(/aria-label="/g) ?? []).length).toBeGreaterThanOrEqual(8);
+    for (const id of ["event-filter", "health-filter", "automation-filter", "registry-sort"]) {
+      expect(html).toContain(new RegExp(`id="${id}" aria-label=`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).source);
+    }
+  });
+});

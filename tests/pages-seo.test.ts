@@ -3,12 +3,15 @@ import { mkdtemp, readFile, rm } from "fs/promises";
 import { join } from "path";
 import {
   PAGES_GEO_VIEW_PLACEHOLDER,
+  PAGES_METHODS_COUNTS_PLACEHOLDER,
   PAGES_ROBOTS_TXT,
   PAGES_SITEMAP_XML,
   buildPagesGeoIntel,
+  buildPagesMethodsCounts,
   buildPagesRobotsTxt,
   buildPagesSitemapXml,
   embedPagesGeoView,
+  embedPagesMethodsCounts,
   exportPagesSnapshot,
 } from "../src/pages_snapshot.ts";
 
@@ -45,7 +48,7 @@ describe("pages SEO discoverability", () => {
     expect(sitemapXml).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
     const locs = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
     expect(locs).toContain("https://quadruplicate.org/");
-    for (const anchor of ["#analytics", "#code", "#events", "#geo", "#news", "#meetings", "#curated"]) {
+    for (const anchor of ["#analytics", "#code", "#events", "#faq", "#geo", "#methods", "#news", "#meetings", "#curated"]) {
       expect(locs).toContain(`https://quadruplicate.org/${anchor}`);
     }
   });
@@ -71,5 +74,67 @@ describe("pages SEO discoverability", () => {
     const geoIntel = buildPagesGeoIntel();
     const rendered = embedPagesGeoView(`<div>${PAGES_GEO_VIEW_PLACEHOLDER}</div>`, geoIntel.view);
     expect(rendered).toContain('data-geo-view-schema="crescent-city-geo-view/v1"');
+  });
+});
+
+describe("pages Methods & Provenance and FAQ structured data", () => {
+  test("static index carries a Methods & Provenance section with an export-time counts marker", async () => {
+    const indexHtml = await readFile(join(import.meta.dir, "../src/pages/static/index.html"), "utf8");
+    expect(indexHtml).toContain('id="methods"');
+    expect(indexHtml).toContain("Methods &amp; Provenance");
+    expect(indexHtml).toContain("What the models do not do");
+    expect(indexHtml).toContain(PAGES_METHODS_COUNTS_PLACEHOLDER);
+    expect(indexHtml).toContain('href="#methods"');
+  });
+
+  test("FAQ visible text matches the FAQPage JSON-LD exactly", async () => {
+    const indexHtml = await readFile(join(import.meta.dir, "../src/pages/static/index.html"), "utf8");
+    const blocks = [...indexHtml.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(match => match[1]);
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    const faq = blocks.map(block => JSON.parse(block) as Record<string, unknown>).find(entry => entry["@type"] === "FAQPage");
+    expect(faq).toBeDefined();
+    const questions = faq!.mainEntity as Array<Record<string, unknown>>;
+    expect(questions.length).toBeGreaterThanOrEqual(5);
+    expect(questions.length).toBeLessThanOrEqual(8);
+    for (const question of questions) {
+      const q = String(question.name);
+      const a = String((question.acceptedAnswer as Record<string, unknown>).text);
+      expect(indexHtml).toContain(`<h3>${q}</h3>`);
+      expect(indexHtml).toContain(`<p>${a}</p>`);
+    }
+  });
+
+  test("counts are injected from the snapshot manifest at export time", async () => {
+    const root = await mkdtemp(join(process.cwd(), ".pages-methods-test-"));
+    try {
+      const destination = join(root, "pages");
+      const result = await exportPagesSnapshot({ outputDir: join(root, "missing-output"), destination, generatedAt: "2026-08-26T00:00:00Z", seedDir: join(root, "no-seed") });
+      const exportedHtml = await readFile(join(destination, "index.html"), "utf8");
+      expect(exportedHtml).not.toContain(PAGES_METHODS_COUNTS_PLACEHOLDER);
+      expect(exportedHtml).toContain('id="methods-counts-list"');
+      expect(exportedHtml).toContain("Source-health records");
+      expect(result.status).toBe("unavailable"); // no code seed present in this fixture
+      expect(() => embedPagesMethodsCounts("<div></div>", "<ul></ul>")).toThrow(/exactly one methods-counts placeholder/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("buildPagesMethodsCounts escapes angle brackets in injected values", () => {
+    const snapshot = {
+      schemaVersion: "1.0.0",
+      generatedAt: "2026-08-26T00:00:00Z",
+      status: "ok",
+      sourceHealth: [],
+      sourceRegistry: [],
+      news: [],
+      meetings: [],
+      youtube: [],
+      curated: [],
+      events: { count: 3, events: [] },
+    };
+    const html = buildPagesMethodsCounts(snapshot as never);
+    expect(html).toContain("<strong>Calendar events:</strong> 3</li>");
+    expect(html.startsWith('<ul id="methods-counts-list">')).toBe(true);
   });
 });

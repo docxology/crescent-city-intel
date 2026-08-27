@@ -120,6 +120,33 @@ snapshot is discoverable and attributable without any client-side code:
   namespace covering the canonical root plus the major anchor sections
   (`#analytics`, `#code`, `#events`, `#geo`, `#news`, `#meetings`, `#curated`).
 
+## Methods & Provenance and FAQ sections
+
+The index carries two reader-facing trust surfaces, both owned by the Pages
+lane:
+
+- **Methods & Provenance** (`#methods`) — static honest copy describing the
+  scrape → verify → summarize → export pipeline, what the local LLMs do
+  (summaries/tagging over collected material only) and do not do (invent
+  facts; unverifiable items are dropped), integrity guarantees, and schema
+  versions. The numeric counts in this section are **not hand-authored**: they
+  are injected at export time from the exact snapshot manifest through
+  `buildPagesMethodsCounts()` + `embedPagesMethodsCounts()`
+  (`PAGES_METHODS_COUNTS_PLACEHOLDER`). Exactly one placeholder must exist or
+  the exporter throws.
+- **FAQ** (`#faq`) — six Q&As about Crescent City civic information and the
+  project. The visible text of every question/answer pair matches its
+  `FAQPage` JSON-LD block exactly; `scripts/validate-pages.ts` parses **all**
+  JSON-LD blocks and fails on any mismatch between structured data and visible
+  copy.
+
+An events `.ics` subscribe badge sits in the Community Calendar header,
+styled with `--cc`/`--rdark`/`--rtint` palette variables only. The page also
+carries a skip link, a `<main id="main">` landmark, and aria-labels on all nav
+and filter controls.
+
+Coverage lives in `tests/pages-seo.test.ts` and `tests/pages-theme.test.ts`.
+
 Both files are written into `.pages` by `exportPagesSnapshot()` alongside
 `index.html`. `scripts/validate-pages.ts` treats them as required assets: it
 checks that robots.txt declares allow-all plus the sitemap pointer and that

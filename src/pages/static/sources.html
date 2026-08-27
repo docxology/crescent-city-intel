@@ -9,92 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    :root { color-scheme: light; --ink:#000000; --ink-dim:#333333; --ink-faint:#666666; --paper:#ffffff; --paper2:#f2f2f2; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#f7dcdc; --sepia:#999999; --rule:#444444; --rule-light:#888888; --rule-thin:#dddddd; --panel:rgba(255,255,255,.96); --panel-hover:rgba(242,242,242,.9); }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.6 "Source Serif 4","Georgia","Times New Roman",serif; -webkit-font-smoothing:antialiased; }
-    a { color:var(--ink); text-decoration-color:var(--rule); text-underline-offset:2px; }
-    a:hover { color:var(--rdark); text-decoration-color:var(--cc); }
-    ::selection { background:var(--rtint); color:var(--ink); }
-    .red-banner { background:var(--cc); color:#fff; text-align:center; padding:22px 20px 12px; }
-    .red-banner .masthead-h1 { font:900 clamp(2.4rem,6vw,4.2rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.03em; margin:0; color:#fff; text-decoration:none; display:inline-block; }
-    .red-banner .masthead-sub { font:400 italic .85rem/1.3 "Source Serif 4",Georgia,serif; color:rgba(255,255,255,.85); margin:2px 0 0; letter-spacing:.02em; }
-    .masthead-date-row { border-bottom:3px solid var(--ink); }
-    .masthead-date-row .inner { max-width:1260px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; padding:4px 20px; }
-    .masthead-date { font:600 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); margin:0; }
-    .masthead-date .red-prefix { color:var(--cc); font-weight:700; }
-    .masthead-nav-wrap { border-bottom:3px double var(--ink); }
-    .masthead-nav-wrap .inner { max-width:1260px; margin:0 auto; padding:4px 20px; }
-    .masthead-nav { display:flex; flex-wrap:wrap; justify-content:flex-start; align-items:center; }
-    .masthead-nav a { position:relative; font:500 .74rem/1 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); text-decoration:none; padding:5px 10px; white-space:nowrap; transition:color .15s; }
-    .masthead-nav a:hover, .masthead-nav a[aria-current="page"] { color:var(--cc); }
-    .page { max-width:1260px; margin:0 auto; padding:0 20px 60px; }
-    .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 12px; padding-bottom:5px; border-top:3px solid var(--cc); flex-wrap:wrap; }
-    .section-head h2 { font:700 clamp(1.15rem,2vw,1.5rem)/1.15 "Playfair Display",Georgia,serif; margin:0; letter-spacing:-.01em; color:var(--ink); }
-    .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; white-space:nowrap; }
-    .banner { border:1px solid var(--rule); border-left:4px solid var(--cc); background:var(--panel); padding:12px 16px; font-size:.92rem; margin-bottom:10px; }
-    .banner.degraded { border-left-color:var(--rdark); background:var(--rtint); }
-    .banner.unavailable { border-left-color:var(--ink); background:var(--rule-light); }
-    .cards-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin:10px 0; }
-    .card { background:var(--card-bg); border:1px solid var(--rule-thin); border-left:3px solid var(--cc); padding:10px 12px; text-align:center; }
-    .card .value { font:700 1.4rem/1.1 "Playfair Display",Georgia,serif; color:var(--cc); }
-    .card .label { font:.72rem/1.3 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
-    .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:8px; }
-    .source { background:var(--panel); border:1px solid var(--rule-thin); padding:11px 13px 11px 18px; position:relative; }
-    .source::before { content:""; position:absolute; left:6px; top:17px; width:5px; height:5px; border-radius:50%; background:var(--ink-faint); }
-    .source.ok::before { background:var(--ink); } .source.empty::before { background:var(--sepia); }
-    .source.unavailable::before,.source.stale::before { background:var(--cc); }
-    .source h3 { font:600 .88rem/1.2 "Source Serif 4",Georgia,serif; margin:0 0 2px; }
-    .status { font-weight:700; letter-spacing:.04em; font-size:.82rem; }
-    .status.ok { color:var(--ink); } .status.empty { color:var(--ink-faint); } .status.unavailable,.status.stale { color:var(--cc); } .status.not-checked { color:var(--ink-dim); }
-    .items { display:grid; gap:8px; }
-    .item { background:var(--card-bg); border:1px solid var(--rule-thin); padding:12px 14px; border-left:3px solid var(--cc); }
-    .item h3 { font:600 .98rem/1.25 "Source Serif 4",Georgia,serif; margin:0 0 3px; }
-    .item h3 a { color:var(--ink); text-decoration:none; }
-    .item h3 a:hover { color:var(--rdark); text-decoration:underline; text-decoration-color:var(--cc); }
-    .item .meta { font:.74rem/1.3 Inter,sans-serif; color:var(--ink-faint); margin-bottom:3px; }
-    .item p { font:.88rem/1.5 "Source Serif 4",Georgia,serif; color:var(--ink-dim); margin:5px 0 0; }
-    .item .tag { display:inline-block; margin:3px 3px 0 0; padding:2px 7px; border:1px solid var(--rule); font-size:.74rem; font-family:Inter,sans-serif; color:var(--ink-dim); }
-    table { border-collapse:collapse; width:100%; background:var(--card-bg); border:1px solid var(--rule); font-size:.84rem; }
-    th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--rule-thin); vertical-align:top; }
-    th { font:.68rem/1 Inter,sans-serif; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); background:var(--paper2); }
-    tr:last-child td { border-bottom:0; }
-    .pill { display:inline-block; padding:2px 6px; border:1px solid var(--rule); font-size:.72rem; white-space:nowrap; font-family:Inter,sans-serif; color:var(--ink-dim); }
-    .controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0; }
-    input,select { border:1px solid var(--rule); background:var(--card-bg); color:var(--ink); padding:6px 10px; font:500 .8rem/1 Inter,sans-serif; }
-    input:focus,select:focus { outline:2px solid var(--ink); outline-offset:2px; }
-    .empty-state { color:var(--ink-faint); border:1px dashed var(--rule); padding:12px; font-style:italic; }
-    .error { color:var(--ink); font-weight:600; }
-    .subtle { font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
-    .ics-badge { display:inline-block; padding:5px 12px; border:2px solid var(--cc); background:var(--rtint); color:var(--rdark); font:700 .78rem/1 Inter,sans-serif; letter-spacing:.05em; text-transform:uppercase; text-decoration:none; border-radius:2px; transition:background .15s,color .15s; }
-    .ics-badge:hover { background:var(--cc); color:#fff; text-decoration:none; }
-    .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#fff; background:var(--ink); padding:5px 11px; display:block; margin-top:8px; }
-    .footer { border-top:3px solid var(--cc); margin-top:28px; padding-top:14px; font:.78rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
-    .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
-    @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } .page { padding:0 12px 48px; } }
-    /* --- Accessibility (lane3) --- */
-    a:focus-visible, .welcome-link:focus-visible, .ics-badge:focus-visible, .button:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
-    .skip-link { position:absolute; left:-9999px; }
-    .skip-link:focus, .skip-link:focus-visible { position:fixed; top:8px; left:8px; width:auto; height:auto; margin:0; padding:10px 16px; clip:auto; overflow:visible; white-space:nowrap; background:var(--paper); color:var(--ink); border:2px solid var(--cc); z-index:2147483646; font:600 .85rem/1 Inter,sans-serif; text-decoration:none; }
-    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } body::before { display:none; } }
-    @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
-    .newspaper-label { display:block; font:700 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); margin-bottom:6px; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
-    /* --- Lane2: mobile nav + overflow backstop + aria-current (2.3/2.4/2.5) --- */
-    @media (max-width:768px) {
-      .masthead-nav { flex-wrap:wrap; justify-content:flex-start; }
-      .masthead-nav a { white-space:normal; }
-      .masthead-nav-wrap .inner { overflow:visible; }
-    }
-    html, body { overflow-x:hidden; }
-    .masthead-nav a[aria-current="page"] { font-weight:700; box-shadow:0 2px 0 0 var(--cc); }
-    .breadcrumb { border-bottom:1px solid var(--rule); }
-    .breadcrumb .inner { max-width:1260px; margin:0 auto; padding:4px 20px; }
-    .breadcrumb ol { list-style:none; display:flex; flex-wrap:wrap; gap:4px; margin:0; padding:0; font:.72rem/1 Inter,sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
-    .breadcrumb li[aria-current] { color:var(--ink); font-weight:700; }
-    .breadcrumb a { color:var(--ink-faint); text-decoration:none; }
-    .breadcrumb a:hover { color:var(--cc); }
-  </style>
+  <link href="assets/SITE_CSS_PLACEHOLDER" rel="stylesheet">
   <!--PAGES_JSONLD_WEBPAGE-->
   <!--PAGES_JSONLD_BREADCRUMB-->
   <!--PAGES_JSONLD_DATASET-->
@@ -134,32 +49,10 @@
       <div class="table-scroll"><table><thead><tr><th>Source</th><th>Coverage</th><th>Operational state</th><th>Region / authority</th></tr></thead><tbody id="registry-body"></tbody></table></div>
     </section>
     <script>
-    const $ = id => document.getElementById(id);
-    const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[ch]);
-    const href = value => /^https?:\/\//i.test(String(value || "")) ? String(value) : "#";
-    const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
-    const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
-    const empty = message => `<div class="empty-state">${esc(message)}</div>`;
-    const FETCH_TIMEOUT_MS = 15000;
-    async function load(path) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      try {
-        const response = await fetch(path, { cache:"default", signal: controller.signal });
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        return await response.json();
-      } catch (error) {
-        if (error && error.name === "AbortError") throw new Error(`could not load ${path} within ${FETCH_TIMEOUT_MS / 1000}s`);
-        throw error;
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
     function renderHealth(sources, filterValue) {
       const filtered = filterValue === "all" ? sources : sources.filter(source => source.status === filterValue);
       document.getElementById("health-count").textContent = `${filtered.length} of ${sources.length} source check(s)`;
-      document.getElementById("health").innerHTML = filtered.length ? filtered.map(source => `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}</div>${source.error ? `<div class="error">${esc(source.error)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}</article>`).join("") : empty(filterValue === "all" ? "No source-health artifact was available." : `No sources are ${filterValue}.`);
+      document.getElementById("health").innerHTML = filtered.length ? filtered.map(source => healthCardHtml(source)).join("") : empty(filterValue === "all" ? "No source-health artifact was available." : `No sources are ${filterValue}.`);
     }
     let sources = [];
     document.getElementById("health-filter").addEventListener("change", event => renderHealth(sources, event.target.value));

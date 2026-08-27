@@ -126,6 +126,16 @@ export const PAGES_SITEMAP_XML = "sitemap.xml";
 export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
 export const PAGES_FEED_XML = "feed.xml";
 export const PAGES_FEED_LINK_HTML = '<link rel="alternate" type="application/rss+xml" title="The Quadruplicate - public intelligence feed" href="https://quadruplicate.org/feed.xml">';
+
+/** Shared page assets (§6.1/§6.3): authored under src/pages/static/assets/, emitted content-hashed. */
+export const PAGES_SHARED_ASSETS: ReadonlyArray<{ source: string; placeholder: string; hashPrefix: string }> = [
+  { source: "site.css", placeholder: "assets/SITE_CSS_PLACEHOLDER", hashPrefix: "assets/site." },
+  { source: "site.js", placeholder: "assets/SITE_JS_PLACEHOLDER", hashPrefix: "assets/site." },
+];
+/** Placeholder in each page script slot; replaced with the hashed shared JS path at export. */
+export const PAGES_ASSET_PLACEHOLDER = "PAGES_ASSET_PLACEHOLDER";
+/** Script tag template for the hashed shared JS bundle (deferred, before the page script). */
+export const PAGES_SHARED_JS_TAG = '<script src="assets/SITE_JS_PLACEHOLDER" defer></script>';
 /** Export-time injection point for the edition date in the WebSite JSON-LD block. */
 export const PAGES_DATE_PUBLISHED_PLACEHOLDER = "__PAGES_DATE_PUBLISHED__";
 export const PAGES_DATE_MODIFIED_PLACEHOLDER = "__PAGES_DATE_MODIFIED__";
@@ -1402,6 +1412,20 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const files: string[] = [];
   try {
     const editionDate = generatedAt.slice(0, 10);
+    // §6.3: shared assets are content-hashed at export so they can be served
+    // with normal (effectively immutable) caching — §1.6 unblocked for CSS/JS.
+    const sharedAssetPaths: Record<string, string> = {};
+    for (const asset of PAGES_SHARED_ASSETS) {
+      const bytes = await readFile(join(STATIC_DIR, "assets", asset.source));
+      const hashed = pagesContentHashName(asset.hashPrefix + asset.source.split(".").pop(), bytes);
+      await mkdir(join(temporary, "assets"), { recursive: true });
+      await writeFile(join(temporary, hashed), bytes);
+      files[files.length] = hashed;
+      sharedAssetPaths[asset.source] = hashed;
+    }
+    const resolveAssetPlaceholders = (html: string): string => html
+      .split("assets/SITE_CSS_PLACEHOLDER").join(sharedAssetPaths["site.css"])
+      .split("assets/SITE_JS_PLACEHOLDER").join(sharedAssetPaths["site.js"]);
     const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
     const faviconHead = buildPagesFaviconHeadHtml();
     // index.html keeps its hand-authored canonical/OG/Twitter head block; the
@@ -1418,7 +1442,8 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     if (indexHtmlFinal.includes(PAGES_DATE_PUBLISHED_PLACEHOLDER) || indexHtmlFinal.includes(PAGES_DATE_MODIFIED_PLACEHOLDER)) {
       throw new Error("Pages index JSON-LD date placeholders were not replaced");
     }
-    await writeFile(join(temporary, "index.html"), indexHtmlFinal, "utf8");
+    const indexWithAssets = resolveAssetPlaceholders(indexHtmlFinal.replace("  <script>", `${PAGES_SHARED_JS_TAG}\n  <script>`));
+    await writeFile(join(temporary, "index.html"), indexWithAssets, "utf8");
     const page404Template = await readFile(join(STATIC_DIR, "404.html"), "utf8");
     const page404Chromed = embedPagesFooter(
       embedPagesBreadcrumb(
@@ -1428,7 +1453,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       ),
       "errata",
     );
-    await writeFile(join(temporary, "404.html"), page404Chromed.replace("</head>", `${faviconHead}\n</head>`), "utf8");
+    await writeFile(join(temporary, "404.html"), resolveAssetPlaceholders(page404Chromed).replace("</head>", `${faviconHead}\n</head>`), "utf8");
     for (const page of PAGES_STATIC_PAGES) {
       if (!(await copyIfPresent(join(STATIC_DIR, page.file), join(temporary, page.file)))) {
         throw new Error(`Pages static page is missing from ${STATIC_DIR}: ${page.file}`);
@@ -1452,10 +1477,17 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
         .replace(PAGES_JSONLD_BREADCRUMB_PLACEHOLDER, "")
         .replace(PAGES_JSONLD_DATASET_PLACEHOLDER, "");
       if (hydrated.includes("PAGES_JSONLD")) throw new Error(`Pages page JSON-LD markers were not replaced: ${page.file}`);
-      await writeFile(pagePath, hydrated, "utf8");
+      const withAssets = resolveAssetPlaceholders(hydrated.replace("    <script>", `    ${PAGES_SHARED_JS_TAG}\n    <script>`));
+      if (withAssets.includes("SITE_CSS_PLACEHOLDER") || withAssets.includes("SITE_JS_PLACEHOLDER")) {
+        throw new Error(`Pages shared-asset placeholders were not replaced: ${page.file}`);
+      }
+      await writeFile(pagePath, withAssets, "utf8");
       files[files.length] = page.file;
     }
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
+    // SS6.4: 404.html presence is hard-required; the earlier readFile already
+    // throws when missing, so this manifest entry can never report a page
+    // that failed to be written (the old silent push is eliminated).
     files.push("index.html", "404.html", ".nojekyll");
     // --- SEO artifacts (§3.1, §3.2): OG card, favicons, manifest ---
     await writeFile(join(temporary, PAGES_OG_IMAGE_PNG), buildPagesOgImagePng(snapshot));
@@ -1572,10 +1604,51 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
 
 /** Used by the release gate without writing a Pages artifact. */
 export function validatePagesSource(indexHtml: string): string[] {
+  return validatePagesHtml({ "index.html": indexHtml });
+}
+
+/**
+ * §6.4: shared release-gate assertions over ALL eight exported pages (not just
+ * index). Every page runs the shared honesty/structure checks; the index keeps
+ * its full page-specific contract below. A missing manifest page in the map is
+ * itself an error, so callers cannot silently narrow the gate.
+ */
+export function validatePagesHtml(pagesHtml: Record<string, string>): string[] {
   const errors: string[] = [];
+  for (const page of PAGES_STATIC_PAGES.map(candidate => candidate.file)) {
+    if (typeof pagesHtml[page] !== "string") errors.push(`Pages source map is missing required page: ${page}`);
+  }
+  if (errors.length > 0) return errors;
+  for (const [pageFile, html] of Object.entries(pagesHtml)) {
+    const isIndex = pageFile === "index.html";
+    if (html.includes("__CC_API_KEY__") || html.includes("__CC_API_KEY_INJECT__")) errors.push(`${pageFile} contains an API-key placeholder`);
+    if (html.includes("localhost:3000") || html.includes("localhost:8001")) errors.push(`${pageFile} references a local-only service`);
+    if (!html.includes("<footer")) errors.push(`${pageFile} is missing the footer element`);
+    if (!html.includes("<main")) errors.push(`${pageFile} is missing the main landmark`);
+    if (!html.includes('class="skip-link"')) errors.push(`${pageFile} is missing the skip link`);
+    const jsonLdBlocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(match => match[1]);
+    for (const [index, block] of jsonLdBlocks.entries()) {
+      try {
+        const parsed = JSON.parse(block) as unknown;
+        if (typeof parsed === "object" && parsed !== null && JSON.stringify(parsed).includes("GovernmentOrganization")) {
+          errors.push(`${pageFile} JSON-LD block ${index + 1} claims GovernmentOrganization`);
+        }
+      } catch {
+        errors.push(`${pageFile} JSON-LD block ${index + 1} does not parse as JSON`);
+      }
+    }
+    if (pageFile === "404.html") continue;
+    // Source-level HTML carries injection markers; the exported artifact carries
+    // the injected content. Either satisfies the contract.
+    const hasCanonical = html.includes('rel="canonical"') || html.includes("PAGES_HEAD_META");
+    if (!hasCanonical && !isIndex) errors.push(`${pageFile} is missing the canonical link`);
+    const hasBreadcrumb = jsonLdBlocks.some(block => block.includes('"BreadcrumbList"')) || html.includes("PAGES_JSONLD_BREADCRUMB");
+    if (!hasBreadcrumb) errors.push(`${pageFile} is missing BreadcrumbList JSON-LD`);
+    const hasWebPage = jsonLdBlocks.some(block => block.includes('"WebPage"') || block.includes('"CollectionPage"')) || html.includes("PAGES_JSONLD_WEBPAGE");
+    if (!hasWebPage) errors.push(`${pageFile} is missing WebPage/CollectionPage JSON-LD`);
+  }
+  const indexHtml = pagesHtml["index.html"] ?? "";
   if (!indexHtml.includes("data/snapshot.json")) errors.push("Pages index does not load data/snapshot.json");
-  if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("Pages index contains an API-key placeholder");
-  if (indexHtml.includes("localhost:3000") || indexHtml.includes("localhost:8001")) errors.push("Pages index references a local-only service");
   if (!indexHtml.includes("source-health.json")) errors.push("Pages index does not expose source health");
   if (!indexHtml.includes("source-discovery.json")) errors.push("Pages index does not expose source discovery");
   if (!indexHtml.includes(PAGES_GEO_INTEL_ARTIFACT)) errors.push("Pages index does not expose geo-intel data");

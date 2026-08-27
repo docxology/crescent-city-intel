@@ -22,9 +22,14 @@ const log = createLogger("healer");
 // ─── Constants ────────────────────────────────────────────────────────────
 
 // Dependency-injection seam: tests point HEALER_OUTPUT_DIR at a temp dir so the
-// healing cycle never reads or writes the real output/ tree.
-const HEALER_OUTPUT_DIR = process.env.HEALER_OUTPUT_DIR ?? join(process.cwd(), "output");
-const HEALER_STATE_PATH = join(HEALER_OUTPUT_DIR, "state", "healer-state.json");
+// healing cycle never reads or writes the real output/ tree. Resolved at call
+// time so module-load order across test files can never freeze a wrong dir.
+function healerOutputDir(): string {
+  return process.env.HEALER_OUTPUT_DIR ?? join(process.cwd(), "output");
+}
+function healerStatePath(): string {
+  return join(healerOutputDir(), "state", "healer-state.json");
+}
 
 /** The 8 alert monitor source names (matching source-health.json keys). */
 const MONITOR_SOURCE_NAMES = [
@@ -85,7 +90,7 @@ const MAX_CONSECUTIVE_FAILURES = envInt("HEALER_MAX_CONSECUTIVE_FAILURES", 3);
 
 /** Read the source-health.json file produced by the alert monitor runner. */
 async function readSourceHealthFile(): Promise<Record<string, unknown> | null> {
-  const path = join(HEALER_OUTPUT_DIR, "alerts", "source-health.json");
+  const path = join(healerOutputDir(), "alerts", "source-health.json");
   if (!existsSync(path)) {
     log.warn("Alerts source-health.json not found; healing cycle skipped");
     return null;
@@ -129,8 +134,8 @@ function freshState(now: string): HealerState {
 /** Load healer state from disk. Returns a fresh state if the file doesn't exist or is corrupt. */
 async function loadState(): Promise<HealerState> {
   try {
-    if (!existsSync(HEALER_STATE_PATH)) return freshState(new Date().toISOString());
-    const raw = await readFile(HEALER_STATE_PATH, "utf-8");
+    if (!existsSync(healerStatePath())) return freshState(new Date().toISOString());
+    const raw = await readFile(healerStatePath(), "utf-8");
     const parsed = JSON.parse(raw) as HealerState;
     // Ensure all 8 monitors exist in the loaded state
     const now = new Date().toISOString();
@@ -155,10 +160,10 @@ async function loadState(): Promise<HealerState> {
 /** Persist healer state atomically. Never throws. */
 async function saveState(state: HealerState): Promise<void> {
   try {
-    await mkdir(join(HEALER_OUTPUT_DIR, "state"), { recursive: true });
-    const tmp = `${HEALER_STATE_PATH}.${process.pid}.${Date.now()}.tmp`;
+    await mkdir(join(healerOutputDir(), "state"), { recursive: true });
+    const tmp = `${healerStatePath()}.${process.pid}.${Date.now()}.tmp`;
     await writeFile(tmp, JSON.stringify(state, null, 2) + "\n", "utf-8");
-    await rename(tmp, HEALER_STATE_PATH);
+    await rename(tmp, healerStatePath());
   } catch (err) {
     log.warn("Failed to persist healer state (non-fatal)", {
       error: err instanceof Error ? err.message : String(err),

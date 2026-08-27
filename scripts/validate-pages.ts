@@ -16,6 +16,7 @@ import {
   summarizePagesGeoIntel,
   validatePagesGeoIntel,
   validatePagesSource,
+  validatePagesHtml,
 } from "../src/pages_snapshot.js";
 import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
@@ -31,7 +32,13 @@ for (const relative of required) {
 }
 
 const indexHtml = await readFile(join(destination, "index.html"), "utf8").catch(() => "");
-errors.push(...validatePagesSource(indexHtml));
+// SS6.4: shared assertions now run across all eight exported pages, not just
+// index.html; a missing page surfaces as a map error from validatePagesHtml.
+const exportedPagesHtml: Record<string, string> = { "index.html": indexHtml };
+for (const page of PAGES_STATIC_PAGES.map(candidate => candidate.file).concat("404.html")) {
+  exportedPagesHtml[page] = await readFile(join(destination, page), "utf8").catch(() => "");
+}
+errors.push(...validatePagesHtml(exportedPagesHtml));
 if (indexHtml.includes(PAGES_GEO_VIEW_PLACEHOLDER)) errors.push("Pages geo-view placeholder was not replaced");
 if (!indexHtml.includes('data-geo-view-schema="crescent-city-geo-view/v1"')) errors.push("Pages artifact does not contain the rendered geo-view SVG");
 
@@ -178,18 +185,30 @@ if (jsonLdBlocks.length === 0) {
 // --- lane3 gate: a11y, structured data, and syndication assertions across all 8 pages ---
 const ALL_PAGES = ["index.html", "404.html", ...PAGES_STATIC_PAGES.map(page => page.file)];
 const pageHtmlCache = new Map<string, string>();
+// SS6.3: shared a11y/reduced-motion/touch CSS now lives in the content-hashed
+// site.<hash>.css asset. Every page-level style assertion below is checked
+// against the page HTML PLUS the CSS of its linked shared stylesheet, so
+// extraction to the shared asset can never silently drop a rule.
 for (const page of ALL_PAGES) {
   const html = await readFile(join(destination, page), "utf8").catch(() => null);
   if (html === null) { errors.push(`missing required Pages asset: ${page}`); continue; }
-  pageHtmlCache.set(page, html);
-  if (!html.includes('class="skip-link"')) errors.push(`${page} is missing the skip link`);
-  if (!html.includes(".skip-link:focus")) errors.push(`${page} is missing the skip-link focus rule`);
-  if (!html.includes("<footer class=\"footer\">")) errors.push(`${page} is missing the <footer> element`);
-  if (!html.includes("<main")) errors.push(`${page} is missing the <main> landmark`);
-  if (!html.includes("prefers-reduced-motion")) errors.push(`${page} is missing the prefers-reduced-motion block`);
-  if (!html.includes("a:focus-visible")) errors.push(`${page} is missing the a:focus-visible rule`);
-  if (!html.includes("(pointer: coarse)")) errors.push(`${page} is missing the 44px touch-target rules`);
-  if (!html.includes('rel="alternate" type="application/rss+xml"')) errors.push(`${page} is missing the syndication alternate link`);
+  let effective = html;
+  const sharedCssLinks = [...html.matchAll(/<link href="(assets\/site\.[0-9a-f]{8}\.css)" rel="stylesheet">/g)].map(match => match[1]);
+  if (sharedCssLinks.length > 1) errors.push(`${page} links more than one shared stylesheet`);
+  for (const cssPath of sharedCssLinks) {
+    const cssText = await readFile(join(destination, cssPath), "utf8").catch(() => null);
+    if (cssText === null) { errors.push(`${page} links a missing shared stylesheet: ${cssPath}`); continue; }
+    effective += `\n<style>${cssText}</style>`;
+  }
+  pageHtmlCache.set(page, effective);
+  if (!effective.includes('class="skip-link"')) errors.push(`${page} is missing the skip link`);
+  if (!effective.includes(".skip-link:focus")) errors.push(`${page} is missing the skip-link focus rule`);
+  if (!effective.includes("<footer class=\"footer\">")) errors.push(`${page} is missing the <footer> element`);
+  if (!effective.includes("<main")) errors.push(`${page} is missing the <main> landmark`);
+  if (!effective.includes("prefers-reduced-motion")) errors.push(`${page} is missing the prefers-reduced-motion block`);
+  if (!effective.includes("a:focus-visible")) errors.push(`${page} is missing the a:focus-visible rule`);
+  if (!effective.includes("(pointer: coarse)")) errors.push(`${page} is missing the 44px touch-target rules`);
+  if (!effective.includes('rel="alternate" type="application/rss+xml"')) errors.push(`${page} is missing the syndication alternate link`);
   const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(match => match[1]);
   blocks.forEach((block, index) => {
     try { JSON.parse(block); } catch { errors.push(`${page} JSON-LD block ${index + 1} does not parse as JSON`); }
@@ -673,9 +692,19 @@ function scanPage(html: string, path: string): string[] {
 
 
 const staticPagesDir = resolve(import.meta.dir, "../src/pages/static");
+// SS6.2: itemCard/healthCardHtml/codeResultCard/analyticsSignalsHtml etc. live
+// in the shared site.js asset; their templates are esc()/href()-complete, so
+// the scanner pre-verifies site.js itself and trusts its verified function
+// names inside every page script (negative control: any unsafe site.js
+// template still fails the gate via the direct site.js scan below).
+const siteJsPath = join(staticPagesDir, "assets", "site.js");
+const siteJs = await readFile(siteJsPath, "utf8");
+const SHARED_SAFE_FNS = ["itemCard", "healthCardHtml", "codeResultCard", "analyticsSignalsHtml", "alertBannerHtml", "calendarEventCard", "calendarMonthGroups", "searchIndexMatches", "eventStatusChip"];
+for (const finding of scanPage(`<script>${siteJs}</script>`, "assets/site.js")) errors.push(`unsafe innerHTML interpolation (${finding})`);
 for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html")).sort()) {
   const pageHtml = await readFile(join(staticPagesDir, pageFile), "utf8");
-  for (const finding of scanPage(pageHtml, pageFile)) errors.push(`unsafe innerHTML interpolation (${finding})`);
+  const problems = scanPage(pageHtml, pageFile).filter(problem => !SHARED_SAFE_FNS.some(fn => problem.startsWith(`call-unverified: ${fn}`)));
+  for (const finding of problems) errors.push(`unsafe innerHTML interpolation (${finding})`);
 }
 
 // --- lane2 gate: navigation/IA and SEO assertions (§2.1-2.8, §3.1-3.3, §3.7) ---

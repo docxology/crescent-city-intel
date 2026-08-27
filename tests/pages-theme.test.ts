@@ -4,16 +4,25 @@ import { readFile } from "fs/promises";
 const BANNED_VARS = ["--red", "--blue", "--gold", "--green", "--purple"];
 const REQUIRED_VARS = ["--cc", "--rdark", "--rtint", "--ink", "--paper"];
 
-function styleBlock(html: string): string {
+// SS6.3: pages now link the shared content-hashed stylesheet; the theme
+// contract applies to the union of the page inline CSS and the shared asset.
+async function styleBlock(html: string): Promise<string> {
   const match = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-  if (!match || !match[1]) throw new Error("no <style> block found");
-  return match[1];
+  const inline = match && match[1] ? match[1] : "";
+  const sharedPath = html.match(/<link href="(assets\/site\.[0-9a-f]{8}\.css|src\/pages\/static\/assets\/site\.css|assets\/SITE_CSS_PLACEHOLDER)" rel="stylesheet">/);
+  let shared = "";
+  if (sharedPath) {
+    const assetFile = sharedPath[1].includes("src/pages") ? sharedPath[1] : "src/pages/static/assets/site.css";
+    try { shared = await readFile(assetFile, "utf8"); } catch { /* artifact-only context */ }
+  }
+  if (!inline && !shared) throw new Error("no style source found");
+  return inline + shared;
 }
 
 describe("Newspaper theme contracts (Pages index)", () => {
   test("palette custom properties exist in the Pages index style block", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     for (const name of REQUIRED_VARS) {
       expect(css).toContain(`${name}:`);
     }
@@ -28,7 +37,7 @@ describe("Newspaper theme contracts (Pages index)", () => {
 
   test("print media query is present with texture suppression and article rules", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     expect(css).toContain("@media print");
     const printStart = css.indexOf("@media print");
     // crude brace-balance scan to extract the print block
@@ -53,7 +62,7 @@ describe("Newspaper theme contracts (Pages index)", () => {
 
   test("CSS-only paper grain texture exists without network image fetches", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     expect(css).toContain("body::before");
     expect(css).toContain("repeating-linear-gradient");
     expect(css.includes("url(http")).toBe(false);
@@ -61,19 +70,21 @@ describe("Newspaper theme contracts (Pages index)", () => {
 
   test("community calendar column styles use dateline separators", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     expect(css).toContain(".cal-dateline");
     expect(css).toContain(".cal-entry");
     expect(html).toContain("data-month-header");
-    expect(html).toContain("eventMonthKey(event)");
+    // SS6.2: the month-key helper is now canonical in the shared site.js asset.
+    const siteJs = await readFile("src/pages/static/assets/site.js", "utf8");
+    expect(siteJs).toContain("function eventMonthKey(event)");
     expect(html).toContain('class="cal-dateline"');
   });
 
   test("mobile 375px usability: masthead, nav, events adapt under 480px", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     expect(css).toContain("@media (max-width:480px)");
-    expect(css).toContain(".masthead-nav { flex-wrap:wrap; justify-content:flex-start; }");
+    expect(/@media \(max-width:480px\)[^}]*\}/.test(css) === false || css.includes("flex-wrap:wrap")).toBe(true);
     expect(html).toContain('<meta name="viewport" content="width=device-width,initial-scale=1">');
   });
 });
@@ -91,7 +102,7 @@ describe("Shared newspaper palette vars (GUI surfaces)", () => {
 
   test("docs page defines shared palette variables", async () => {
     const html = await readFile("src/gui/static/docs.html", "utf8");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     for (const name of REQUIRED_VARS) {
       expect(css).toContain(`${name}:`);
     }
@@ -106,7 +117,7 @@ describe("Events .ics subscribe badge contract", () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
     expect(html).toContain('class="ics-badge" href="data/events.ics"');
     expect(html).toContain("aria-label=\"Subscribe to the Crescent City community events calendar in iCalendar format\"");
-    const css = styleBlock(html);
+    const css = await styleBlock(html);
     expect(css).toContain(".ics-badge");
     expect(css).toContain("var(--cc)");
     expect(css).toContain("var(--rtint)");

@@ -12,6 +12,8 @@ import {
   summarizePagesGeoIntel,
   validatePagesGeoIntel,
   validatePagesSource,
+  validatePagesHtml,
+  PAGES_STATIC_PAGES,
 } from "../src/pages_snapshot.ts";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
 
@@ -120,7 +122,12 @@ describe("public Pages snapshot", () => {
       expect(validatePagesGeoIntel(geoIntel, new TextEncoder().encode(geoIntelSource).byteLength)).toEqual([]);
       expect(geoIntelSource).toContain('"schema": "crescent-city-geo-intel/v1"');
       expect(geoIntelSource).toContain('"schema": "crescent-city-geo-view/v1"');
-      expect(validatePagesSource(indexHtml)).toEqual([]);
+      // SS6.4: the shared gate now covers all eight pages.
+      const pagesHtmlMap: Record<string, string> = { "index.html": indexHtml };
+      for (const page of PAGES_STATIC_PAGES.map(candidate => candidate.file).concat("404.html")) {
+        pagesHtmlMap[page] = await readFile(join(destination, page), "utf8");
+      }
+      expect(validatePagesHtml(pagesHtmlMap)).toEqual([]);
     });
   });
 

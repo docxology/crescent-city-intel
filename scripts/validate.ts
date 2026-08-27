@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { EXPECTED_SOURCE_HEALTH, isIsoTimestamp } from "../src/shared/source_health.ts";
-import { validatePagesSource } from "../src/pages_snapshot.ts";
+import { PAGES_STATIC_PAGES, validatePagesHtml } from "../src/pages_snapshot.ts";
 import { getSourceRegistry, sourceRegistryFingerprint, validateSourceRegistry } from "../src/source_registry.ts";
 import { paths } from "../src/shared/paths.ts";
 
@@ -24,13 +24,17 @@ const readme = readFileSync(join(root, "README.md"), "utf-8");
 const configuration = readFileSync(join(root, "docs", "configuration.md"), "utf-8");
 const llmDocs = readFileSync(join(root, "docs", "modules", "llm.md"), "utf-8");
 const routeSource = readFileSync(join(root, "src", "gui", "routes.ts"), "utf-8");
-const pagesIndex = readFileSync(join(root, "src", "pages", "static", "index.html"), "utf-8");
+const pagesStaticDir = join(root, "src", "pages", "static");
+const pagesSourceHtml: Record<string, string> = { "index.html": readFileSync(join(pagesStaticDir, "index.html"), "utf-8") };
+for (const page of PAGES_STATIC_PAGES.map(candidate => candidate.file).concat("404.html")) {
+  pagesSourceHtml[page] = existsSync(join(pagesStaticDir, page)) ? readFileSync(join(pagesStaticDir, page), "utf-8") : "";
+}
 const pagesWorkflow = readFileSync(join(root, ".github", "workflows", "pages.yml"), "utf-8");
 
 const registryErrors = validateSourceRegistry();
 if (registryErrors.length > 0) throw new Error(`Source registry contract failed: ${registryErrors.join("; ")}`);
 
-const pagesSourceErrors = validatePagesSource(pagesIndex);
+const pagesSourceErrors = validatePagesHtml(pagesSourceHtml);
 if (pagesSourceErrors.length > 0) throw new Error(`Pages source contract failed: ${pagesSourceErrors.join("; ")}`);
 for (const requiredWorkflowText of ["actions/upload-pages-artifact", "actions/deploy-pages", "bun run pages:validate", "pages: write", "id-token: write"]) {
   if (!pagesWorkflow.includes(requiredWorkflowText)) throw new Error(`Pages workflow is missing ${requiredWorkflowText}`);

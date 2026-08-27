@@ -9,7 +9,7 @@ import {
   validatePagesGeoIntel,
   validatePagesSource,
 } from "../src/pages_snapshot.js";
-import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML } from "../src/pages_snapshot.js";
+import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
 
@@ -44,8 +44,10 @@ if (sitemapXml === null) {
   if (!/<urlset[^>]*xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9"/.test(sitemapXml)) errors.push("sitemap.xml is missing the sitemap namespace");
   if (locMatches.length === 0) errors.push("sitemap.xml has no <loc> entries");
   if (!locMatches.includes("https://quadruplicate.org/")) errors.push("sitemap.xml is missing the canonical root URL");
-  for (const anchor of ["#methods", "#faq"]) {
-    if (!locMatches.includes(`https://quadruplicate.org/${anchor}`)) errors.push(`sitemap.xml is missing the ${anchor} section URL`);
+  // The sitemap now lists the dedicated standalone pages (real URLs) instead
+  // of in-page anchors, matching buildPagesSitemapXml and pages-seo tests.
+  for (const page of PAGES_STATIC_PAGES) {
+    if (!locMatches.includes(`https://quadruplicate.org/${page.file}`)) errors.push(`sitemap.xml is missing the ${page.file} page URL`);
   }
 }
 

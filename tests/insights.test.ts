@@ -16,6 +16,7 @@ import {
   computeDomainTrends,
   type DatedRecord,
 } from "../src/insights.ts";
+import { buildGeoView, attachGeoDomainInsights, type HazardDomainInsight } from "../src/geo_view.ts";
 import {
   GAP_REASON_MEETING_REFERENCE_ONLY,
   GAP_REASON_NEWS_STALE,
@@ -283,5 +284,43 @@ describe("buildInsightReport end to end", () => {
     }
     expect(ALERT_TYPE_DOMAINS["wildfire"]).toContain("public-safety");
     expect(ALERT_TYPE_DOMAINS["tide-like"] ?? []).toEqual([]);
+  });
+});
+describe("attachGeoDomainInsights", () => {
+  const contract = {
+    anchor: { name: "Crescent City", municipality: "Crescent City", county: "Del Norte", state: "CA", latitude: 41.7558, longitude: -124.2026, bounds: { west: -124.4, south: 41.7, east: -123.9, north: 42.0 } },
+    hazard: { relevantDomains: [
+      { id: "harbor-marine-operations", name: "Harbor & Marine Operations", icon: "⚓", hazardTags: ["marine"], topics: [{ name: "Dredging", tags: ["harbor"], sections: [] }] },
+      { id: "public-safety", name: "Public Safety", icon: "🛡️", hazardTags: ["wildfire"], topics: [] },
+    ] },
+  };
+
+  test("attaches additive insight fields by normalized domain name without mutating input", () => {
+    const base = buildGeoView(contract);
+    const insights: Record<string, HazardDomainInsight> = {
+      "harbor-marine-operations": { direction: "rising", deltaTotal: 2, momentumPct: 200, coverageGapKind: null, coverageGapScore: null },
+      "public-safety": { direction: "steady", deltaTotal: 0, momentumPct: 0, coverageGapKind: GAP_REASON_NEWS_STALE, coverageGapScore: 90 },
+    };
+    const attached = attachGeoDomainInsights(base, insights);
+    // Input view untouched.
+    expect(base.features.some(f => f.geometry.type === "Point" && f.properties.kind === "hazard-domain" && "insight" in f.properties)).toBe(false);
+    const harbor = attached.features.find(f => f.id === "hazard-domain:Harbor & Marine Operations");
+    expect(harbor?.properties.insight?.direction).toBe("rising");
+    expect(harbor?.properties.insight?.deltaTotal).toBe(2);
+    const safety = attached.features.find(f => f.id === "hazard-domain:Public Safety");
+    expect(safety?.properties.insight?.coverageGapScore).toBe(90);
+    // Anchor point gains nothing.
+    const anchor = attached.features.find(f => f.properties.kind === "anchor");
+    expect(anchor?.properties.insight).toBeUndefined();
+  });
+
+  test("domains absent from the report stay absent rather than reading as calm", () => {
+    const base = buildGeoView(contract);
+    const attached = attachGeoDomainInsights(base, {});
+    for (const feature of attached.features) {
+      if (feature.properties.kind === "hazard-domain") {
+        expect(feature.properties.insight).toBeUndefined();
+      }
+    }
   });
 });

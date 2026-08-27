@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /** Validate a generated public Pages artifact without making network calls. */
 import { readFile } from "fs/promises";
+import { readdirSync } from "fs";
 import { join, resolve } from "path";
 import {
   PAGES_APPLE_TOUCH_ICON_PNG,

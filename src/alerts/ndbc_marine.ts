@@ -271,9 +271,19 @@ export async function runMarineMonitor(): Promise<MarineReport | null> {
       level,
       summary: observations.length === 0
         ? "No buoy data available"
-        : `${observations.length} station(s): ${observations.map(o =>
-            `${o.stationName} ${o.waveHeightFt?.toFixed(1) ?? "—"}ft@${o.wavePeriodSec?.toFixed(0) ?? "—"}s ${o.windSpeedKt?.toFixed(0) ?? "—"}kt`
-          ).join("; ")}`,
+        : `${observations.length} station(s): ${observations.map(o => {
+            // Data honesty: omit missing readings instead of publishing
+            // em-dash placeholder glyphs in the public alert summary.
+            const wave = o.waveHeightFt != null && o.wavePeriodSec != null
+              ? `${o.waveHeightFt.toFixed(1)}ft@${o.wavePeriodSec.toFixed(0)}s`
+              : o.waveHeightFt != null ? `${o.waveHeightFt.toFixed(1)}ft` : null;
+            const metrics = [
+              wave,
+              o.windSpeedKt != null ? `${o.windSpeedKt.toFixed(0)}kt` : null,
+            ].filter((value): value is string => value !== null);
+            const measured = metrics.length > 0 ? ` ${metrics.join(" ")}` : " no reading recorded";
+            return `${o.stationName}:${measured}`;
+          }).join("; ")}`,
       advisory,
     };
 

@@ -211,7 +211,7 @@ function assessTsunami(input: TsunamiInput): MonitorStatus {
   if (input.watchCount > 0) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 ${input.watchCount} active Tsunami Watch/Advisory`,
+      summary: `\u{1f7e1} ${input.watchCount} active Tsunami Watch/Advisory`,
       count: input.watchCount,
     };
   }
@@ -235,7 +235,7 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
   if (tsunamiEvents.length > 0) {
     return {
       level: "EMERGENCY",
-      summary: `\U0001f6a8 Earthquake M${tsunamiEvents[0].magnitude} with tsunami generated`,
+      summary: `\u{1f6a8} Earthquake M${tsunamiEvents[0].magnitude} with tsunami generated`,
       count: nearbyEvents.length,
     };
   }
@@ -245,7 +245,7 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
     const top = severe[0];
     return {
       level: "WARNING",
-      summary: `\U0001f534 M${top.magnitude} earthquake ${top.distanceKm.toFixed(0)} km away`,
+      summary: `\u{1f534} M${top.magnitude} earthquake ${top.distanceKm.toFixed(0)} km away`,
       count: nearbyEvents.length,
     };
   }
@@ -254,7 +254,7 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
   const top = nearbyEvents[0];
   return {
     level: "WATCH",
-    summary: `\U0001f7e1 M${top.magnitude} earthquake ${top.distanceKm.toFixed(0)} km away`,
+    summary: `\u{1f7e1} M${top.magnitude} earthquake ${top.distanceKm.toFixed(0)} km away`,
     count: nearbyEvents.length,
   };
 }
@@ -273,20 +273,20 @@ function assessWeather(input: WeatherInput): MonitorStatus {
   if (input.severities.includes("warning")) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 ${input.count} active NWS Warning(s)`,
+      summary: `\u{1f534} ${input.count} active NWS Warning(s)`,
       count: input.count,
     };
   }
   if (input.severities.includes("watch")) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 ${input.count} active NWS Watch(es)`,
+      summary: `\u{1f7e1} ${input.count} active NWS Watch(es)`,
       count: input.count,
     };
   }
   return {
     level: "WATCH",
-    summary: `\U0001f535 ${input.count} active NWS Advisory(ies)`,
+    summary: `\u{1f535} ${input.count} active NWS Advisory(ies)`,
     count: input.count,
   };
 }
@@ -307,14 +307,14 @@ function assessTides(input: TidesInput): MonitorStatus {
   if (input.waterLevelFt >= 7.0) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Water level ${input.waterLevelFt.toFixed(1)} ft MLLW (significant exceedance)`,
+      summary: `\u{1f534} Water level ${input.waterLevelFt.toFixed(1)} ft MLLW (significant exceedance)`,
       count: 1,
     };
   }
   if (input.waterLevelFt >= 6.0) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Elevated water level ${input.waterLevelFt.toFixed(1)} ft MLLW (at/above normal max high tide)`,
+      summary: `\u{1f7e1} Elevated water level ${input.waterLevelFt.toFixed(1)} ft MLLW (at/above normal max high tide)`,
       count: 1,
     };
   }
@@ -335,7 +335,7 @@ function assessFishing(input: FishingInput): MonitorStatus {
   if (input.closureActive) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Fishery closure in effect${input.closureMessage ? ": " + input.closureMessage : ""}`,
+      summary: `\u{1f7e1} Fishery closure in effect${input.closureMessage ? ": " + input.closureMessage : ""}`,
       count: 1,
     };
   }
@@ -352,14 +352,14 @@ function assessAirQuality(input: AirQualityInput): MonitorStatus {
   if (input.maxAqi > 200) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Air quality AQI ${input.maxAqi} (Very Unhealthy)`,
+      summary: `\u{1f534} Air quality AQI ${input.maxAqi} (Very Unhealthy)`,
       count: 1,
     };
   }
   if (input.maxAqi > 100) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Air quality AQI ${input.maxAqi} (Unhealthy for Sensitive Groups)`,
+      summary: `\u{1f7e1} Air quality AQI ${input.maxAqi} (Unhealthy for Sensitive Groups)`,
       count: 1,
     };
   }
@@ -383,20 +383,20 @@ function assessWildfire(input: WildfireInput): MonitorStatus {
   if (input.hasEvacuationOrders) {
     return {
       level: "EMERGENCY",
-      summary: `\U0001f6a8 Wildfire evacuation orders active (${input.incidentCount} incident(s))`,
+      summary: `\u{1f6a8} Wildfire evacuation orders active (${input.incidentCount} incident(s))`,
       count: input.incidentCount,
     };
   }
   if (input.hasLargeFireNearby) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Large active wildfire nearby (${input.incidentCount} incident(s))`,
+      summary: `\u{1f534} Large active wildfire nearby (${input.incidentCount} incident(s))`,
       count: input.incidentCount,
     };
   }
   return {
     level: "WATCH",
-    summary: `\U0001f7e1 ${input.incidentCount} active wildfire(s) in region`,
+    summary: `\u{1f7e1} ${input.incidentCount} active wildfire(s) in region`,
     count: input.incidentCount,
   };
 }
@@ -411,14 +411,14 @@ function assessMarine(input: MarineInput): MonitorStatus {
   if ((input.waveHeightFt ?? 0) >= 15 || (input.windSpeedKt ?? 0) >= 34) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Hazardous marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "\u2014"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "\u2014"}kt wind`,
+      summary: `\u{1f534} Hazardous marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "\u2014"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "\u2014"}kt wind`,
       count: 1,
     };
   }
   if ((input.waveHeightFt ?? 0) >= 10 || (input.windSpeedKt ?? 0) >= 22) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Elevated marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "\u2014"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "\u2014"}kt wind`,
+      summary: `\u{1f7e1} Elevated marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "\u2014"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "\u2014"}kt wind`,
       count: 1,
     };
   }
@@ -442,21 +442,21 @@ function assessDrought(input: DroughtInput): MonitorStatus {
   if (scores[input.severity] >= 4) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Extreme drought (${input.severity}): ${input.severeDroughtPercent.toFixed(1)}% severe-extreme`,
+      summary: `\u{1f534} Extreme drought (${input.severity}): ${input.severeDroughtPercent.toFixed(1)}% severe-extreme`,
       count: 1,
     };
   }
   if (scores[input.severity] >= 3) {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Severe drought (${input.severity}): ${input.severeDroughtPercent.toFixed(1)}% D2-D4`,
+      summary: `\u{1f7e1} Severe drought (${input.severity}): ${input.severeDroughtPercent.toFixed(1)}% D2-D4`,
       count: 1,
     };
   }
   if (scores[input.severity] >= 1) {
     return {
       level: "WATCH",
-      summary: `\U0001f535 Dry conditions (${input.severity})`,
+      summary: `\u{1f535} Dry conditions (${input.severity})`,
       count: 1,
     };
   }
@@ -473,21 +473,21 @@ function assessPsps(input: PspsInput): MonitorStatus {
   if (input.delNorteAffected && input.status === "ACTIVE") {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Active PSPS in Del Norte County (${input.eventCount} event(s))`,
+      summary: `\u{1f534} Active PSPS in Del Norte County (${input.eventCount} event(s))`,
       count: input.eventCount,
     };
   }
   if (input.status === "PLANNED" || input.status === "ACTIVE") {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 PSPS ${input.status}: ${input.eventCount} event(s) (${input.delNorteAffected ? "Del Norte affected" : "regionally"})`,
+      summary: `\u{1f7e1} PSPS ${input.status}: ${input.eventCount} event(s) (${input.delNorteAffected ? "Del Norte affected" : "regionally"})`,
       count: input.eventCount,
     };
   }
   if (input.status === "MONITORED" || input.status === "RESTORATION") {
     return {
       level: "WATCH",
-      summary: `\U0001f535 PSPS ${input.status}: ${input.eventCount} event(s) monitored`,
+      summary: `\u{1f535} PSPS ${input.status}: ${input.eventCount} event(s) monitored`,
       count: input.eventCount,
     };
   }
@@ -504,14 +504,14 @@ function assessSmoke(input: SmokeInput): MonitorStatus {
   if (input.peakLevel === "HAZARDOUS" || input.peakLevel === "VERY_UNHEALTHY") {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Smoke ${input.peakLevel}: PM2.5 ${input.maxPm25?.toFixed(1) ?? "N/A"} ug/m3`,
+      summary: `\u{1f534} Smoke ${input.peakLevel}: PM2.5 ${input.maxPm25?.toFixed(1) ?? "N/A"} ug/m3`,
       count: 1,
     };
   }
   if (input.peakLevel === "UNHEALTHY" || input.peakLevel === "UNHEALTHY_SENSITIVE") {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Smoke ${input.peakLevel}: PM2.5 ${input.maxPm25?.toFixed(1) ?? "N/A"} ug/m3`,
+      summary: `\u{1f7e1} Smoke ${input.peakLevel}: PM2.5 ${input.maxPm25?.toFixed(1) ?? "N/A"} ug/m3`,
       count: 1,
     };
   }
@@ -531,20 +531,20 @@ function assessRoads(input: RoadClosureInput): MonitorStatus {
   if (input.hasMajorClosure) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 Major road closure active on Del Norte route (${input.incidentCount} incident(s))`,
+      summary: `\u{1f534} Major road closure active on Del Norte route (${input.incidentCount} incident(s))`,
       count: input.incidentCount,
     };
   }
   if (input.severity === "WARNING") {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 Road hazard warning: ${input.incidentCount} incident(s)`,
+      summary: `\u{1f7e1} Road hazard warning: ${input.incidentCount} incident(s)`,
       count: input.incidentCount,
     };
   }
   return {
     level: "WATCH",
-    summary: `\U0001f535 Road advisory: ${input.incidentCount} incident(s)`,
+    summary: `\u{1f535} Road advisory: ${input.incidentCount} incident(s)`,
     count: input.incidentCount,
   };
 }
@@ -562,14 +562,14 @@ function assessSchools(input: SchoolClosureInput): MonitorStatus {
   if (input.hasActiveClosure) {
     return {
       level: "WARNING",
-      summary: `\U0001f534 School closure active (${input.status}): ${input.eventCount} event(s)`,
+      summary: `\u{1f534} School closure active (${input.status}): ${input.eventCount} event(s)`,
       count: input.eventCount,
     };
   }
   if (input.hasActiveDelay || input.status !== "OPEN") {
     return {
       level: "WATCH",
-      summary: `\U0001f7e1 School schedule change (${input.status}): ${input.eventCount} event(s)`,
+      summary: `\u{1f7e1} School schedule change (${input.status}): ${input.eventCount} event(s)`,
       count: input.eventCount,
     };
   }

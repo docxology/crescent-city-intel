@@ -797,9 +797,13 @@
     function searchIndexMatches(index, needle) {
       const query = needle.trim().toLowerCase();
       if (!query || !index || !index.shards) return [];
-      const seen = new Set(); const matches = [];
-      for (const entry of index.shards.t || []) if (entry.t.includes(query) && !seen.has(entry.id)) { seen.add(entry.id); matches.push(entry); }
-      for (const entry of index.shards.x || []) { if (matches.length >= SEARCH_CAP * 4) break; if (entry.x.includes(query) && !seen.has(entry.id)) { seen.add(entry.id); matches.push(entry); } }
+      const identity = new Map((index.shards.t || []).map(entry => [entry.id, entry]));
+      const matches = [];
+      for (const entry of index.shards.t || []) if (entry.t.includes(query)) matches.push({ ...entry, x: "" });
+      for (const entry of index.shards.x || []) {
+        if (matches.length >= SEARCH_CAP * 4) break;
+        if (entry.x.includes(query) && identity.has(entry.id)) matches.push({ ...identity.get(entry.id), x: entry.x });
+      }
       return matches.slice(0, SEARCH_CAP * 4);
     }
     async function start() {

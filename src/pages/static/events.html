@@ -150,7 +150,7 @@
         if (label !== lastMonth) { html += `<li class="cal-dateline">${esc(label)}</li>`; lastMonth = label; }
         html += card(event);
       }
-      document.getElementById("event-items").innerHTML = events.length ? html : empty("No events matched the current filter.");
+      document.getElementById("event-items").innerHTML = events.length ? html : `<li class="item meta">No events matched the current filter. Choose another filter to see more of the calendar.</li>`;
     }
     document.getElementById("event-filter").addEventListener("change", () => { if (snapshotData) render(); });
     load("data/snapshot.json").then(data => { snapshotData = data; render(); }).catch(() => { document.getElementById("event-items").innerHTML = empty("The events artifact could not be loaded."); });

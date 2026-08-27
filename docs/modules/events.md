@@ -64,3 +64,49 @@ behavior. All tests are offline and deterministic (no clocks, no network).
   verify against linked sources.
 - No live fetching happens in this module — artifacts come from prior monitor
   runs.
+
+## Event discovery (`src/event_discovery.ts`, round 2)
+
+`src/event_discovery.ts` adds bounded-timeout **live discovery** of community
+events from configured public feeds in `pages-data/event_sources.json`
+(schema `crescent-city-event-sources/v1`) — each entry records `{name, url,
+type: 'html'|'rss'|'ics', notes, probe}` with a real HTTP probe status. The
+round-2 roster covers the Crescent City calendar, Del Norte County community
+events, the library district, the Chamber/visit site, DNACA, and DNUSD.
+
+### Pipeline
+
+1. `fetchFeed(url, timeoutMs)` — hard-bounded fetch (default 10s); failures
+   degrade to an errored source record, never a thrown run failure.
+2. Parsers produce candidates per source type:
+   - `ics`: RFC 5545 VEVENT blocks (line unfolding, escapes, DATE/DATE-TIME).
+   - `rss`: RSS `<item>` + Atom `<entry>` via cheerio XML mode.
+   - `html`: generic event/listing selectors; rows are date-context flagged.
+   - strategy `"evogov-json"` (EvoGov platform sites): read calendar ids off
+     the listing page, query the public `meetings/get_list` JSON endpoint.
+3. **Grounding:** dates come only from feed data. Date-like but unparseable
+   markup may go through an optional local-LLM resolver
+   (`extractionMethod: 'llm'`, confidence 0.55); everything else stays
+   `'markup'`. Anything without a resolvable date is dropped and counted
+   (`droppedUndated` / `droppedAmbiguous`) — never guessed.
+4. Every event carries `sourceUrl`, `sourceName`, `sourceLinks`,
+   `extractionMethod` ('markup' | 'llm'), and a 0..1 `confidence`.
+5. **Reconciliation** vs `output/events/events.json`: same normalized title
+   within +/-1 day marks the copy reconciled; conflicting dates prefer the
+   markup-derived record, keep both URLs, and flag `needsReview`.
+
+### Public API
+
+`GET /api/events/discover` returns the discovery artifact
+(`crescent-city-events-discovery/v1`); pass `?live=false` to skip network
+fetching. The CLI writes `output/events/event_discovery.json`
+(`bun src/event_discovery.ts`). Rendering on the public page belongs to the
+pages lane this round.
+
+### Tests
+
+`tests/event-discovery.test.ts` runs offline against fixtures trimmed from
+real probed feeds (`tests/fixtures/event-discovery/`, provenance recorded in
+file headers): ICS/RSS/HTML parsing, EvoGov id extraction, LLM-response
+strict-parsing, reconciliation merge/conflict logic, registry loading, and
+no-network determinism of `buildDiscoveryArtifact`.

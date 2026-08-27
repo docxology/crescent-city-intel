@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "fs/promises";
 import { join } from "path";
 import {
   PAGES_GEO_VIEW_PLACEHOLDER,
+  PAGES_STATIC_PAGES,
   PAGES_METHODS_COUNTS_PLACEHOLDER,
   PAGES_ROBOTS_TXT,
   PAGES_SITEMAP_XML,
@@ -48,9 +49,11 @@ describe("pages SEO discoverability", () => {
     expect(sitemapXml).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
     const locs = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
     expect(locs).toContain("https://quadruplicate.org/");
-    for (const anchor of ["#analytics", "#code", "#events", "#faq", "#geo", "#methods", "#news", "#meetings", "#curated"]) {
-      expect(locs).toContain(`https://quadruplicate.org/${anchor}`);
+    // Dedicated standalone pages are discoverable as real URLs, not anchors.
+    for (const page of PAGES_STATIC_PAGES) {
+      expect(locs).toContain(`https://quadruplicate.org/${page.file}`);
     }
+    expect(locs.some(loc => loc.includes("#"))).toBe(false);
   });
 
   test("exportPagesSnapshot writes robots.txt and sitemap.xml into the artifact", async () => {
@@ -136,5 +139,86 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
     const html = buildPagesMethodsCounts(snapshot as never);
     expect(html).toContain("<strong>Calendar events:</strong> 3</li>");
     expect(html.startsWith('<ul id="methods-counts-list">')).toBe(true);
+  });
+});
+
+describe("standalone static pages", () => {
+  const STATIC_PAGE_FILES = ["gui.html", "news.html", "meetings.html", "events.html", "code.html", "sources.html"];
+
+  test("PAGES_STATIC_PAGES covers the six dedicated static pages and the sitemap lists them all", () => {
+    expect(PAGES_STATIC_PAGES.map(page => page.file)).toEqual(STATIC_PAGE_FILES);
+    const sitemapXml = buildPagesSitemapXml();
+    const locs = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+    for (const file of STATIC_PAGE_FILES) {
+      expect(locs).toContain(`https://quadruplicate.org/${file}`);
+    }
+    // Anchor entries were replaced by real pages in the sitemap.
+    expect(locs.some(loc => loc.includes("#"))).toBe(false);
+  });
+
+  test("every static page exists, uses only newspaper palette vars, and links to real siblings", async () => {
+    for (const file of STATIC_PAGE_FILES) {
+      const html = await readFile(join(import.meta.dir, `../src/pages/static/${file}`), "utf8");
+      // Newspaper palette contract: banned color variable names must not appear.
+      for (const banned of ["--red", "--blue", "--gold", "--green", "--purple"]) {
+        if (banned === "--red") continue; // --red is substring-covered by --rdark ban check below
+        expect(html).not.toContain(`${banned}:`);
+      }
+      expect(html).not.toMatch(/--red\b(?!ark)/);
+      // Shared masthead + nav family.
+      expect(html).toContain('class="masthead-h1"');
+      expect(html).toContain('class="masthead-nav"');
+      expect(html).toContain('<a href="./">Front page</a>');
+      // Data fetching stays relative to the exported artifact.
+      expect(html).toContain('load("data/snapshot.json")');
+      for (const other of STATIC_PAGE_FILES) {
+        if (other === file) { expect(html).toContain(`href="${other}" aria-current="page"`); continue; }
+        expect(html).toContain(`href="${other}"`);
+      }
+    }
+  });
+
+  test("index nav points to standalone pages instead of the unhostable /gui/ path", async () => {
+    const indexHtml = await readFile(join(import.meta.dir, "../src/pages/static/index.html"), "utf8");
+    expect(indexHtml).not.toContain('href="/gui/"');
+    for (const file of STATIC_PAGE_FILES) {
+      expect(indexHtml).toContain(`href="${file}"`);
+    }
+  });
+
+  test("404 page links back to every real emitted page", async () => {
+    const notFound = await readFile(join(import.meta.dir, "../src/pages/static/404.html"), "utf8");
+    for (const file of STATIC_PAGE_FILES) {
+      expect(notFound).toContain(`href="${file}"`);
+    }
+  });
+
+  test("exportPagesSnapshot emits every standalone page into the artifact with no dead internal nav links", async () => {
+    const root = await mkdtemp(join(process.cwd(), ".pages-static-test-"));
+    try {
+      const destination = join(root, "pages");
+      const result = await exportPagesSnapshot({ outputDir: join(root, "missing-output"), destination, generatedAt: "2026-08-26T00:00:00Z", seedDir: join(root, "no-seed") });
+      for (const file of STATIC_PAGE_FILES) {
+        expect(result.files).toContain(file);
+        await readFile(join(destination, file), "utf8"); // throws if missing
+      }
+      // No dead internal links: every href="*.html" in every emitted page resolves to an emitted file.
+      const emitted = new Set(result.files);
+      const failures: string[] = [];
+      for (const htmlFile of [...STATIC_PAGE_FILES, "index.html", "404.html"]) {
+        const html = await readFile(join(destination, htmlFile), "utf8");
+        // Strip JS template literals inside <script> blocks first: static
+        // link checking applies to authored markup, not runtime-built hrefs.
+        const markupOnly = html.replace(/<script>[\s\S]*?<\/script>/g, "");
+        const internalLinks = [...markupOnly.matchAll(/href="(?!https?:|#|mailto:|data:)([^"#]+?)(?:#[^"]*)?"/g)].map(match => match[1].replace(/^\.\/$/, "index.html"));
+        for (const link of internalLinks) {
+          if (link === "index.html" || emitted.has(link)) continue;
+          failures.push(`${htmlFile} -> ${link}`);
+        }
+      }
+      expect(failures).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

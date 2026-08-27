@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Searchable export of the Crescent City Municipal Code with eCode360 provenance.">
+  <title>Municipal code — The Quadruplicate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light; --ink:#000000; --ink-dim:#333333; --ink-faint:#666666; --paper:#ffffff; --paper2:#f2f2f2; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#f7dcdc; --sepia:#999999; --rule:#444444; --rule-light:#888888; --rule-thin:#dddddd; --panel:rgba(255,255,255,.96); --panel-hover:rgba(242,242,242,.9); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.6 "Source Serif 4","Georgia","Times New Roman",serif; -webkit-font-smoothing:antialiased; }
+    a { color:var(--ink); text-decoration-color:var(--rule); text-underline-offset:2px; }
+    a:hover { color:var(--rdark); text-decoration-color:var(--cc); }
+    ::selection { background:var(--rtint); color:var(--ink); }
+    .red-banner { background:var(--cc); color:#fff; text-align:center; padding:22px 20px 12px; }
+    .red-banner .masthead-h1 { font:900 clamp(2.4rem,6vw,4.2rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.03em; margin:0; color:#fff; text-decoration:none; display:inline-block; }
+    .red-banner .masthead-sub { font:400 italic .85rem/1.3 "Source Serif 4",Georgia,serif; color:rgba(255,255,255,.85); margin:2px 0 0; letter-spacing:.02em; }
+    .masthead-date-row { border-bottom:3px solid var(--ink); }
+    .masthead-date-row .inner { max-width:1260px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; padding:4px 20px; }
+    .masthead-date { font:600 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); margin:0; }
+    .masthead-date .red-prefix { color:var(--cc); font-weight:700; }
+    .masthead-nav-wrap { border-bottom:3px double var(--ink); }
+    .masthead-nav-wrap .inner { max-width:1260px; margin:0 auto; padding:4px 20px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .masthead-nav { display:flex; flex-wrap:nowrap; justify-content:flex-start; align-items:center; }
+    .masthead-nav a { position:relative; font:500 .74rem/1 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); text-decoration:none; padding:5px 10px; white-space:nowrap; transition:color .15s; }
+    .masthead-nav a:hover, .masthead-nav a[aria-current="page"] { color:var(--cc); }
+    .page { max-width:1260px; margin:0 auto; padding:0 20px 60px; }
+    .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 12px; padding-bottom:5px; border-top:3px solid var(--cc); flex-wrap:wrap; }
+    .section-head h2 { font:700 clamp(1.15rem,2vw,1.5rem)/1.15 "Playfair Display",Georgia,serif; margin:0; letter-spacing:-.01em; color:var(--ink); }
+    .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; white-space:nowrap; }
+    .banner { border:1px solid var(--rule); border-left:4px solid var(--cc); background:var(--panel); padding:12px 16px; font-size:.92rem; margin-bottom:10px; }
+    .banner.degraded { border-left-color:var(--rdark); background:var(--rtint); }
+    .banner.unavailable { border-left-color:var(--ink); background:var(--rule-light); }
+    .cards-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin:10px 0; }
+    .card { background:var(--card-bg); border:1px solid var(--rule-thin); border-left:3px solid var(--cc); padding:10px 12px; text-align:center; }
+    .card .value { font:700 1.4rem/1.1 "Playfair Display",Georgia,serif; color:var(--cc); }
+    .card .label { font:.72rem/1.3 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
+    .health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:8px; }
+    .source { background:var(--panel); border:1px solid var(--rule-thin); padding:11px 13px 11px 18px; position:relative; }
+    .source::before { content:""; position:absolute; left:6px; top:17px; width:5px; height:5px; border-radius:50%; background:var(--ink-faint); }
+    .source.ok::before { background:var(--ink); } .source.empty::before { background:var(--sepia); }
+    .source.unavailable::before,.source.stale::before { background:var(--cc); }
+    .source h3 { font:600 .88rem/1.2 "Source Serif 4",Georgia,serif; margin:0 0 2px; }
+    .status { font-weight:700; letter-spacing:.04em; font-size:.82rem; }
+    .status.ok { color:var(--ink); } .status.empty { color:var(--ink-faint); } .status.unavailable,.status.stale { color:var(--cc); } .status.not-checked { color:var(--ink-dim); }
+    .items { display:grid; gap:8px; }
+    .item { background:var(--card-bg); border:1px solid var(--rule-thin); padding:12px 14px; border-left:3px solid var(--cc); }
+    .item h3 { font:600 .98rem/1.25 "Source Serif 4",Georgia,serif; margin:0 0 3px; }
+    .item h3 a { color:var(--ink); text-decoration:none; }
+    .item h3 a:hover { color:var(--rdark); text-decoration:underline; text-decoration-color:var(--cc); }
+    .item .meta { font:.74rem/1.3 Inter,sans-serif; color:var(--ink-faint); margin-bottom:3px; }
+    .item p { font:.88rem/1.5 "Source Serif 4",Georgia,serif; color:var(--ink-dim); margin:5px 0 0; }
+    .item .tag { display:inline-block; margin:3px 3px 0 0; padding:2px 7px; border:1px solid var(--rule); font-size:.74rem; font-family:Inter,sans-serif; color:var(--ink-dim); }
+    table { border-collapse:collapse; width:100%; background:var(--card-bg); border:1px solid var(--rule); font-size:.84rem; }
+    th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--rule-thin); vertical-align:top; }
+    th { font:.68rem/1 Inter,sans-serif; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); background:var(--paper2); }
+    tr:last-child td { border-bottom:0; }
+    .pill { display:inline-block; padding:2px 6px; border:1px solid var(--rule); font-size:.72rem; white-space:nowrap; font-family:Inter,sans-serif; color:var(--ink-dim); }
+    .controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0; }
+    input,select { border:1px solid var(--rule); background:var(--card-bg); color:var(--ink); padding:6px 10px; font:500 .8rem/1 Inter,sans-serif; }
+    input:focus,select:focus { outline:2px solid var(--ink); outline-offset:2px; }
+    .empty-state { color:var(--ink-faint); border:1px dashed var(--rule); padding:12px; font-style:italic; }
+    .error { color:var(--ink); font-weight:600; }
+    .subtle { font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
+    .ics-badge { display:inline-block; padding:5px 12px; border:2px solid var(--cc); background:var(--rtint); color:var(--rdark); font:700 .78rem/1 Inter,sans-serif; letter-spacing:.05em; text-transform:uppercase; text-decoration:none; border-radius:2px; transition:background .15s,color .15s; }
+    .ics-badge:hover { background:var(--cc); color:#fff; text-decoration:none; }
+    .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#fff; background:var(--ink); padding:5px 11px; display:block; margin-top:8px; }
+    .footer { border-top:3px solid var(--cc); margin-top:28px; padding-top:14px; font:.78rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
+    .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
+    @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } .page { padding:0 12px 48px; } }
+  </style>
+</head>
+<body>
+  <header class="red-banner">
+    <a class="masthead-h1" href="./">The Quadruplicate</a>
+    <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
+  </header>
+  <div class="masthead-date-row">
+    <div class="inner"><p class="masthead-date"><span class="red-prefix">CRESCENT CITY, CA &mdash;</span> Municipal code</p></div>
+  </div>
+  <div class="masthead-nav-wrap">
+    <div class="inner">
+      <nav class="masthead-nav" aria-label="Sections"><a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="code.html" aria-current="page">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
+    </div>
+  </div>
+  <main class="page" id="main">
+
+    <section id="page-code">
+      <div class="section-head"><h2>Municipal code search</h2><span class="meta">ecode360.com/CR4919 &middot; <a href="./#code">Front-page section</a></span></div>
+      <p class="subtle">Derived from the published eCode360 edition of the Crescent City Municipal Code. For legal decisions consult the official published code directly.</p>
+      <p id="code-meta" class="subtle"></p>
+      <input id="code-search" type="search" aria-label="Search the exported municipal code" placeholder="Search section number, title, or text&hellip;">
+      <div id="code-results" class="items" style="margin-top:10px"></div>
+    </section>
+    <script>
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[ch]);
+    const href = value => /^https?:\/\//i.test(String(value || "")) ? String(value) : "#";
+    const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
+    const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
+    const empty = message => `<div class="empty-state">${esc(message)}</div>`;
+    async function load(path) { const response = await fetch(path, { cache:"no-store" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+
+    load("data/snapshot.json").then(async snapshot => {
+      const meta = document.getElementById("code-meta");
+      if (!(snapshot.files && snapshot.files.code)) {
+        meta.textContent = "The municipal code export is not available in this snapshot.";
+        document.getElementById("code-results").innerHTML = empty("No municipal code export was present in this edition.");
+        return;
+      }
+      const code = await load(snapshot.files.code);
+      const articles = Array.isArray(code.articles) ? code.articles : [];
+      const sections = articles.flatMap(article => (article.sections || []).map(section => ({ ...section, articleTitle: article.title, articleUrl: article.url })));
+      meta.textContent = sections.length ? `${articles.length} articles and ${sections.length} sections in this public code export.` : "The municipal code export contained no sections.";
+      const results = document.getElementById("code-results");
+      const show = query => {
+        const needle = query.trim().toLowerCase();
+        const matches = needle ? sections.filter(section => [section.number, section.title, section.text].join(" ").toLowerCase().includes(needle)).slice(0, 40) : [];
+        results.innerHTML = needle ? (matches.length ? matches.map(section => `<article class="item"><h3>${esc(section.number || "")} ${esc(section.title || "")}</h3><div class="meta">${esc(section.articleTitle || "")}</div><p>${esc(String(section.text || "").slice(0, 420))}${String(section.text || "").length > 420 ? "\u2026" : ""}</p>${section.articleUrl ? `<a href="${esc(href(section.articleUrl))}" rel="noopener noreferrer">source article</a>` : ""}</article>`).join("") : empty("No code sections matched this query.")) : empty("Enter a search term to search the exported municipal code.");
+      };
+      document.getElementById("code-search").addEventListener("input", event => show(event.target.value));
+      show("");
+    }).catch(error => { document.getElementById("code-results").innerHTML = empty(`Code export unavailable — ${error.message || error}`); });
+    </script>
+
+    <div class="footer">
+      <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
+      <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
+    </div>
+  </main>
+</body>
+</html>

@@ -155,12 +155,27 @@ export function buildPagesRobotsTxt(): string {
   return `User-agent: *\nAllow: /\nSitemap: ${PAGES_SITE_URL}/sitemap.xml\n`;
 }
 
+/**
+ * Standalone static pages emitted alongside index.html. The local Bun GUI can
+ * never be hosted on GitHub Pages, so gui.html is a real static read-only
+ * console over the exported ./data/*.json artifacts; the other pages are
+ * fully rendered views over the same snapshot data.
+ */
+export const PAGES_STATIC_PAGES: ReadonlyArray<{ file: string; title: string }> = [
+  { file: "gui.html", title: "Civic intelligence console" },
+  { file: "news.html", title: "Local news" },
+  { file: "meetings.html", title: "Meetings" },
+  { file: "events.html", title: "Community calendar" },
+  { file: "code.html", title: "Municipal code" },
+  { file: "sources.html", title: "Sources" },
+];
+
 /** Sitemap covering the canonical root plus the major anchor sections of Pages index. */
 export function buildPagesSitemapXml(): string {
-  const sections = ["", "#analytics", "#code", "#events", "#faq", "#geo", "#methods", "#news", "#meetings", "#curated"];
+  const paths = ["", ...PAGES_STATIC_PAGES.map(page => page.file)];
   const today = new Date().toISOString().slice(0, 10);
-  const entries = sections
-    .map(section => `  <url><loc>${PAGES_SITE_URL}/${section}</loc><lastmod>${today}</lastmod></url>`)
+  const entries = paths
+    .map(path => `  <url><loc>${PAGES_SITE_URL}/${path}</loc><lastmod>${today}</lastmod></url>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }
@@ -730,6 +745,12 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
     await writeFile(join(temporary, "index.html"), embedPagesMethodsCounts(embedPagesGeoView(indexTemplate, geoIntel.view), buildPagesMethodsCounts(snapshot)), "utf8");
     await copyIfPresent(join(STATIC_DIR, "404.html"), join(temporary, "404.html"));
+    for (const page of PAGES_STATIC_PAGES) {
+      if (!(await copyIfPresent(join(STATIC_DIR, page.file), join(temporary, page.file)))) {
+        throw new Error(`Pages static page is missing from ${STATIC_DIR}: ${page.file}`);
+      }
+      files.push(page.file);
+    }
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
     files.push("index.html", "404.html", ".nojekyll");
     await writeFile(join(temporary, PAGES_ROBOTS_TXT), buildPagesRobotsTxt(), "utf8");
@@ -822,7 +843,9 @@ export function validatePagesSource(indexHtml: string): string[] {
   if (!indexHtml.includes('id="refresh"')) errors.push("Pages index does not expose a refresh control");
   if (!indexHtml.includes("snapshot.healthSummary")) errors.push("Pages index does not render aggregate health metadata");
   if (!indexHtml.includes("snapshot.analytics")) errors.push("Pages index does not render the shared analytics overview");
-  if (!indexHtml.includes('<a href="#events">')) errors.push("Pages index does not expose an Events nav link");
+  // Nav links now point at the dedicated standalone pages (real URLs on
+  // Pages); the anchor sections remain on the front page itself.
+  if (!indexHtml.includes('<a href="events.html"')) errors.push("Pages index does not expose an Events nav link");
   if (!indexHtml.includes('id="events"')) errors.push("Pages index does not expose the events section");
   if (!indexHtml.includes('id="event-items"')) errors.push("Pages index does not expose the event items container");
   if (!indexHtml.includes('id="event-filter"')) errors.push("Pages index does not expose the event filter control");

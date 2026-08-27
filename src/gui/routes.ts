@@ -1211,6 +1211,18 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/events/discover - community-event discovery artifact
+  if (path === "/api/events/discover") {
+    try {
+      const { buildDiscoveryArtifact } = await import("../event_discovery.js");
+      const includeNetwork = url.searchParams.get("live") !== "false";
+      const artifact = await buildDiscoveryArtifact(new Date().toISOString(), process.cwd(), { includeNetwork });
+      return json(artifact);
+    } catch (err: any) {
+      return json({ error: `Event discovery failed: ${err.message}` }, 500);
+    }
+  }
+
   // POST /api/chat/stream — streaming RAG via Server-Sent Events
   if (path === "/api/chat/stream" && req?.method === "POST") {
     await resetProviderBudget();

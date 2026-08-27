@@ -1103,6 +1103,74 @@ paths:
                         totalEvents: {type: integer}
                         avgPerDay: {type: number}
 
+  /api/events/discover:
+    get:
+      summary: Community-event discovery artifact
+      description: >-
+        Fetches the registered Crescent City / Del Norte County event source
+        feeds (bounded-timeout), parses ICS/RSS/HTML listings into candidate
+        events with per-event provenance (sourceUrl, extractionMethod,
+        confidence), and reconciles them against the deterministic calendar.
+        Pass live=false to rebuild from cached state without network access.
+      operationId: getEventDiscovery
+      tags: [Events]
+      parameters:
+        - name: live
+          in: query
+          required: false
+          schema: {type: boolean, default: true}
+          description: When false, skip network fetching and return the zeroed shell artifact.
+      responses:
+        '200':
+          description: Event discovery artifact (schema crescent-city-events-discovery/v1)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: {type: string}
+                  generatedAt: {type: string}
+                  counts:
+                    type: object
+                    properties:
+                      sourcesOk: {type: integer}
+                      sourcesErrored: {type: integer}
+                      fetched: {type: integer}
+                      droppedAmbiguous: {type: integer}
+                      droppedUndated: {type: integer}
+                      conflictsFlagged: {type: integer}
+                      reconciled: {type: integer}
+                      count: {type: integer}
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                  provenance:
+                    type: object
+                    properties:
+                      groundRules:
+                        type: array
+                        items: {type: string}
+                      reconciledAgainst: {type: string}
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string}
+                        title: {type: string}
+                        kind: {type: string}
+                        dateStart: {type: string, nullable: true}
+                        status: {type: string}
+                        needsReview: {type: boolean}
+                        extractionMethod: {type: string, enum: [markup, llm]}
+                        confidence: {type: number}
+                        sourceUrl: {type: string}
+                        sourceName: {type: string}
+                        sourceLinks:
+                          type: array
+                          items: {type: string}
+
   /api/alerts/recent:
     get:
       summary: Recent alert events

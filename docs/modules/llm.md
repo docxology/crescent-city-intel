@@ -190,3 +190,66 @@ RAG verification on this checkout (2026-08-27): index fingerprint unchanged at
 3105 stored chunks over 2206 sections; semantic search for tsunami/flood topics
 returned § 17.84G.050 and related coastal/flood sections as top hits with
 scores ≥ 0.69.
+
+---
+
+## `src/llm/validate.ts` — Cross-Source Validation (R2)
+
+Classifies support for a factual claim against independent source snippets:
+`corroborated` / `partial` / `unsupported` / `contradicted`.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `validateClaims(claim, snippets)` | async | Provider-backed wrapper: proposes quoted spans via `queryStructured`, then verifies each in code. |
+| `validateEventClaims` | alias | Events-path entry point (same contract as `validateClaims`). |
+| `verifiedBySubstring(span, text)` | pure | The grounding check: literal substring match modulo casing/whitespace/quote glyphs. |
+| `classifySupportFromCounts(supportingSources, contradictingSpans)` | pure | Deterministic thresholds: contradict > 0 wins; ≥2 distinct sources corroborate; 1 = partial; 0 = unsupported. |
+| `buildClaimValidation(...)` | pure | Assembles a `ClaimValidation` from pre-verified span sets. |
+| `extractQuoteSpans(text)` | pure | Pulls `"..."`-quoted spans from model/snippet text. |
+| `normalizeForSubstringMatch(text)` | pure | Normalization shared by the verifier. |
+
+**Grounding invariant:** the model never gets the final word on quoting. A proposed span
+becomes a verified contributor ONLY after `verifiedBySubstring` confirms it appears literally
+inside one of the supplied snippets. Everything else lands in `rejectedSpans`
+(`reason: "not_found"`) and cannot raise the verdict.
+
+### Note for the events owner (`src/events.ts` is owned by the events lane this round)
+
+To wire event-claim validation into extraction: build `CorroborationSnippet[]` from the event's
+independent source URLs (one snippet per distinct source), then
+
+```ts
+const validation = await validateEventClaims(eventFact.claimText, snippets);
+if (validation.verdict === "corroborated" || validation.verdict === "partial") {
+  // attach validation.provenance + validation.verifiedSpans to the published record
+}
+```
+
+Unverifiable events should be dropped (verdict `unsupported`) rather than guessed. Keep every
+published claim paired with its `provenance` URLs per the repo grounding invariant.
+
+---
+
+## `src/llm/dedupe.ts` — Embedding Near-Duplicate Detection (R2)
+
+Cosine similarity over nomic-embed-text vectors; pure core tested with tiny synthetic vectors.
+
+| Export | Kind | Description |
+|--------|------|-------------|
+| `cosineSimilarity(a, b)` | pure | Cosine of two equal-length vectors (0 for zero-magnitude inputs). |
+| `findNearDuplicates(candidate, existing, threshold?)` | pure | Matches at or above `NEAR_DUPLICATE_COSINE_THRESHOLD` (0.92), sorted by similarity then id. |
+| `nearDuplicateClusters(items, threshold?)` | pure | Greedy single-linkage clusters with first-seen canonical ids; deterministic. |
+| `isNearDuplicateOfExisting(text, id, items, threshold?)` | async | Provider-backed wrapper: embeds via Ollama and reuses the pure core. |
+
+---
+
+## Curation enrichment & Monthly-report executive digest (R2)
+
+- `src/curation.ts`: structured enrichment pass over each curated item — per-item entity/topic
+  tags, salience 0..1 with rationale, one-line neutral summary (`CurationEnrichment`). Additive
+  optional fields on `CuratedItem`; enrichment failure never blocks or downgrades the record.
+  `CURATION_PROMPT_VERSION` bumped to `2026-08-26-enriched-v3`.
+- `src/monthly_report.ts`: `generateExecutiveDigest(metrics, monthLabel)` gives the LLM ONLY
+  data-derived numbers and asks it to write connective prose between them. Unavailable provider →
+  null and the report omits the Executive Digest section with a warning line (silent fallback;
+  the report itself never fails because of the digest).

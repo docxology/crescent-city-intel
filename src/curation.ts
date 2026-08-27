@@ -99,6 +99,16 @@ export interface CuratedItem {
   citations: CurationCitation[];
   retryable: boolean;
   error?: string;
+  // ── R2 additive LLM enrichment (optional for pre-R2 records) ──
+  /** Per-item tags proposed by the structured LLM pass (entity-level). */
+  entityTags?: string[];
+  /** Per-item topics proposed by the structured LLM pass. */
+  topicTags?: string[];
+  /** 0..1 editorial importance with an LLM-written rationale. */
+  salience?: number;
+  salienceRationale?: string;
+  /** One-line neutral summary from the same structured pass. */
+  neutralSummary?: string;
 }
 
 export interface SummaryResult {
@@ -134,7 +144,9 @@ export function mergeCuratedItems(existing: CuratedItem[], incoming: CuratedItem
   return [...existing.filter(item => !replacements.has(item.id)), ...replacements.values()];
 }
 
-export const CURATION_PROMPT_VERSION = '2026-07-24-grounded-v2';
+export const CURATION_PROMPT_VERSION = '2026-08-26-enriched-v3';
+/** Schema shape version for the additive enrichment record (tags/salience/summary). */
+export const CURATION_RECORD_SCHEMA_VERSION = '2.0.0';
 const SUMMARY_MAX_CHARS = 900;
 const CURATION_SYSTEM_PROMPT =
   'You are a source-grounded civic-news editor. Summarize only the supplied public source excerpt. ' +
@@ -385,6 +397,66 @@ export function tagWithDomains(item: CurationInput): string[] {
   return [...matched];
 }
 
+// ─── Structured enrichment (per-item tags, salience, neutral summary) ─────
+
+/** Deterministic output contract of the structured enrichment pass. */
+export interface CurationEnrichment {
+  entityTags: string[];
+  topicTags: string[];
+  salience: number;
+  salienceRationale: string;
+  neutralSummary: string;
+}
+
+const ENRICHMENT_SCHEMA_HINT =
+  '{"entityTags": ["<proper-noun entities: people, places, agencies>"], '
+  + '"topicTags": ["<short lowercase topical keywords>"], '
+  + '"salience": <number 0..1>, '
+  + '"salienceRationale": "<one sentence why this matters or does not>", '
+  + '"neutralSummary": "<one-sentence strictly source-grounded summary>"}';
+
+const ENRICHMENT_SYSTEM_PROMPT =
+  'You are a source-grounded civic-news indexer. Use ONLY facts explicitly present in the supplied excerpt. Never invent entities, dates, locations, or outcomes.';
+
+/**
+ * Validate a parsed structured value against the CurationEnrichment contract.
+ * Exported so the recorded-fixture tests can exercise exactly what production runs.
+ */
+export function isCurationEnrichment(value: unknown): value is CurationEnrichment {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.entityTags) && v.entityTags.every(t => typeof t === 'string')
+    && Array.isArray(v.topicTags) && v.topicTags.every(t => typeof t === 'string')
+    && typeof v.salience === 'number' && Number.isFinite(v.salience) && v.salience >= 0 && v.salience <= 1
+    && typeof v.salienceRationale === 'string'
+    && typeof v.neutralSummary === 'string' && v.neutralSummary.trim().length > 0
+    && v.neutralSummary.length <= SUMMARY_MAX_CHARS;
+}
+
+/**
+ * Structured per-item enrichment via queryStructured: entity/topic tags,
+ * 0-1 salience with rationale, and one-line neutral summary. Returns null on
+ * provider failure or malformed output — callers keep the deterministic
+ * keyword tags already computed by tagWithDomains and simply omit the
+ * enrichment fields (additive, never blocking).
+ */
+export async function enrichCurationInput(item: CurationInput): Promise<CurationEnrichment | null> {
+  try {
+    const { queryStructured } = await import('./llm/structured.js');
+    const prompt =
+      `Index the following civic item about Crescent City, CA.\n\n`
+      + `Title: ${item.title}\n\nSource excerpt:\n`
+      + `${normalizeSourceText(item.text).slice(0, 4000) || '(no article body was supplied by the feed)'}`;
+    const result = await queryStructured<CurationEnrichment>(prompt, {
+      schemaHint: ENRICHMENT_SCHEMA_HINT,
+      systemPrompt: ENRICHMENT_SYSTEM_PROMPT,
+    }, isCurationEnrichment);
+    return result.value;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Main curation run ─────────────────────────────────────────────────
 
 /**
@@ -497,6 +569,9 @@ export async function runCuration(): Promise<CuratedItem[]> {
       const inputFingerprint = inputFingerprints.get(item.id) ?? await computeSha256(item.text);
       const evidence = buildCurationEvidence(item, inputFingerprint);
       const tags = tagWithDomains(item);
+      // Structured enrichment is best-effort and additive: a failed/null
+      // enrichment never downgrades or blocks the curation record itself.
+      const enrichment = summary.status === 'ok' ? await enrichCurationInput(item) : null;
       curated.push({
         id: item.id,
         source: item.source,
@@ -515,6 +590,13 @@ export async function runCuration(): Promise<CuratedItem[]> {
         citations: evidence.citations,
         retryable: summary.retryable,
         ...(summary.error ? { error: summary.error } : {}),
+        ...(enrichment ? {
+          entityTags: enrichment.entityTags,
+          topicTags: enrichment.topicTags,
+          salience: enrichment.salience,
+          salienceRationale: enrichment.salienceRationale,
+          neutralSummary: enrichment.neutralSummary,
+        } : {}),
       });
       // A failed provider call stays retryable. The source-only fallback is
       // retained as evidence for this run but is not treated as a successful

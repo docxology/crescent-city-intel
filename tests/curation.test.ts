@@ -8,7 +8,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdir, rm } from "fs/promises";
 import { join } from "path";
-import { buildCurationEvidence, isCurationRecordComplete, mergeCuratedItems, tagWithDomains, summarizeItem, type CurationInput, type CuratedItem } from "../src/curation";
+import { CURATION_PROMPT_VERSION, buildCurationEvidence, isCurationRecordComplete, mergeCuratedItems, tagWithDomains, summarizeItem, type CurationInput, type CuratedItem } from "../src/curation";
 
 const TEST_DIR = join(process.cwd(), "output", "test-curation");
 
@@ -100,7 +100,7 @@ describe("curated output idempotency", () => {
   });
 
   test("does not treat presence-only or lineage-incomplete records as complete", () => {
-    const complete = { hash: "hash", firstSeen: "2026-07-24T00:00:00Z", lastSeen: "2026-07-24T00:00:00Z", meta: { promptVersion: "2026-07-24-grounded-v2", provider: "ollama", model: "gemma3:4b", summaryStatus: "ok" } };
+    const complete = { hash: "hash", firstSeen: "2026-07-24T00:00:00Z", lastSeen: "2026-07-24T00:00:00Z", meta: { promptVersion: CURATION_PROMPT_VERSION, provider: "ollama", model: "gemma3:4b", summaryStatus: "ok" } };
     expect(isCurationRecordComplete(complete, "hash", "ollama", "gemma3:4b")).toBe(true);
     expect(isCurationRecordComplete({ ...complete, hash: "" }, "hash", "ollama", "gemma3:4b")).toBe(false);
     expect(isCurationRecordComplete({ ...complete, meta: { ...complete.meta, summaryStatus: "source_only" } }, "hash", "ollama", "gemma3:4b")).toBe(false);

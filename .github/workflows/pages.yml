@@ -50,6 +50,15 @@ jobs:
         continue-on-error: true
 
 
+      # Municipal-code snapshot collection must precede snapshot export so the
+      # published edition contains real code statistics. A failed collection
+      # fails the build loudly instead of silently publishing an empty edition.
+      - name: Collect municipal code snapshot
+        run: bun run scrape
+
+      - name: Verify collected municipal code data
+        run: bun run verify
+
       - name: Collect live source snapshots
         run: bun run weekly-check
         # Source outages are represented in source-health artifacts and must not

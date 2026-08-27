@@ -310,7 +310,7 @@
       <div id="meeting-items" class="items"></div>
     </section>
     <section id="events" class="section">
-      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a href="data/events.json">Download events JSON</a></span></div>
+      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a href="data/events.json">Download events JSON</a> · <a href="data/events.ics" type="text/calendar" download="crescent-city-events.ics">Subscribe / download .ics</a></span></div>
       <div class="controls">
         <select id="event-filter">
           <option value="all">All events</option>
@@ -318,10 +318,12 @@
           <option value="past">Past</option>
           <option value="meetings">Meetings</option>
           <option value="community">Community &amp; news</option>
+          <option value="youtube">YouTube</option>
+          <option value="holiday-closure">Holiday closures</option>
         </select>
         <span id="event-count" class="meta" role="status"></span>
       </div>
-      <div id="event-items" class="items"></div>
+      <ol id="event-items" class="items"></ol>
     </section>
     <section id="alerts" class="section">
       <div class="section-head"><span class="newspaper-label">Alert Log</span><h2>Safety bulletin</h2><span class="meta">13-monitor alert board</span></div>
@@ -405,9 +407,29 @@
       $("analytics-download").innerHTML = snapshot.files?.analyticsOverview ? `<a class=\"button\" href=\"${esc(snapshot.files.analyticsOverview)}\" download>Analytics JSON</a>` : "";
     }
     const EVENT_KIND_LABELS = { "government-meeting": "Government meeting", "community-listing": "Community listing", "civic-news": "Civic news", youtube: "YouTube", "holiday-closure": "Holiday closure" };
-    function eventStatusPill(status) {
-      if (status === "scheduled") return '<span class="pill" style="border-color:var(--cc);color:var(--cc);font-weight:700">SCHEDULED</span>';
-      return `<span class="pill">${esc(String(status || "unknown").toUpperCase())}</span>`;
+    function eventStatusChip(status) {
+      const label = String(status || "unknown").toUpperCase();
+      if (status === "scheduled") return `<span class="pill" style="border-color:var(--cc);color:var(--cc);font-weight:700">${label}</span>`;
+      if (status === "completed") return `<span class="pill" style="opacity:0.75">${label}</span>`;
+      return `<span class="pill">${esc(label)}</span>`;
+    }
+    function daysUntilHint(dateStart, status) {
+      if (!dateStart || status === "completed") return "";
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const target = new Date(`${dateStart}T00:00:00`);
+      if (Number.isNaN(target.getTime())) return "";
+      const days = Math.round((target - today) / 86400000);
+      if (days === 0) return " · today";
+      if (days === 1) return " · tomorrow";
+      if (days > 1 && days <= 30) return ` · in ${days} days`;
+      return "";
+    }
+    function eventMonthKey(event) {
+      const date = event.dateStart || "undated";
+      const match = date.match(/^(\d{4})-(\d{2})/);
+      if (!match) return null;
+      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      return { key: match[1] + "-" + match[2], label: `${monthNames[Number(match[2]) - 1]} ${match[1]}` };
     }
     function filteredEvents(snapshot) {
       const events = Array.isArray(snapshot.events?.events) ? snapshot.events.events : [];
@@ -415,26 +437,27 @@
       if (filter === "upcoming") return events.filter(item => item.status === "scheduled");
       if (filter === "past") return events.filter(item => item.status === "completed");
       if (filter === "meetings") return events.filter(item => item.kind === "government-meeting");
+      if (filter === "youtube") return events.filter(item => item.kind === "youtube");
+      if (filter === "holiday-closure") return events.filter(item => item.kind === "holiday-closure");
       if (filter === "community") return events.filter(item => item.kind !== "government-meeting");
       return events;
     }
     function renderEventCard(event) {
       const kindLabel = esc(EVENT_KIND_LABELS[event.kind] || event.kind || "event");
       const when = esc(event.dateStart || "date not recorded");
-      const place = [event.location, event.organizer].filter(Boolean).map(part => esc(part)).join(" · ");
+      const timeEl = event.dateStart ? `<time datetime="${esc(event.dateStart)}">${when}</time>` : when;
+      const hint = daysUntilHint(event.dateStart, event.status);
       const summary = eventSummary(event);
       const links = (Array.isArray(event.sourceLinks) ? event.sourceLinks : []).filter(link => /^https?:\/\//i.test(String(link))).slice(0, 8);
-      const linksHtml = links.length ? `<div class="meta">Sources: ${links.map((link, index) => `<a href="${esc(href(link))}" rel="noopener noreferrer">[${index + 1}]</a>`).join(" ")}</div>` : "";
       const primaryLink = /^https?:\/\//i.test(String(links[0] || "")) ? links[0] : null;
-      const titleHtml = primaryLink ? `<h3><a href="${esc(primaryLink)}" rel="noopener noreferrer">${esc(event.title)}</a></h3>` : `<h3>${esc(event.title)}</h3>`;
+      const titleHtml = primaryLink ? `<h3><a href="${esc(href(primaryLink))}" rel="noopener noreferrer">${esc(event.title)}</a></h3>` : `<h3>${esc(event.title)}</h3>`;
+      const locationHtml = event.location
+        ? (primaryLink ? `📍 <a href="${esc(href(primaryLink))}" rel="noopener noreferrer">${esc(event.location)}</a>` : `📍 ${esc(event.location)}`)
+        : "";
+      const placeHtml = [locationHtml, event.organizer ? esc(event.organizer) : ""].filter(Boolean).join(" · ");
       const summaryHtml = summary && summary.text ? `<p><strong>LLM summary — verify against the linked source.</strong> ${esc(summary.text)}</p><div class="meta">${esc(summary.provider)}${summary.model ? `/${esc(summary.model)}` : ""} · generated ${esc(date(summary.generatedAt))}</div>` : "";
-      const whenText = when === "date not recorded" ? "date not recorded" : date(when);
-      return `<article class="item cal-entry"><div class="cal-when"><div class="meta">${kindLabel}</div><span class="cal-time">${esc(String(event.dateStart || "").slice(0, 10))}</span></div>${titleHtml}<div>${eventStatusPill(event.status)}</div><div class="meta">${whenText}</div>${place ? `<div class="meta">${place}</div>` : ""}${summaryHtml}${linksHtml}</article>`;
-    }
-    function eventDateline(event) {
-      const parsed = Date.parse(String(event?.dateStart || ""));
-      if (!Number.isFinite(parsed)) return null;
-      return new Date(parsed).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+      const linksHtml = links.length ? `<div class="meta">Sources: ${links.map((link, index) => `<a href="${esc(href(link))}" rel="noopener noreferrer">[${index + 1}]</a>`).join(" ")}</div>` : "";
+      return `<li class="item cal-entry"><div class="cal-when"><div class="meta">${kindLabel}</div>${timeEl ? `<span class="cal-time">${timeEl}</span>` : ""}</div>${titleHtml}<div class="meta">${hint}</div><div>${eventStatusChip(event.status)}</div>${placeHtml ? `<div class="meta">${placeHtml}</div>` : ""}${summaryHtml}${linksHtml}</li>`;
     }
     function eventSummary(event) {
       const summaries = state.snapshot?.events?.summaries;
@@ -444,14 +467,27 @@
     function renderEvents(snapshot) {
       const filtered = filteredEvents(snapshot);
       $("event-count").textContent = `${filtered.length} of ${snapshot.events?.count ?? (snapshot.events?.events || []).length} event(s)`;
-      const rendered = [];
-      let lastDateline = null;
-      for (const event of filtered) {
-        const dateline = eventDateline(event);
-        if (dateline && dateline !== lastDateline) { rendered.push(`<div class="cal-dateline">${esc(dateline)}</div>`); lastDateline = dateline; }
-        rendered.push(renderEventCard(event));
+      if (!filtered.length) {
+        $("event-items").innerHTML = state.eventFilter === "all"
+          ? ""
+          : `<li class="item meta">No events matched the current filter. Choose another filter to see more of the calendar.</li>`;
+        return;
       }
-      $("event-items").innerHTML = rendered.length ? rendered.join("") : empty(state.eventFilter === "all" ? "No structured events were available in this snapshot." : "No events matched the current filter.");
+      // Group by month with dateline headers; undated events land in a trailing group.
+      const groups = new Map();
+      for (const event of filtered) {
+        const month = eventMonthKey(event);
+        const key = month ? month.key : "undated";
+        if (!groups.has(key)) groups.set(key, { label: month ? month.label : "Date not recorded", items: [] });
+        groups.get(key).items.push(event);
+      }
+      let html = "";
+      for (const [, group] of groups) {
+        html += `<li class="cal-dateline" data-month-header="${esc(group.label)}">${esc(group.label)}</li>`;
+        for (const item of group.items) html += renderEventCard(item);
+      $("event-items").dataset.calendarColumn = "true";
+      }
+      $("event-items").innerHTML = html;
     }
     function renderWelcome(snapshot) {
       const summary = snapshot.healthSummary || {};

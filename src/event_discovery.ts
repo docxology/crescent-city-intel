@@ -582,7 +582,7 @@ export async function buildDiscoveryArtifact(
 
   const results = includeNetwork
     ? await Promise.all(sources.map(async source => ({ source, ...(await discoverFromSource(source, counters, { resolveLlm: options.resolveLlm })) })))
-    : sources.map(source => ({ source, status: "ok" as const, events: [] as DiscoveredEvent[] }));
+    : sources.map(source => ({ source, status: "ok" as const, httpStatus: undefined as number | undefined, error: undefined as string | undefined, events: [] as DiscoveredEvent[] }));
 
   const flat: DiscoveredEvent[] = results.flatMap(result => result.events);
   const reconciliation = reconcileDiscoveries(flat, loadExistingEvents(root));

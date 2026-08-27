@@ -28,6 +28,9 @@ const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;
 export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
 export const PAGES_EVENTS_ARTIFACT = "data/events.json";
+const PAGES_SITE_URL = "https://quadruplicate.org";
+export const PAGES_ROBOTS_TXT = "robots.txt";
+export const PAGES_SITEMAP_XML = "sitemap.xml";
 export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
 export const MAX_PAGES_GEO_INTEL_BYTES = 256 * 1024;
 const MAX_PAGES_GEO_DOMAINS = 100;
@@ -141,6 +144,21 @@ function isRecord(value: unknown): value is JsonRecord {
 /** Build the API-shaped, JSON-safe geo-intel artifact used by public Pages. */
 export function buildPagesGeoIntel(contract: Record<string, unknown> = buildGeoIntel()): GeoIntelSurface {
   return buildGeoIntelSurface(contract);
+}
+
+/** Allow-all robots policy with an explicit sitemap pointer. */
+export function buildPagesRobotsTxt(): string {
+  return `User-agent: *\nAllow: /\nSitemap: ${PAGES_SITE_URL}/sitemap.xml\n`;
+}
+
+/** Sitemap covering the canonical root plus the major anchor sections of Pages index. */
+export function buildPagesSitemapXml(): string {
+  const sections = ["", "#analytics", "#code", "#events", "#geo", "#news", "#meetings", "#curated"];
+  const today = new Date().toISOString().slice(0, 10);
+  const entries = sections
+    .map(section => `  <url><loc>${PAGES_SITE_URL}/${section}</loc><lastmod>${today}</lastmod></url>`)
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }
 
 /** Replace the static template marker with a backend-free map from the exact view being published. */
@@ -680,6 +698,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await copyIfPresent(join(STATIC_DIR, "404.html"), join(temporary, "404.html"));
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
     files.push("index.html", "404.html", ".nojekyll");
+    await writeFile(join(temporary, PAGES_ROBOTS_TXT), buildPagesRobotsTxt(), "utf8");
+    await writeFile(join(temporary, PAGES_SITEMAP_XML), buildPagesSitemapXml(), "utf8");
+    files.push(PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML);
 
     await writeJson(join(temporary, "data/snapshot.json"), snapshot);
     await writeJson(join(temporary, "data/source-health.json"), snapshot.sourceHealth);

@@ -9,6 +9,7 @@ import {
   validatePagesGeoIntel,
   validatePagesSource,
 } from "../src/pages_snapshot.js";
+import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
 
@@ -25,6 +26,25 @@ const indexHtml = await readFile(join(destination, "index.html"), "utf8").catch(
 errors.push(...validatePagesSource(indexHtml));
 if (indexHtml.includes(PAGES_GEO_VIEW_PLACEHOLDER)) errors.push("Pages geo-view placeholder was not replaced");
 if (!indexHtml.includes('data-geo-view-schema="crescent-city-geo-view/v1"')) errors.push("Pages artifact does not contain the rendered geo-view SVG");
+
+// SEO discoverability: robots.txt and sitemap.xml must exist and parse.
+const robotsTxt = await readFile(join(destination, PAGES_ROBOTS_TXT), "utf8").catch(() => null);
+if (robotsTxt === null) {
+  errors.push(`missing required Pages asset: ${PAGES_ROBOTS_TXT}`);
+} else if (!/^User-agent:\s*\*$/m.test(robotsTxt) || !/Allow:\s*\/$/m.test(robotsTxt)) {
+  errors.push("robots.txt does not declare an allow-all policy");
+} else if (!/Sitemap:\s*https:\/\/quadruplicate\.org\/sitemap\.xml$/m.test(robotsTxt)) {
+  errors.push("robots.txt is missing the sitemap pointer");
+}
+let sitemapXml = await readFile(join(destination, PAGES_SITEMAP_XML), "utf8").catch(() => null);
+if (sitemapXml === null) {
+  errors.push(`missing required Pages asset: ${PAGES_SITEMAP_XML}`);
+} else {
+  const locMatches = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+  if (!/<urlset[^>]*xmlns="http:\/\/www.sitemaps.org\/schemas\/sitemap\/0.9"/.test(sitemapXml)) errors.push("sitemap.xml is missing the sitemap namespace");
+  if (locMatches.length === 0) errors.push("sitemap.xml has no <loc> entries");
+  if (!locMatches.includes("https://quadruplicate.org/")) errors.push("sitemap.xml is missing the canonical root URL");
+}
 
 let snapshot: PagesSnapshot | null = null;
 try {
@@ -88,6 +108,21 @@ if (snapshot) {
   const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
   if (!geoIntelSummary) errors.push("geo-intel artifact summary cannot be derived");
   else if (JSON.stringify(snapshot.geoIntel) !== JSON.stringify(geoIntelSummary)) errors.push("snapshot geoIntel summary does not match the geo-intel artifact");
+}
+
+const jsonLdMatch = indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+if (!jsonLdMatch) {
+  errors.push("index.html is missing the JSON-LD structured data script");
+} else {
+  try {
+    const structuredData = JSON.parse(jsonLdMatch[1]) as Record<string, unknown>;
+    if (structuredData["@type"] !== "WebSite") errors.push("JSON-LD @type is not WebSite");
+    if (structuredData.url !== "https://quadruplicate.org/") errors.push("JSON-LD url does not match the canonical site URL");
+    const publisher = typeof structuredData.publisher === "object" && structuredData.publisher !== null ? structuredData.publisher as Record<string, unknown> : null;
+    if (publisher?.["@type"] !== "GovernmentOrganization") errors.push("JSON-LD publisher is not GovernmentOrganization");
+  } catch {
+    errors.push("JSON-LD structured data does not parse as JSON");
+  }
 }
 
 if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("API key placeholder found in Pages HTML");

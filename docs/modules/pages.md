@@ -103,3 +103,29 @@ and deployment actions with only `contents: read`, `pages: write`, and
 The live GUI remains the correct surface for RAG chat and authenticated API
 operations. The Pages site is a timestamped public snapshot, not a live
 service or a substitute for following the cited source.
+
+## SEO discoverability
+
+The static Pages artifact carries explicit search-engine metadata so the
+snapshot is discoverable and attributable without any client-side code:
+
+- **Head metadata** (`src/pages/static/index.html`, head only): a canonical URL
+  (`https://quadruplicate.org/`), Open Graph tags (`og:title`,
+  `og:description`, `og:type`, `og:url`, `og:site_name`, `og:image`), a Twitter
+  `summary_large_image` card, and a JSON-LD `WebSite` script with a
+  `GovernmentOrganization` publisher bound to Crescent City, CA.
+- **robots.txt** — emitted by `buildPagesRobotsTxt()` in
+  `src/pages_snapshot.ts`: an allow-all policy with an explicit sitemap pointer.
+- **sitemap.xml** — emitted by `buildPagesSitemapXml()`: the sitemap-0.9
+  namespace covering the canonical root plus the major anchor sections
+  (`#analytics`, `#code`, `#events`, `#geo`, `#news`, `#meetings`, `#curated`).
+
+Both files are written into `.pages` by `exportPagesSnapshot()` alongside
+`index.html`. `scripts/validate-pages.ts` treats them as required assets: it
+checks that robots.txt declares allow-all plus the sitemap pointer and that
+sitemap.xml is namespaced, has `<loc>` entries, includes the canonical root,
+and that the JSON-LD block parses as JSON with the expected types.
+
+Coverage is pinned by `tests/pages-seo.test.ts` (metadata presence, JSON-LD
+parse, exporter emission) on top of the general artifact tests in
+`tests/pages_snapshot.test.ts`.

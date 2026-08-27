@@ -5,6 +5,40 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="The Quadruplicate — a provenance-preserving newspaper-style public snapshot of local government, safety monitors, and source-grounded reporting.">
   <title>The Quadruplicate — Public Intelligence Snapshot</title>
+  <link rel="canonical" href="https://quadruplicate.org/">
+  <meta property="og:title" content="The Quadruplicate — Public Intelligence Snapshot">
+  <meta property="og:description" content="A provenance-preserving newspaper-style public snapshot of Crescent City, CA local government, safety monitors, and source-grounded reporting.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://quadruplicate.org/">
+  <meta property="og:site_name" content="The Quadruplicate">
+  <meta property="og:image" content="https://quadruplicate.org/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="The Quadruplicate — Public Intelligence Snapshot">
+  <meta name="twitter:description" content="A provenance-preserving public intelligence snapshot of Crescent City, CA city government.">
+  <meta name="twitter:image" content="https://quadruplicate.org/og-image.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "The Quadruplicate",
+    "alternateName": "The Quadruplicate — Public Intelligence Snapshot",
+    "url": "https://quadruplicate.org/",
+    "description": "A provenance-preserving newspaper-style public snapshot of Crescent City, California city government: council meetings, municipal code, safety monitors, and source-grounded reporting.",
+    "inLanguage": "en",
+    "publisher": {
+      "@type": "GovernmentOrganization",
+      "name": "The Quadruplicate",
+      "url": "https://quadruplicate.org/",
+      "email": "CrescentCity@tuta.com",
+      "areaServed": {
+        "@type": "City",
+        "name": "Crescent City",
+        "addressRegion": "CA",
+        "addressCountry": "US"
+      }
+    }
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -115,7 +149,39 @@
     .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
     @media (max-width:700px) { .geo-showcase { grid-template-columns:1fr; } .geo-showcase > :first-child { border-right:0; padding-right:0; } }
     @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } }
-    @media print { body { background:#fff; color:#000; font-size:11pt; } .red-banner { background:#000!important; } .masthead-nav-wrap,.masthead-date-row,.controls,.action-bar { display:none; } .page { max-width:100%; padding:0; } .source,.item,.card,.banner { break-inside:avoid; } }
+    /* --- Broadsheet paper texture (CSS-only grain, no image fetches) --- */
+    body { position:relative; }
+    body::before { content:""; position:fixed; inset:0; z-index:2147483647; pointer-events:none; opacity:.55; background:repeating-linear-gradient(0deg, rgba(0,0,0,.011) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0,0,0,.007) 0 1px, transparent 1px 4px); }
+    /* --- Column rules between grid cards (broadsheet multi-column feel) --- */
+    .section-head { margin-top:40px; }
+    .section-head h2 { font-weight:900; }
+    .paper-rule-note { font:.78rem/1.5 "Source Serif 4",Georgia,serif; color:var(--ink-faint); font-style:italic; margin:4px 0 0; }
+    /* --- Community Calendar column --- */
+    #event-items.items { gap:0; margin-top:10px; border-top:3px solid var(--ink); }
+    #event-items .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#fff; background:var(--ink); padding:5px 11px; display:block; }
+    #event-items .cal-entry { background:var(--card-bg); border:1px solid var(--rule-thin); border-top:0; border-left-width:3px; border-left-color:var(--cc); padding:11px 14px; break-inside:avoid; }
+    #event-items .cal-entry + .cal-entry { border-top:1px dotted var(--rule-light); }
+    #event-items .cal-when { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:3px; }
+    #event-items .cal-time { font:500 .78rem/1 "DM Mono","Courier New",monospace; color:var(--cc); letter-spacing:.02em; white-space:nowrap; }
+    #event-items .cal-entry h3 { font-size:1rem; margin-bottom:2px; }
+    /* --- Mobile 375px usability --- */
+    @media (max-width:480px) {
+      body { font-size:16px; }
+      .red-banner { padding:16px 12px 10px; }
+      .red-banner .masthead-h1 { font-size:clamp(2rem,9vw,2.6rem); }
+      .page { padding:0 12px 48px; }
+      .section-head { margin-top:28px; flex-wrap:wrap; gap:6px; }
+      .section-head .meta { margin-left:0; }
+      .masthead-nav-wrap .inner, .masthead-date-row .inner { padding:4px 12px; }
+      .masthead-nav-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      .masthead-nav { flex-wrap:nowrap; justify-content:flex-start; }
+      .masthead-date-row, .red-banner { overflow:hidden; }
+      .cards-row { grid-template-columns:repeat(2,1fr); }
+      input, select { max-width:100%; }
+      .controls select, .controls .button { flex:0 1 auto; }
+    }
+    /* --- Print stylesheet --- */
+    @media print { body { background:#fff; color:#000; font-size:11pt; } .red-banner { background:#000!important; } body::before { display:none!important; } .masthead-h1 { color:#fff!important; } .red-banner .masthead-sub,.red-banner .masthead-contact { color:#eee!important; } a { text-decoration:none; } #event-items .cal-entry,#event-items .cal-dateline { border-color:#999!important; background:#fff!important; } #event-items .cal-dateline { background:#000!important; color:#fff!important; } .masthead-nav-wrap,.masthead-date-row,.controls,.action-bar { display:none; } .page { max-width:100%; padding:0; } .source,.item,.card,.banner { break-inside:avoid; } }
   </style>
 </head>
 <body>
@@ -362,7 +428,13 @@
       const primaryLink = /^https?:\/\//i.test(String(links[0] || "")) ? links[0] : null;
       const titleHtml = primaryLink ? `<h3><a href="${esc(primaryLink)}" rel="noopener noreferrer">${esc(event.title)}</a></h3>` : `<h3>${esc(event.title)}</h3>`;
       const summaryHtml = summary && summary.text ? `<p><strong>LLM summary — verify against the linked source.</strong> ${esc(summary.text)}</p><div class="meta">${esc(summary.provider)}${summary.model ? `/${esc(summary.model)}` : ""} · generated ${esc(date(summary.generatedAt))}</div>` : "";
-      return `<article class="item">${titleHtml}<div class="meta">${kindLabel} · ${when}</div><div>${eventStatusPill(event.status)}</div>${place ? `<div class="meta">${place}</div>` : ""}${summaryHtml}${linksHtml}</article>`;
+      const whenText = when === "date not recorded" ? "date not recorded" : date(when);
+      return `<article class="item cal-entry"><div class="cal-when"><div class="meta">${kindLabel}</div><span class="cal-time">${esc(String(event.dateStart || "").slice(0, 10))}</span></div>${titleHtml}<div>${eventStatusPill(event.status)}</div><div class="meta">${whenText}</div>${place ? `<div class="meta">${place}</div>` : ""}${summaryHtml}${linksHtml}</article>`;
+    }
+    function eventDateline(event) {
+      const parsed = Date.parse(String(event?.dateStart || ""));
+      if (!Number.isFinite(parsed)) return null;
+      return new Date(parsed).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
     }
     function eventSummary(event) {
       const summaries = state.snapshot?.events?.summaries;
@@ -372,7 +444,14 @@
     function renderEvents(snapshot) {
       const filtered = filteredEvents(snapshot);
       $("event-count").textContent = `${filtered.length} of ${snapshot.events?.count ?? (snapshot.events?.events || []).length} event(s)`;
-      $("event-items").innerHTML = filtered.length ? filtered.map(renderEventCard).join("") : empty(state.eventFilter === "all" ? "No structured events were available in this snapshot." : "No events matched the current filter.");
+      const rendered = [];
+      let lastDateline = null;
+      for (const event of filtered) {
+        const dateline = eventDateline(event);
+        if (dateline && dateline !== lastDateline) { rendered.push(`<div class="cal-dateline">${esc(dateline)}</div>`); lastDateline = dateline; }
+        rendered.push(renderEventCard(event));
+      }
+      $("event-items").innerHTML = rendered.length ? rendered.join("") : empty(state.eventFilter === "all" ? "No structured events were available in this snapshot." : "No events matched the current filter.");
     }
     function renderWelcome(snapshot) {
       const summary = snapshot.healthSummary || {};

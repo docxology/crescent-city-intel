@@ -48,6 +48,8 @@ export interface GeoPointFeature {
     hazardTags: string[];
     sectionCount: number;
     nominal: boolean;
+    /** Additive round-2 field present only when insights attach to this domain. */
+    insight?: HazardDomainInsight;
   };
 }
 export interface GeoSectionRef {
@@ -516,4 +518,54 @@ export function buildGeoIntelSurface(raw: Record<string, unknown>): GeoIntelSurf
     ...raw,
     view: buildGeoView(raw),
   };
+}
+
+/** Additive per-domain intelligence summary attached to hazard-domain points. */
+export interface HazardDomainInsight {
+  direction: "rising" | "steady" | "falling" | "insufficient";
+  deltaTotal: number;
+  momentumPct: number | null;
+  /** Coverage-gap kind + score when the round-2 scorer flagged the domain. */
+  coverageGapKind: string | null;
+  coverageGapScore: number | null;
+}
+
+/**
+ * Return a NEW view whose hazard-domain point properties gain an additive
+ * `insight` field (never mutates the input). Points carry insights only for
+ * domains present in the report - absence stays absent rather than becoming
+ * a fabricated "calm".
+ */
+export function attachGeoDomainInsights(
+  view: GeoIntelView,
+  insightsByDomainId: Record<string, HazardDomainInsight>,
+): GeoIntelView {
+  const lookup = new Map<string, string>();
+  for (const domainId of Object.keys(insightsByDomainId)) {
+    lookup.set(normalizeDomainName(domainId), domainId);
+  }
+  const features = view.features.map(feature => {
+    if (feature.geometry.type !== "Point" || feature.properties.kind !== "hazard-domain") return feature;
+    const name = feature.id.startsWith("hazard-domain:") ? feature.id.slice("hazard-domain:".length) : null;
+    const domainId = name ? lookup.get(normalizeDomainName(name)) ?? null : null;
+    const insight = domainId ? insightsByDomainId[domainId] : undefined;
+    if (!insight || feature.properties.kind !== "hazard-domain") return feature;
+    const enriched: GeoPointFeature = {
+      type: "Feature",
+      id: feature.id,
+      geometry: { type: "Point", coordinates: [feature.geometry.coordinates[0], feature.geometry.coordinates[1]] },
+      properties: { ...feature.properties, insight },
+    };
+    return enriched;
+  });
+  return { ...view, features };
+}
+
+/**
+ * Normalize a domain id/display name to a comparable key so e.g.
+ * "harbor-marine-operations", "Harbor & Marine Operations", and
+ * "Harbor Marine Operations" all collide onto the same bucket.
+ */
+function normalizeDomainName(value: string): string {
+  return value.toLowerCase().replace(/&/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
 }

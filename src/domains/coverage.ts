@@ -136,3 +136,92 @@ if (import.meta.main) {
     process.exit(1);
   });
 }
+
+// ─── Coverage gap scoring (Round 2, additive) ───────────────────────────
+//
+// Signal-level gaps complement the section-coverage metrics above: a domain
+// can reference plenty of code sections yet have stale news while its hazard
+// alerts keep firing — exactly the "alerts present but news stale" blind spot.
+// Pure functions only; insights.ts feeds these into its report payload.
+
+export interface DomainGapInput {
+  domainId: string;
+  /** Alert monitor events recorded in the recent window (live signal). */
+  alertEvents: number;
+  /** News items recorded in the recent window. */
+  newsCount: number;
+  /** Epoch ms of the newest recent news item; null when none. */
+  latestNewsAtMs: number | null;
+  /** Meeting items referencing the domain in the recent window. */
+  meetingsCount: number;
+  /** Epoch ms the snapshot is evaluated at. */
+  checkedAtMs: number;
+}
+
+/** Days without fresh news before a live-alert domain counts as news-stale. */
+export const GAP_NEWS_STALE_DAYS = 14;
+
+export interface DomainCoverageGap {
+  domainId: string;
+  /** Machine-readable gap class from GAP_REASON_* */
+  kind: string;
+  /** Deterministic severity score (0 excluded); higher = more urgent. */
+  score: number;
+  detail: string;
+}
+
+export const GAP_REASON_NEWS_STALE = "news-stale-while-alerts-active";
+export const GAP_REASON_NO_RECENT_ITEMS = "no-recent-coverage";
+export const GAP_REASON_MEETING_REFERENCE_ONLY = "meeting-reference-without-news";
+
+/**
+ * Score per-domain signal coverage gaps over a flat value scale:
+ *   0          no gap worth reporting
+ *   1..39      meeting-reference-only (the domain surfaced in proceedings but never in news)
+ *   40..79     no recent items at all
+ *   80..100    alerts firing while news has gone stale (most actionable)
+ * The exact integer is deterministic from input ages so callers and tests can
+ * assert on it; empty alert feeds NEVER manufacture urgency by themselves.
+ */
+export function scoreDomainCoverageGaps(inputs: DomainGapInput[]): DomainCoverageGap[] {
+  const gaps: DomainCoverageGap[] = [];
+  for (const input of inputs) {
+    if (input.alertEvents > 0) {
+      const daysSilent = input.latestNewsAtMs === null
+        ? Number.POSITIVE_INFINITY
+        : (input.checkedAtMs - input.latestNewsAtMs) / (24 * 60 * 60 * 1000);
+      if (!Number.isFinite(daysSilent) || daysSilent > GAP_NEWS_STALE_DAYS) {
+        const ageComponent = Number.isFinite(daysSilent)
+          ? Math.min(20, Math.round((daysSilent - GAP_NEWS_STALE_DAYS) * 2))
+          : 20;
+        gaps.push({
+          domainId: input.domainId,
+          kind: GAP_REASON_NEWS_STALE,
+          score: 80 + ageComponent,
+          detail: Number.isFinite(daysSilent)
+            ? `${input.alertEvents} alert event(s) recorded but the latest news item is ${Math.floor(daysSilent)} day(s) old`
+            : `${input.alertEvents} alert event(s) recorded but no news item exists in the recent window`,
+        });
+        continue;
+      }
+    }
+    if (input.newsCount === 0 && input.meetingsCount === 0 && input.alertEvents === 0) {
+      gaps.push({
+        domainId: input.domainId,
+        kind: GAP_REASON_NO_RECENT_ITEMS,
+        score: 40,
+        detail: "No alerts, news, or meeting references recorded for this domain in the recent window",
+      });
+      continue;
+    }
+    if (input.newsCount === 0 && input.meetingsCount > 0) {
+      gaps.push({
+        domainId: input.domainId,
+        kind: GAP_REASON_MEETING_REFERENCE_ONLY,
+        score: 25,
+        detail: `Referenced in ${input.meetingsCount} recent proceeding(s) but absent from recent news`,
+      });
+    }
+  }
+  return gaps.sort((a, b) => b.score - a.score || a.domainId.localeCompare(b.domainId));
+}

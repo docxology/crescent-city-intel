@@ -160,7 +160,7 @@
       summary.innerHTML = `<strong>${esc(discovery.sourceCount ?? records.length)} discovered sources</strong><div class="meta">${esc(discovery.monitoredCount ?? 0)} monitored · ${esc(discovery.discoveryOnlyCount ?? 0)} discovery-only · ${esc(discovery.referenceOnlyCount ?? 0)} reference-only</div>`;
       const shown = records.slice(0, 100);
       document.getElementById("registry-body").innerHTML = shown.map(source => `<tr><td><strong>${esc(source.name)}</strong><div class="meta">${esc(source.id || "")} · ${esc(source.kind || "")}</div></td><td><span class="pill">${esc(source.automation || "reference-only")}</span></td><td>${status(source.operationalStatus || "not-checked")}</td><td>${esc(source.region || "")} · ${esc(source.authority || "")}</td></tr>`).join("");
-      summary.innerHTML += `<div class="meta">Showing ${shown.length} of ${records.length} registry sources.</div>`;
+      summary.innerHTML += `<div class="meta">Showing ${esc(shown.length)} of ${esc(records.length)} registry sources.</div>`;
         }).catch(error => {
       // Every render target gets an honest failure state; a table with headers
       // and zero rows is never presented as a success (§5.2 spirit, lane1 slice).

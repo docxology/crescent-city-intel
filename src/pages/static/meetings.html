@@ -144,7 +144,7 @@
         const when = item.pubDate || item.date;
         const detail = esc(item.description || item.summary || "");
         return `<article class="item"><h3>${/^https?:/.test(String(item.link || item.url || "")) ? `<a href="${esc(link)}" rel="noopener noreferrer">${title}</a>` : title}</h3><div class="meta">${esc(item.source || "public record")}${when ? ` · ${esc(date(when))}` : ""}</div>${detail ? `<p>${detail}</p>` : ""}</article>`;
-      }).join("") : empty("No meeting records were available in this snapshot.")) + `<div class="meta">Showing ${shown.length} of ${list.length} meeting records.</div>`;
+      }).join("") : empty("No meeting records were available in this snapshot.")) + `<div class="meta">Showing ${esc(shown.length)} of ${esc(list.length)} meeting records.</div>`;
     }).catch(error => { document.getElementById("meeting-items").innerHTML = empty(`Meetings artifact unavailable — ${error.message || error}`); });
     </script>
 

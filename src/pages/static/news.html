@@ -150,7 +150,7 @@
       const fields = ["title", "source", "description", "content", "summary", "pubDate", "date"];
       const filtered = needle ? allItems.filter(item => fields.some(field => String(item[field] ?? "").toLowerCase().includes(needle))) : allItems;
       const shown = filtered.slice(0, 30);
-      document.getElementById("news-items").innerHTML = (filtered.length ? shown.map(itemCard).join("") : empty(needle ? "No news items matched the filter." : "No news items were available in this snapshot.")) + `<div class="meta">Showing ${shown.length} of ${filtered.length} news items.</div>`;
+      document.getElementById("news-items").innerHTML = (filtered.length ? shown.map(itemCard).join("") : empty(needle ? "No news items matched the filter." : "No news items were available in this snapshot.")) + `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} news items.</div>`;
     }
     const debouncedRender = (() => { let timer = null; return () => { clearTimeout(timer); timer = setTimeout(render, 200); }; })();
     document.getElementById("content-filter").addEventListener("input", debouncedRender);

@@ -69,12 +69,20 @@ export function buildPagesCodeSearchIndex(code: unknown): {
   schema: "crescent-city-code-search/v1";
   articleCount: number;
   sectionCount: number;
-  shards: Record<string, Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }>>;
+  /** Field-sharded: `t` carries number/title/article identity for rendering,
+   * `x` carries only id + body text — no entry is duplicated across shards. */
+  shards: {
+    t: Array<{ id: string; n: string; t: string; title: string; a: string; u: string | null }>;
+    x: Array<{ id: string; x: string }>;
+  };
 } {
   const articles = code && typeof code === "object" && Array.isArray((code as { articles?: unknown[] }).articles)
     ? (code as { articles: Array<Record<string, unknown>> }).articles
     : [];
-  const shards: Record<string, Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }>> = { t: [], x: [] };
+  const shards: {
+    t: Array<{ id: string; n: string; t: string; title: string; a: string; u: string | null }>;
+    x: Array<{ id: string; x: string }>;
+  } = { t: [], x: [] };
   let sectionCount = 0;
   articles.forEach((article, articleIndex) => {
     const articleTitle = String(article.title ?? "");
@@ -85,16 +93,9 @@ export function buildPagesCodeSearchIndex(code: unknown): {
       const number = String(record.number ?? "");
       const title = String(record.title ?? "");
       const text = String(record.text ?? "");
-      const entry = {
-        id: `${articleIndex}-${sectionIndex}`,
-        n: number,
-        t: `${number} ${title} ${articleTitle}`.toLowerCase(),
-        x: text.toLowerCase(),
-        a: articleTitle,
-        u: articleUrl,
-      };
-      shards.t.push(entry);
-      shards.x.push(entry);
+      const id = `${articleIndex}-${sectionIndex}`;
+      shards.t.push({ id, n: number, t: `${number} ${title} ${articleTitle}`.toLowerCase(), title, a: articleTitle, u: articleUrl });
+      shards.x.push({ id, x: text.toLowerCase() });
       sectionCount += 1;
     });
   });
@@ -102,17 +103,20 @@ export function buildPagesCodeSearchIndex(code: unknown): {
 }
 
 /** Search the sharded index: title/number shard first, then full text. */
-export function searchPagesCodeIndex(index: ReturnType<typeof buildPagesCodeSearchIndex>, needle: string, limit = 30): Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }> {
+export function searchPagesCodeIndex(index: ReturnType<typeof buildPagesCodeSearchIndex>, needle: string, limit = 30): Array<{ id: string; n: string; t: string; title: string; a: string; u: string | null; x?: string }> {
   const query = needle.trim().toLowerCase();
   if (!query) return [];
-  const seen = new Set<string>();
-  const matches: Array<{ id: string; n: string; t: string; x: string; a: string; u: string | null }> = [];
+  const textById = new Map(index.shards.x.map(entry => [entry.id, entry.x]));
+  const matches: Array<{ id: string; n: string; t: string; title: string; a: string; u: string | null; x?: string }> = [];
   for (const entry of index.shards.t) {
-    if (entry.t.includes(query) && !seen.has(entry.id)) { seen.add(entry.id); matches.push(entry); }
+    if (entry.t.includes(query)) matches.push({ ...entry, x: textById.get(entry.id) ?? "" });
   }
   for (const entry of index.shards.x) {
     if (matches.length >= limit) break;
-    if (entry.x.includes(query) && !seen.has(entry.id)) { seen.add(entry.id); matches.push(entry); }
+    if (entry.x.includes(query) && !matches.some(match => match.id === entry.id)) {
+      const identity = index.shards.t.find(candidate => candidate.id === entry.id);
+      if (identity) matches.push({ ...identity, x: entry.x });
+    }
   }
   return matches.slice(0, limit);
 }
@@ -1494,18 +1498,6 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       await writeJson(join(temporary, PAGES_ANALYTICS_ARTIFACT), snapshot.analytics);
       files.push(PAGES_ANALYTICS_ARTIFACT);
     }
-    // --- Sharded municipal-code search index (§1.3), content-hashed for normal caching (§1.6) ---
-    const codeJsonBytes = await readFile(join(temporary, "data/code.json")).catch(() => null);
-    if (codeJsonBytes !== null) {
-      const searchIndex = buildPagesCodeSearchIndex(JSON.parse(new TextDecoder().decode(codeJsonBytes)));
-      const searchIndexSource = `${JSON.stringify(searchIndex)}\n`;
-      const searchIndexPath = pagesContentHashName(PAGES_SEARCH_INDEX_ARTIFACT_PREFIX + "json", searchIndexSource);
-      await writeFile(join(temporary, searchIndexPath), searchIndexSource, "utf8");
-      snapshot.files.codeSearchIndex = searchIndexPath;
-      // Persist the envelope again so files.codeSearchIndex matches the emitted artifact.
-      await writeJson(join(temporary, "data/snapshot.json"), snapshot);
-      files.push(searchIndexPath);
-    }
 
     async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
       return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);
@@ -1520,6 +1512,18 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     ];
     for (const [source, target] of optionalCopies) {
       if (await copyFirstPresent(source, join(temporary, target))) files.push(target);
+    }
+    // --- Sharded municipal-code search index (§1.3), content-hashed for normal caching (§1.6) ---
+    const codeJsonBytes = await readFile(join(temporary, "data/code.json")).catch(() => null);
+    if (codeJsonBytes !== null) {
+      const searchIndex = buildPagesCodeSearchIndex(JSON.parse(new TextDecoder().decode(codeJsonBytes)));
+      const searchIndexSource = `${JSON.stringify(searchIndex)}\n`;
+      const searchIndexPath = pagesContentHashName(PAGES_SEARCH_INDEX_ARTIFACT_PREFIX + "json", searchIndexSource);
+      await writeFile(join(temporary, searchIndexPath), searchIndexSource, "utf8");
+      snapshot.files.codeSearchIndex = searchIndexPath;
+      // Persist the envelope again so files.codeSearchIndex matches the emitted artifact.
+      await writeJson(join(temporary, "data/snapshot.json"), snapshot);
+      files.push(searchIndexPath);
     }
     if (snapshot.report.monthly !== null) {
       await writeFile(join(temporary, "data/report.md"), snapshot.report.monthly, "utf8");

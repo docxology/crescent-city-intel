@@ -161,7 +161,7 @@
           : (shown.length
             ? shown.map(section => `<article class="item"><h3>${esc(section.n || "")} ${esc(section.title || "")}</h3><div class="meta">${esc(section.a || "")}</div><p>${esc(String(section.x || "").slice(0, 420))}${String(section.x || "").length > 420 ? "\u2026" : ""}</p>${section.u ? `<a href="${esc(href(section.u))}" rel="noopener noreferrer">source article</a>` : ""}</article>`).join("")
             : empty("No code sections matched this query."));
-        if (needle) results.innerHTML += `<div class="meta">Showing ${shown.length} of ${matches.length} matching code sections.</div>`;
+        if (needle) results.innerHTML += `<div class="meta">Showing ${esc(shown.length)} of ${esc(matches.length)} matching code sections.</div>`;
       };
       const search = needle => {
         if (!needle) { render([], ""); return; }

@@ -17,7 +17,7 @@ import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
 import { buildGeoIntel } from "./geo.js";
 import { buildGeoIntelSurface, buildGeoViewSvg, type GeoIntelSurface, type GeoIntelView } from "./geo_view.js";
-import { buildEventsArtifact, collectEvents, type EventsArtifact } from "./events.js";
+import { buildEventsArtifact, buildEventsIcs, collectEvents, type EventsArtifact } from "./events.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const NEWSPAPER_NAME = "The Quadruplicate";
@@ -28,6 +28,7 @@ const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;
 export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
 export const PAGES_EVENTS_ARTIFACT = "data/events.json";
+export const PAGES_EVENTS_ICS_ARTIFACT = "data/events.ics";
 const PAGES_SITE_URL = "https://quadruplicate.org";
 export const PAGES_ROBOTS_TXT = "robots.txt";
 export const PAGES_SITEMAP_XML = "sitemap.xml";
@@ -708,7 +709,8 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, "data/source-discovery.json"), snapshot.sourceDiscovery);
     await writeJson(join(temporary, PAGES_GEO_INTEL_ARTIFACT), geoIntel);
     await writeJson(join(temporary, PAGES_EVENTS_ARTIFACT), snapshot.events);
-    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT);
+    await writeFile(join(temporary, PAGES_EVENTS_ICS_ARTIFACT), buildEventsIcs(snapshot.events?.events ?? []), "utf8");
+    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT);
 
     async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
       return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);

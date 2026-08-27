@@ -9,6 +9,11 @@ import {
   collectEvents,
   dedupeAndMerge,
   kindFor,
+  buildEventsIcs,
+  escapeIcsText,
+  foldIcsLine,
+  formatIcsStamp,
+  nextIsoDay,
   parseEventDate,
   EVENTS_SCHEMA,
   type EventKind,
@@ -192,5 +197,107 @@ describe("collectEvents against real fixture output trees", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("escapeIcsText", () => {
+  test("escapes RFC 5545 specials and newlines", () => {
+    expect(escapeIcsText("back\\\\slash")).toBe("back\\\\\\\\slash");
+    expect(escapeIcsText("semi;comma,colon")).toBe("semi\\;comma\\,colon");
+    expect(escapeIcsText("line one\nline two")).toBe("line one\\nline two");
+    expect(escapeIcsText("crlf\r\nline")).toBe("crlf\\nline");
+  });
+});
+
+describe("nextIsoDay", () => {
+  test("advances across month and year boundaries in UTC", () => {
+    expect(nextIsoDay("2026-08-31")).toBe("2026-09-01");
+    expect(nextIsoDay("2026-12-31")).toBe("2027-01-01");
+    expect(nextIsoDay("2028-02-28")).toBe("2028-02-29");
+    expect(nextIsoDay("2026-02-28")).toBe("2026-03-01");
+  });
+
+  test("rejects malformed dates", () => {
+    expect(nextIsoDay("not-a-date")).toBeNull();
+    expect(nextIsoDay("2026-3-01")).toBeNull();
+    expect(nextIsoDay("")).toBeNull();
+  });
+});
+
+describe("formatIcsStamp", () => {
+  test("converts ISO timestamps to ICS UTC form", () => {
+    expect(formatIcsStamp("2026-08-26T12:34:56.789Z")).toBe("20260826T123456Z");
+    expect(formatIcsStamp("garbage")).toBe("19700101T000000Z");
+  });
+});
+
+describe("foldIcsLine", () => {
+  test("keeps short lines unfolded", () => {
+    expect(foldIcsLine("SUMMARY:short")).toEqual(["SUMMARY:short"]);
+  });
+
+  test("folds long ASCII lines at octet budget with continuation spaces", () => {
+    const line = `DESCRIPTION:${"x".repeat(200)}`;
+    const folded = foldIcsLine(line);
+    expect(folded.length).toBeGreaterThan(1);
+    for (const part of folded) expect(part.length).toBeLessThanOrEqual(75);
+    // unfolding (removing CRLF + single space) reconstructs the original
+    expect((folded[0] + folded.slice(1).map(part => part.slice(1)).join(""))).toBe(line);
+  });
+});
+
+describe("buildEventsIcs", () => {
+  const base = {
+    id: "planning-commission-meeting-2026-09-10-000",
+    title: "Planning Commission Meeting",
+    dateStart: "2026-09-10",
+    location: 'Council Chamber, 186 Main St',
+    description: "Agenda; items, and backslashes.",
+    sourceLinks: ["https://example.com/agenda.pdf"],
+    status: "scheduled",
+  } as never as Parameters<typeof buildEventsIcs>[0][number];
+
+  test("emits deterministic VCALENDAR with stable UIDs and fixed DTSTAMP", () => {
+    const first = buildEventsIcs([base], { stamp: "2026-08-26T00:00:00.000Z" });
+    const second = buildEventsIcs([base], { stamp: "2026-08-26T00:00:00.000Z" });
+    expect(first).toBe(second);
+    expect(first.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:")).toBe(true);
+    expect(first.includes(`UID:${base.id}@crescent-city-intel`)).toBe(true);
+    expect(first.includes("DTSTAMP:20260826T000000Z")).toBe(true);
+    expect(first.includes("DTSTART;VALUE=DATE:20260910")).toBe(true);
+    expect(first.includes("DTEND;VALUE=DATE:20260911")).toBe(true);
+    expect(first.endsWith("END:VCALENDAR\r\n")).toBe(true);
+  });
+
+  test("default DTSTAMP is the fixed epoch value, independent of clock", () => {
+    expect(buildEventsIcs([base]).includes("DTSTAMP:19700101T000000Z")).toBe(true);
+  });
+
+  test("escapes commas, semicolons, and quotes in text fields", () => {
+    const ics = buildEventsIcs([base]);
+    expect(ics.includes("LOCATION:Council Chamber\\, 186 Main St")).toBe(true);
+    expect(ics.includes("DESCRIPTION:Agenda\\; items\\, and backslashes.")).toBe(true);
+    expect(ics).not.toContain('Agenda; items');
+  });
+
+  test("skips undated events instead of fabricating DTSTART", () => {
+    const ics = buildEventsIcs([base, { ...base, id: "undated-one", dateStart: null }]);
+    expect(ics.match(/BEGIN:VEVENT/g)?.length).toBe(1);
+    expect(ics).not.toContain("undated-one");
+  });
+
+  test("marks unknown-status events TENTATIVE and maps scheduled to CONFIRMED", () => {
+    const ics = buildEventsIcs([{ ...base, status: "unknown" }, { ...base, id: "e2", status: "completed" }]);
+    expect(ics.includes("STATUS:TENTATIVE")).toBe(true);
+    expect((ics.match(/STATUS:CONFIRMED/g)?.length ?? 0)).toBe(1);
+  });
+
+  test("sorts nothing but preserves input order deterministically", () => {
+    const a = { ...base, id: "a-first", title: "Alpha" };
+    const b = { ...base, id: "b-second", title: "Beta", dateStart: "2025-01-01" };
+    const forward = buildEventsIcs([a, b]);
+    const backward = buildEventsIcs([b, a]);
+    expect(forward.indexOf("a-first")).toBeLessThan(forward.indexOf("b-second"));
+    expect(backward.indexOf("b-second")).toBeLessThan(backward.indexOf("a-first"));
   });
 });

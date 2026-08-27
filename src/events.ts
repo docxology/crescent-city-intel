@@ -459,6 +459,125 @@ export function buildEventsArtifact(generatedAt: string, events: StructuredEvent
   };
 }
 
+// ---------------------------------------------------------------------------
+// iCalendar export
+// ---------------------------------------------------------------------------
+
+/** Domain suffix appended after "@" in generated VEVENT UIDs. */
+export const ICS_UID_DOMAIN = "crescent-city-intel";
+/** Fallback DTSTAMP used when callers omit a stamp — keeps output deterministic. */
+export const ICS_DEFAULT_STAMP = "19700101T000000Z";
+
+/**
+ * Escape a text value per RFC 5545 §3.3.11: backslashes, semicolons, commas,
+ * and newlines must be escaped.
+ */
+export function escapeIcsText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r?\n/g, "\\n");
+}
+
+/** Convert an ISO yyyy-mm-dd date to the ICS yyyymmdd form. */
+export function formatIcsDate(date: string): string {
+  return date.replace(/-/g, "");
+}
+
+/** Convert an ISO-ish timestamp (yyyy-mm-ddThh:mm:ss[.mmm]Z) to ICS UTC form. */
+export function formatIcsStamp(timestamp: string): string {
+  const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})/);
+  if (!match) return ICS_DEFAULT_STAMP;
+  return `${match[1]}${match[2]}${match[3]}T${match[4]}${match[5]}${match[6]}Z`;
+}
+
+/**
+ * The day after an ISO yyyy-mm-dd date, used as the exclusive end for
+ * all-day events. Returns null for values it cannot safely advance.
+ */
+export function nextIsoDay(date: string): string | null {
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const advanced = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1));
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${advanced.getUTCFullYear()}-${pad(advanced.getUTCMonth() + 1)}-${pad(advanced.getUTCDate())}`;
+}
+
+/**
+ * Pure iCalendar builder: renders the structured calendar as RFC 5545 text.
+ * Deterministic — no clock reads; DTSTAMP comes from the explicit stamp (or
+ * the fixed default). Undated events are skipped because DTSTART is required.
+ */
+export function buildEventsIcs(
+  events: ReadonlyArray<Pick<StructuredEvent, "id" | "title" | "dateStart" | "location" | "description" | "sourceLinks" | "status">>,
+  options: { stamp?: string } = {},
+): string {
+  const dtStamp = options.stamp ? formatIcsStamp(options.stamp) : ICS_DEFAULT_STAMP;
+  const lines: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Crescent City Intel//Events Calendar//EN",
+    "CALSCALE:GREGORIAN",
+  ];
+  for (const event of events) {
+    if (!event.dateStart) continue;
+    const dtEnd = nextIsoDay(event.dateStart);
+    if (!dtEnd) continue;
+    const links = (Array.isArray(event.sourceLinks) ? event.sourceLinks : []).filter(link =>
+      /^https?:\/\//i.test(String(link)),
+    );
+    // Extendable mapping: extend here when EventStatus gains new values.
+    const statusMap: Record<string, string> = { scheduled: "CONFIRMED", completed: "CONFIRMED", unknown: "TENTATIVE", cancelled: "CANCELLED" };
+    const status = statusMap[event.status] ?? "TENTATIVE";
+    const eventLines = [
+      "BEGIN:VEVENT",
+      `UID:${event.id || "event"}@${ICS_UID_DOMAIN}`,
+      `DTSTAMP:${dtStamp}`,
+      `DTSTART;VALUE=DATE:${formatIcsDate(event.dateStart)}`,
+      `DTEND;VALUE=DATE:${formatIcsDate(dtEnd)}`,
+      `SUMMARY:${escapeIcsText(event.title)}`,
+    ];
+    if (event.description && event.description.trim()) {
+      eventLines.push(`DESCRIPTION:${escapeIcsText(event.description.trim())}`);
+    }
+    if (event.location && event.location.trim()) {
+      eventLines.push(`LOCATION:${escapeIcsText(event.location.trim())}`);
+    }
+    if (links.length > 0) eventLines.push(`URL:${links[0]}`);
+    eventLines.push(`STATUS:${status}`, "END:VEVENT");
+    for (const line of eventLines) lines.push(...foldIcsLine(line));
+  }
+  lines.push("END:VCALENDAR");
+  return `${lines.join("\r\n")}\r\n`;
+}
+
+/**
+ * Fold one content line to at most 75 octets per RFC 5545 §3.1.
+ * Continuation lines start with one space; UTF-8 sequences are never split.
+ */
+export function foldIcsLine(line: string): string[] {
+  if (line.length === 0) return [line];
+  const bytes = new TextEncoder().encode(line);
+  if (bytes.length <= 75) return [line];
+  const parts: string[] = [];
+  let cursor = 0;
+  while (cursor < bytes.length) {
+    let budget = parts.length === 0 ? 75 : 74;
+    const chunkStart = cursor;
+    while (cursor < bytes.length) {
+      const byte = bytes[cursor];
+      const width = byte < 0x80 ? 1 : byte < 0xe0 ? 2 : byte < 0xf0 ? 3 : 4;
+      if (width > budget) break;
+      cursor += width;
+      budget -= width;
+    }
+    if (cursor === chunkStart) break;
+    parts.push(new TextDecoder().decode(bytes.slice(chunkStart, cursor)));
+  }
+  return [parts[0]!, ...parts.slice(1).map(part => ` ${part}`)];
+}
+
 async function main(argv: string[]): Promise<void> {
   const wantsLlm = argv.includes('--llm');
   const limitIndex = argv.indexOf('--limit');
@@ -495,7 +614,9 @@ async function main(argv: string[]): Promise<void> {
   const destination = join(process.cwd(), 'output', 'events', 'events.json');
   await mkdir(join(process.cwd(), 'output', 'events'), { recursive: true });
   await writeJsonAtomic(destination, artifact);
-  logger.info(`wrote ${artifact.count} events (${artifact.llm.status}${artifact.summaries ? `, ${Object.keys(artifact.summaries).length} summaries` : ''}) -> ${destination}`);
+  const icsDestination = join(process.cwd(), 'output', 'events', 'events.ics');
+  await Bun.write(icsDestination, buildEventsIcs(artifact.events, { stamp: generatedAt }));
+  logger.info(`wrote ${artifact.count} events (${artifact.llm.status}${artifact.summaries ? `, ${Object.keys(artifact.summaries).length} summaries` : ''}) -> ${destination} + ${icsDestination}`);
 }
 
 if (import.meta.main) {

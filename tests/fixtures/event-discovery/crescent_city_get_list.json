@@ -1,0 +1,179 @@
+{
+ "_provenance": "Trimmed from the live https://www.crescentcity.org/meetings/get_list JSON response (calendars 685,739,666,670,689; window Aug-Oct 2026) recorded on 2026-08-26. First 3 rows kept verbatim.",
+ "_rows": [
+  {
+   "id": 100789,
+   "title": "City Council Meeting",
+   "description": "<p><a href=\"https://www.crescentcity.org/meetings\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Meeting Agenda</a>&nbsp;(View the agenda and supporting information for the meeting)<br><br><a href=\"mailto:publiccomment@crescentcity.org\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Submit Written Public Comment</a>&nbsp;(Email your comments to publiccomment@crescentcity.org)<br><br><a href=\"https://www.youtube.com/user/CrescentCityCalif\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">YouTube Channel</a>&nbsp;(View live and previous meetings)<br><br><a href=\"https://www.google.com/url?q=https%3A%2F%2Fmedia.co.del-norte.ca.us%2F&amp;sa=D&amp;ust=1596557608938000&amp;usg=AOvVaw2yTE-JaxgZ2HZxnfLBvXda\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Media Site</a>&nbsp;&nbsp;<br><a href=\"https://www.google.com/url?q=https%3A%2F%2Fwww.crescentcity.org%2F&amp;sa=D&amp;ust=1596557608938000&amp;usg=AOvVaw17diGeaMr6lO8th66xP9dX\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">City of Crescent City Website</a></p>",
+   "start_date": "08/03/2026 @ 06:00PM",
+   "start_date_short": "2026-08-03",
+   "start_date_sortable": "20260803060000",
+   "end_date_short": "2026-08-03",
+   "is_all_day": false,
+   "all_day_label": "All Day",
+   "start_date_short_with_time": "2026-08-03 06:00:00",
+   "start_date_day_of_week": "Monday August  3, 2026",
+   "start_date_date_only": "August 03, 2026",
+   "meeting_duration_time_only": "06:00 PM - 08:00 PM",
+   "is_meeting": true,
+   "location_street_address_1": "",
+   "location_street_address_2": "",
+   "location_city": "",
+   "location_state": "",
+   "location_zip_code": "",
+   "end_date": "August  3, 2026 08:00 PM",
+   "location": "",
+   "location_url": "",
+   "detail_link": "<a href=\"https://www.crescentcity.org/events/100789/\">City Council Meeting</a>",
+   "calendar_links": [
+    "<a href=\"/agendas/666/\">Meetings and Events</a>"
+   ],
+   "agenda_links": [
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/agendas/43bee63fc1a14d5f8cf57b71dd5656fb.pdf\">August 3 2026 Agenda MR.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>",
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/agendas/c624e0ca08cc4f3ea6cba5dcf4648cb4.pdf\">August 3 2026 Agenda Packet MR.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>"
+   ],
+   "attachment_links": [
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/attachments/d195be172d594fe8a9179e700b6508ee.pdf\">Public comment for August 3.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>",
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/attachments/ecab2d8c62484b02b1ee45fb1d39f548.pdf\">FStreet_35to5thStreet_StormDrainProjectPlansandSpecs.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>"
+   ],
+   "minute_links": [],
+   "audio_links": [],
+   "video_links": [],
+   "ordinance_links": [
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/ordinances/8ace7484c1ca4573b25c1e9c9dfd7c6f.pdf\">Ordinance No. 866 Parking Lot Regulations.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>"
+   ],
+   "resolution_links": [
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/resolutions/36a6501c8a6446cbaf217c71178ddb7b.pdf\">Resolution No. 2026-55 Temp Maint Worker Position Control.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>",
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/resolutions/55b82340d8ae416d96cb0dec29a27e89.pdf\">Resolution No. 2026-58 Chamber Temp Location.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>",
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/resolutions/74553ad3f2ff43caadd5475462ad3edb.pdf\">Resolution No. 2026-57 Temp Maintenance Worker BA.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>",
+    "<a target=\"_blank\" href=\"/meetingfiles/100789/resolutions/e8bf980f1b0a4757a13b4cc40b0fb607.pdf\">Resolution No. 2026-56 CCEA MOU Amendment 1.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>"
+   ],
+   "staff_report_links": [],
+   "bill_list_links": [],
+   "contact_phone_number": "",
+   "contact_email": "",
+   "reservations_enabled": "False",
+   "event_video_url": "",
+   "video_meeting_link_heading": "Meeting Video",
+   "video_meeting_link": "https://www.youtube.com/live/7-LLcZ5bWIo?si=UAdmInr2SDopQga6",
+   "video_meeting_id": "",
+   "video_meeting_passcode": "",
+   "is_highlighted_on_calendar": "True",
+   "add_to_calendar_links": {
+    "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=City+Council+Meeting&dates=20260804T010000Z%2F20260804T030000Z&details=Meeting+Agenda+%28View+the+agenda+and+supporting+information+for+the+meeting%29Submit+Written+Public+Comment+%28Email+your+comments+to+publiccomment%40crescentcity.org%29YouTube+Channel+%28View+live+and+previous+meetings%29Media+Site+City+of+Crescent+City+Website&location=California",
+    "outlook": "https://outlook.live.com/calendar/0/deeplink/compose?path=%2Fcalendar%2Faction%2Fcompose&rru=addevent&subject=City+Council+Meeting&startdt=2026-08-04T01%3A00%3A00Z&enddt=2026-08-04T03%3A00%3A00Z&body=Meeting+Agenda+%28View+the+agenda+and+supporting+information+for+the+meeting%29Submit+Written+Public+Comment+%28Email+your+comments+to+publiccomment%40crescentcity.org%29YouTube+Channel+%28View+live+and+previous+meetings%29Media+Site+City+of+Crescent+City+Website&location=California",
+    "yahoo": "https://calendar.yahoo.com/?v=60&title=City+Council+Meeting&st=20260804T010000Z&et=20260804T030000Z&desc=Meeting+Agenda+%28View+the+agenda+and+supporting+information+for+the+meeting%29Submit+Written+Public+Comment+%28Email+your+comments+to+publiccomment%40crescentcity.org%29YouTube+Channel+%28View+live+and+previous+meetings%29Media+Site+City+of+Crescent+City+Website&in_loc=California",
+    "ical": "/meetings/icalendar/event/100789/"
+   }
+  },
+  {
+   "id": 100816,
+   "title": "Planning Commission Meeting - CANCELLED",
+   "description": "<p></p>",
+   "start_date": "08/13/2026 @ 05:30PM",
+   "start_date_short": "2026-08-13",
+   "start_date_sortable": "20260813053000",
+   "end_date_short": "2026-08-13",
+   "is_all_day": false,
+   "all_day_label": "All Day",
+   "start_date_short_with_time": "2026-08-13 05:30:00",
+   "start_date_day_of_week": "Thursday August 13, 2026",
+   "start_date_date_only": "August 13, 2026",
+   "meeting_duration_time_only": "05:30 PM - 03:55 PM",
+   "is_meeting": true,
+   "location_street_address_1": "",
+   "location_street_address_2": "",
+   "location_city": "",
+   "location_state": "",
+   "location_zip_code": "",
+   "end_date": "August 13, 2026 03:55 PM",
+   "location": "",
+   "location_url": "",
+   "detail_link": "<a href=\"https://www.crescentcity.org/events/100816/\">Planning Commission Meeting - CANCELLED</a>",
+   "calendar_links": [
+    "<a href=\"/agendas/666/\">Meetings and Events</a>"
+   ],
+   "agenda_links": [
+    "<a target=\"_blank\" href=\"/meetingfiles/100816/agendas/052c5ad787c94b948749807318368c9e.pdf\">August 13, 2026 Cancellation Notice.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>"
+   ],
+   "attachment_links": [],
+   "minute_links": [],
+   "audio_links": [],
+   "video_links": [],
+   "ordinance_links": [],
+   "resolution_links": [],
+   "staff_report_links": [],
+   "bill_list_links": [],
+   "contact_phone_number": "",
+   "contact_email": "",
+   "reservations_enabled": "False",
+   "event_video_url": "",
+   "video_meeting_link_heading": "",
+   "video_meeting_link": "",
+   "video_meeting_id": "",
+   "video_meeting_passcode": "",
+   "is_highlighted_on_calendar": "False",
+   "add_to_calendar_links": {
+    "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Planning+Commission+Meeting+-+CANCELLED&dates=20260814T003000Z%2F20260813T225500Z&location=California",
+    "outlook": "https://outlook.live.com/calendar/0/deeplink/compose?path=%2Fcalendar%2Faction%2Fcompose&rru=addevent&subject=Planning+Commission+Meeting+-+CANCELLED&startdt=2026-08-14T00%3A30%3A00Z&enddt=2026-08-13T22%3A55%3A00Z&location=California",
+    "yahoo": "https://calendar.yahoo.com/?v=60&title=Planning+Commission+Meeting+-+CANCELLED&st=20260814T003000Z&et=20260813T225500Z&in_loc=California",
+    "ical": "/meetings/icalendar/event/100816/"
+   }
+  },
+  {
+   "id": 100992,
+   "title": "City Council Meeting",
+   "description": "<p><a href=\"https://www.crescentcity.org/meetings\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Meeting Agenda</a>&nbsp;(View the agenda and supporting information for the meeting)<br><br><a href=\"mailto:publiccomment@crescentcity.org\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Submit Written Public Comment</a>&nbsp;(Email your comments to publiccomment@crescentcity.org)<br><br><a href=\"https://www.youtube.com/user/CrescentCityCalif\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">YouTube Channel</a>&nbsp;(View live and previous meetings)<br><br><a href=\"https://www.google.com/url?q=https%3A%2F%2Fmedia.co.del-norte.ca.us%2F&amp;sa=D&amp;ust=1596557608938000&amp;usg=AOvVaw2yTE-JaxgZ2HZxnfLBvXda\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Media Site</a>&nbsp;&nbsp;<br><a href=\"https://www.google.com/url?q=https%3A%2F%2Fwww.crescentcity.org%2F&amp;sa=D&amp;ust=1596557608938000&amp;usg=AOvVaw17diGeaMr6lO8th66xP9dX\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">City of Crescent City Website</a></p>",
+   "start_date": "08/17/2026 @ 06:00PM",
+   "start_date_short": "2026-08-17",
+   "start_date_sortable": "20260817060000",
+   "end_date_short": "2026-08-17",
+   "is_all_day": false,
+   "all_day_label": "All Day",
+   "start_date_short_with_time": "2026-08-17 06:00:00",
+   "start_date_day_of_week": "Monday August 17, 2026",
+   "start_date_date_only": "August 17, 2026",
+   "meeting_duration_time_only": "06:00 PM - 08:00 PM",
+   "is_meeting": true,
+   "location_street_address_1": "",
+   "location_street_address_2": "",
+   "location_city": "",
+   "location_state": "",
+   "location_zip_code": "",
+   "end_date": "August 17, 2026 08:00 PM",
+   "location": "",
+   "location_url": "",
+   "detail_link": "<a href=\"https://www.crescentcity.org/events/100992/\">City Council Meeting</a>",
+   "calendar_links": [
+    "<a href=\"/agendas/666/\">Meetings and Events</a>"
+   ],
+   "agenda_links": [
+    "<a target=\"_blank\" href=\"/meetingfiles/100992/agendas/7e602bdc1816484b9736d9315e48c4fd.pdf\">August 17 2026 Agenda.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>",
+    "<a target=\"_blank\" href=\"/meetingfiles/100992/agendas/d2aa364530674891b33e2e8917c4e1da.pdf\">August 17 2026 Agenda Packet.pdf</a>&nbsp;&nbsp;<i class=\"fa fa-file-pdf\"></i>"
+   ],
+   "attachment_links": [],
+   "minute_links": [],
+   "audio_links": [],
+   "video_links": [],
+   "ordinance_links": [],
+   "resolution_links": [],
+   "staff_report_links": [],
+   "bill_list_links": [],
+   "contact_phone_number": "",
+   "contact_email": "",
+   "reservations_enabled": "False",
+   "event_video_url": "",
+   "video_meeting_link_heading": "",
+   "video_meeting_link": "",
+   "video_meeting_id": "",
+   "video_meeting_passcode": "",
+   "is_highlighted_on_calendar": "True",
+   "add_to_calendar_links": {
+    "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=City+Council+Meeting&dates=20260818T010000Z%2F20260818T030000Z&details=Meeting+Agenda+%28View+the+agenda+and+supporting+information+for+the+meeting%29Submit+Written+Public+Comment+%28Email+your+comments+to+publiccomment%40crescentcity.org%29YouTube+Channel+%28View+live+and+previous+meetings%29Media+Site+City+of+Crescent+City+Website&location=California",
+    "outlook": "https://outlook.live.com/calendar/0/deeplink/compose?path=%2Fcalendar%2Faction%2Fcompose&rru=addevent&subject=City+Council+Meeting&startdt=2026-08-18T01%3A00%3A00Z&enddt=2026-08-18T03%3A00%3A00Z&body=Meeting+Agenda+%28View+the+agenda+and+supporting+information+for+the+meeting%29Submit+Written+Public+Comment+%28Email+your+comments+to+publiccomment%40crescentcity.org%29YouTube+Channel+%28View+live+and+previous+meetings%29Media+Site+City+of+Crescent+City+Website&location=California",
+    "yahoo": "https://calendar.yahoo.com/?v=60&title=City+Council+Meeting&st=20260818T010000Z&et=20260818T030000Z&desc=Meeting+Agenda+%28View+the+agenda+and+supporting+information+for+the+meeting%29Submit+Written+Public+Comment+%28Email+your+comments+to+publiccomment%40crescentcity.org%29YouTube+Channel+%28View+live+and+previous+meetings%29Media+Site+City+of+Crescent+City+Website&in_loc=California",
+    "ical": "/meetings/icalendar/event/100992/"
+   }
+  }
+ ]
+}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "crescent-city-event-sources/v1",
+  "notes": "Real community-event source feeds for Crescent City / Del Norte County. Probe status recorded from live HTTP checks on 2026-08-26.",
+  "sources": [
+    {
+      "name": "City of Crescent City Events Calendar",
+      "url": "https://www.crescentcity.org/calendar",
+      "type": "html",
+      "notes": "Official city calendar (EvoGov platform). Lists meetings and community events with detail pages like /events/{id}/; date lines render as 'Mon D, YYYY at H:MM AM - ...'. RSS probe at /calendar/RSSFeed.aspx returns HTTP 403 (blocked), so this source is parsed as HTML.",
+      "probe": { "status": "ok", "httpStatus": 200, "probedAt": "2026-08-26T00:00:00Z" }
+    },
+    {
+      "name": "County of Del Norte Community Events Calendar",
+      "url": "https://www.co.del-norte.ca.us/departments/Administration/calendar/86/",
+      "type": "html",
+      "notes": "County 'Community Events' calendar on the Del Norte county site; EvoGov-style list/month views.",
+      "probe": { "status": "ok", "httpStatus": 200, "probedAt": "2026-08-26T00:00:00Z" }
+    },
+    {
+      "name": "Del Norte County Library District Programs & Events",
+      "url": "https://delnortecountylibrary.org/programs",
+      "type": "html",
+      "notes": "Library district programs page; links to a Google Calendar of events and monthly branch PDF calendars. HTML listings parsed here.",
+      "probe": { "status": "ok", "httpStatus": 200, "probedAt": "2026-08-26T00:00:00Z" }
+    },
+    {
+      "name": "Visit Del Norte County (Chamber) Events",
+      "url": "https://visitdelnortecounty.com/events/",
+      "type": "html",
+      "notes": "Crescent City/Del Norte Chamber of Commerce tourism site event series pages. Root /events/ redirects (HTTP 301) to a canonical path; redirect followed.",
+      "probe": { "status": "redirects", "httpStatus": 301, "notes": "followed to canonical events page", "probedAt": "2026-08-26T00:00:00Z" }
+    },
+    {
+      "name": "DNACA Arts Calendar",
+      "url": "https://dnaca.net/arts-calendar",
+      "type": "html",
+      "notes": "Del Norte Association for Cultural Awareness arts calendar — performances, exhibitions, and cultural events.",
+      "probe": { "status": "ok", "httpStatus": 200, "probedAt": "2026-08-26T00:00:00Z" }
+    },
+    {
+      "name": "Del Norte Unified School District All Schools Events Calendar",
+      "url": "https://www.dnusd.org/calendars/all-schools-events-calendar",
+      "type": "html",
+      "notes": "DNUSD aggregated schools events calendar (board meetings, school functions). Public calendar RSS feeds exist via the DNUSD Public Calendar page.",
+      "probe": { "status": "ok", "httpStatus": 200, "probedAt": "2026-08-26T00:00:00Z" }
+    }
+  ]
+}

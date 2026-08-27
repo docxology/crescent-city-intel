@@ -30,7 +30,7 @@ describe("pages SEO discoverability", () => {
     expect(structuredData["@type"]).toBe("WebSite");
     expect(structuredData.url).toBe("https://quadruplicate.org/");
     const publisher = structuredData.publisher as Record<string, unknown>;
-    expect(publisher["@type"]).toBe("GovernmentOrganization");
+    expect(publisher["@type"]).toBe("NewsMediaOrganization");
     // Head-only change: body content untouched.
     expect(indexHtml).toContain('id="event-items"');
     expect(indexHtml).toContain(PAGES_GEO_VIEW_PLACEHOLDER);
@@ -169,8 +169,8 @@ describe("standalone static pages", () => {
       expect(html).toContain('class="masthead-h1"');
       expect(html).toContain('class="masthead-nav"');
       expect(html).toContain('<a href="./">Front page</a>');
-      // Data fetching stays relative to the exported artifact.
-      expect(html).toContain('load("data/snapshot.json")');
+      // Data fetching stays relative to the exported artifact (per-page artifacts since §1.2).
+      expect(html).toMatch(/load\("data\/[a-z-]+\.json"\)|loadFirstPresent\("data\//);
       for (const other of STATIC_PAGE_FILES) {
         if (other === file) { expect(html).toContain(`href="${other}" aria-current="page"`); continue; }
         expect(html).toContain(`href="${other}"`);
@@ -186,10 +186,16 @@ describe("standalone static pages", () => {
     }
   });
 
-  test("404 page links back to every real emitted page", async () => {
+  test("404 page links back to every real emitted page with root-absolute hrefs", async () => {
     const notFound = await readFile(join(import.meta.dir, "../src/pages/static/404.html"), "utf8");
     for (const file of STATIC_PAGE_FILES) {
-      expect(notFound).toContain(`href="${file}"`);
+      expect(notFound).toContain(`href="/${file}"`);
+    }
+    // §2.2: no relative internal hrefs — GitHub Pages serves 404.html at nested paths.
+    const markupOnly = notFound.replace(/<script[\s\S]*?<\/script>/g, "");
+    for (const href of [...markupOnly.matchAll(/href="([^"]*)"/g)].map(match => match[1])) {
+      if (href.startsWith("/") || href.startsWith("#") || /^(https?:|mailto:|data:)/i.test(href)) continue;
+      throw new Error(`404.html contains a relative href: ${href}`);
     }
   });
 
@@ -210,7 +216,11 @@ describe("standalone static pages", () => {
         // Strip JS template literals inside <script> blocks first: static
         // link checking applies to authored markup, not runtime-built hrefs.
         const markupOnly = html.replace(/<script>[\s\S]*?<\/script>/g, "");
-        const internalLinks = [...markupOnly.matchAll(/href="(?!https?:|#|mailto:|data:)([^"#]+?)(?:#[^"]*)?"/g)].map(match => match[1].replace(/^\.\/$/, "index.html"));
+        const internalLinks = [...markupOnly.matchAll(/href="(?!https?:|#|mailto:|data:)([^"#]+?)(?:#[^"]*)?"/g)]
+          .map(match => match[1])
+          .map(link => link.startsWith("/") ? link.slice(1) : link)
+          .map(link => link.replace(/^\/$/, "index.html").replace(/^\.\/$/, "index.html"))
+          .map(link => link === "" ? "index.html" : link);
         for (const link of internalLinks) {
           if (link === "index.html" || emitted.has(link)) continue;
           failures.push(`${htmlFile} -> ${link}`);

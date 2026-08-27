@@ -341,7 +341,7 @@ export function buildPagesBreadcrumbHtml(currentFile: string | null, options: { 
   const root = options.rootAbsolute ? "/" : "./";
   const label = options.label
     ?? (currentFile === null ? PAGES_FRONT_PAGE_NAV_LABEL : PAGES_STATIC_PAGES.find(page => page.file === currentFile)?.navLabel ?? currentFile);
-  const homeItem = currentFile === null
+  const homeItem = currentFile === null && !options.label
     ? `<li aria-current="page">${PAGES_FRONT_PAGE_NAV_LABEL}</li>`
     : `<li><a href="${root}">${PAGES_FRONT_PAGE_NAV_LABEL}</a></li><li aria-current="page">${label}</li>`;
   return `<nav class="breadcrumb" aria-label="Breadcrumb"><div class="inner"><ol>${homeItem}</ol></div></nav>`;

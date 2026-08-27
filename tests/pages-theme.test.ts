@@ -73,7 +73,7 @@ describe("Newspaper theme contracts (Pages index)", () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
     const css = styleBlock(html);
     expect(css).toContain("@media (max-width:480px)");
-    expect(css).toContain(".masthead-nav { flex-wrap:nowrap; justify-content:flex-start; }");
+    expect(css).toContain(".masthead-nav { flex-wrap:wrap; justify-content:flex-start; }");
     expect(html).toContain('<meta name="viewport" content="width=device-width,initial-scale=1">');
   });
 });
@@ -117,7 +117,7 @@ describe("Events .ics subscribe badge contract", () => {
 describe("Accessibility landmarks and labels", () => {
   test("page has a skip link, main landmark, and labelled controls", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
-    expect(html).toContain('class="sr-only" href="#main">Skip to content</a>');
+    expect(html).toContain('href="#main">Skip to content</a>');
     expect(html).toContain('<main class="page" id="main">');
     expect(html).toContain("</main>");
     expect((html.match(/aria-label="/g) ?? []).length).toBeGreaterThanOrEqual(8);

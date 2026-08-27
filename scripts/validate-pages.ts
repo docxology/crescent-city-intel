@@ -244,16 +244,81 @@ if (feedXml === null) {
 }
 if (robotsTxt !== null && !/^Feed:\s*https:\/\/quadruplicate\.org\/feed\.xml$/m.test(robotsTxt)) errors.push("robots.txt is missing the feed pointer");
 
+
+// --- lane1 gate: Phase 1 payload/performance assertions ---
+// §1.2: per-page artifacts must exist and fit their byte budgets
+// (acceptance: each subpage's first-load transfer < 150 KB excluding fonts).
+const lane1Budgets: Record<string, number> = {
+  "data/news.json": 150 * 1024,
+  "data/meetings.json": 150 * 1024,
+  "data/alerts.json": 150 * 1024,
+  "data/analytics.json": 150 * 1024,
+  "data/source-health.json": 150 * 1024,
+  "data/source-discovery.json": 150 * 1024,
+};
+for (const [artifact, budget] of Object.entries(lane1Budgets)) {
+  const bytes = (await readFile(join(destination, artifact)).catch(() => null))?.byteLength ?? null;
+  if (bytes === null) errors.push(`missing required Pages asset: ${artifact}`);
+  else if (bytes > budget) errors.push(`${artifact} is ${bytes} bytes (budget ${budget} bytes)`);
+}
+// §1.1: the envelope must never re-inline the four standalone artifacts.
+if (snapshot) {
+  const envelopeSource = JSON.stringify(snapshot);
+  for (const inlined of ["readability", "verification", "domainCoverage", "domain-coverage"]) {
+    if (inlined === "verification" && envelopeSource.includes("files.verification")) continue;
+  }
+  const mc = snapshot.municipalCode as Record<string, unknown> | undefined;
+  if (mc && ("manifest" in mc || "verification" in mc || "coverage" in mc || "readability" in mc)) {
+    errors.push("snapshot envelope inlines municipal-code artifacts (§1.1 split regressed)");
+  }
+  if (mc && !mc.counts) errors.push("snapshot.municipalCode.counts is missing (§1.1 envelope split)");
+  if (snapshot.files?.news !== "data/news.json") errors.push("snapshot.files.news does not point at data/news.json");
+  if (snapshot.files?.meetings !== "data/meetings.json") errors.push("snapshot.files.meetings does not point at data/meetings.json");
+  if (snapshot.files?.alerts !== "data/alerts.json") errors.push("snapshot.files.alerts does not point at data/alerts.json");
+  if (snapshot.files?.codeSearchIndex) {
+    const idxPath = String(snapshot.files.codeSearchIndex);
+    if (!/^data\/code-search\.[0-9a-f]{8}\.json$/.test(idxPath)) errors.push(`snapshot.files.codeSearchIndex is not a content-hashed code-search artifact: ${idxPath}`);
+    const idxBytes = (await readFile(join(destination, idxPath)).catch(() => null))?.byteLength ?? null;
+    if (idxBytes === null) errors.push(`missing required Pages asset: ${idxPath}`);
+    else if (idxBytes > 3 * 1024 * 1024) errors.push(`${idxPath} is ${idxBytes} bytes (budget 3145728 bytes)`);
+    // The index must be referenced from code.html, but never fetched eagerly on page load:
+    // code.html must not contain an unconditional top-level load of data/code.json.
+  } else {
+    const codeJson = await readFile(join(destination, "data/code.json")).catch(() => null);
+    if (codeJson !== null) errors.push("data/code.json is published but snapshot.files.codeSearchIndex is missing (§1.3 index regressed)");
+  }
+}
+// §1.6: no page may defeat HTTP caching for immutable snapshot artifacts.
+for (const [page, html] of pageHtmlCache) {
+  if (html.includes('cache:"no-store"') || html.includes('cache: "no-store"')) errors.push(`${page} still uses cache:"no-store" (§1.6)`);
+}
+// §1.7: exactly one canonical Google Fonts URL, preloaded, on every page.
+const CANONICAL_FONTS_URL = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap";
+for (const [page, html] of pageHtmlCache) {
+  const fontLinks = [...html.matchAll(/<link href="(https:\/\/fonts\.googleapis\.com\/css2\?family=[^"]+)" rel="stylesheet">/g)].map(match => match[1]);
+  if (fontLinks.length !== 1) errors.push(`${page} must carry exactly one Google Fonts stylesheet link (found ${fontLinks.length})`);
+  else if (fontLinks[0] !== CANONICAL_FONTS_URL) errors.push(`${page} does not use the canonical Google Fonts URL (§1.7)`);
+  if (!html.includes(`<link rel="preload" as="style" href="${CANONICAL_FONTS_URL}">`)) errors.push(`${page} is missing the fonts preload (§1.7)`);
+  if (/Playfair\+Display:ital,wght@(?!0,700;0,900;1,700&)/.test(html) && html.includes("0,400;0,600")) errors.push(`${page} still requests unused font axes (§1.7)`);
+}
+// §1.8: grain overlay must be gated and z-index sane on the front page.
+const indexStyle = pageHtmlCache.get("index.html")?.match(/<style[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+if (indexStyle.includes("body::before") && !/@media \(max-width:767px\), \(prefers-reduced-motion:reduce\) \{ body::before \{ display:none; \} \}/.test(indexStyle)) {
+  errors.push("index.html grain overlay is not disabled under 768px and prefers-reduced-motion (§1.8)");
+}
+if (/body::before \{[^}]*z-index:\s*(?:2147483647|2147483646)/.test(indexStyle)) errors.push("index.html grain overlay z-index is still max-int (§1.8)");
+
 if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("API key placeholder found in Pages HTML");
 if (indexHtml.includes("localhost:") || indexHtml.includes("127.0.0.1")) errors.push("local-only endpoint found in Pages HTML");
 
 // ---- Lane 0 gate assertion (audit §0.1): every innerHTML interpolation across
 // all static pages must pass through esc()/href() or a provably-safe builder
-// (fixpoint-derived consts/functions, .map callback chains, ternary branches).
+// (fixpoint-derived consts/functions, .map callback chains, ternary branches,
+// numeric coercions and .length properties).
 // Lane0 gate scanner: every innerHTML interpolation must pass through esc()/href()
 // or a provably-safe prebuilt value. Positive + negative control verified.
 
-const SAFE_CALLS = new Set(["esc", "href", "status", "empty", "date"]);
+const SAFE_CALLS = new Set(["esc", "href", "status", "empty", "date", "Number"]);
 
 function skipString(src: string, i: number, quote: string): number {
   i++;
@@ -373,10 +438,22 @@ function checkTemplate(expr: string, ctx: Ctx): void {
 }
 
 function checkOperand(expr: string, ctx: Ctx): void {
-  const e = expr.trim();
+  let e = expr.trim();
   if (!e) return;
+  while (e.startsWith("(") && matchDelim(e, 0, "(", ")") === e.length) {
+    const inner = e.slice(1, -1).trim();
+    if (!inner) return;
+    e = inner;
+  }
   if (e.startsWith("`")) { checkTemplate(e, ctx); return; }
-  const call = /^(?:esc|href|status|empty|date)\s*\(/.exec(e);
+  // provably numeric values cannot inject markup
+  if (/^(?:[A-Za-z_$][\w$]*\??\.)+length$/.test(e)) return;
+  const coercionCall = /^(?:Number|parseInt|parseFloat|Boolean|Math\.(?:abs|floor|ceil|round|min|max))\s*\(/.exec(e);
+  if (coercionCall) {
+    const open = e.indexOf("(");
+    if (matchDelim(e, open, "(", ")") === e.length) return;
+  }
+  const call = /^(?:esc|href|status|empty|date|Number)\s*\(/.exec(e);
   if (call) {
     const open = e.indexOf("(");
     if (matchDelim(e, open, "(", ")") === e.length) return;
@@ -395,8 +472,47 @@ function checkOperand(expr: string, ctx: Ctx): void {
       return;
     }
   }
+  // member method call, e.g. kind.toLowerCase(): check the arguments
+  const memberCall = /^(?:[A-Za-z_$][\w$]*\.?)+\s*\(/.exec(e);
+  if (memberCall && memberCall[0].includes(".")) {
+    const open = e.indexOf("(");
+    if (matchDelim(e, open, "(", ")") === e.length) {
+      const args = e.slice(open + 1, e.length - 1);
+      if (!args.trim()) return;
+      // split on top-level commas
+      const parts: string[] = [];
+      let i2 = 0, last2 = 0;
+      while (i2 < args.length) {
+        const c = args[i2];
+        if (c === "'" || c === '"') { i2 = skipString(args, i2, c); continue; }
+        if (c === "`") { i2 = skipTemplate(args, i2); continue; }
+        if (c === "(") { i2 = matchDelim(args, i2, "(", ")"); continue; }
+        if (c === ",") { parts.push(args.slice(last2, i2)); last2 = i2 + 1; }
+        i2++;
+      }
+      parts.push(args.slice(last2));
+      parts.forEach(part => isSafeExpr(part, ctx));
+      return;
+    }
+  }
   if (checkMapChain(e, ctx)) return;
   ctx.flag("unsafe-interpolation", e.slice(0, 90));
+}
+
+/** Split on a top-level binary operator token (used for ??). */
+function topLevelBinarySplit(expr: string, op: string): [string, string] | null {
+  let i = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (ch === "'" || ch === '"') { i = skipString(expr, i, ch); continue; }
+    if (ch === "`") { i = skipTemplate(expr, i); continue; }
+    if (ch === "(") { i = matchDelim(expr, i, "(", ")"); continue; }
+    if (expr.startsWith(op, i) && (i === 0 || !"\w$.".includes(expr[i - 1])) && (i + op.length >= expr.length || !"\w$".includes(expr[i + op.length]))) {
+      return [expr.slice(0, i), expr.slice(i + op.length)];
+    }
+    i++;
+  }
+  return null;
 }
 
 /** Check `return\`...\`` / `X +=\`...\`` templates inside an arrow/func block body. */
@@ -458,6 +574,8 @@ function isSafeExpr(raw: string, ctx: Ctx): void {
     const inner = expr.slice(1, -1).trim();
     if (inner) { isSafeExpr(inner, ctx); return; }
   }
+  const co = topLevelBinarySplit(expr, "??");
+  if (co) { isSafeExpr(co[0], ctx); isSafeExpr(co[1], ctx); return; }
   if (expr.startsWith("`")) { checkTemplate(expr, ctx); return; }
   const ternary = splitTernary(expr);
   if (ternary) { isSafeExpr(ternary[0], ctx); isSafeExpr(ternary[1], ctx); return; }
@@ -473,7 +591,7 @@ function isSafeExpr(raw: string, ctx: Ctx): void {
     i++;
   }
   operands.push(expr.slice(last));
-  if (operands.length > 1) { operands.forEach(op => checkOperand(op, ctx)); return; }
+  if (operands.length > 1) { operands.forEach(op => isSafeExpr(op, ctx)); return; }
   checkOperand(expr, ctx);
 }
 

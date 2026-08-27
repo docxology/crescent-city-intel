@@ -4,6 +4,7 @@
  */
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { SCRAPE_TIMEOUT_MS, CLOUDFLARE_WAIT_MS } from "./constants.js";
+import { existsSync } from "fs";
 import { createLogger } from "./logger.js";
 
 const log = createLogger("browser");
@@ -26,7 +27,20 @@ export async function launchBrowser(): Promise<BrowserContext> {
   // Default: let Playwright resolve its own managed build (works in CI after
   // `npx playwright install chromium --with-deps`); a hardcoded path is only
   // used when explicitly provided via env.
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
+  let executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
+  if (!executablePath) {
+    // Discover any installed Playwright-managed build (build numbers vary).
+    try {
+      const { readdirSync } = await import("fs");
+      const { join } = await import("path");
+      const cacheRoot = join(process.env.HOME ?? "", "Library", "Caches", "ms-playwright");
+      for (const entry of readdirSync(cacheRoot).sort().reverse()) {
+        if (!entry.startsWith("chromium-")) continue;
+        const candidate = join(cacheRoot, entry, "chrome-mac-arm64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing");
+        if (existsSync(candidate)) { executablePath = candidate; break; }
+      }
+    } catch { /* best-effort discovery; default resolution remains the fallback */ }
+  }
 
   log.info(headless ? "Launching Chromium browser (headless)" : "Launching Chromium browser (non-headless)");
   if (executablePath) log.info(`Using executablePath: ${executablePath}`);

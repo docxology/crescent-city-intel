@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="The Quadruplicate — Stop Press. The requested page was not found in the current public snapshot.">
   <title>The Quadruplicate — Stop Press</title>
+  <meta name="robots" content="noindex">
+  <link rel="alternate" type="application/rss+xml" title="The Quadruplicate - public intelligence feed" href="https://quadruplicate.org/feed.xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -42,9 +44,16 @@
     .footer { border-top:1px solid var(--rule); margin-top:32px; padding-top:16px; font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); text-align:center; }
     .footer a { color:var(--ink-dim); }
     @media print { body { background:#fff; color:#000; } }
+    /* --- Accessibility (lane3) --- */
+    a:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
+    .skip-link { position:absolute; left:-9999px; }
+    .skip-link:focus, .skip-link:focus-visible { position:fixed; top:8px; left:8px; width:auto; height:auto; margin:0; padding:10px 16px; clip:auto; overflow:visible; white-space:nowrap; background:var(--paper); color:var(--ink); border:2px solid var(--cc); z-index:2147483646; font:600 .85rem/1 Inter,sans-serif; text-decoration:none; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
+    @media (pointer: coarse) { .masthead-nav a, .return-link { min-height:44px; min-width:44px; display:inline-flex; align-items:center; } }
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="red-banner">
     <h1 class="masthead-h1">The Quadruplicate</h1>
     <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
@@ -56,12 +65,12 @@
   </div>
   <div class="masthead-nav-wrap">
     <div class="inner">
-      <nav class="masthead-nav" aria-label="Sections">
+      <nav class="masthead-nav" aria-label="Site pages">
         <a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a>
       </nav>
     </div>
   </div>
-  <div class="page">
+  <main class="page" id="main">
     <div class="errata">
       <div class="errata-badge">Errata &middot; Stop Press</div>
       <h2>This page is not in the current edition.</h2>
@@ -80,10 +89,10 @@
     <div style="text-align:center">
       <a class="return-link" href="./">Return to the latest edition</a>
     </div>
-    <div class="footer">
+    <footer class="footer">
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
       <div>Public snapshot &middot; no live service &middot; no credentials &middot; no chat history</div>
-    </div>
-  </div>
+    </footer>
+  </main>
 </body>
 </html>

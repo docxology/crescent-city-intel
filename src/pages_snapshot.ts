@@ -573,6 +573,14 @@ async function collectCurrentAlerts(outputDir: string): Promise<{ composite: Jso
 }
 
 /**
+ * Shared HTML escape helper for build-time injected markup. Escapes &, <, >,
+ * ", and ' so interpolated values are safe in text and attribute contexts.
+ */
+export function escapePagesHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] as string));
+}
+
+/**
  * Render the manifest-derived counts shown in the Methods & Provenance section.
  * Counts come from the exact snapshot being exported, so the static page never
  * carries hand-authored numbers that could drift from data/snapshot.json.
@@ -590,7 +598,7 @@ export function buildPagesMethodsCounts(snapshot: PagesSnapshot): string {
     ["Curated briefs", snapshot.curated.length],
     ["Calendar events", snapshot.events.count ?? snapshot.events.events.length],
   ];
-  return `<ul id="methods-counts-list">${items.map(([label, value]) => `<li><strong>${label.replace(/</g, "&lt;")}:</strong> ${String(value ?? "not recorded").replace(/</g, "&lt;")}</li>`).join("")}</ul>`;
+  return `<ul id="methods-counts-list">${items.map(([label, value]) => `<li><strong>${escapePagesHtml(label)}:</strong> ${escapePagesHtml(value ?? "not recorded")}</li>`).join("")}</ul>`;
 }
 
 /** Replace the export-time counts marker with manifest-derived values. */

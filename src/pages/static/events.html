@@ -71,12 +71,21 @@
     .footer { border-top:3px solid var(--cc); margin-top:28px; padding-top:14px; font:.78rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
     .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
     @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } .page { padding:0 12px 48px; } }
+    /* --- Accessibility (lane3) --- */
+    a:focus-visible, .welcome-link:focus-visible, .ics-badge:focus-visible, .button:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
+    .skip-link { position:absolute; left:-9999px; }
+    .skip-link:focus, .skip-link:focus-visible { position:fixed; top:8px; left:8px; width:auto; height:auto; margin:0; padding:10px 16px; clip:auto; overflow:visible; white-space:nowrap; background:var(--paper); color:var(--ink); border:2px solid var(--cc); z-index:2147483646; font:600 .85rem/1 Inter,sans-serif; text-decoration:none; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } body::before { display:none; } }
+    @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
+    .newspaper-label { display:block; font:700 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); margin-bottom:6px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
   </style>
   <!--PAGES_JSONLD_WEBPAGE-->
   <!--PAGES_JSONLD_BREADCRUMB-->
   <!--PAGES_JSONLD_DATASET-->
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="red-banner">
     <a class="masthead-h1" href="./">The Quadruplicate</a>
     <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
@@ -86,13 +95,13 @@
   </div>
   <div class="masthead-nav-wrap">
     <div class="inner">
-      <nav class="masthead-nav" aria-label="Sections"><a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html" aria-current="page">Events</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
+      <nav class="masthead-nav" aria-label="Site pages"><a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html" aria-current="page">Events</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
     </div>
   </div>
   <main class="page" id="main">
 
     <section id="page-events">
-      <div class="section-head"><h2>Community calendar</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics">&#128197; Subscribe &middot; .ics</a>&nbsp;<a href="data/events.json">events JSON</a>&nbsp;&middot;&nbsp;<a href="./#events">Front-page section</a></span></div>
+      <div class="section-head"><h2>Community calendar</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe to the Crescent City community events calendar in iCalendar format">&#128197; Subscribe &middot; .ics</a>&nbsp;<a href="data/events.json">events JSON</a>&nbsp;&middot;&nbsp;<a href="./#events">Front-page section</a></span></div>
       <div class="controls">
         <select id="event-filter" aria-label="Filter community events by kind or time window">
           <option value="all">All events</option>
@@ -159,10 +168,10 @@
     load("data/snapshot.json").then(data => { snapshotData = data; render(); }).catch(() => { document.getElementById("event-items").innerHTML = empty("The events artifact could not be loaded."); });
     </script>
 
-    <div class="footer">
+    <footer class="footer">
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
       <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
-    </div>
+    </footer>
   </main>
 </body>
 </html>

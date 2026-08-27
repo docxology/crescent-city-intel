@@ -22,10 +22,11 @@ export async function launchBrowser(): Promise<BrowserContext> {
   // HEADLESS_BROWSER=1 enables headless mode (required for CI/Docker).
   const headless = process.env.HEADLESS_BROWSER === "1";
 
-  // PLAYWRIGHT_CHROMIUM_EXECUTABLE overrides the Playwright-managed browser binary.
-  // Useful when Playwright's installer is stuck but a known-good build exists.
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
-    || "/Users/4d/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
+  // PLAYWRIGHT_CHROMIUM_EXECUTABLE overrides the browser binary resolution.
+  // Default: let Playwright resolve its own managed build (works in CI after
+  // `npx playwright install chromium --with-deps`); a hardcoded path is only
+  // used when explicitly provided via env.
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
 
   log.info(headless ? "Launching Chromium browser (headless)" : "Launching Chromium browser (non-headless)");
   if (executablePath) log.info(`Using executablePath: ${executablePath}`);
@@ -33,7 +34,7 @@ export async function launchBrowser(): Promise<BrowserContext> {
     try {
       browser = await chromium.launch({
         headless,
-        executablePath,
+        ...(executablePath ? { executablePath } : {}),
         args: ["--disable-blink-features=AutomationControlled"],
       });
 

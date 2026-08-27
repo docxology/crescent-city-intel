@@ -7,7 +7,8 @@
   <title>Local news — The Quadruplicate</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root { color-scheme: light; --ink:#000000; --ink-dim:#333333; --ink-faint:#666666; --paper:#ffffff; --paper2:#f2f2f2; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#f7dcdc; --sepia:#999999; --rule:#444444; --rule-light:#888888; --rule-thin:#dddddd; --panel:rgba(255,255,255,.96); --panel-hover:rgba(242,242,242,.9); }
     * { box-sizing:border-box; }
@@ -23,8 +24,8 @@
     .masthead-date { font:600 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); margin:0; }
     .masthead-date .red-prefix { color:var(--cc); font-weight:700; }
     .masthead-nav-wrap { border-bottom:3px double var(--ink); }
-    .masthead-nav-wrap .inner { max-width:1260px; margin:0 auto; padding:4px 20px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .masthead-nav { display:flex; flex-wrap:nowrap; justify-content:flex-start; align-items:center; }
+    .masthead-nav-wrap .inner { max-width:1260px; margin:0 auto; padding:4px 20px; }
+    .masthead-nav { display:flex; flex-wrap:wrap; justify-content:flex-start; align-items:center; }
     .masthead-nav a { position:relative; font:500 .74rem/1 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); text-decoration:none; padding:5px 10px; white-space:nowrap; transition:color .15s; }
     .masthead-nav a:hover, .masthead-nav a[aria-current="page"] { color:var(--cc); }
     .page { max-width:1260px; margin:0 auto; padding:0 20px 60px; }

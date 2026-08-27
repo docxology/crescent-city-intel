@@ -46,6 +46,8 @@ export interface EventSourceRecord {
   url: string;
   type: SourceType;
   notes: string;
+  /** Optional extraction strategy override. evogov-json reads an EvoGov calendar platform site through its public meetings/get_list JSON endpoint, using calendar ids discovered on the listing page itself. */
+  strategy?: "evogov-json";
   probe?: {
     status: "ok" | "error" | "redirects";
     httpStatus?: number;
@@ -413,6 +415,10 @@ export async function discoverFromSource(
       return { status: "ok", httpStatus, events: dated.slice(0, MAX_EVENTS_PER_SOURCE) };
     }
 
+    if (source.strategy === "evogov-json") {
+      return await discoverEvoGovJson(source, httpStatus, counters);
+    }
+
     // HTML source: strict markup first, LLM only for date-like ambiguity.
     const resolveLlm = options.resolveLlm ?? llmResolveFields;
     const rows = parseHtmlListing(text, source.url);
@@ -464,6 +470,112 @@ export async function discoverFromSource(
       counters.droppedUndated += 1;
     }
     return { status: "ok", httpStatus, events };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`source "${source.name}" failed: ${message}`);
+    return { status: "error", error: message, events: [] };
+  }
+}
+
+/** Discover EvoGov calendar ids on a listing page (checkbox inputs). */
+function extractEvoGovCalendarIds(html: string): string[] {
+  const ids = new Set<string>();
+  const patterns = [
+    /class="evo_calendar_selection_checkbox"[^>]*>\s*<input[^>]*value="(\d+)"/g,
+    /value="(\d+)"\s+name="\1"/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of html.matchAll(pattern)) ids.add(match[1]);
+  }
+  return [...ids];
+}
+
+function windowDates(): { start: string; end: string } {
+  const fmt = (d: Date): string =>
+    `${String(d.getUTCMonth() + 1).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}/${d.getUTCFullYear()}`;
+  const now = new Date();
+  const ahead = new Date(now.getTime() + 90 * 86_400_000);
+  return { start: fmt(now), end: fmt(ahead) };
+}
+
+function isoFromSortable(value: unknown): string | null {
+  const m = typeof value === "string" ? value.match(/^(\d{4})(\d{2})(\d{2})/) : null;
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
+function timeFromSortable(value: unknown): string | null {
+  const m = typeof value === "string" ? value.match(/^\d{8}T?(\d{2}):?(\d{2})/) : null;
+  return m ? `${m[1]}:${m[2]}` : null;
+}
+/**
+ * Read an EvoGov calendar-platform site through its public meetings/get_list
+ * JSON endpoint: pull calendar ids off the listing page, query the endpoint,
+ * and map rows onto DiscoveredEvent records. All data is site-published
+ * ('markup'); nothing here invokes the LLM. Rows without a resolvable date
+ * are dropped and counted.
+ */
+export async function discoverEvoGovJson(
+  source: EventSourceRecord,
+  listingHttpStatus?: number,
+  counters: DropCounters = { droppedAmbiguous: 0, droppedUndated: 0 },
+): Promise<SourceResult> {
+  try {
+    const { text } = await fetchFeed(source.url);
+    const ids = extractEvoGovCalendarIds(text);
+    const events: DiscoveredEvent[] = [];
+    let listHttpStatus: number | undefined;
+    if (ids.length > 0) {
+      const origin = new URL(source.url).origin;
+      const { start, end } = windowDates();
+      const params = new URLSearchParams({
+        selected_calendar_ids: ids.join(","),
+        start_date: start,
+        end_date: end,
+        search: "",
+        sort_order: "date_start",
+      });
+      const fetched = await fetchFeed(`${origin}/meetings/get_list?${params.toString()}`);
+      listHttpStatus = fetched.httpStatus;
+      const parsed: unknown = JSON.parse(fetched.text);
+      if (!Array.isArray(parsed)) throw new Error("get_list returned non-array payload");
+      for (const raw of parsed.slice(0, MAX_EVENTS_PER_SOURCE)) {
+        if (typeof raw !== "object" || raw === null) continue;
+        const row = raw as Record<string, unknown>;
+        const title = typeof row.title === "string" ? row.title.trim() : "";
+        const sortable = row.start_date_sortable ?? row.start_date_short_with_time;
+        const dateStart = isoFromSortable(sortable);
+        if (!title || !dateStart) {
+          if (title) counters.droppedUndated += 1;
+          continue;
+        }
+        let detailUrl = source.url;
+        const detailLink = typeof row.detail_link === "string" ? row.detail_link : "";
+        const hrefMatch = detailLink.match(/href="([^"]+)"/);
+        if (hrefMatch && /^https?:\/\//i.test(hrefMatch[1])) detailUrl = hrefMatch[1];
+        const description = typeof row.description === "string"
+          ? row.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600)
+          : "";
+        const locationParts = [row.location, row.location_street_address_1, row.location_city]
+          .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+          .map(part => part.trim());
+        events.push({
+          title,
+          kind: row.is_meeting === true ? "government-meeting" : "community-listing",
+          dateStart,
+          dateAllDay: row.is_all_day === true || !timeFromSortable(sortable),
+          timeNote: timeFromSortable(sortable),
+          location: locationParts.length > 0 ? locationParts.join(", ") : null,
+          organizer: source.name,
+          description,
+          sourceUrl: detailUrl,
+          sourceName: source.name,
+          sourceLinks: [detailUrl],
+          extractionMethod: "markup",
+          confidence: 0.9,
+        });
+      }
+    }
+    return { status: "ok", httpStatus: listHttpStatus ?? listingHttpStatus, events };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn(`source "${source.name}" failed: ${message}`);

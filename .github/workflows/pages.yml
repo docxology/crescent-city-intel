@@ -30,6 +30,7 @@ jobs:
       PAGES_BUILD: "1"
       PAGES_DOMAIN: quadruplicate.org
       HEADLESS_BROWSER: "1"
+      SCRAPE_TIMEOUT_MS: "180000"
 
     steps:
       - name: Checkout repository

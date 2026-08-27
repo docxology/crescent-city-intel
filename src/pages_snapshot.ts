@@ -33,6 +33,16 @@ const PAGES_SITE_URL = "https://quadruplicate.org";
 export const PAGES_ROBOTS_TXT = "robots.txt";
 export const PAGES_SITEMAP_XML = "sitemap.xml";
 export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
+export const PAGES_FEED_XML = "feed.xml";
+export const PAGES_FEED_LINK_HTML = '<link rel="alternate" type="application/rss+xml" title="The Quadruplicate - public intelligence feed" href="https://quadruplicate.org/feed.xml">';
+/** Export-time injection point for the edition date in the WebSite JSON-LD block. */
+export const PAGES_DATE_PUBLISHED_PLACEHOLDER = "__PAGES_DATE_PUBLISHED__";
+export const PAGES_DATE_MODIFIED_PLACEHOLDER = "__PAGES_DATE_MODIFIED__";
+/** Per-page JSON-LD injection markers (WebPage / BreadcrumbList / Dataset). */
+export const PAGES_JSONLD_WEBPAGE_PLACEHOLDER = "<!--PAGES_JSONLD_WEBPAGE-->";
+export const PAGES_JSONLD_BREADCRUMB_PLACEHOLDER = "<!--PAGES_JSONLD_BREADCRUMB-->";
+export const PAGES_JSONLD_DATASET_PLACEHOLDER = "<!--PAGES_JSONLD_DATASET-->";
+export const PAGES_FEED_MAX_ITEMS = 60;
 
 /** Export-time injection point for manifest-derived counts inside the Methods & Provenance section. */
 export const PAGES_METHODS_COUNTS_PLACEHOLDER = "<!--PAGES_METHODS_COUNTS-->";
@@ -152,7 +162,7 @@ export function buildPagesGeoIntel(contract: Record<string, unknown> = buildGeoI
 
 /** Allow-all robots policy with an explicit sitemap pointer. */
 export function buildPagesRobotsTxt(): string {
-  return `User-agent: *\nAllow: /\nSitemap: ${PAGES_SITE_URL}/sitemap.xml\n`;
+  return `User-agent: *\nAllow: /\nSitemap: ${PAGES_SITE_URL}/sitemap.xml\nFeed: ${PAGES_SITE_URL}/${PAGES_FEED_XML}\n`;
 }
 
 /**
@@ -178,6 +188,136 @@ export function buildPagesSitemapXml(): string {
     .map(path => `  <url><loc>${PAGES_SITE_URL}/${path}</loc><lastmod>${today}</lastmod></url>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
+}
+
+function xmlEscape(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function feedItemDate(item: JsonRecord): string | null {
+  for (const key of ["pubDate", "date", "fetchedAt", "timestamp", "checkedAt"]) {
+    const value = item[key];
+    if (typeof value === "string" && Number.isFinite(Date.parse(value))) {
+      return new Date(Date.parse(value)).toUTCString();
+    }
+  }
+  return null;
+}
+
+function feedItemTitle(item: JsonRecord): string {
+  for (const key of ["title", "headline", "event", "summary"]) {
+    const value = item[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+/**
+ * Build the public RSS 2.0 feed covering news, meetings, and current alerts.
+ * Every item keeps its source link, so the syndication artifact preserves
+ * provenance exactly like the published pages do. Items without a usable
+ * title are dropped rather than invented.
+ */
+export function buildPagesFeedXml(snapshot: PagesSnapshot): string {
+  const items: Array<{ title: string; link: string; description: string; date: string | null }> = [];
+  for (const item of snapshot.news) {
+    const title = feedItemTitle(item);
+    if (!title) continue;
+    items.push({
+      title,
+      link: typeof item.link === "string" && /^https?:\/\//i.test(item.link) ? item.link : `${PAGES_SITE_URL}/news.html`,
+      description: typeof item.description === "string" ? item.description.slice(0, 500) : "",
+      date: feedItemDate(item),
+    });
+  }
+  for (const item of snapshot.meetings) {
+    const title = feedItemTitle(item);
+    if (!title) continue;
+    items.push({
+      title,
+      link: typeof item.link === "string" && /^https?:\/\//i.test(item.link) ? item.link : `${PAGES_SITE_URL}/meetings.html`,
+      description: typeof item.content === "string" ? item.content.slice(0, 500) : "",
+      date: feedItemDate(item),
+    });
+  }
+  for (const alert of snapshot.alerts.current) {
+    const title = feedItemTitle(alert);
+    if (!title) continue;
+    const monitor = typeof alert.monitor === "string" ? alert.monitor : "unknown";
+    items.push({
+      title: `Alerts \u00b7 ${monitor}: ${title}`,
+      link: `${PAGES_SITE_URL}/#alerts`,
+      description: typeof alert.detail === "string" && alert.detail.trim() ? alert.detail.slice(0, 500) : `Current ${monitor} alert state`,
+      date: feedItemDate(alert),
+    });
+  }
+  items.sort((a, b) => Date.parse(b.date ?? "") - Date.parse(a.date ?? ""));
+  const entries = items.slice(0, PAGES_FEED_MAX_ITEMS).map(item => {
+    const dateTag = item.date ? `\n      <pubDate>${xmlEscape(item.date)}</pubDate>` : "";
+    const descTag = item.description ? `\n      <description>${xmlEscape(item.description)}</description>` : "";
+    return `    <item>\n      <title>${xmlEscape(item.title)}</title>\n      <link>${xmlEscape(item.link)}</link>${descTag}${dateTag}\n      <guid>${xmlEscape(item.link)}</guid>\n    </item>`;
+  }).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n  <channel>\n    <title>${NEWSPAPER_NAME}</title>\n    <link>${PAGES_SITE_URL}/</link>\n    <description>Local Crescent City news, government meetings, and safety alerts from the public intelligence snapshot.</description>\n    <language>en-us</language>\n    <lastBuildDate>${new Date(Date.parse(snapshot.generatedAt)).toUTCString()}</lastBuildDate>\n${entries}\n  </channel>\n</rss>\n`;
+}
+
+/** Build a per-page WebPage/CollectionPage JSON-LD block from the page manifest. */
+export function buildPagesWebPageJsonLd(page: { file: string; title: string }, generatedAt: string): string {
+  const block = {
+    "@context": "https://schema.org",
+    "@type": page.file === "events.html" ? "CollectionPage" : "WebPage",
+    name: `${page.title} — ${NEWSPAPER_NAME}`,
+    url: `${PAGES_SITE_URL}/${page.file}`,
+    isPartOf: { "@type": "WebSite", name: NEWSPAPER_NAME, url: `${PAGES_SITE_URL}/` },
+    inLanguage: "en",
+    dateModified: generatedAt,
+  };
+  return `<script type="application/ld+json">${JSON.stringify(block)}</script>`;
+}
+
+/** Build the BreadcrumbList JSON-LD for a page (Home -> page). */
+export function buildPagesBreadcrumbJsonLd(page: { file: string; title: string }): string {
+  const block = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Front page", item: `${PAGES_SITE_URL}/` },
+      { "@type": "ListItem", position: 2, name: page.title, item: `${PAGES_SITE_URL}/${page.file}` },
+    ],
+  };
+  return `<script type="application/ld+json">${JSON.stringify(block)}</script>`;
+}
+
+const PAGES_DATASET_ARTIFACTS: ReadonlyArray<{ file: string; name: string; description: string }> = [
+  { file: "data/snapshot.json", name: "The Quadruplicate public snapshot envelope", description: "The complete bounded public snapshot: source health, registry, news, meetings, alerts, events, and analytics overview." },
+  { file: "data/source-health.json", name: "Source health records", description: "Operational state (ok/empty/unavailable/stale), check times, item counts, and provenance for every monitored public source." },
+  { file: "data/source-registry.json", name: "Source registry", description: "The canonical registry of monitored, discovery-only, and reference-only public sources." },
+  { file: "data/source-discovery.json", name: "Source discovery report", description: "Coverage analysis of the monitored public source registry." },
+  { file: PAGES_GEO_INTEL_ARTIFACT, name: "Civic and hazard geo-intel", description: "The crescent-city-geo-intel/v1 surface covering Del Norte County hazard domains and linked code sections." },
+  { file: PAGES_EVENTS_ARTIFACT, name: "Community events calendar", description: "The crescent-city-events/v1 community calendar with government meetings, community events, and closures." },
+  { file: PAGES_EVENTS_ICS_ARTIFACT, name: "Community events calendar (iCalendar)", description: "The community calendar in iCalendar format for subscription in calendar applications." },
+];
+
+/** Build the Dataset JSON-LD block describing the downloadable JSON artifacts. */
+export function buildPagesDatasetJsonLd(generatedAt: string): string {
+  const datasets = PAGES_DATASET_ARTIFACTS.map(artifact => ({
+    "@type": "Dataset",
+    name: artifact.name,
+    description: artifact.description,
+    url: `${PAGES_SITE_URL}/${artifact.file}`,
+    license: "https://opensource.org/licenses/Apache-2.0",
+    creator: { "@type": "Organization", name: NEWSPAPER_NAME, url: `${PAGES_SITE_URL}/` },
+    dateModified: generatedAt,
+  }));
+  return `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "DataCatalog", name: `${NEWSPAPER_NAME} public data exports`, url: `${PAGES_SITE_URL}/`, dataset: datasets })}</script>`;
+}
+
+/** Replace an export-time JSON-LD marker; the marker must appear exactly once. */
+export function embedPagesJsonLd(html: string, marker: string, block: string, pageLabel: string): string {
+  const markerCount = html.split(marker).length - 1;
+  if (markerCount !== 1) {
+    throw new Error(`Pages page ${pageLabel} must contain exactly one ${marker} marker; found ${markerCount}`);
+  }
+  return html.replace(marker, block);
 }
 
 /** Replace the static template marker with a backend-free map from the exact view being published. */
@@ -750,20 +890,41 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
+    const editionDate = generatedAt.slice(0, 10);
     const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
-    await writeFile(join(temporary, "index.html"), embedPagesMethodsCounts(embedPagesGeoView(indexTemplate, geoIntel.view), buildPagesMethodsCounts(snapshot)), "utf8");
+    const indexHtmlFinal = embedPagesMethodsCounts(embedPagesGeoView(indexTemplate, geoIntel.view), buildPagesMethodsCounts(snapshot))
+      .replace(PAGES_DATE_PUBLISHED_PLACEHOLDER, editionDate)
+      .replace(PAGES_DATE_MODIFIED_PLACEHOLDER, editionDate);
+    if (indexHtmlFinal.includes(PAGES_DATE_PUBLISHED_PLACEHOLDER) || indexHtmlFinal.includes(PAGES_DATE_MODIFIED_PLACEHOLDER)) {
+      throw new Error("Pages index JSON-LD date placeholders were not replaced");
+    }
+    await writeFile(join(temporary, "index.html"), indexHtmlFinal, "utf8");
     await copyIfPresent(join(STATIC_DIR, "404.html"), join(temporary, "404.html"));
     for (const page of PAGES_STATIC_PAGES) {
       if (!(await copyIfPresent(join(STATIC_DIR, page.file), join(temporary, page.file)))) {
         throw new Error(`Pages static page is missing from ${STATIC_DIR}: ${page.file}`);
       }
-      files.push(page.file);
+      const pagePath = join(temporary, page.file);
+      const pageHtml = await readFile(pagePath, "utf8");
+      // Per-page SEO: syndication link, WebPage/CollectionPage, BreadcrumbList,
+      // and Dataset JSON-LD injected at export time from the page manifest.
+      const hydrated = pageHtml
+        .replace("</head>", `${PAGES_FEED_LINK_HTML}\n${buildPagesWebPageJsonLd(page, generatedAt)}\n${buildPagesBreadcrumbJsonLd(page)}\n${buildPagesDatasetJsonLd(generatedAt)}\n</head>`)
+        .replace(PAGES_JSONLD_WEBPAGE_PLACEHOLDER, "")
+        .replace(PAGES_JSONLD_BREADCRUMB_PLACEHOLDER, "")
+        .replace(PAGES_JSONLD_DATASET_PLACEHOLDER, "");
+      if (hydrated.includes("PAGES_JSONLD")) throw new Error(`Pages page JSON-LD markers were not replaced: ${page.file}`);
+      await writeFile(pagePath, hydrated, "utf8");
+      files[files.length] = page.file;
     }
     await writeFile(join(temporary, ".nojekyll"), "\n", "utf8");
     files.push("index.html", "404.html", ".nojekyll");
     await writeFile(join(temporary, PAGES_ROBOTS_TXT), buildPagesRobotsTxt(), "utf8");
     await writeFile(join(temporary, PAGES_SITEMAP_XML), buildPagesSitemapXml(), "utf8");
-    files.push(PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML);
+    await writeFile(join(temporary, PAGES_FEED_XML), buildPagesFeedXml(snapshot), "utf8");
+    files[files.length] = PAGES_ROBOTS_TXT;
+    files[files.length] = PAGES_SITEMAP_XML;
+    files[files.length] = PAGES_FEED_XML;
 
     await writeJson(join(temporary, "data/snapshot.json"), snapshot);
     await writeJson(join(temporary, "data/source-health.json"), snapshot.sourceHealth);

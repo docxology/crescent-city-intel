@@ -125,3 +125,68 @@ and cannot become a curation or embedding input through the public snapshot path
 - **Conversation history**: `chatWithProvider`/`streamChat` accept prior turns via
   `buildChatMessages` (last 6), enabling multi-turn context on POST `/api/chat` and
   `/api/chat/stream`.
+
+---
+
+## `src/llm/provider.ts` — Automatic fallback chain
+
+`chatWithProviderFallback(messages, context?, modelOverride?, options?)` never
+returns without an answer:
+
+1. **Primary provider** (per `LLM_PROVIDER`) — preflighted via the non-generative
+   health check first so a dead endpoint costs no generation timeout.
+2. **Secondary provider** — when the primary is openrouter and it is unconfigured
+   or unreachable, Ollama is attempted next.
+3. **Deterministic extract** — when every provider is down, `deterministicExtract`
+   returns a clearly labeled extract built ONLY from the supplied retrieved
+   context (or an explicit "unable to answer" note when no context exists). It
+   never fabricates content.
+
+The result object carries `outcome` (`primary` | `secondary` | `deterministic`),
+`providerUsed`, `model`, and any preflight/error strings for observability.
+
+## `src/llm/structured.ts` — Structured output
+
+```bash
+# From TypeScript:
+# const { value, source } = await queryStructured<T>(prompt, {
+#   schemaHint: '{"section": string, "topic": string}',
+# }, isMyType);
+```
+
+`queryStructured<T>(prompt, options, validate?)` requests strict JSON, extracts
+the outermost JSON object/array (tolerating prose and markdown fences), parses
+it, optionally type-guards with `validate`, retries once on malformed output
+with a repair prompt, and returns `{ value: null }` otherwise so callers can
+fall back deterministically. Usage example: see
+`tests/llm-live-integration.test.ts`.
+
+## `src/llm/usage.ts` — Token-usage accounting
+
+Every `chat()` call in `ollama.ts` / `openrouter.ts` records provider, model,
+prompt/completion tokens (`prompt_eval_count`/`eval_count` or OpenRouter
+`usage`; character-estimated with an `estimated` flag when a provider omits
+counts) into a bounded in-memory window (5000 requests). The GUI server exposes:
+
+```bash
+curl -s http://localhost:8080/api/llm/usage | jq .
+```
+
+Response shape: `{ schemaVersion, generatedAt, totals: {requests,
+promptTokens, completionTokens, totalTokens}, providers: [...], lastRecordAt }`.
+Counters reset on process restart; batch scripts keep their own window per run.
+
+## Verification commands
+
+```bash
+bun test tests/llm-usage-and-fallback.test.ts   # deterministic accounting/parse/fallback tests
+bun test tests/llm-live-integration.test.ts     # live Ollama integration (skips if Ollama down)
+bun run index                                   # refresh RAG index (fingerprint-gated)
+bun run query "tsunami hazard zone regulations" # end-to-end semantic search check
+ollama pull nomic-embed-text && ollama pull gemma3:4b && ollama pull qwen2.5:3b  # models used locally
+```
+
+RAG verification on this checkout (2026-08-27): index fingerprint unchanged at
+3105 stored chunks over 2206 sections; semantic search for tsunami/flood topics
+returned § 17.84G.050 and related coastal/flood sections as top hits with
+scores ≥ 0.69.

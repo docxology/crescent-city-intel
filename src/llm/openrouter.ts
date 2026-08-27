@@ -2,6 +2,7 @@
 import type { ChatMessage } from "../types.js";
 import { llmConfig } from "./config.js";
 import { createLogger } from "../logger.js";
+import { estimateTokens, recordLlmUsage } from "./usage.js";
 import type { ChatRequestOptions } from "./provider.js";
 
 const log = createLogger("openrouter");
@@ -24,6 +25,10 @@ type OpenRouterChatResponse = {
       content?: string;
     };
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 };
 
 type OpenRouterChatResponseWithContent = {
@@ -36,6 +41,10 @@ type OpenRouterChatResponseWithContent = {
       content?: string;
     };
   }>];
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
 };
 
 type OpenRouterModelsResponse = {
@@ -177,7 +186,15 @@ export async function chat(
     throw new Error(`OpenRouter returned an unexpected response shape: ${formatResponseSnippet(data)}`);
   }
 
-  return data.choices[0].message.content;
+  const content = data.choices[0].message.content;
+  recordLlmUsage(
+    "openrouter",
+    model,
+    typeof data.usage?.prompt_tokens === "number" ? data.usage.prompt_tokens : estimateTokens(JSON.stringify(fullMessages)),
+    typeof data.usage?.completion_tokens === "number" ? data.usage.completion_tokens : estimateTokens(content),
+    !(typeof data.usage?.prompt_tokens === "number" && typeof data.usage?.completion_tokens === "number"),
+  );
+  return content;
 }
 
 /** Stream OpenRouter SSE deltas for the provider-aware RAG endpoint. */

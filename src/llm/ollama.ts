@@ -3,6 +3,7 @@ import type { ChatMessage } from "../types.js";
 import { llmConfig } from "./config.js";
 import { OLLAMA_TIMEOUT_MS } from "../constants.js";
 import { createLogger } from "../logger.js";
+import { estimateTokens, recordLlmUsage } from "./usage.js";
 import type { ChatRequestOptions } from "./provider.js";
 
 const log = createLogger("ollama");
@@ -90,8 +91,16 @@ export async function chat(
     throw new Error(`Ollama chat failed (${resp.status}): ${await resp.text()}`);
   }
 
-  const data = await resp.json() as { message: { content: string } };
-  return data.message.content;
+  const data = await resp.json() as { message: { content: string }; prompt_eval_count?: number; eval_count?: number };
+  const content = data.message.content;
+  recordLlmUsage(
+    "ollama",
+    model,
+    typeof data.prompt_eval_count === "number" ? data.prompt_eval_count : estimateTokens(JSON.stringify(fullMessages)),
+    typeof data.eval_count === "number" ? data.eval_count : estimateTokens(content),
+    !(typeof data.prompt_eval_count === "number" && typeof data.eval_count === "number"),
+  );
+  return content;
 }
 
 /** List available models from Ollama */

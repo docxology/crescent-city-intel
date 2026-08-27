@@ -824,6 +824,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemMetadata'
+  /api/llm/usage:
+    get:
+      summary: Get LLM token-usage accounting summary
+      description: Returns aggregated prompt/completion token usage per provider and model over the retained request window (in-memory, resets on process restart). Makes no LLM call.
+      operationId: getLlmUsage
+      tags:
+        - System
+      security: []
+      responses:
+        '200':
+          description: Aggregated token usage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LlmUsageSummary'
   /api/sources:
     get:
       summary: Get the canonical Crescent City source registry and latest joins
@@ -1627,6 +1642,31 @@ components:
             coverageGaps: {type: array, items: {type: string}}
         artifacts: {type: object, properties: {markdown: {type: string}, metadata: {type: string}}}
         warnings: {type: array, items: {type: string}}
+    LlmUsageSummary:
+      type: object
+      required: [schemaVersion, generatedAt, totals, providers]
+      properties:
+        schemaVersion: {type: string, example: "1.0.0"}
+        generatedAt: {type: string, format: date-time}
+        totals:
+          type: object
+          properties:
+            requests: {type: integer}
+            promptTokens: {type: integer}
+            completionTokens: {type: integer}
+            totalTokens: {type: integer}
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              provider: {type: string}
+              models: {type: array, items: {type: string}}
+              requests: {type: integer}
+              promptTokens: {type: integer}
+              completionTokens: {type: integer}
+              totalTokens: {type: integer}
+        lastRecordAt: {type: string, format: date-time, nullable: true}
     SystemMetadata:
       type: object
       properties:

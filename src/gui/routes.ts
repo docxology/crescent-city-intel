@@ -248,6 +248,17 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/llm/usage — token-usage accounting summary (no LLM call)
+  if (path === "/api/llm/usage") {
+    try {
+      const usage = await import("../llm/usage.js");
+      return json(usage.getLlmUsageSummary());
+    } catch (err: any) {
+      log.error("[llm-usage] failed", { error: err.message });
+      return json({ error: "LLM usage module unavailable" }, 503);
+    }
+  }
+
   // ─── LLM-dependent routes ────────────────────────────────────
 
   // GET /api/chat — RAG query (with optional model override)

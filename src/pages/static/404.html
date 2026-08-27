@@ -3,8 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
   <meta name="description" content="The Quadruplicate — Stop Press. The requested page was not found in the current public snapshot.">
   <title>The Quadruplicate — Stop Press</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#c41e1e">
   <meta name="robots" content="noindex">
   <link rel="alternate" type="application/rss+xml" title="The Quadruplicate - public intelligence feed" href="https://quadruplicate.org/feed.xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,6 +48,14 @@
     .return-link:hover { background:var(--panel); border-color:var(--ink-faint); color:var(--ink); text-decoration:none; }
     .footer { border-top:1px solid var(--rule); margin-top:32px; padding-top:16px; font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); text-align:center; }
     .footer a { color:var(--ink-dim); }
+    .breadcrumb { border-bottom:1px solid var(--rule); }
+    .breadcrumb .inner { max-width:720px; margin:0 auto; padding:4px 20px; }
+    .breadcrumb ol { list-style:none; display:flex; flex-wrap:wrap; gap:4px; margin:0; padding:0; font:.72rem/1 Inter,sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+    .breadcrumb li[aria-current] { color:var(--ink); font-weight:700; }
+    .breadcrumb a { color:var(--ink-faint); text-decoration:none; }
+    .masthead-nav-wrap .inner { overflow:visible; }
+    @media (max-width:768px) { .masthead-nav { flex-wrap:wrap; } .masthead-nav a { white-space:normal; } }
+    html, body { overflow-x:hidden; }
     @media print { body { background:#fff; color:#000; } }
     /* --- Accessibility (lane3) --- */
     a:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
@@ -66,10 +79,13 @@
   <div class="masthead-nav-wrap">
     <div class="inner">
       <nav class="masthead-nav" aria-label="Site pages">
-        <a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a>
+        <a href="./">Front page</a><a href="/gui.html">GUI console</a><a href="/news.html">News</a><a href="/meetings.html">Meetings</a><a href="/events.html">Events</a><a href="/code.html">Municipal code</a><a href="/sources.html">Sources</a><a href="/#geo">Geo-intel</a><a href="/#alerts">Alerts</a><a href="/#methods">Methods</a><a href="/#faq">FAQ</a>
       </nav>
     </div>
   </div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <div class="inner"><ol><li><a href="/">Front page</a></li><li aria-current="page">Page not found</li></ol></div>
+  </nav>
   <main class="page" id="main">
     <div class="errata">
       <div class="errata-badge">Errata &middot; Stop Press</div>
@@ -87,7 +103,7 @@
       <p class="contact" style="font-size:.88rem">Signal reliable intelligence &middot; report source anomalies &middot; suggest coverage</p>
     </div>
     <div style="text-align:center">
-      <a class="return-link" href="./">Return to the latest edition</a>
+      <a class="return-link" href="/">Return to the latest edition</a>
     </div>
     <footer class="footer">
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>

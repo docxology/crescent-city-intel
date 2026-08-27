@@ -79,10 +79,25 @@
     @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
     .newspaper-label { display:block; font:700 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); margin-bottom:6px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
+    /* --- Lane2: mobile nav + overflow backstop + aria-current (2.3/2.4/2.5) --- */
+    @media (max-width:768px) {
+      .masthead-nav { flex-wrap:wrap; justify-content:flex-start; }
+      .masthead-nav a { white-space:normal; }
+      .masthead-nav-wrap .inner { overflow:visible; }
+    }
+    html, body { overflow-x:hidden; }
+    .masthead-nav a[aria-current="page"] { font-weight:700; box-shadow:0 2px 0 0 var(--cc); }
+    .breadcrumb { border-bottom:1px solid var(--rule); }
+    .breadcrumb .inner { max-width:1260px; margin:0 auto; padding:4px 20px; }
+    .breadcrumb ol { list-style:none; display:flex; flex-wrap:wrap; gap:4px; margin:0; padding:0; font:.72rem/1 Inter,sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+    .breadcrumb li[aria-current] { color:var(--ink); font-weight:700; }
+    .breadcrumb a { color:var(--ink-faint); text-decoration:none; }
+    .breadcrumb a:hover { color:var(--cc); }
   </style>
   <!--PAGES_JSONLD_WEBPAGE-->
   <!--PAGES_JSONLD_BREADCRUMB-->
   <!--PAGES_JSONLD_DATASET-->
+  <!--PAGES_HEAD_META-->
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -98,6 +113,9 @@
       <nav class="masthead-nav" aria-label="Site pages"><a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="code.html">Municipal code</a><a href="sources.html" aria-current="page">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
     </div>
   </div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <div class="inner"><ol><li><a href="./">Front page</a></li><li aria-current="page">Sources</li></ol></div>
+  </nav>
   <main class="page" id="main">
 
     <section id="page-source-health">
@@ -112,7 +130,7 @@
       <div class="section-head"><h2>Source desk</h2><span class="meta"><a href="data/source-registry.json">registry JSON</a>&nbsp;&middot;&nbsp;<a href="data/source-discovery.json">discovery JSON</a></span></div>
       <p class="subtle">The registry separates monitored sources from discovery-only coverage and reference-only citations.</p>
       <div id="registry-summary" class="banner" style="display:none"></div>
-      <table><thead><tr><th>Source</th><th>Coverage</th><th>Operational state</th><th>Region / authority</th></tr></thead><tbody id="registry-body"></tbody></table>
+      <div class="table-scroll"><table><thead><tr><th>Source</th><th>Coverage</th><th>Operational state</th><th>Region / authority</th></tr></thead><tbody id="registry-body"></tbody></table></div>
     </section>
     <script>
     const $ = id => document.getElementById(id);
@@ -121,7 +139,7 @@
     const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
     const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
     const empty = message => `<div class="empty-state">${esc(message)}</div>`;
-    async function load(path) { const response = await fetch(path, { cache:"no-store" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+    async function load(path) { const response = await fetch(path, { cache:"default" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
 
     function renderHealth(sources, filterValue) {
       const filtered = filterValue === "all" ? sources : sources.filter(source => source.status === filterValue);
@@ -130,16 +148,24 @@
     }
     let sources = [];
     document.getElementById("health-filter").addEventListener("change", event => renderHealth(sources, event.target.value));
-    load("data/snapshot.json").then(snapshot => {
-      sources = snapshot.sourceHealth || [];
+    document.getElementById("health").innerHTML = empty("Loading this edition\u2019s source checks\u2026");
+    Promise.all([load("data/source-health.json"), load("data/source-discovery.json")]).then(([health, discovery]) => {
+      sources = Array.isArray(health) ? health : [];
       renderHealth(sources, "all");
-      const discovery = snapshot.sourceDiscovery || {};
       const records = Array.isArray(discovery.sources) && discovery.sources.length ? discovery.sources : (snapshot.sourceRegistry || []);
       const summary = document.getElementById("registry-summary");
       summary.style.display = "";
       summary.innerHTML = `<strong>${esc(discovery.sourceCount ?? records.length)} discovered sources</strong><div class="meta">${esc(discovery.monitoredCount ?? 0)} monitored · ${esc(discovery.discoveryOnlyCount ?? 0)} discovery-only · ${esc(discovery.referenceOnlyCount ?? 0)} reference-only</div>`;
       document.getElementById("registry-body").innerHTML = records.map(source => `<tr><td><strong>${esc(source.name)}</strong><div class="meta">${esc(source.id || "")} · ${esc(source.kind || "")}</div></td><td><span class="pill">${esc(source.automation || "reference-only")}</span></td><td>${status(source.operationalStatus || "not-checked")}</td><td>${esc(source.region || "")} · ${esc(source.authority || "")}</td></tr>`).join("");
-    }).catch(error => { document.getElementById("health").innerHTML = empty(`Snapshot unavailable — ${error.message || error}`); });
+        }).catch(error => {
+      // Every render target gets an honest failure state; a table with headers
+      // and zero rows is never presented as a success (§5.2 spirit, lane1 slice).
+      document.getElementById("health").innerHTML = empty(`Source artifacts unavailable — ${error.message || error}`);
+      const summary = document.getElementById("registry-summary");
+      if (summary) summary.innerHTML = empty("Source artifacts unavailable — no registry summary can be shown for this edition.");
+      const body = document.getElementById("registry-body");
+      if (body) body.innerHTML = "";
+    });
     </script>
 
     <footer class="footer">

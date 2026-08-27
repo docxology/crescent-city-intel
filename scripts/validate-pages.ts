@@ -3,7 +3,14 @@
 import { readFile } from "fs/promises";
 import { join, resolve } from "path";
 import {
+  PAGES_APPLE_TOUCH_ICON_PNG,
+  PAGES_FAVICON_ICO,
+  PAGES_FAVICON_SVG,
   PAGES_GEO_INTEL_ARTIFACT,
+  PAGES_OG_IMAGE_PNG,
+  PAGES_SECTION_NAV,
+  PAGES_STATIC_PAGES,
+  PAGES_WEB_MANIFEST,
   PAGES_GEO_VIEW_PLACEHOLDER,
   summarizePagesGeoIntel,
   validatePagesGeoIntel,
@@ -134,7 +141,17 @@ if (jsonLdBlocks.length === 0) {
   else {
     if (website.url !== "https://quadruplicate.org/") errors.push("JSON-LD url does not match the canonical site URL");
     const publisher = typeof website.publisher === "object" && website.publisher !== null ? website.publisher as Record<string, unknown> : null;
-    if (publisher?.["@type"] !== "GovernmentOrganization") errors.push("JSON-LD publisher is not GovernmentOrganization");
+    if (publisher?.["@type"] !== "NewsMediaOrganization") errors.push("JSON-LD publisher is not NewsMediaOrganization");
+    if (publisher && JSON.stringify(publisher).includes("GovernmentOrganization")) errors.push("JSON-LD publisher still claims GovernmentOrganization");
+    if (publisher) {
+      const areaServed = publisher.areaServed as Record<string, unknown> | undefined;
+      const address = areaServed && typeof areaServed === "object" ? (areaServed as Record<string, unknown>).address : undefined;
+      if (!address || (address as Record<string, unknown>)["@type"] !== "PostalAddress") errors.push("JSON-LD areaServed.address is not a PostalAddress");
+      if (!publisher.logo) errors.push("JSON-LD publisher is missing logo");
+      if (!Array.isArray(publisher.sameAs) || publisher.sameAs.length === 0) errors.push("JSON-LD publisher is missing sameAs");
+    }
+    if (!parsed.some(entry => entry["@type"] === "BreadcrumbList")) errors.push("index.html is missing BreadcrumbList JSON-LD");
+    if (!parsed.some(entry => entry["@type"] === "DataCatalog")) errors.push("index.html is missing Dataset/DataCatalog JSON-LD");
   }
   // FAQPage JSON-LD must exist and every Q&A must exactly match the visible FAQ text.
   const faqPage = parsed.find(entry => entry["@type"] === "FAQPage");
@@ -157,8 +174,477 @@ if (jsonLdBlocks.length === 0) {
   }
 }
 
+// --- lane3 gate: a11y, structured data, and syndication assertions across all 8 pages ---
+const ALL_PAGES = ["index.html", "404.html", ...PAGES_STATIC_PAGES.map(page => page.file)];
+const pageHtmlCache = new Map<string, string>();
+for (const page of ALL_PAGES) {
+  const html = await readFile(join(destination, page), "utf8").catch(() => null);
+  if (html === null) { errors.push(`missing required Pages asset: ${page}`); continue; }
+  pageHtmlCache.set(page, html);
+  if (!html.includes('class="skip-link"')) errors.push(`${page} is missing the skip link`);
+  if (!html.includes(".skip-link:focus")) errors.push(`${page} is missing the skip-link focus rule`);
+  if (!html.includes("<footer class=\"footer\">")) errors.push(`${page} is missing the <footer> element`);
+  if (!html.includes("<main")) errors.push(`${page} is missing the <main> landmark`);
+  if (!html.includes("prefers-reduced-motion")) errors.push(`${page} is missing the prefers-reduced-motion block`);
+  if (!html.includes("a:focus-visible")) errors.push(`${page} is missing the a:focus-visible rule`);
+  if (!html.includes("(pointer: coarse)")) errors.push(`${page} is missing the 44px touch-target rules`);
+  if (!html.includes('rel="alternate" type="application/rss+xml"')) errors.push(`${page} is missing the syndication alternate link`);
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(match => match[1]);
+  blocks.forEach((block, index) => {
+    try { JSON.parse(block); } catch { errors.push(`${page} JSON-LD block ${index + 1} does not parse as JSON`); }
+  });
+  if (page !== "404.html" && !blocks.some(block => block.includes('"BreadcrumbList"'))) errors.push(`${page} is missing BreadcrumbList JSON-LD`);
+  if (page !== "404.html" && !blocks.some(block => block.includes('"WebPage"') || block.includes('"CollectionPage"'))) errors.push(`${page} is missing WebPage/CollectionPage JSON-LD`);
+  const style = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+  const brightVars = ["--red", "--blue", "--gold", "--green", "--purple"].filter(name => style.includes(name));
+  if (brightVars.length > 0) errors.push(`${page} style block contains banned bright color variables: ${brightVars.join(", ")}`);
+}
+if (!pageHtmlCache.get("404.html")?.includes('name="robots" content="noindex"')) errors.push("404.html is missing the noindex meta");
+
+// Contrast: computed-value checks on the shared palette (WCAG 1.4.3 thresholds)
+function relLuminance(hex: string): number {
+  const value = hex.replace("#", "");
+  const channels = [0, 2, 4].map(offset => {
+    const raw = parseInt(value.slice(offset, offset + 2), 16) / 255;
+    return raw <= 0.03928 ? raw / 12.92 : Math.pow((raw + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+function contrastRatio(foreground: string, background: string): number {
+  const l1 = relLuminance(foreground);
+  const l2 = relLuminance(background);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+const CONTRAST_PAIRS: Array<{ fg: string; bg: string; label: string; min: number }> = [
+  { fg: "#666666", bg: "#ffffff", label: ".meta on --paper", min: 4.5 },
+  { fg: "#333333", bg: "#f7dcdc", label: "banner.degraded meta on --rtint", min: 4.5 },
+  { fg: "#000000", bg: "#888888", label: "geo-metric meta on --rule-light", min: 4.5 },
+  { fg: "#000000", bg: "#888888", label: "banner.unavailable meta on --rule-light", min: 4.5 },
+  { fg: "#ffffff", bg: "#c41e1e", label: "masthead text on --cc", min: 4.5 },
+];
+for (const pair of CONTRAST_PAIRS) {
+  const ratio = contrastRatio(pair.fg, pair.bg);
+  if (ratio < pair.min) errors.push(`contrast regression: ${pair.label} computes to ${ratio.toFixed(2)}:1 (minimum ${pair.min}:1)`);
+}
+
+// The syndication artifact must exist, parse, and carry channel metadata.
+const feedXml = await readFile(join(destination, "feed.xml"), "utf8").catch(() => null);
+if (feedXml === null) {
+  errors.push("missing required Pages asset: feed.xml");
+} else {
+  if (!/<rss version="2\.0">/.test(feedXml)) errors.push("feed.xml is not RSS 2.0");
+  if (!/<channel>/.test(feedXml) || !/<title>The Quadruplicate<\/title>/.test(feedXml)) errors.push("feed.xml is missing channel metadata");
+  const feedItems = [...feedXml.matchAll(/<item>/g)].length;
+  if (feedItems === 0) errors.push("feed.xml carries no items");
+  if (feedItems > 60) errors.push("feed.xml exceeds the 60-item cap");
+  for (const link of [...feedXml.matchAll(/<link>([^<]+)<\/link>/g)].map(match => match[1])) {
+    if (!/^https?:\/\//i.test(link)) errors.push(`feed.xml item link is not an absolute URL: ${link}`);
+  }
+}
+if (robotsTxt !== null && !/^Feed:\s*https:\/\/quadruplicate\.org\/feed\.xml$/m.test(robotsTxt)) errors.push("robots.txt is missing the feed pointer");
+
 if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("API key placeholder found in Pages HTML");
 if (indexHtml.includes("localhost:") || indexHtml.includes("127.0.0.1")) errors.push("local-only endpoint found in Pages HTML");
+
+// ---- Lane 0 gate assertion (audit §0.1): every innerHTML interpolation across
+// all static pages must pass through esc()/href() or a provably-safe builder
+// (fixpoint-derived consts/functions, .map callback chains, ternary branches).
+// Lane0 gate scanner: every innerHTML interpolation must pass through esc()/href()
+// or a provably-safe prebuilt value. Positive + negative control verified.
+
+const SAFE_CALLS = new Set(["esc", "href", "status", "empty", "date"]);
+
+function skipString(src: string, i: number, quote: string): number {
+  i++;
+  while (i < src.length) {
+    if (src[i] === "\\") { i += 2; continue; }
+    if (src[i] === quote) return i + 1;
+    i++;
+  }
+  return i;
+}
+
+function skipTemplate(src: string, i: number): number {
+  i++;
+  while (i < src.length) {
+    if (src[i] === "\\") { i += 2; continue; }
+    if (src[i] === "`") return i + 1;
+    // NOTE: quotes in template TEXT are plain characters, not string starts.
+    if (src[i] === "$" && src[i + 1] === "{") {
+      let depth = 1; i += 2;
+      while (i < src.length && depth > 0) {
+        const ch = src[i];
+        if (ch === "\\") { i += 2; continue; }
+        if (ch === "'" || ch === '"') { i = skipString(src, i, ch); continue; }
+        if (ch === "`") { i = skipTemplate(src, i); continue; }
+        if (ch === "{") depth++;
+        else if (ch === "}") depth--;
+        i++;
+      }
+      continue;
+    }
+    i++;
+  }
+  return i;
+}
+
+function matchDelim(src: string, i: number, open: string, close: string): number {
+  let depth = 1; i++;
+  while (i < src.length && depth > 0) {
+    const ch = src[i];
+    if (ch === "\\") { i += 2; continue; }
+    if (ch === "'" || ch === '"') { i = skipString(src, i, ch); continue; }
+    if (ch === "`") { i = skipTemplate(src, i); continue; }
+    if (ch === open) depth++;
+    else if (ch === close) depth--;
+    i++;
+  }
+  return i;
+}
+
+/** Top-level ${...} ranges inside template body [start,end). */
+function topInterps(src: string, start: number, end: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  let i = start;
+  while (i < end) {
+    const ch = src[i];
+    if (ch === "\\") { i += 2; continue; }
+    if (ch === "`") { i = skipTemplate(src, i); continue; }
+    // NOTE: quotes in template TEXT are plain characters; skipString starts only
+    // inside ${...} expressions, which are delimited below.
+    if (ch === "$" && src[i + 1] === "{") {
+      const exprStart = i + 2;
+      let depth = 1; i = exprStart;
+      while (i < end && depth > 0) {
+        const c = src[i];
+        if (c === "\\") { i += 2; continue; }
+        if (c === "'" || c === '"') { i = skipString(src, i, c); continue; }
+        if (c === "`") { i = skipTemplate(src, i); continue; }
+        if (c === "{") depth++;
+        else if (c === "}") depth--;
+        i++;
+      }
+      out.push([exprStart, i - 1]);
+      continue;
+    }
+    i++;
+  }
+  return out;
+}
+
+interface Ctx { path: string; problems: string[]; safeConsts: Set<string>; flag(tag: string, expr: string): void; }
+
+function splitTernary(expr: string): [string, string] | null {
+  let i = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (ch === "'" || ch === '"') { i = skipString(expr, i, ch); continue; }
+    if (ch === "`") { i = skipTemplate(expr, i); continue; }
+    if (ch === "(") { i = matchDelim(expr, i, "(", ")"); continue; }
+    if (ch === "?" && expr[i + 1] !== "?" && expr[i + 1] !== "." && expr[i - 1] !== "?" && expr[i - 1] !== ".") {
+      let j = i + 1, d = 0;
+      while (j < expr.length) {
+        const c = expr[j];
+        if (c === "'" || c === '"') { j = skipString(expr, j, c); continue; }
+        if (c === "`") { j = skipTemplate(expr, j); continue; }
+        if (c === "(") { j = matchDelim(expr, j, "(", ")"); continue; }
+        if (c === "?") d++;
+        else if (c === ":") { if (d === 0) return [expr.slice(i + 1, j), expr.slice(j + 1)]; d--; }
+        j++;
+      }
+      return null;
+    }
+    i++;
+  }
+  return null;
+}
+
+function checkTemplate(expr: string, ctx: Ctx): void {
+  const after = skipTemplate(expr, 0);
+  for (const [s, e] of topInterps(expr, 1, after - 1)) {
+    isSafeExpr(expr.slice(s, e), ctx);
+  }
+  const tail = expr.slice(after).trim();
+  if (tail) { // e.g. `...` + something
+    if (tail.startsWith("+")) isSafeExpr(tail.slice(1), ctx);
+    else ctx.flag("template-tail", tail);
+  }
+}
+
+function checkOperand(expr: string, ctx: Ctx): void {
+  const e = expr.trim();
+  if (!e) return;
+  if (e.startsWith("`")) { checkTemplate(e, ctx); return; }
+  const call = /^(?:esc|href|status|empty|date)\s*\(/.exec(e);
+  if (call) {
+    const open = e.indexOf("(");
+    if (matchDelim(e, open, "(", ")") === e.length) return;
+  }
+  if (ctx.safeConsts.has(e)) return;
+  if (/^[\s\d.]+$/.test(e)) return;
+  if (/^"(?:[^"\\]|\\.)*"$/.test(e) || /^'(?:[^'\\]|\\.)*'$/.test(e)) return;
+  if (/^[A-Za-z_$][\w$]*$/.test(e)) { ctx.flag("bare-identifier", e); return; }
+  // plain call: trust the callee if the fixpoint proved its templates safe
+  const callee = /^([A-Za-z_$][\w$]*)\s*\(/.exec(e);
+  if (callee) {
+    const open = e.indexOf("(");
+    if (matchDelim(e, open, "(", ")") === e.length) {
+      if (ctx.safeConsts.has(callee[1])) return;
+      ctx.flag("call-unverified", callee[1]);
+      return;
+    }
+  }
+  if (checkMapChain(e, ctx)) return;
+  ctx.flag("unsafe-interpolation", e.slice(0, 90));
+}
+
+/** Check `return\`...\`` / `X +=\`...\`` templates inside an arrow/func block body. */
+function checkBlockReturns(block: string, ctx: Ctx): boolean {
+  const problemsBefore = ctx.problems.length;
+  const re = /\breturn\s*`|\+=\s*`/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(block)) !== null) {
+    const tplStart = block.indexOf("`", m.index);
+    const tplEnd = skipTemplate(block, tplStart);
+    checkTemplate(block.slice(tplStart, tplEnd), ctx);
+    re.lastIndex = tplEnd;
+  }
+  return ctx.problems.length === problemsBefore;
+}
+
+/**
+ * Recognize `<data>.map(callback)` chains (optionally followed by .slice(n)/.join("")).
+ * Returns true when the expression was fully understood; the callback body is
+ * checked recursively (expression arrows via isSafeExpr, block arrows and named
+ * functions via their return/+= templates, bare identifiers via safeConsts).
+ */
+function checkMapChain(e: string, ctx: Ctx): boolean {
+  let rest = e.trim();
+  for (;;) {
+    const strip = /\.(join|slice)\s*\(([^()]*)\)$/.exec(rest);
+    if (!strip || strip[2].includes("`") || strip[2].includes("=>")) break;
+    rest = rest.slice(0, strip.index).trim();
+  }
+  if (!rest.endsWith(")")) return false;
+  const mapIdx = rest.lastIndexOf(".map(");
+  if (mapIdx === -1) return false;
+  const open = mapIdx + ".map".length;
+  if (matchDelim(rest, open, "(", ")") !== rest.length) return false;
+  const callback = rest.slice(open + 1, rest.length - 1).trim();
+  // bare function-reference callback
+  if (/^[A-Za-z_$][\w$]*$/.test(callback)) {
+    if (ctx.safeConsts.has(callback)) return true;
+    ctx.flag("map-callback-unverified", callback);
+    return true;
+  }
+  const arrow = callback.indexOf("=>");
+  if (arrow === -1) return false;
+  const body = callback.slice(arrow + 2).trim();
+  if (body.startsWith("{")) {
+    const close = matchDelim(body, 0, "{", "}");
+    if (close !== body.length) return false;
+    checkBlockReturns(body.slice(1, close - 1), ctx);
+    return true;
+  }
+  isSafeExpr(body, ctx);
+  return true;
+}
+
+function isSafeExpr(raw: string, ctx: Ctx): void {
+  let expr = raw.trim();
+  if (!expr) return;
+  if (expr.startsWith("(") && matchDelim(expr, 0, "(", ")") === expr.length) {
+    const inner = expr.slice(1, -1).trim();
+    if (inner) { isSafeExpr(inner, ctx); return; }
+  }
+  if (expr.startsWith("`")) { checkTemplate(expr, ctx); return; }
+  const ternary = splitTernary(expr);
+  if (ternary) { isSafeExpr(ternary[0], ctx); isSafeExpr(ternary[1], ctx); return; }
+  // split on top-level + (string concat)
+  const operands: string[] = [];
+  let i = 0, last = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (ch === "'" || ch === '"') { i = skipString(expr, i, ch); continue; }
+    if (ch === "`") { i = skipTemplate(expr, i); continue; }
+    if (ch === "(") { i = matchDelim(expr, i, "(", ")"); continue; }
+    if (ch === "+" && expr[i + 1] !== "+") { operands.push(expr.slice(last, i)); last = i + 1; }
+    i++;
+  }
+  operands.push(expr.slice(last));
+  if (operands.length > 1) { operands.forEach(op => checkOperand(op, ctx)); return; }
+  checkOperand(expr, ctx);
+}
+
+/** Extract statement-level RHS after `=` up to the terminating `;`. */
+function extractRhs(src: string, eqIndex: number): string {
+  let i = eqIndex + 1;
+  let depth = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    if (ch === "\\") { i += 2; continue; }
+    if (ch === "'" || ch === '"') { i = skipString(src, i, ch); continue; }
+    if (ch === "`") { i = skipTemplate(src, i); continue; }
+    if (ch === "(" || ch === "{" || ch === "[") depth++;
+    else if (ch === ")" || ch === "}" || ch === "]") depth--;
+    else if (ch === ";" && depth === 0) return src.slice(eqIndex + 1, i);
+    i++;
+  }
+  return "";
+}
+
+function scanPage(html: string, path: string): string[] {
+  const problems: string[] = [];
+  const ctx: Ctx = {
+    path, problems, safeConsts: new Set<string>(),
+    flag(tag, expr) { problems.push(`${tag}: ${expr} in ${path}`); },
+  };
+  // Fixpoint pass: const X = <safe expr> marks X safe (e.g. title, commit, html).
+  for (let round = 0; round < 3; round++) {
+    const before = ctx.safeConsts.size;
+    const constRe = /\bconst\s+([A-Za-z_$][\w$]*)\s*=/g;
+    let m: RegExpExecArray | null;
+    while ((m = constRe.exec(html)) !== null) {
+      const name = m[1];
+      if (ctx.safeConsts.has(name)) continue;
+      const rhs = extractRhs(html, m.index + m[0].length - 1);
+      if (!rhs) continue;
+      const probe: Ctx = { ...ctx, problems: [], safeConsts: ctx.safeConsts, flag(tag, expr) { void tag; void expr; } };
+      const countBefore = problems.length;
+      isSafeExpr(rhs, probe);
+      if (problems.length === countBefore) ctx.safeConsts.add(name);
+    }
+    // let X = "" accumulated via X += <safe template>
+    const accumRe = /\b([A-Za-z_$][\w$]*)\s*\+=\s*`/g;
+    while ((m = accumRe.exec(html)) !== null) {
+      const name = m[1];
+      const tplStart = m.index + m[0].length - 1;
+      const tplEnd = skipTemplate(html, tplStart);
+      const probe: Ctx = { ...ctx, problems: [], safeConsts: ctx.safeConsts, flag() {} };
+      checkTemplate(html.slice(tplStart, tplEnd), probe);
+      if (probe.problems.length === 0) ctx.safeConsts.add(name);
+    }
+    // function NAME(...) declarations whose return/+= templates are safe
+    const fnRe = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/g;
+    while ((m = fnRe.exec(html)) !== null) {
+      const name = m[1];
+      if (ctx.safeConsts.has(name)) continue;
+      const braceStart = html.indexOf("{", m.index + m[0].length - 1);
+      if (braceStart === -1) continue;
+      const braceEnd = matchDelim(html, braceStart, "{", "}");
+      const probe2: Ctx = { ...ctx, problems: [], safeConsts: ctx.safeConsts, flag() {} };
+      if (checkBlockReturns(html.slice(braceStart + 1, braceEnd - 1), probe2)) ctx.safeConsts.add(name);
+    }
+    if (ctx.safeConsts.size === before) break;
+  }
+  // Main pass: every `.innerHTML =` assignment.
+  let i = 0;
+  while ((i = html.indexOf(".innerHTML", i)) !== -1) {
+    i += ".innerHTML".length;
+    let j = i;
+    while (j < html.length && /\s/.test(html[j])) j++;
+    if (html[j] !== "=" || html[j + 1] === "=") continue;
+    const rhs = extractRhs(html, j);
+    if (!rhs) continue;
+    isSafeExpr(rhs, ctx);
+    i = j + rhs.length;
+  }
+  return problems;
+}
+
+
+const staticPagesDir = resolve(import.meta.dir, "../src/pages/static");
+for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html")).sort()) {
+  const pageHtml = await readFile(join(staticPagesDir, pageFile), "utf8");
+  for (const finding of scanPage(pageHtml, pageFile)) errors.push(`unsafe innerHTML interpolation (${finding})`);
+}
+
+// --- lane2 gate: navigation/IA and SEO assertions (§2.1-2.8, §3.1-3.3, §3.7) ---
+// 2.2: 404.html must contain no relative internal hrefs — GitHub Pages serves
+// 404.html at arbitrary nested paths, where relative links resolve to second 404s.
+{
+  const html404 = pageHtmlCache.get("404.html");
+  if (html404 !== undefined) {
+    const markupOnly = html404.replace(/<script[\s\S]*?<\/script>/g, "");
+    const hrefs = [...markupOnly.matchAll(/href="([^"]*)"/g)].map(match => match[1]);
+    for (const href of hrefs) {
+      if (href.startsWith("/") || href.startsWith("#") || /^(https?:|mailto:|data:)/i.test(href)) continue;
+      errors.push(`404.html contains a relative href (must be root-absolute): "${href}"`);
+    }
+    for (const file of PAGES_STATIC_PAGES.map(page => page.file)) {
+      if (!html404.includes(`href="/${file}"`)) errors.push(`404.html nav is missing the root-absolute link to ${file}`);
+    }
+    if (!html404.includes("<nav class=\"breadcrumb\"")) errors.push("404.html is missing the breadcrumb trail");
+  }
+  // 2.1: generated nav must carry every manifest page plus the front page and section anchors.
+  for (const page of ["index.html", ...PAGES_STATIC_PAGES.map(candidate => candidate.file), "404.html"]) {
+    const html = pageHtmlCache.get(page);
+    if (html === undefined) continue;
+    if (!html.includes("<nav class=\"masthead-nav\"")) errors.push(`${page} is missing the masthead nav`);
+    if (!html.includes("<nav class=\"breadcrumb\"")) errors.push(`${page} is missing the breadcrumb trail`);
+    for (const section of PAGES_SECTION_NAV) {
+      if (!html.includes(`>${section.label}</a>`)) errors.push(`${page} nav is missing the ${section.label} anchor link`);
+    }
+    // 2.3: one mobile-nav pattern (wrapping, no nowrap scroll strip) + 2.5 aria-current non-colour cue.
+    if (html.includes("flex-wrap:nowrap")) errors.push(`${page} still uses a nowrap mobile nav strip`);
+    if (!/\.masthead-nav a\[aria-current="page"\][^}]*font-weight/.test(html)) {
+      errors.push(`${page} does not style aria-current with weight (colour-alone cue)`);
+    }
+  }
+  // 3.1/3.2: SEO artifacts must exist and the OG card must be a real 1200x630 PNG.
+  const ogPath = join(destination, PAGES_OG_IMAGE_PNG);
+  const ogBytes = await readFile(ogPath).catch(() => null);
+  if (ogBytes === null) errors.push(`missing required Pages asset: ${PAGES_OG_IMAGE_PNG}`);
+  else {
+    if (!(ogBytes[0] === 0x89 && ogBytes[1] === 0x50 && ogBytes[2] === 0x4e && ogBytes[3] === 0x47)) errors.push("og-image.png is not a PNG");
+    const ogWidth = ogBytes[16]! * 0x1000000 + ogBytes[17]! * 0x10000 + ogBytes[18]! * 0x100 + ogBytes[19]!;
+    const ogHeight = ogBytes[20]! * 0x1000000 + ogBytes[21]! * 0x10000 + ogBytes[22]! * 0x100 + ogBytes[23]!;
+    if (ogWidth !== 1200 || ogHeight !== 630) errors.push(`og-image.png must be 1200x630, got ${ogWidth}x${ogHeight}`);
+  }
+  for (const required of [PAGES_FAVICON_SVG, PAGES_FAVICON_ICO, PAGES_APPLE_TOUCH_ICON_PNG, PAGES_WEB_MANIFEST]) {
+    try { await readFile(join(destination, required)); }
+    catch { errors.push(`missing required Pages asset: ${required}`); }
+  }
+  const manifestText = await readFile(join(destination, PAGES_WEB_MANIFEST), "utf8").catch(() => "");
+  if (manifestText && !manifestText.includes('"theme_color": "#c41e1e"')) errors.push("site.webmanifest is missing the #c41e1e theme color");
+  // 3.2/3.3: every page must carry favicon links and the theme color; 404 must noindex.
+  for (const page of ALL_PAGES) {
+    const html = pageHtmlCache.get(page);
+    if (html === undefined) continue;
+    if (!html.includes('rel="icon"')) errors.push(`${page} is missing the favicon link`);
+    if (!html.includes('name="theme-color" content="#c41e1e"')) errors.push(`${page} is missing the theme-color meta`);
+    if (page !== "index.html" && page !== "404.html" && !html.includes('rel="canonical"')) {
+      errors.push(`${page} is missing the canonical link`);
+    }
+  }
+  if (pageHtmlCache.get("404.html")?.includes('name="robots" content="noindex"') === false) {
+    errors.push("404.html is missing the noindex meta");
+  }
+  // 3.7: honest sitemap lastmod — every lastmod must come from a source mtime,
+  // never the build date. The root URL is always present; pages must match the manifest.
+  const sitemap = await readFile(join(destination, PAGES_SITEMAP_XML), "utf8").catch(() => null);
+  if (sitemap !== null) {
+    const sourceMtimes = new Map<string, string>();
+    for (const file of ["index.html", ...PAGES_STATIC_PAGES.map(page => page.file)]) {
+      try {
+        const stat = await Bun.file(join(resolve(import.meta.dir, "../src/pages/static"), file)).stat();
+        if (stat?.mtime) sourceMtimes.set(file, stat.mtime.toISOString().slice(0, 10));
+      } catch { /* source missing: lastmod must be omitted, not fabricated */ }
+    }
+    const urlEntries = [...sitemap.matchAll(/<url><loc>([^<]+)<\/loc>(<lastmod>([^<]+)<\/lastmod>)?<\/url>/g)];
+    for (const entry of urlEntries) {
+      const loc = entry[1]!;
+      const lastmod = entry[3];
+      const path = loc.replace("https://quadruplicate.org/", "").replace(/^$/, "");
+      const fileKey = path === "" ? "index.html" : path;
+      const expected = sourceMtimes.get(fileKey);
+      if (lastmod === undefined) continue; // omission is honest
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(lastmod)) errors.push(`sitemap lastmod for ${loc} is not a date: ${lastmod}`);
+      if (expected !== undefined && lastmod !== expected) errors.push(`sitemap lastmod for ${loc} does not match the source mtime (fabricated?)`);
+      if (expected === undefined) errors.push(`sitemap lastmod for ${loc} has no matching source mtime (fabricated?)`);
+    }
+  }
+}
 
 if (errors.length) {
   console.error(errors.map(error => `✖ ${error}`).join("\n"));

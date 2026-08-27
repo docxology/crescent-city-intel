@@ -80,10 +80,25 @@
     @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
     .newspaper-label { display:block; font:700 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); margin-bottom:6px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
+    /* --- Lane2: mobile nav + overflow backstop + aria-current (2.3/2.4/2.5) --- */
+    @media (max-width:768px) {
+      .masthead-nav { flex-wrap:wrap; justify-content:flex-start; }
+      .masthead-nav a { white-space:normal; }
+      .masthead-nav-wrap .inner { overflow:visible; }
+    }
+    html, body { overflow-x:hidden; }
+    .masthead-nav a[aria-current="page"] { font-weight:700; box-shadow:0 2px 0 0 var(--cc); }
+    .breadcrumb { border-bottom:1px solid var(--rule); }
+    .breadcrumb .inner { max-width:1260px; margin:0 auto; padding:4px 20px; }
+    .breadcrumb ol { list-style:none; display:flex; flex-wrap:wrap; gap:4px; margin:0; padding:0; font:.72rem/1 Inter,sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+    .breadcrumb li[aria-current] { color:var(--ink); font-weight:700; }
+    .breadcrumb a { color:var(--ink-faint); text-decoration:none; }
+    .breadcrumb a:hover { color:var(--cc); }
   </style>
   <!--PAGES_JSONLD_WEBPAGE-->
   <!--PAGES_JSONLD_BREADCRUMB-->
   <!--PAGES_JSONLD_DATASET-->
+  <!--PAGES_HEAD_META-->
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -99,6 +114,9 @@
       <nav class="masthead-nav" aria-label="Site pages"><a href="./">Front page</a><a href="gui.html" aria-current="page">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
     </div>
   </div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <div class="inner"><ol><li><a href="./">Front page</a></li><li aria-current="page">GUI console</li></ol></div>
+  </nav>
   <main class="page" id="main">
 
     <section id="console-overview">
@@ -155,7 +173,7 @@
       const composite = snapshot.alerts && snapshot.alerts.composite;
       $("alert-summary").innerHTML = composite ? `<div class="banner ${esc(String(composite.level || "").toLowerCase())}"><strong>${esc(composite.level || "UNKNOWN")}</strong> — ${esc(composite.reason || "Composite assessment recorded")}<div class="meta">Assessed ${esc(date(composite.assessedAt))}</div></div>` : empty("No composite alert snapshot was available.");
       const current = snapshot.alerts && Array.isArray(snapshot.alerts.current) ? snapshot.alerts.current : [];
-      $("alert-items").innerHTML = current.length ? `<table><thead><tr><th>Monitor</th><th>Level/status</th><th>Summary</th><th>Observed</th></tr></thead><tbody>${current.map(item => `<tr><td>${esc(item.monitor)}</td><td>${status(item.level || item.status || "unknown")}</td><td>${esc(item.summary || item.reason || item.message || "No summary")}</td><td>${esc(date(item.fetchedAt || item.assessedAt))}</td></tr>`).join("")}</tbody></table>` : empty("No per-monitor current snapshots were available.");
+      $("alert-items").innerHTML = current.length ? `<div class="table-scroll"><table><thead><tr><th>Monitor</th><th>Level/status</th><th>Summary</th><th>Observed</th></tr></thead><tbody>${current.map(item => `<tr><td>${esc(item.monitor)}</td><td>${status(item.level || item.status || "unknown")}</td><td>${esc(item.summary || item.reason || item.message || "No summary")}</td><td>${esc(date(item.fetchedAt || item.assessedAt))}</td></tr>`).join("")}</tbody></table></div>` : empty("No per-monitor current snapshots were available.");
     }
     function renderTimelineEvents(snapshot) {
       const events = Array.isArray(snapshot.events && snapshot.events.events) ? snapshot.events.events.filter(item => item.status === "scheduled").slice(0, 15) : [];

@@ -539,7 +539,21 @@
     const SEARCH_CAP = 30;
     const debounce = (fn, wait = 200) => { let timer = null; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; };
     const matchesFields = (item, fields, needle) => fields.some(field => String(item[field] ?? "").toLowerCase().includes(needle));
-    async function load(path) { const response = await fetch(path, { cache:"default" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+    const FETCH_TIMEOUT_MS = 15000;
+    async function load(path) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(path, { cache:"default", signal: controller.signal });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        return await response.json();
+      } catch (error) {
+        if (error && error.name === "AbortError") throw new Error(`could not load ${path} within ${FETCH_TIMEOUT_MS / 1000}s`);
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
     function downloadText(filename, text, type) { const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); }
     function downloadJson(filename, value) { downloadText(filename, `${JSON.stringify(value, null, 2)}\n`, "application/json"); }
     function csvCell(value) { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }

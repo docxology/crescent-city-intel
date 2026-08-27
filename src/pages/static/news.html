@@ -121,7 +121,7 @@
 
     <section id="page-news">
       <div class="section-head"><h2>Metro &mdash; local intelligence</h2><span class="meta"><a href="./#news">Front-page section</a></span></div>
-      <div class="controls"><input id="content-filter" type="search" placeholder="Filter items&hellip;" aria-label="Filter news items by text"></div>
+      <div class="controls"><select id="news-sort" aria-label="Sort news items by date"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select><input id="content-filter" type="search" placeholder="Filter items&hellip;" aria-label="Filter news items by text"></div>
       <div id="news-items" class="items"></div>
     </section>
     <script>
@@ -131,7 +131,21 @@
     const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
     const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
     const empty = message => `<div class="empty-state">${esc(message)}</div>`;
-    async function load(path) { const response = await fetch(path, { cache:"default" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+    const FETCH_TIMEOUT_MS = 15000;
+    async function load(path) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(path, { cache:"default", signal: controller.signal });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        return await response.json();
+      } catch (error) {
+        if (error && error.name === "AbortError") throw new Error(`could not load ${path} within ${FETCH_TIMEOUT_MS / 1000}s`);
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
     function itemCard(item) {
       const title = esc(item.title || item.videoId || "Untitled");
@@ -147,13 +161,18 @@
     let allItems = [];
     function render() {
       const needle = document.getElementById("content-filter").value.trim().toLowerCase();
+      const DATE_KEYS = ["pubDate", "date", "publishedAt", "uploadedAt", "curatedAt", "fetchedAt"];
+      const itemTime = item => { for (const key of DATE_KEYS) { const value = item[key]; if (typeof value === "string" && Number.isFinite(Date.parse(value))) return Date.parse(value); } return 0; };
       const fields = ["title", "source", "description", "content", "summary", "pubDate", "date"];
       const filtered = needle ? allItems.filter(item => fields.some(field => String(item[field] ?? "").toLowerCase().includes(needle))) : allItems;
-      const shown = filtered.slice(0, 30);
+      const direction = document.getElementById("news-sort")?.value === "oldest" ? 1 : -1;
+      const sorted = filtered.slice().sort((a, b) => direction * (itemTime(b) - itemTime(a)));
+      const shown = sorted.slice(0, 30);
       document.getElementById("news-items").innerHTML = (filtered.length ? shown.map(itemCard).join("") : empty(needle ? "No news items matched the filter." : "No news items were available in this snapshot.")) + `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} news items.</div>`;
     }
     const debouncedRender = (() => { let timer = null; return () => { clearTimeout(timer); timer = setTimeout(render, 200); }; })();
     document.getElementById("content-filter").addEventListener("input", debouncedRender);
+    document.getElementById("news-sort").addEventListener("change", render);
     document.getElementById("news-items").innerHTML = empty("Loading this edition\u2019s news records\u2026");
     load("data/news.json").then(items => { allItems = Array.isArray(items) ? items : []; render(); }).catch(error => { document.getElementById("news-items").innerHTML = empty(`News artifact unavailable — ${error.message || error}`); });
     </script>

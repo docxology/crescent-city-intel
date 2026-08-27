@@ -140,7 +140,21 @@
     const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
     const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
     const empty = message => `<div class="empty-state">${esc(message)}</div>`;
-    async function load(path) { const response = await fetch(path, { cache:"default" }); if (!response.ok) throw new Error(`${response.status} ${response.statusText}`); return response.json(); }
+    const FETCH_TIMEOUT_MS = 15000;
+    async function load(path) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const response = await fetch(path, { cache:"default", signal: controller.signal });
+        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+        return await response.json();
+      } catch (error) {
+        if (error && error.name === "AbortError") throw new Error(`could not load ${path} within ${FETCH_TIMEOUT_MS / 1000}s`);
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
     function renderHealth(sources, filterValue) {
       const filtered = filterValue === "all" ? sources : sources.filter(source => source.status === filterValue);

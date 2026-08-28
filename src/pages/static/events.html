@@ -47,14 +47,30 @@
           <option value="holiday-closure">Holiday closures</option>
         </select>
         <span id="event-count" class="meta" role="status"></span>
+          <span id="event-freshness" class="meta"></span>
       </div>
       <ol id="event-items" class="items"></ol>
     </section>
     <script>
     const __bootPage = () => {
     let snapshotData = null;
+    // The artifact is served in two shapes: the flat crescent-city-events/v1
+    // calendar (events: [...], count) at data/events.json, and the snapshot
+    // envelope (events: { events: [...], count }) inside data/snapshot.json.
+    // Normalize once at load so filters and counts read one canonical view.
+    function eventsView(data) {
+      if (!data) return { events: [], count: 0, summaries: null, generatedAt: null };
+      const envelope = (data.events && typeof data.events === "object" && !Array.isArray(data.events)) ? data.events : null;
+      const events = Array.isArray(envelope && envelope.events) ? envelope.events : (Array.isArray(data.events) ? data.events : []);
+      return {
+        events,
+        count: (envelope && typeof envelope.count === "number") ? envelope.count : (typeof data.count === "number" ? data.count : events.length),
+        summaries: (envelope && envelope.summaries) ? envelope.summaries : (data.summaries || null),
+        generatedAt: data.generatedAt || (envelope && envelope.generatedAt) || null,
+      };
+    }
     function filtered() {
-      const events = Array.isArray(snapshotData.events && snapshotData.events.events) ? snapshotData.events.events : [];
+      const events = eventsView(snapshotData).events;
       switch (document.getElementById("event-filter").value) {
         case "upcoming": return events.filter(item => item.status === "scheduled");
         case "past": return events.filter(item => item.status === "completed");
@@ -66,9 +82,20 @@
       }
     }
     function render() {
+      const view = eventsView(snapshotData);
       const events = filtered();
-      document.getElementById("event-count").textContent = `${events.length} of ${(snapshotData.events && snapshotData.events.count) || 0} event(s)`;
-      const summaries = snapshotData.events && snapshotData.events.summaries ? snapshotData.events.summaries : null;
+      document.getElementById("event-count").textContent = `${events.length} of ${view.count} event(s)`;
+      const summaries = view.summaries;
+      const freshness = document.getElementById("event-freshness");
+      if (freshness) {
+        if (!view.generatedAt) { freshness.textContent = ""; }
+        else {
+          const ageDays = Math.floor((Date.now() - new Date(view.generatedAt).getTime()) / 86400000);
+          freshness.textContent = ageDays >= 7
+            ? `Calendar data refreshed ${view.generatedAt.slice(0, 10)} — ${ageDays} days old; the next collection cycle may add newer events.`
+            : `Calendar data refreshed ${view.generatedAt.slice(0, 10)}.`;
+        }
+      }
       const html = calendarMonthGroups(events).map(group =>
         `<li class="cal-dateline" data-month-header="${esc(group.label)}">${esc(group.label)}</li>` +
         group.items.map(event => calendarEventCard(event, summaries)).join("")

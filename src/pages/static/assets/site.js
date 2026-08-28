@@ -88,9 +88,47 @@ function eventMonthKey(event) {
   return { key: `${match[1]}-${match[2]}`, label: `${MONTH_NAMES[Number(match[2]) - 1]} ${match[1]}` };
 }
 
+/** Map each event kind to a chip modifier class (palette: --cc/--rdark/--rtint family only). */
+const EVENT_KIND_CHIP_CLASS = { "government-meeting": "meeting", "community-listing": "community", "civic-news": "news", youtube: "youtube", "holiday-closure": "closure" };
+
+/** Per-kind color chip for calendar entries; the visible kind text doubles as the accessible label. */
+function calendarEventKindChip(event) {
+  const kind = String(event && event.kind || "");
+  const label = EVENT_KIND_LABELS[kind] || kind || "Event";
+  const cls = EVENT_KIND_CHIP_CLASS[kind] || "other";
+  return `<span class="kind-chip kind-chip--${esc(cls)}" data-kind="${esc(kind)}" aria-label="Event kind: ${esc(label)}">${esc(label)}</span>`;
+}
+
+/**
+ * Deterministic civic-timezone quick filters (lane cci-frontend §1a):
+ * "week" = current Monday-Sunday window, "month" = current calendar month,
+ * both computed in CIVIC_TZ from `now` (or the real clock). Undated events are
+ * excluded, never guessed into a window; any other window value is a no-op.
+ */
+function calendarWindowFilter(events, window, now) {
+  if (window !== "week" && window !== "month") return events || [];
+  const ref = civicDayStamp((now instanceof Date ? now : new Date()).toISOString());
+  if (ref === null) return [];
+  const refYear = Math.floor(ref / 10000);
+  const refMonth = Math.floor(ref / 100) % 100;
+  const refDate = new Date(Date.UTC(refYear, refMonth - 1, ref % 100));
+  const dayMs = 86400000;
+  const start = window === "week"
+    ? refDate.getTime() - ((refDate.getUTCDay() + 6) % 7) * dayMs
+    : Date.UTC(refYear, refMonth - 1, 1);
+  const end = window === "week"
+    ? start + 7 * dayMs
+    : Date.UTC(refMonth === 12 ? refYear + 1 : refYear, refMonth === 12 ? 0 : refMonth, 1);
+  return (events || []).filter(event => {
+    const stamp = civicDayStamp(`${String(event && event.dateStart || "").slice(0, 10)}T12:00:00Z`);
+    if (stamp === null) return false;
+    const day = Date.UTC(Math.floor(stamp / 10000), Math.floor(stamp / 100) % 100 - 1, stamp % 100);
+    return day >= start && day < end;
+  });
+}
+
 /** Calendar event list item (canonical: index.html copy with status chip, day hint, LLM summary, provenance links). */
 function calendarEventCard(event, summaries) {
-  const kindLabel = esc(EVENT_KIND_LABELS[event.kind] || event.kind || "event");
   const when = esc(event.dateStart || "date not recorded");
   const timeEl = event.dateStart ? `<time datetime="${esc(event.dateStart)}">${when}</time>` : when;
   const hint = daysUntilHint(event.dateStart, event.status);
@@ -103,7 +141,7 @@ function calendarEventCard(event, summaries) {
   const placeHtml = [locationHtml, event.organizer ? esc(event.organizer) : ""].filter(Boolean).join(" · ");
   const summaryHtml = summary ? `<p><strong>LLM summary — verify against the linked source.</strong> ${esc(summary.text)}</p><div class="meta">${esc(summary.provider)}${summary.model ? `/${esc(summary.model)}` : ""} · generated ${esc(date(summary.generatedAt))}</div>` : "";
   const linksHtml = links.length ? `<div class="meta">Sources: ${links.map((link, index) => `<a href="${esc(href(link))}" rel="noopener noreferrer">[${index + 1}]</a>`).join(" ")}</div>` : "";
-  return `<li class="item cal-entry"><div class="cal-when"><div class="meta">${kindLabel}</div>${timeEl ? `<span class="cal-time">${timeEl}</span>` : ""}</div>${titleHtml}<div class="meta">${hint}</div><div>${eventStatusChip(event.status)}</div>${placeHtml ? `<div class="meta">${placeHtml}</div>` : ""}${summaryHtml}${linksHtml}</li>`;
+  return `<li class="item cal-entry">${calendarEventKindChip(event)}<div class="cal-when">${timeEl ? `<span class="cal-time">${timeEl}</span>` : ""}</div>${titleHtml}<div class="meta">${hint}</div><div>${eventStatusChip(event.status)}</div>${placeHtml ? `<div class="meta">${placeHtml}</div>` : ""}${summaryHtml}${linksHtml}</li>`;
 }
 
 /** Group events by month (dateline headers; undated land in a trailing group). Returns [{label, items}]. */

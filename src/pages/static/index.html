@@ -303,6 +303,7 @@
     </section>
     <section id="events" class="section">
       <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe · .ics — Crescent City community events calendar in iCalendar format">📅 Subscribe · .ics</a>&nbsp;<a href="data/events.json">Download events JSON</a></span></div>
+      <details class="ics-help"><summary>What is this?</summary><div class="ics-help-body"><p>The <strong>Subscribe &middot; .ics</strong> link downloads an iCalendar file of the community calendar. One-time setup, then your calendar app keeps the entries:</p><ul><li><strong>Google Calendar:</strong> open <a href="https://calendar.google.com/calendar/u/0/r/settings/addcalendar" rel="noopener noreferrer">Settings &rarr; Add calendar &rarr; From URL</a>, paste <code>https://quadruplicate.org/data/events.ics</code>, and save.</li><li><strong>Apple Calendar (macOS/iOS):</strong> open <em>File &rarr; New Calendar Subscription</em> (or <em>Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other</em> on iOS), paste the same URL, and confirm.</li><li><strong>Other apps:</strong> any client that supports &ldquo;subscribe to calendar by URL&rdquo; works with the same address.</li></ul></div></details>
       <div class="controls">
         <select id="event-filter" aria-label="Filter community events by kind or date range">
           <option value="all">All events</option>
@@ -313,6 +314,7 @@
           <option value="youtube">YouTube</option>
           <option value="holiday-closure">Holiday closures</option>
         </select>
+        <span class="meta" id="event-window-controls" role="group" aria-label="Quick date filters"><button type="button" id="event-window-week" class="window-btn" aria-pressed="false">This week</button><button type="button" id="event-window-month" class="window-btn" aria-pressed="false">This month</button></span>
         <span id="event-count" class="meta" role="status"></span>
       </div>
       <ol id="event-items" class="items"></ol>
@@ -345,7 +347,7 @@
   </main>
   <script>
   const __bootPage = () => {
-    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all" };
+    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all", eventWindow: "all" };
     // load() and FETCH_TIMEOUT_MS come from the shared assets/site.js prelude.
     function downloadText(filename, text, type) { const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); }
     function downloadJson(filename, value) { downloadText(filename, `${JSON.stringify(value, null, 2)}\n`, "application/json"); }
@@ -384,8 +386,9 @@
       $("overview-summary").innerHTML = `<strong>${esc(overview.entryPoint?.title || "Entry point not recorded")}</strong><div style=\"margin-top:6px\">${esc(overview.entryPoint?.startHere || "")}</div><div class=\"meta\" style=\"margin-top:6px\">${esc(overview.entryPoint?.interpretation || "")}</div><div class=\"grid\" style=\"margin-top:12px\"><div><strong>${esc(overview.metrics?.code?.sections ?? "—")}</strong><div class=\"meta\">code sections</div></div><div><strong>${esc(overview.metrics?.content?.curated ?? "—")}</strong><div class=\"meta\">LLM briefs</div></div><div><strong>${esc(overview.metrics?.alerts?.totalEvents ?? "—")}</strong><div class=\"meta\">alert events</div></div><div><strong>${esc(overview.metrics?.sources?.missing ?? "—")}</strong><div class=\"meta\">unavailable/stale</div></div></div><div style=\"margin-top:12px\">${signalHtml}</div>`;
       $("analytics-download").innerHTML = snapshot.files?.analyticsOverview ? `<a class=\"button\" href=\"${esc(snapshot.files.analyticsOverview)}\" download>Analytics JSON</a>` : "";
     }
+    function applyWindow(events) { return calendarWindowFilter(events, state.eventWindow); }
     function filteredEvents(snapshot) {
-      const events = Array.isArray(snapshot.events?.events) ? snapshot.events.events : [];
+      const events = applyWindow(Array.isArray(snapshot.events?.events) ? snapshot.events.events : []);
       const filter = state.eventFilter;
       if (filter === "upcoming") return events.filter(item => item.status === "scheduled");
       if (filter === "past") return events.filter(item => item.status === "completed");
@@ -540,6 +543,17 @@
       }
     }
     $("event-filter").addEventListener("change", event => { state.eventFilter = event.target.value; if (state.snapshot) renderEvents(state.snapshot); });
+    for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {
+      button.addEventListener("click", () => {
+        const value = button.id === "event-window-week" ? "week" : "month";
+        const active = state.eventWindow === value;
+        state.eventWindow = active ? "all" : value;
+        for (const other of document.querySelectorAll("#event-window-controls .window-btn")) {
+          other.setAttribute("aria-pressed", other === button && !active ? "true" : "false");
+        }
+        if (state.snapshot) renderEvents(state.snapshot);
+      });
+    }
     $("health-filter").addEventListener("change", event => { state.healthFilter = event.target.value; renderHealth(state.snapshot?.sourceHealth || []); });
     $("download-health").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-health.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, status: state.snapshot.status, filter: state.healthFilter, sources: filteredHealth(state.snapshot.sourceHealth || []) }); });
     $("registry-filter").addEventListener("input", debounce(event => { state.registryFilter = event.target.value; if (state.snapshot) renderRegistry(state.snapshot); }));

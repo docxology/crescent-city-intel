@@ -761,6 +761,31 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
   for (const finding of problems) errors.push(`unsafe innerHTML interpolation (${finding})`);
 }
 
+// --- lane cci-frontend gate: events-page UX patterns must ship on every page that renders the calendar ---
+// The quick-filter buttons, per-kind chips, and the .ics explainer are JS/CSS
+// behaviors; these assertions fail the release gate if the markup or shared
+// helpers regress (same style as the laneG calendarEventCard scan).
+{
+  const eventsHtml = pageHtmlCache.get("events.html") ?? "";
+  const indexHtmlPage = pageHtmlCache.get("index.html") ?? "";
+  const siteJsText = siteJs;
+  for (const [page, html] of [["events.html", eventsHtml], ["index.html", indexHtmlPage]] as Array<[string, string]>) {
+    if (!html.includes('id="event-window-week"')) errors.push(`${page} is missing the This-week quick filter button`);
+    if (!html.includes('id="event-window-month"')) errors.push(`${page} is missing the This-month quick filter button`);
+    if (!html.includes('aria-pressed="false"')) errors.push(`${page} quick-filter buttons are missing aria-pressed state`);
+    if (!html.includes('class="ics-help"')) errors.push(`${page} is missing the .ics What-is-this explainer`);
+    if (!html.includes("data/events.ics")) errors.push(`${page} lost the .ics subscribe link`);
+  }
+  if (!siteJsText.includes("function calendarEventKindChip")) errors.push("assets/site.js is missing calendarEventKindChip (per-kind chips regressed)");
+  if (!siteJsText.includes("function calendarWindowFilter")) errors.push("assets/site.js is missing calendarWindowFilter (quick filters regressed)");
+  if (!siteJsText.includes('aria-label="Event kind:')) errors.push("calendarEventKindChip lost its accessible label");
+  if (!eventsHtml.includes("event-freshness")) errors.push("events.html lost the calendar-freshness meta line");
+  // Sticky month headers + chip styles must survive CSS extraction (shared asset).
+  const siteCssText = await readFile(join(staticPagesDir, "assets", "site.css"), "utf8").catch(() => "");
+  if (!siteCssText.includes("#event-items .cal-dateline { position:sticky")) errors.push("site.css lost the sticky month-header rule");
+  if (!siteCssText.includes(".kind-chip--")) errors.push("site.css lost the per-kind chip styles");
+}
+
 // --- lane2 gate: navigation/IA and SEO assertions (§2.1-2.8, §3.1-3.3, §3.7) ---
 // 2.2: 404.html must contain no relative internal hrefs — GitHub Pages serves
 // 404.html at arbitrary nested paths, where relative links resolve to second 404s.

@@ -36,6 +36,7 @@
 
     <section id="page-events">
       <div class="section-head"><h2>Community calendar</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe · .ics — Crescent City community events calendar in iCalendar format">&#128197; Subscribe &middot; .ics</a>&nbsp;<a href="data/events.json">events JSON</a>&nbsp;&middot;&nbsp;<a href="./#events">Front-page section</a></span></div>
+      <details class="ics-help"><summary>What is this?</summary><div class="ics-help-body"><p>The <strong>Subscribe &middot; .ics</strong> link downloads an iCalendar file of the community calendar. One-time setup, then your calendar app keeps the entries:</p><ul><li><strong>Google Calendar:</strong> open <a href="https://calendar.google.com/calendar/u/0/r/settings/addcalendar" rel="noopener noreferrer">Settings &rarr; Add calendar &rarr; From URL</a>, paste <code>https://quadruplicate.org/data/events.ics</code>, and save. Google re-checks the file periodically.</li><li><strong>Apple Calendar (macOS/iOS):</strong> open <em>File &rarr; New Calendar Subscription</em> (or <em>Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other &rarr; Subscribe to Calendar</em> on iOS), paste the same URL, and confirm.</li><li><strong>Other apps:</strong> any client that supports &ldquo;subscribe to calendar by URL&rdquo; works with the same address; the direct <a href="data/events.ics" type="text/calendar" download="crescent-city-events.ics">file download</a> is a fallback for one-time imports.</li></ul></div></details>
       <div class="controls">
         <select id="event-filter" aria-label="Filter community events by kind or time window">
           <option value="all">All events</option>
@@ -46,6 +47,7 @@
           <option value="youtube">YouTube</option>
           <option value="holiday-closure">Holiday closures</option>
         </select>
+        <span class="meta" id="event-window-controls" role="group" aria-label="Quick date filters"><button type="button" id="event-window-week" class="window-btn" aria-pressed="false">This week</button><button type="button" id="event-window-month" class="window-btn" aria-pressed="false">This month</button></span>
         <span id="event-count" class="meta" role="status"></span>
           <span id="event-freshness" class="meta"></span>
       </div>
@@ -69,8 +71,10 @@
         generatedAt: data.generatedAt || (envelope && envelope.generatedAt) || null,
       };
     }
+    const windowState = { window: "all" };
+    function applyWindow(events) { return calendarWindowFilter(events, windowState.window); }
     function filtered() {
-      const events = eventsView(snapshotData).events;
+      const events = applyWindow(eventsView(snapshotData).events);
       switch (document.getElementById("event-filter").value) {
         case "upcoming": return events.filter(item => item.status === "scheduled");
         case "past": return events.filter(item => item.status === "completed");
@@ -103,6 +107,17 @@
       document.getElementById("event-items").innerHTML = events.length ? html : `<li class="item meta">No events matched the current filter. Choose another filter to see more of the calendar.</li>`;
     }
     document.getElementById("event-filter").addEventListener("change", () => { if (snapshotData) render(); });
+    for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {
+      button.addEventListener("click", () => {
+        const value = button.id === "event-window-week" ? "week" : "month";
+        const active = windowState.window === value;
+        windowState.window = active ? "all" : value;
+        for (const other of document.querySelectorAll("#event-window-controls .window-btn")) {
+          other.setAttribute("aria-pressed", other === button && !active ? "true" : "false");
+        }
+        if (snapshotData) render();
+      });
+    }
     document.getElementById("event-items").innerHTML = empty("Loading the community calendar\u2026");
     load("data/events.json").then(data => { snapshotData = data; render(); }).catch(() => { document.getElementById("event-items").innerHTML = empty("The events artifact could not be loaded."); });
     };

@@ -25,6 +25,12 @@ Versioned by [Semantic Versioning](https://semver.org/).
 - **`tests/route-coverage.test.ts`** (15 tests): typed handler coverage for the 15
   OpenAPI routes that previously had zero test coverage (diffed spec vs references).
 
+#### Added
+
+- **Hard coverage floor (Phase 11.1)**: `scripts/validate.ts` now measures suite coverage
+  (73.5% lines / 64.9% branches at enforcement time) and fails below a 60% line floor. The
+  check parses Bun's coverage table directly — Bun has no native threshold flag (verified via
+  negative control with an impossible flag: silently ignored).
 #### Fixed
 
 - **`classifyRoadSeverity` misclassification**: "lane closed"/"lane closure" now

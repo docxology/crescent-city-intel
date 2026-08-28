@@ -237,6 +237,34 @@ if (existsSync(paths.analyticsOverview)) {
 // contention from turning a correct test into a false timeout while still
 // catching genuine hangs.
 run({ name: "Deterministic test suite", args: ["bun", "test", "tests/", "--timeout", "30000"] });
+
+// Hard coverage floor (Phase 11.1, closed 2026-08-28). Measured baseline at
+// enforcement time: 73.46% lines / 64.94% branches across the deterministic
+// suite. The floor is deliberately conservative (60% lines) so the live-network
+// monitor family (fetch/browser paths excluded from the deterministic suite by
+// design) cannot flip it; raise it as coverage grows, never lower it. Bun has
+// no native threshold flag (verified: `bun test --help` lists none and the flag
+// is silently ignored), so the gate parses the coverage table and fails itself.
+{
+  const floor = 60;
+  const cov = Bun.spawnSync(["bun", "test", "tests/", "--coverage", "--timeout", "30000"], {
+    cwd: root, stdout: "pipe", stderr: "pipe",
+  });
+  const covOutput = cov.stdout.toString() + cov.stderr.toString();
+  const summary = covOutput.match(/^All files\s+\|\s*([\d.]+)\s+\|\s*([\d.]+)\s*\|/m);
+  if (!summary) {
+    throw new Error("Coverage floor: could not parse the coverage summary line (expected 'All files | lines | branches |')");
+  }
+  const linesPct = Number(summary[1]);
+  const branchPct = Number(summary[2]);
+  if (cov.exitCode !== 0) {
+    throw new Error(`Coverage floor: the coverage test run itself failed (exit ${cov.exitCode}).`);
+  }
+  if (!Number.isFinite(linesPct) || linesPct < floor) {
+    throw new Error(`Coverage floor: line coverage ${linesPct}% is below the ${floor}% floor (branches: ${branchPct}%).`);
+  }
+  console.log(`Coverage floor: lines ${linesPct}% / branches ${branchPct}% >= ${floor}% floor`);
+}
 run({ name: "Git whitespace check", args: ["git", "diff", "--check"] });
 
 if (existsSync(join(root, ".pages"))) {

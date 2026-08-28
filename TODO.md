@@ -161,10 +161,12 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   SourceHealth), covered offline by `tests/phase12-monitors.test.ts` (20 tests over the pure
   classifiers), and documented. Residual: per-feed response-shape validation still requires a
   live-feed observation window in production.
-- 🟢 **Hard coverage floor (Phase 11.1).** `bun run test:coverage` and `bun run test:browser`
-  (real headless-Chromium GUI smoke) now exist. An enforced percentage threshold in CI remains
-  open until coverage is stable (a configured floor without a stable baseline would gate on a
-  number no one has measured, not on quality); a full in-suite `tests/browser.test.ts` (timeout/dead-page/
+- ✅ ~~**Hard coverage floor (Phase 11.1).**~~ **Closed 2026-08-28.** Measured baseline:
+  73.5% lines / 64.9% branches across the deterministic suite (measured twice, stable). A 60%
+  line floor is now enforced as a hard step in `scripts/validate.ts` — it parses the coverage
+  summary and fails the gate below threshold (Bun has no native threshold flag; verified, so
+  the gate implements the check itself). Conservative so the by-design-uncovered live-network
+  monitor family cannot flip it; raise as coverage grows, never lower. a full in-suite `tests/browser.test.ts` (timeout/dead-page/
   retry unit tests) is optional given the smoke script covers the live path.
 - 🟡 **Deeper meeting minutes/vote extraction (Phase 4.2, part 2).** Link-item extraction is
   done; parsing yea/nay/abstain from minutes text, SHA-256 change detection on agenda/minutes

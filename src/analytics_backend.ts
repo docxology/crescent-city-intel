@@ -124,6 +124,11 @@ export interface AnalyticsOverview {
     reportPeriod: string | null;
   };
   signals: OverviewSignal[];
+  /** §5.5 (lane A r2): operator-only signals routed out of the public set,
+   * each rewritten by `publicSignalNotice` — no binary names, PATH strings, or
+   * stack traces. The exporter mirrors this array to data/operator-signals.json
+   * so the operator keeps the routed detail without it ever reaching a page. */
+  operatorSignalsNoticed: OverviewSignal[];
   llm: {
     status: "ok" | "unavailable" | "not-requested";
     provider: string;
@@ -399,6 +404,7 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
     content: { recent, curated },
     pipeline: { status: typeof pipeline?.status === "string" ? pipeline.status : null, runId: typeof pipeline?.runId === "string" ? pipeline.runId : null, completedAt: typeof pipeline?.completedAt === "string" ? pipeline.completedAt : null, curationProvider: typeof curation?.provider === "string" ? curation.provider : null, curationModel: typeof curation?.model === "string" ? curation.model : null, reportPeriod: typeof reportMetadata?.period === "string" ? reportMetadata.period : null },
     signals,
+    operatorSignalsNoticed,
     llm: { status: "not-requested", provider: llmConfig.provider, model: configuredChatModel(), promptVersion: ANALYTICS_SUMMARY_PROMPT_VERSION, inputFingerprint, summarizedAt: null },
   };
 }

@@ -33,6 +33,14 @@ export const PAGES_NEWS_ARTIFACT = "data/news.json";
 export const PAGES_MEETINGS_ARTIFACT = "data/meetings.json";
 export const PAGES_ALERTS_ARTIFACT = "data/alerts.json";
 export const PAGES_ANALYTICS_ARTIFACT = "data/analytics.json";
+/**
+ * §5.5 (lane A r2): operator-only channel artifact. Mirrors the routed
+ * `operatorSignalsNoticed` from the analytics overview (neutral rewritten copy,
+ * no binary names/PATH strings/stack traces) so the routed operator detail is
+ * durably persisted without ever being rendered on a public page. Also lists
+ * the raw build-log signals when the operator backend recorded them.
+ */
+export const PAGES_OPERATOR_SIGNALS_ARTIFACT = "data/operator-signals.json";
 export const PAGES_SEARCH_INDEX_ARTIFACT_PREFIX = "data/code-search.";
 /** Per-field shard artifacts (lane D §2): the title/number shard (~0.5 MB) and
  * the body shard (~2.4 MB) are emitted alongside the combined index so a client
@@ -274,6 +282,8 @@ export interface PagesSnapshot {
     codeSearchBodyIndex: string | null;
     /** Tiny code metadata artifact (lane D §3): code.html fetches this instead of the envelope. */
     codeMeta: string | null;
+    /** §5.5 operator channel artifact (lane A r2); null when no analytics overview exists. */
+    operatorSignals: string | null;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
@@ -1446,6 +1456,7 @@ export async function buildPagesSnapshot(
       meetings: PAGES_MEETINGS_ARTIFACT,
       alerts: PAGES_ALERTS_ARTIFACT,
       analytics: analytics?.schemaVersion === "1.0.0" ? PAGES_ANALYTICS_ARTIFACT : null,
+      operatorSignals: analytics?.schemaVersion === "1.0.0" ? PAGES_OPERATOR_SIGNALS_ARTIFACT : null,
       codeSearchIndex: null,
       codeSearchTitleIndex: null,
       codeSearchBodyIndex: null,
@@ -1622,6 +1633,17 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     if (snapshot.analytics) {
       await writeJson(join(temporary, PAGES_ANALYTICS_ARTIFACT), snapshot.analytics);
       files.push(PAGES_ANALYTICS_ARTIFACT);
+      // §5.5 (lane A r2): persist the routed operator-only signals. The
+      // overview carries the public notice copy only; this artifact is the
+      // operator channel — honest about what was noticed, never rendered.
+      await writeJson(join(temporary, PAGES_OPERATOR_SIGNALS_ARTIFACT), {
+        schemaVersion: "crescent-city-operator-signals/v1",
+        generatedAt,
+        inputFingerprint: snapshot.analytics.inputFingerprint,
+        operatorSignalsNoticed: snapshot.analytics.operatorSignalsNoticed,
+        publicSignalsNotice: "Operator-only conditions were routed out of the public analytics surface; public copy states each affected source is unavailable this edition.",
+      });
+      files.push(PAGES_OPERATOR_SIGNALS_ARTIFACT);
     }
 
     async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {

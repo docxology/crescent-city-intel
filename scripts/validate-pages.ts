@@ -18,7 +18,7 @@ import {
   validatePagesSource,
   validatePagesHtml,
 } from "../src/pages_snapshot.js";
-import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES, PAGES_CODE_META_ARTIFACT, PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, PAGES_SEARCH_BODY_ARTIFACT_PREFIX } from "../src/pages_snapshot.js";
+import { PAGES_OPERATOR_SIGNALS_ARTIFACT, PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES, PAGES_CODE_META_ARTIFACT, PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, PAGES_SEARCH_BODY_ARTIFACT_PREFIX } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
 
@@ -854,6 +854,37 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
       if (!/^\d{4}-\d{2}-\d{2}$/.test(lastmod)) errors.push(`sitemap lastmod for ${loc} is not a date: ${lastmod}`);
       if (expected !== undefined && lastmod !== expected) errors.push(`sitemap lastmod for ${loc} does not match the source mtime (fabricated?)`);
       if (expected === undefined) errors.push(`sitemap lastmod for ${loc} has no matching source mtime (fabricated?)`);
+    }
+  }
+}
+
+// --- lane A r2 gate: §5.5 operator/public signal split persistence ---
+// The operator channel artifact must exist when analytics exist, carry the
+// neutral notice copy (no binary names, PATH strings, or stack traces), and
+// match the overview's routed operatorSignalsNoticed array. Public pages must
+// contain no operator leakage while the operator artifact preserves detail.
+{
+  const analyticsJson = await readFile(join(destination, "data/analytics.json"), "utf8").catch(() => null);
+  if (analyticsJson !== null) {
+    const operatorJson = await readFile(join(destination, PAGES_OPERATOR_SIGNALS_ARTIFACT), "utf8").catch(() => null);
+    if (operatorJson === null) {
+      errors.push(`missing required Pages asset when analytics exist: ${PAGES_OPERATOR_SIGNALS_ARTIFACT}`);
+    } else {
+      const operator = JSON.parse(operatorJson) as { operatorSignalsNoticed?: unknown; schemaVersion?: unknown };
+      const analytics = JSON.parse(analyticsJson) as { operatorSignalsNoticed?: unknown };
+      if (operator.schemaVersion !== "crescent-city-operator-signals/v1") errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} has an unsupported schemaVersion`);
+      if (JSON.stringify(operator.operatorSignalsNoticed ?? []) !== JSON.stringify(analytics.operatorSignalsNoticed ?? [])) {
+        errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} operatorSignalsNoticed does not match data/analytics.json (routed detail diverged)`);
+      }
+      for (const leaked of ["yt-dlp", "yt_dlp", "$PATH", "not found in", "stack trace", "error:"]) {
+        if (operatorJson.toLowerCase().includes(leaked.toLowerCase())) errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} leaks operator-side detail: "${leaked}"`);
+      }
+    }
+  }
+  // Public surfaces: no operator-only error strings anywhere in the exported pages.
+  for (const [page, html] of pageHtmlCache) {
+    for (const leaked of ["yt-dlp", "$PATH", "not found in $PATH"]) {
+      if (html.includes(leaked)) errors.push(`${page} leaks operator-side detail on a public surface: "${leaked}"`);
     }
   }
 }

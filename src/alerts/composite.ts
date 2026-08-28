@@ -163,6 +163,48 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
   };
 }
 
+/** The five Phase-12 extended monitors, by stable index in the runner batch. */
+export type ExtendedMonitorSpec = readonly [
+  source: string,
+  index: number,
+  listField: string,
+  url: string,
+  provenance: string,
+];
+
+export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
+  ["USDM Drought", 8, "readings", "https://droughtmonitor.unl.edu/data/json/USDM_west.json", "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
+  ["PG&E PSPS", 9, "events", "https://pge-psps-updates.us-east-1.linodeobjects.com/psps_events.json", "PG&E PSPS events JSON"],
+  ["HRRR Smoke", 10, "forecast", "https://airfire.org/data/smoke2/forecast/pm25.nc.json", "AirFire HRRR smoke PM2.5 forecast"],
+  ["Caltrans Roads", 11, "incidents", "https://quickmap.dot.ca.gov/api/v1/incidents?district=1&format=json&status=active", "Caltrans QuickMap District 1 incidents"],
+  ["DUSD Schools", 12, "items", "https://www.dnusd.org/news", "Del Norte USD announcements"],
+];
+
+/**
+ * Build the SourceHealth definitions for the extended (index >= 8) monitors
+ * from the runner's settled results. Pure: takes the settled-result array and
+ * returns definitions ready for classifySourceHealth. The itemCount derives
+ * from the report's list field (arrays count elements; a non-array truthy
+ * value like the smoke `forecast` object counts as 1).
+ */
+export function buildExtendedMonitorDefinitions(
+  settledResults: Array<PromiseSettledResult<unknown>>,
+): AlertMonitorDefinition[] {
+  return EXTENDED_MONITOR_SPECS.map(([source, index, listField, url, provenance]): AlertMonitorDefinition => {
+    const result = settledResults[index];
+    const report = result && result.status === "fulfilled" ? result.value : null;
+    const count = (report as Record<string, any> | null)?.[listField];
+    return {
+      source,
+      index,
+      report,
+      itemCount: Array.isArray(count) ? count.length : count ? 1 : 0,
+      url,
+      provenance,
+    };
+  });
+}
+
 /**
  * Classify one monitor run into a typed SourceHealth record.
  * `result` is the PromiseSettledResult for that monitor's index;

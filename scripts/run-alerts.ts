@@ -31,6 +31,7 @@ import {
   buildTidesInput,
   buildFishingInput,
   classifySourceHealth,
+  buildExtendedMonitorDefinitions,
   type AlertMonitorDefinition,
 } from "../src/alerts/composite.ts";
 import { createLogger } from "../src/logger.ts";
@@ -218,25 +219,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       { source: "EPA AirNow", index: 3, report: airquality, itemCount: airquality?.readings?.length ?? 0, url: airquality?.provider === "airnow-public-kml" ? AIRNOW_PUBLIC_KML_URL : "https://www.airnowapi.org/aq/observation/zipCode/current/", provenance: airquality?.provider === "airnow-public-kml" ? "EPA AirNow public KML; keyed ZIP API fallback not required" : "EPA AirNow ZIP 95531 API" },
       { source: "CAL FIRE Wildfire", index: 4, report: wildfire, itemCount: wildfire?.incidents?.length ?? 0, url: CALFIRE_API_URL, provenance: "CAL FIRE current active-incident JSON feed" },
       { source: "NDBC Marine", index: 5, report: marine, itemCount: marine?.observations?.length ?? 0, url: "https://www.ndbc.noaa.gov/data/realtime2/", provenance: "NDBC monitored buoys" },
-      ...([
-        ["USDM Drought", 8, "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
-        ["PG&E PSPS", 9, "events", PGE_PSPS_API_URL, "PG&E PSPS events JSON"],
-        ["HRRR Smoke", 10, "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
-        ["Caltrans Roads", 11, "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
-        ["DUSD Schools", 12, "items", DUSD_ALERTS_URL, "Del Norte USD announcements"]
-      ] as const).map(([source, index, listField, url, provenance]): AlertMonitorDefinition => {
-        const result = settledResults[index];
-        const report = result.status === "fulfilled" ? result.value : null;
-        const count = (report as Record<string, any> | null)?.[listField];
-        return {
-          source,
-          index,
-          report,
-          itemCount: Array.isArray(count) ? count.length : count ? 1 : 0,
-          url,
-          provenance,
-        };
-      }),
+      ...buildExtendedMonitorDefinitions(settledResults),
     ];
 
     const alertSources: SourceHealth[] = monitorDefinitions.map(definition =>

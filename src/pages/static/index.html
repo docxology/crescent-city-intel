@@ -145,117 +145,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'; this.onload=null;">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
   <link href="assets/SITE_CSS_PLACEHOLDER" rel="stylesheet">
-  <style>
-    .red-banner .masthead-h1 { font:900 clamp(2.4rem,6vw,4.2rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.03em; margin:0; text-transform:uppercase; color:#fff; }
-    .red-banner .masthead-sub { font:400 italic .85rem/1.3 "Source Serif 4",Georgia,serif; color:#ffffff; margin:2px 0 0; letter-spacing:.02em; }
-    .red-banner .masthead-contact { font:400 .78rem/1.4 "DM Mono","Courier New",monospace; color:#ffffff; margin:6px 0 2px; letter-spacing:.04em; }
-    .red-banner .masthead-contact em { font-style:italic; font-family:"Source Serif 4",Georgia,serif; }
-    .masthead-date { font:600 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); }
-    .masthead-nav { display:flex; flex-wrap:wrap; gap:0; justify-content:center; align-items:center; }
-    .masthead-nav a { position:relative; font:500 .74rem/1 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); text-decoration:none; padding:5px 10px; transition:color .15s; }
-    .masthead-nav a:hover { color:var(--cc); text-decoration-color:var(--cc); }
-    .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 12px; padding-bottom:5px; border-top:3px solid var(--cc); }
-    .banner.degraded .meta, .banner.degraded .item .meta { color:var(--ink-dim); }
-    .banner strong { font-weight:600; }
-    .source.ok::before { background:var(--ink); }
-    .source.empty::before { background:var(--sepia); }
-    .registry-table { overflow:auto; margin:8px 0; }
-    .pill.monitored { color:var(--ink); border-color:var(--ink-dim); }
-    .pill.discovery-only { color:var(--ink-faint); border-color:var(--ink-faint); }
-    .pill.reference-only { color:var(--ink-faint); }
-    input,select,.button { border:1px solid var(--rule); background:var(--card-bg); color:var(--ink); padding:6px 10px; font:500 .8rem/1 Inter,sans-serif; }
-    input:focus,select:focus,.button:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
-    .button { cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:3px; transition:background .15s,border-color .15s; }
-    .button:hover { background:var(--panel-hover); border-color:var(--cc); color:var(--cc); }
-    .button.secondary { background:transparent; color:var(--ink-dim); }
-    .button[disabled] { opacity:.5; cursor:default; }
-    .geo-showcase { display:grid; grid-template-columns:minmax(0,2.2fr) minmax(230px,.8fr); gap:14px; align-items:start; }
-    .geo-showcase > :first-child { border-right:1px solid var(--rule); padding-right:14px; }
-    .geo-map-frame,.geo-details { border:1px solid var(--rule); background:var(--panel); }
-    .geo-map-frame { padding:6px; overflow:hidden; }
-    .geo-map-frame svg { display:block; width:100%; height:auto; }
-    .geo-details { padding:12px; border-left:0; }
-    .geo-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:8px; }
-    .geo-metric { background:var(--rule-light); border:1px solid var(--rule-thin); padding:6px; text-align:center; }
-    .geo-metric .meta, .banner.unavailable .meta { color:var(--ink); }
-    .geo-metric strong { display:block; font:700 1rem/1 "Playfair Display",Georgia,serif; color:var(--cc); }
-    .geo-tag { display:inline-block; margin:2px 2px 0 0; padding:2px 7px; border:1px solid var(--rule); font-size:.72rem; font-family:Inter,sans-serif; color:var(--ink-dim); }
-    .geo-sections { display:grid; gap:4px; margin-top:6px; max-height:180px; overflow:auto; }
-    .geo-section { border-left:2px solid var(--cc); padding-left:7px; font-size:.82rem; }
-    .geo-section strong { color:var(--ink); }
-    .geo-details summary { cursor:pointer; font-weight:600; font-family:Inter,sans-serif; font-size:.82rem; }
-    .welcome-linktree { padding:16px 0 4px; }
-    .welcome-hero { border:2px solid var(--ink); padding:20px 22px; background:var(--panel); }
-    .welcome-kicker { font:.68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); font-weight:700; margin-bottom:7px; }
-    .welcome-hero h2 { font:700 italic clamp(1.3rem,2.8vw,1.9rem)/1.2 "Playfair Display",Georgia,serif; margin:0 0 7px; }
-    .welcome-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; }
-    .welcome-link { display:block; min-height:100px; padding:12px; border:1px solid var(--rule-thin); border-left:3px solid var(--cc); background:var(--card-bg); color:var(--ink); text-decoration:none; transition:background .15s,border-color .15s; }
-    .welcome-link:hover { background:var(--panel-hover); border-color:var(--rdark); text-decoration:none; border-left-color:var(--rdark); }
-    .welcome-link .icon { display:block; font-size:18px; margin-bottom:5px; }
-    .welcome-link strong { display:block; font:600 .88rem/1.2 "Source Serif 4",Georgia,serif; margin-bottom:2px; }
-    .welcome-link span { display:block; font:.78rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
-    .welcome-external { display:flex; flex-wrap:wrap; gap:6px; }
-    .welcome-external a { border:1px solid var(--rule); padding:4px 9px; color:var(--ink-dim); text-decoration:none; font:.78rem/1 Inter,sans-serif; }
-    .welcome-external a:hover { background:var(--panel-hover); color:var(--cc); border-color:var(--cc); }
-    .action-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px; }
-    pre { white-space:pre-wrap; background:var(--paper2); border:1px solid var(--rule); padding:12px; max-height:480px; overflow:auto; font-size:.8rem; font-family:"DM Mono","SF Mono","Courier New",monospace; }
-    .meta { font:.74rem/1.4 Inter,sans-serif; color:var(--ink-faint); }
-    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-    .details-panel { margin-top:8px; border:1px solid var(--rule); background:var(--paper2); padding:12px; }
-    .details-panel pre { margin:8px 0 0; max-height:280px; }
-    .welcome-section-title { font:.68rem/1 Inter,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--cc); margin:14px 0 6px; font-weight:700; }
-    .footer a { color:var(--ink-dim); }
-    @media (max-width:700px) { .geo-showcase { grid-template-columns:1fr; } .geo-showcase > :first-child { border-right:0; padding-right:0; } }
-    @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } }
-    /* --- Events .ics subscribe badge (palette vars only) --- */
-    /* --- Methods & Provenance --- */
-    #methods-counts-list { columns:2; gap:18px; margin:8px 0; padding-left:20px; font:.86rem/1.7 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
-    #methods-counts-list strong { color:var(--ink); }
-    @media (max-width:600px) { #methods-counts-list { columns:1; } }
-    .methods-pipeline { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; margin:10px 0; }
-    .methods-stage { border:1px solid var(--rule-thin); border-top:3px solid var(--cc); background:var(--card-bg); padding:10px 12px; font-size:.82rem; }
-    .methods-stage strong { font-family:"Source Serif 4",Georgia,serif; font-size:.92rem; display:block; margin-bottom:3px; }
-    /* --- FAQ --- */
-    .faq-list { max-width:860px; }
-    .faq-item { border:1px solid var(--rule-thin); border-left:3px solid var(--cc); background:var(--card-bg); margin-bottom:8px; padding:12px 16px; }
-    .faq-item h3 { font:600 1rem/1.3 "Source Serif 4",Georgia,serif; margin:0 0 4px; }
-    .faq-item p { font:.9rem/1.55 "Source Serif 4",Georgia,serif; color:var(--ink-dim); margin:0; }
-    /* --- Broadsheet paper texture (CSS-only grain, no image fetches) --- */
-    body { position:relative; }
-    body::before { content:""; position:fixed; inset:0; z-index:9; pointer-events:none; opacity:.55; background:repeating-linear-gradient(0deg, rgba(0,0,0,.011) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0,0,0,.007) 0 1px, transparent 1px 4px); }
-    @media (max-width:767px), (prefers-reduced-motion:reduce) { body::before { display:none; } }
-    /* --- Column rules between grid cards (broadsheet multi-column feel) --- */
-    .section-head { margin-top:40px; }
-    .section-head h2 { font-weight:900; }
-    .paper-rule-note { font:.78rem/1.5 "Source Serif 4",Georgia,serif; color:var(--ink-faint); font-style:italic; margin:4px 0 0; }
-    /* --- Community Calendar column --- */
-    #event-items.items { gap:0; margin-top:10px; border-top:3px solid var(--ink); }
-    /* --- Lane2: wide-table scroll containers (2.4) --- */
-    .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; }
-    .table-scroll table { min-width:640px; }
-    /* --- Lane2: mobile nav wrap under 768px (2.3) --- */
-      .masthead-nav-wrap { overflow:visible; }
-    /* --- Mobile 375px usability --- */
-    @media (max-width:480px) {
-      body { font-size:16px; }
-      .red-banner { padding:16px 12px 10px; }
-      .red-banner .masthead-h1 { font-size:clamp(2rem,9vw,2.6rem); }
-      .page { padding:0 12px 48px; }
-      .section-head { margin-top:28px; flex-wrap:wrap; gap:6px; }
-      .section-head .meta { margin-left:0; }
-      .masthead-nav-wrap .inner, .masthead-date-row .inner { padding:4px 12px; }
-      .masthead-nav-wrap { overflow:visible; }
-      .masthead-date-row, .red-banner { overflow:hidden; }
-      .cards-row { grid-template-columns:repeat(2,1fr); }
-      input, select { max-width:100%; }
-      .controls select, .controls .button { flex:0 1 auto; }
-    /* --- Print stylesheet --- */
-    @media print { body { background:#fff; color:#000; font-size:11pt; } .red-banner { background:#000!important; } body::before { display:none!important; } .masthead-h1 { color:#fff!important; } .red-banner .masthead-sub,.red-banner .masthead-contact { color:#eee!important; } a { text-decoration:none; } #event-items .cal-entry,#event-items .cal-dateline { border-color:#999!important; background:#fff!important; } #event-items .cal-dateline { background:#000!important; color:#fff!important; } .masthead-nav-wrap,.masthead-date-row,.controls,.action-bar { display:none; } .page { max-width:100%; padding:0; } .source,.item,.card,.banner { break-inside:avoid; } }
-  </style>
-  </style>
-</head>
+  <link href="assets/INDEX_CSS_PLACEHOLDER" rel="stylesheet">
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="red-banner">
@@ -410,7 +303,7 @@
       <div id="meeting-items" class="items"></div>
     </section>
     <section id="events" class="section">
-      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe to the Crescent City community events calendar in iCalendar format">📅 Subscribe · .ics</a>&nbsp;<a href="data/events.json">Download events JSON</a></span></div>
+      <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe · .ics — Crescent City community events calendar in iCalendar format">📅 Subscribe · .ics</a>&nbsp;<a href="data/events.json">Download events JSON</a></span></div>
       <div class="controls">
         <select id="event-filter" aria-label="Filter community events by kind or date range">
           <option value="all">All events</option>
@@ -452,22 +345,9 @@
     </footer>
   </main>
   <script>
+  const __bootPage = () => {
     const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all" };
-    const FETCH_TIMEOUT_MS = 15000;
-    async function load(path) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-      try {
-        const response = await fetch(path, { cache:"default", signal: controller.signal });
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        return await response.json();
-      } catch (error) {
-        if (error && error.name === "AbortError") throw new Error(`could not load ${path} within ${FETCH_TIMEOUT_MS / 1000}s`);
-        throw error;
-      } finally {
-        clearTimeout(timer);
-      }
-    }
+    // load() and FETCH_TIMEOUT_MS come from the shared assets/site.js prelude.
     function downloadText(filename, text, type) { const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); }
     function downloadJson(filename, value) { downloadText(filename, `${JSON.stringify(value, null, 2)}\n`, "application/json"); }
     function csvCell(value) { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
@@ -677,6 +557,8 @@
     $("copy-fingerprint").addEventListener("click", async event => { if (!state.snapshot?.sourceRegistryFingerprint) return; await copyValue(state.snapshot.sourceRegistryFingerprint); const fingerprintButton = event.currentTarget; fingerprintButton.textContent = "Fingerprint copied"; $("structured-state").textContent = "The registry fingerprint is now in your clipboard."; setTimeout(() => { fingerprintButton.textContent = "Copy registry fingerprint"; }, 2000); });
     $("refresh").addEventListener("click", () => { $("refresh-state").textContent = "Refreshing…"; start().then(() => { $("refresh-state").textContent = `Updated ${new Date().toLocaleTimeString()}`; }).catch(() => { $("refresh-state").textContent = "Refresh failed"; }); });
     start();
+  };
+  if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
   </script>
 </body>
 </html>

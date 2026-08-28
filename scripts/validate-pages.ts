@@ -193,15 +193,16 @@ for (const page of ALL_PAGES) {
   const html = await readFile(join(destination, page), "utf8").catch(() => null);
   if (html === null) { errors.push(`missing required Pages asset: ${page}`); continue; }
   let effective = html;
-  const sharedCssLinks = [...html.matchAll(/<link href="(assets\/(?:site|index)\.[0-9a-f]{8}\.css)" rel="stylesheet">/g)].map(match => match[1]);
-  // At most one stylesheet per family: the shared site.<hash>.css and the
-  // index-only index.<hash>.css (lane A r2). Duplicates would be drift.
-  for (const family of ["site", "index"]) {
+  // Shared/page-specific stylesheet families: site.<hash>.css (all pages),
+  // index.<hash>.css (front page) and 404.<hash>.css (errata page) — lane A r2.
+  // 404.html links are root-absolute because it is served at nested paths.
+  const sharedCssLinks = [...html.matchAll(/<link href="(\/?assets\/(?:site|index|404)\.[0-9a-f]{8}\.css)" rel="stylesheet">/g)].map(match => match[1]);
+  for (const family of ["site", "index", "404"]) {
     const familyLinks = sharedCssLinks.filter(link => link.includes(`/${family}.`));
     if (familyLinks.length > 1) errors.push(`${page} links more than one ${family} stylesheet`);
   }
   for (const cssPath of sharedCssLinks) {
-    const cssText = await readFile(join(destination, cssPath), "utf8").catch(() => null);
+    const cssText = await readFile(join(destination, cssPath.replace(/^\//, "")), "utf8").catch(() => null);
     if (cssText === null) { errors.push(`${page} links a missing shared stylesheet: ${cssPath}`); continue; }
     effective += `\n<style>${cssText}</style>`;
   }

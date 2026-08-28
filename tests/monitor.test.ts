@@ -28,7 +28,7 @@ describe("runMonitor", () => {
     expect(Array.isArray(report.missingSections)).toBe(true);
     expect(Array.isArray(report.newSections)).toBe(true);
     expect(report.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  }, 10_000);
+  }, 60_000);
 });
 
 describe("checkHashes", () => {

@@ -977,6 +977,15 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       } catch { /* ignore */ }
     }
 
+    // Per-type 30-day alert trend summary, computed from the bounded history
+    // JSONL files (same data source as /api/alerts/timeline). Diagnostics-only:
+    // a failure here never breaks liveness.
+    try {
+      const { buildAlertAnalytics, computeAlertTypeTrends } = await import("../alert_analytics.js");
+      const analytics = buildAlertAnalytics();
+      health.alertTrends30d = computeAlertTypeTrends(analytics.timeline);
+    } catch { /* diagnostics never break liveness */ }
+
     // Include composite alert severity if available
     const compositePath = "output/alerts/composite/current.json";
     if (existsSync(compositePath)) {
@@ -1212,12 +1221,24 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   }
 
   // GET /api/events/discover - community-event discovery artifact
+  // Supports ?limit=&offset= pagination over artifact.events, matching the
+  // alerts/history pattern ({total, offset, limit, count}). Without limit the
+  // full unpaginated artifact is returned (backwards compatible).
   if (path === "/api/events/discover") {
     try {
       const { buildDiscoveryArtifact } = await import("../event_discovery.js");
       const includeNetwork = url.searchParams.get("live") !== "false";
       const artifact = await buildDiscoveryArtifact(new Date().toISOString(), process.cwd(), { includeNetwork });
-      return json(artifact);
+      const limitParam = url.searchParams.get("limit");
+      const offsetParam = url.searchParams.get("offset");
+      if (limitParam === null && offsetParam === null) {
+        return json(artifact);
+      }
+      const limit = Math.min(500, Math.max(1, parseInt(limitParam ?? "50", 10) || 50));
+      const offset = Math.max(0, parseInt(offsetParam ?? "0", 10) || 0);
+      const total = artifact.events.length;
+      const page = artifact.events.slice(offset, offset + limit);
+      return json({ ...artifact, total, offset, limit, count: page.length, events: page });
     } catch (err: any) {
       return json({ error: `Event discovery failed: ${err.message}` }, 500);
     }

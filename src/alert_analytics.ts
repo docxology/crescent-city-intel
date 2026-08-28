@@ -236,6 +236,69 @@ export function buildAlertAnalytics(maxTimelineEntries = 1000): AlertAnalyticsRe
   };
 }
 
+/** Per-type 30-day trend summary for one alert type. */
+export interface AlertTypeTrend {
+  type: AlertType;
+  /** Events whose timestamp falls inside the trailing 30-day window. */
+  count30d: number;
+  /** Events in the trailing 30-day window ending when the current window began. */
+  countPrevious30d: number;
+  /** count30d - countPrevious30d. */
+  delta: number;
+  /** "rising" | "steady" | "falling" | "insufficient" - insufficient when both windows are empty. */
+  trend: "rising" | "steady" | "falling" | "insufficient";
+  /** Timestamps of the current window's events (ISO, chronological). */
+  eventTimestamps30d: string[];
+}
+
+/** One-sided steady band: |delta| <= 1 counts as steady (matches insights STEADY_BAND=1). */
+export const ALERT_TREND_STEADY_BAND = 1;
+
+/**
+ * Compute a per-type 30-day trend summary from timeline entries. Deterministic;
+ * no LLM. Undated entries are excluded from window math, never guessed into a
+ * bucket. Both windows empty => "insufficient".
+ */
+export function computeAlertTypeTrends(
+  entries: TimelineEntry[],
+  now: Date = new Date(),
+): AlertTypeTrend[] {
+  const nowMs = now.getTime();
+  const day = 24 * 60 * 60 * 1000;
+  const curStart = nowMs - 30 * day;
+  const prevStart = curStart - 30 * day;
+
+  const trends: AlertTypeTrend[] = [];
+  for (const type of ALERT_TYPES) {
+    const dated = entries
+      .filter(e => e.type === type && Number.isFinite(new Date(e.timestamp).getTime()))
+      .map(e => new Date(e.timestamp).getTime())
+      .sort((a, b) => a - b);
+    const cur = dated.filter(t => t >= curStart && t <= nowMs);
+    const prev = dated.filter(t => t >= prevStart && t < curStart);
+    const count30d = cur.length;
+    const countPrevious30d = prev.length;
+    const delta = count30d - countPrevious30d;
+    let trend: AlertTypeTrend["trend"];
+    if (count30d === 0 && countPrevious30d === 0) {
+      trend = "insufficient";
+    } else if (Math.abs(delta) <= ALERT_TREND_STEADY_BAND) {
+      trend = "steady";
+    } else {
+      trend = delta > 0 ? "rising" : "falling";
+    }
+    trends.push({
+      type,
+      count30d,
+      countPrevious30d,
+      delta,
+      trend,
+      eventTimestamps30d: cur.map(t => new Date(t).toISOString()),
+    });
+  }
+  return trends;
+}
+
 /**
  * Get the last N alert events across all types.
  */

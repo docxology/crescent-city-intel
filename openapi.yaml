@@ -1120,9 +1120,16 @@ paths:
           required: false
           schema: {type: boolean, default: true}
           description: When false, skip network fetching and return the zeroed shell artifact.
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 50 }, description: Page size over artifact.events. Omit limit and offset to receive the full unpaginated artifact. }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 }, description: Pagination start index over artifact.events. }
       responses:
         '200':
-          description: Event discovery artifact (schema crescent-city-events-discovery/v1)
+          description: >-
+            Event discovery artifact (schema crescent-city-events-discovery/v1).
+            With limit or offset supplied, the artifact gains pagination
+            envelope fields (total, offset, limit, count) and events holds the
+            requested page. Without them the full artifact is returned
+            unchanged.
           content:
             application/json:
               schema:

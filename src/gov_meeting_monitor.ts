@@ -11,6 +11,8 @@ import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { paths } from './shared/paths.js';
 import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
+import { computeDocumentHashes, diffDocumentHashes, extractVotes, fetchDocumentText } from './minutes_extraction.js';
+import type { DocumentDrift } from './minutes_extraction.js';
 import type { SourceHealth } from './types.js';
 
 const logger = createLogger('gov_meeting_monitor');
@@ -320,7 +322,7 @@ async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]>
  * filtering the shared feed down to items whose title names this source.
  */
 export interface GovMeetingFetchResult {
-  items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[], vote?: VoteResult | null}>;
+  items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[], vote?: VoteResult | null, docHashes?: Record<string, string>, voteTable?: import('./minutes_extraction.js').VoteResult[]}>;
   health: SourceHealth;
 }
 
@@ -349,10 +351,28 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
       // Try to parse votes from the description text
       const vote = parseVotes(item.description ?? '');
 
+      // Phase 4.2: fetch agenda/minutes documents (bounded), hash them for
+      // change detection, and extract every vote tally from minutes text.
+      const docUrls = [...new Set([...agendaUrls, ...minuteUrls])];
+      const docs: Array<{ url: string; text: string }> = [];
+      const docTimeoutMs = Number(process.env.GOV_MEETINGS_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS);
+      for (const docUrl of docUrls) {
+        const text = await fetchDocumentText(docUrl, docTimeoutMs);
+        if (text !== null) docs.push({ url: docUrl, text });
+      }
+      let docHashes: Record<string, string> | undefined;
+      let voteTable: import('./minutes_extraction.js').VoteResult[] | undefined;
+      if (docs.length > 0) {
+        docHashes = await computeDocumentHashes(docs);
+        const minutesTexts = docs.filter(d => minuteUrls.includes(d.url)).map(d => d.text);
+        const allVotes = minutesTexts.flatMap(t => extractVotes(t));
+        if (allVotes.length > 0) voteTable = allVotes;
+      }
+
       const hashContent = `${item.title}|${link}|${date}|${content}`;
       const hash = await generateContentHash(hashContent);
 
-      items.push({ title: item.title, link, date, content, hash, vote, ...(agendaItems.length ? { agendaItems } : {}), ...(minuteItems.length ? { minuteItems } : {}) });
+      items.push({ title: item.title, link, date, content, hash, vote, ...(agendaItems.length ? { agendaItems } : {}), ...(minuteItems.length ? { minuteItems } : {}), ...(docHashes ? { docHashes } : {}), ...(voteTable ? { voteTable } : {}) });
     }
 
     logger.info(`Found ${items.length} meeting-related items from ${sourceName}`, { count: items.length });
@@ -433,6 +453,25 @@ export async function saveMeetingItems(items: Array<{title: string, link: string
   }
 }
 
+const MEETING_DOC_HASHES_PATH = join(process.cwd(), 'output', 'state', 'meeting-doc-hashes.json');
+
+/** Load the previously recorded agenda/minutes document hash map (empty when absent). */
+async function loadMeetingDocHashes(): Promise<Record<string, string>> {
+  try {
+    const fs = await import('fs/promises');
+    const raw = await fs.readFile(MEETING_DOC_HASHES_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Atomically persist the current agenda/minutes document hash map. */
+async function saveMeetingDocHashes(hashes: Record<string, string>): Promise<void> {
+  await writeJsonAtomic(MEETING_DOC_HASHES_PATH, { savedAt: new Date().toISOString(), hashes });
+}
+
 /**
  * Main government meeting monitoring function with change detection
  */
@@ -446,6 +485,8 @@ export interface GovMeetingItem {
   isNew: boolean;
   changed: boolean;
   vote?: VoteResult | null;
+  docHashes?: Record<string, string>;
+  voteTable?: import('./minutes_extraction.js').VoteResult[];
 }
 
 export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
@@ -489,9 +530,29 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
 
   // Persist the updated change-detection index
   await meetingCache.save();
+
+  // Phase 4.2: agenda/minutes document hash drift, surfaced in the meeting report.
+  let documentDrift: DocumentDrift[] = [];
+  try {
+    const previous = await loadMeetingDocHashes();
+    const current: Record<string, string> = {};
+    for (const item of allItems) {
+      if (item.docHashes) Object.assign(current, item.docHashes);
+    }
+    documentDrift = diffDocumentHashes(previous, current);
+    await saveMeetingDocHashes(current);
+    const changedDocs = documentDrift.filter(d => d.changed);
+    if (changedDocs.length > 0) {
+      logger.info(`Document hash drift detected for ${changedDocs.length} agenda/minutes document(s)`);
+    }
+  } catch (error: unknown) {
+    logger.warn(`Document hash drift tracking failed: ${errorMessage(error)}`);
+  }
   await writeJsonAtomic(paths.govMeetingsHealth, {
     checkedAt: new Date().toISOString(),
     sources: health,
+    // Phase 4.2: agenda/minutes SHA-256 drift surfaced in the meeting report.
+    documentDrift,
   });
 
   // Sort by date (newest first), then by source

@@ -10,6 +10,37 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Alert pipeline hardening — Phase-12 monitor wiring + public-surface honesty (2026-08-28)
+
+#### Added
+
+- **13-monitor alert runner**: the five Phase-12 extended monitors (USDM Drought,
+  PG&E PSPS, HRRR Smoke, Caltrans Roads, DUSD Schools) — modules present since
+  v2.6.0 but never invoked — are now wired into `scripts/run-alerts.ts` with the
+  same graceful-degradation contract as the core 8 (null report on failure, typed
+  `SourceHealth` records, never fails the run).
+- **`tests/phase12-monitors.test.ts`** (20 tests): offline verification of the
+  extended monitors' pure classifiers (drought severity/composite, PSPS lifecycle,
+  PM2.5→AQI buckets + advisories, road severity precedence, school status states).
+- **`tests/route-coverage.test.ts`** (15 tests): typed handler coverage for the 15
+  OpenAPI routes that previously had zero test coverage (diffed spec vs references).
+
+#### Fixed
+
+- **`classifyRoadSeverity` misclassification**: "lane closed"/"lane closure" now
+  resolves ADVISORY before the generic "closed" substring match; previously every
+  lane restriction was reported as a full CLOSURE.
+- **Public operator-command leak**: the monthly report's System Health section
+  (operator commands like `bun run verify`) was exported verbatim into the Pages
+  snapshot and rendered on the public index. Exporter now strips those lines for
+  the public snapshot; validate-pages lane C gate fails any future recurrence.
+
+#### Docs
+
+- README/AGENTS/ISA/docs monitor counts aligned with the 13-monitor reality;
+  TODO.md Phase-12 item closed with the residual recorded.
+
+
 ### GitHub Pages — Vintage newspaper aesthetic — renamed to The Quadruplicate (2026-08-25)
 
 ### Added

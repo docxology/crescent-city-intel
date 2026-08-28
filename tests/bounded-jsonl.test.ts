@@ -30,8 +30,9 @@ describe("appendBoundedJsonl", () => {
   });
 
   test("sync appender trims to the tail too", () => {
-    for (let i = 0; i < 6; i++) appendBoundedJsonlSync(file, { m: i }, 2);
-    const l = lines();
+    const syncFile = join(dir, "sync-trim.jsonl");
+    for (let i = 0; i < 6; i++) appendBoundedJsonlSync(syncFile, { m: i }, 2);
+    const l = readFileSync(syncFile, "utf-8").split("\n").filter(Boolean);
     expect(l.length).toBe(2);
     expect(JSON.parse(l[0]).m).toBe(4);
     expect(JSON.parse(l[1]).m).toBe(5);

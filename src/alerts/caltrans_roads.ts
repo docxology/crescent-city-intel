@@ -122,6 +122,12 @@ function appendHistory(incident: RoadIncident): void {
 
 export function classifyRoadSeverity(incidentType: string, description: string): RoadClosureSeverity {
   const combined = (incidentType + " " + description).toLowerCase();
+  // "lane closed" is a lane-level restriction (ADVISORY), not a full road
+  // closure — it must be checked before the generic "closed" substring match
+  // or every lane closure would be misreported as CLOSURE.
+  if (combined.includes("lane closed") || combined.includes("lane closure")) {
+    return "ADVISORY";
+  }
   if (combined.includes("closure") || combined.includes("closed") || combined.includes("road closed") || combined.includes("full closure")) {
     return "CLOSURE";
   }

@@ -42,6 +42,11 @@ import { paths } from "../src/shared/paths.ts";
 import { writeJsonAtomic } from "../src/shared/source_health.ts";
 import { maybeSendSeverityWebhook } from "../src/alerts/notify.ts";
 import { runHealingCycle } from "../src/alerts/healer.ts";
+import { runDroughtMonitor, getLastDroughtError, USDM_API_URL } from "../src/alerts/usdm_drought.ts";
+import { runPSPSMonitor, getLastPspsError, PGE_PSPS_API_URL } from "../src/alerts/pge_psps.ts";
+import { runSmokeMonitor, getLastSmokeError, HRRR_SMOKE_API_URL } from "../src/alerts/hrrr_smoke.ts";
+import { runRoadClosureMonitor, getLastRoadsError, CALTRANS_API_D1_URL } from "../src/alerts/caltrans_roads.ts";
+import { runSchoolClosureMonitor, getLastSchoolsError, DUSD_ALERTS_URL } from "../src/alerts/dusd_schools.ts";
 import { sendPushNotification } from "../src/notifications/push.ts";
 
 export { buildTidesInput, buildFishingInput };
@@ -89,7 +94,7 @@ if (import.meta.main) {
 export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
   const releaseLock = await acquireAlertsLock();
   try {
-    logger.info("=== Running All 8 Alert Monitors ===");
+    logger.info("=== Running All 13 Alert Monitors ===");
 
     const monitorErrors = new Map<number, string>();
     function runNullableMonitor<T>(
@@ -120,6 +125,13 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       runNullableMonitor(5, "NDBC marine", runMarineMonitor, () => undefined),
       monitorTides().catch((err) => { logger.error("NOAA tides monitor failed", { error: err.message }); return null; }),
       monitorFishing().catch((err) => { logger.error("CDFW fishing monitor failed", { error: err.message }); return null; }),
+      // Phase-12 extended monitors: same graceful-degradation contract —
+      // a live-feed failure records source health and never fails the run.
+      runNullableMonitor(8, "USDM drought", runDroughtMonitor, getLastDroughtError),
+      runNullableMonitor(9, "PG&E PSPS", runPSPSMonitor, getLastPspsError),
+      runNullableMonitor(10, "HRRR smoke", runSmokeMonitor, getLastSmokeError),
+      runNullableMonitor(11, "Caltrans roads", runRoadClosureMonitor, getLastRoadsError),
+      runNullableMonitor(12, "DUSD schools", runSchoolClosureMonitor, getLastSchoolsError),
     ]);
 
     const [tidesResult, fishingResult] = settledResults.slice(6) as [
@@ -206,6 +218,25 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       { source: "EPA AirNow", index: 3, report: airquality, itemCount: airquality?.readings?.length ?? 0, url: airquality?.provider === "airnow-public-kml" ? AIRNOW_PUBLIC_KML_URL : "https://www.airnowapi.org/aq/observation/zipCode/current/", provenance: airquality?.provider === "airnow-public-kml" ? "EPA AirNow public KML; keyed ZIP API fallback not required" : "EPA AirNow ZIP 95531 API" },
       { source: "CAL FIRE Wildfire", index: 4, report: wildfire, itemCount: wildfire?.incidents?.length ?? 0, url: CALFIRE_API_URL, provenance: "CAL FIRE current active-incident JSON feed" },
       { source: "NDBC Marine", index: 5, report: marine, itemCount: marine?.observations?.length ?? 0, url: "https://www.ndbc.noaa.gov/data/realtime2/", provenance: "NDBC monitored buoys" },
+      ...([
+        ["USDM Drought", 8, "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
+        ["PG&E PSPS", 9, "events", PGE_PSPS_API_URL, "PG&E PSPS events JSON"],
+        ["HRRR Smoke", 10, "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
+        ["Caltrans Roads", 11, "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
+        ["DUSD Schools", 12, "items", DUSD_ALERTS_URL, "Del Norte USD announcements"]
+      ] as const).map(([source, index, listField, url, provenance]): AlertMonitorDefinition => {
+        const result = settledResults[index];
+        const report = result.status === "fulfilled" ? result.value : null;
+        const count = (report as Record<string, any> | null)?.[listField];
+        return {
+          source,
+          index,
+          report,
+          itemCount: Array.isArray(count) ? count.length : count ? 1 : 0,
+          url,
+          provenance,
+        };
+      }),
     ];
 
     const alertSources: SourceHealth[] = monitorDefinitions.map(definition =>
@@ -213,7 +244,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
 
     await writeJsonAtomic(paths.alertsHealth, { checkedAt, sources: alertSources });
 
-    logger.info("=== All 8 Alert Monitors Complete ===");
+    logger.info("=== All 13 Alert Monitors Complete ===");
     return alertSources;
   } finally {
     await releaseLock();

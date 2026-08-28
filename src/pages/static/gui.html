@@ -49,10 +49,11 @@
       <div id="alert-items"></div>
     </section>
     <section id="console-events-timeline">
-      <div class="section-head"><h2>Events timeline</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe to the Crescent City community events calendar in iCalendar format">&#128197; Subscribe &middot; .ics</a></span></div>
+      <div class="section-head"><h2>Events timeline</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe · .ics — Crescent City community events calendar in iCalendar format">&#128197; Subscribe &middot; .ics</a></span></div>
       <ol id="event-items" class="items"></ol>
     </section>
     <script>
+    const __bootPage = () => {
     function renderAnalytics(snapshot) {
       const analytics = snapshot.analytics;
       const summary = snapshot.healthSummary || {};
@@ -106,6 +107,8 @@
       }
     }
     start();
+    };
+    if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
     </script>
 
     <footer class="footer">

@@ -9,11 +9,14 @@ const REQUIRED_VARS = ["--cc", "--rdark", "--rtint", "--ink", "--paper"];
 async function styleBlock(html: string): Promise<string> {
   const match = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
   const inline = match && match[1] ? match[1] : "";
-  const sharedPath = html.match(/<link href="(assets\/site\.[0-9a-f]{8}\.css|src\/pages\/static\/assets\/site\.css|assets\/SITE_CSS_PLACEHOLDER)" rel="stylesheet">/);
+  const sharedPaths = [...html.matchAll(/<link href="(assets\/(?:site|index|404)\.[0-9a-f]{8}\.css|src\/pages\/static\/assets\/(?:site|index|404)\.css|assets\/(?:SITE|INDEX|404)_CSS_PLACEHOLDER)" rel="stylesheet">/g)].map(match => match[1]);
   let shared = "";
-  if (sharedPath) {
-    const assetFile = sharedPath[1].includes("src/pages") ? sharedPath[1] : "src/pages/static/assets/site.css";
-    try { shared = await readFile(assetFile, "utf8"); } catch { /* artifact-only context */ }
+  for (const sharedPath of sharedPaths) {
+    const assetBase = sharedPath.includes("src/pages")
+      ? sharedPath.split("/").pop()!
+      : sharedPath.replace(/^assets\//, "").replace(/\.[0-9a-f]{8}\.css$/, ".css").replace(/_CSS_PLACEHOLDER$/, ".css").toLowerCase();
+    const assetFile = `src/pages/static/assets/${assetBase}`;
+    try { shared += await readFile(assetFile, "utf8"); } catch { /* artifact-only context */ }
   }
   if (!inline && !shared) throw new Error("no style source found");
   return inline + shared;
@@ -116,7 +119,7 @@ describe("Events .ics subscribe badge contract", () => {
   test("badge exists with palette-only styling and an accessible name", async () => {
     const html = await readFile("src/pages/static/index.html", "utf8");
     expect(html).toContain('class="ics-badge" href="data/events.ics"');
-    expect(html).toContain("aria-label=\"Subscribe to the Crescent City community events calendar in iCalendar format\"");
+    expect(html).toMatch(/aria-label="Subscribe[^"]*\.ics \u2014 Crescent City community events calendar in iCalendar format"/);
     const css = await styleBlock(html);
     expect(css).toContain(".ics-badge");
     expect(css).toContain("var(--cc)");

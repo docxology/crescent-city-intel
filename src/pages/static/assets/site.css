@@ -89,3 +89,6 @@
 #event-items .cal-when { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:3px; }
 #event-items .cal-time { font:500 .78rem/1 "DM Mono","Courier New",monospace; color:var(--cc); letter-spacing:.02em; white-space:nowrap; }
 #event-items .cal-entry h3 { font-size:1rem; margin-bottom:2px; }
+
+/* --- Lane B r2: WCAG 2.5.8 target-size — inline table links need 24x24px min. --- */
+.table-scroll td a { display:inline-block; min-height:24px; line-height:24px; }

@@ -195,6 +195,7 @@ describe("standalone static pages", () => {
     const markupOnly = notFound.replace(/<script[\s\S]*?<\/script>/g, "");
     for (const href of [...markupOnly.matchAll(/href="([^"]*)"/g)].map(match => match[1])) {
       if (href.startsWith("/") || href.startsWith("#") || /^(https?:|mailto:|data:)/i.test(href)) continue;
+      if (/^assets\/(?:SITE|404)_CSS_PLACEHOLDER$/.test(href)) continue; // export resolves these root-absolute (validated in scripts/validate-pages.ts)
       throw new Error(`404.html contains a relative href: ${href}`);
     }
   });

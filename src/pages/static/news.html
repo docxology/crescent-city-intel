@@ -40,6 +40,7 @@
       <div id="news-items" class="items"></div>
     </section>
     <script>
+    const __bootPage = () => {
     let allItems = [];
     function render() {
       const needle = document.getElementById("content-filter").value.trim().toLowerCase();
@@ -57,6 +58,8 @@
     document.getElementById("news-sort").addEventListener("change", render);
     document.getElementById("news-items").innerHTML = empty("Loading this edition\u2019s news records\u2026");
     load("data/news.json").then(items => { allItems = Array.isArray(items) ? items : []; render(); }).catch(error => { document.getElementById("news-items").innerHTML = empty(`News artifact unavailable — ${error.message || error}`); });
+    };
+    if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
     </script>
 
     <footer class="footer">

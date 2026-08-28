@@ -1,6 +1,6 @@
 # Start Here — The Quadruplicate
 
-Complete setup guide to get the scraper, web viewer, RAG chat, and 8 alert monitors running.
+Complete setup guide to get the scraper, web viewer, RAG chat, and 13 alert monitors running.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 8 alert monit
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Recent (updated within ~90 days) | `pip install -U yt-dlp` |
 
 > **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. `yt-dlp` is only
-> needed for `bun run youtube`. The scraper, web viewer, and all 8 alert monitors
+> needed for `bun run youtube`. The scraper, web viewer, and all alert monitors
 > work without any of them.
 > For air quality alerts, set `AIRNOW_API_KEY` env var (free at [airnowapi.org](https://airnowapi.org)).
 > For OpenRouter (optional, paid, alternative to local Ollama for chat/curation),

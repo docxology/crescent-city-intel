@@ -28,7 +28,7 @@ The discovered coverage boundary includes the official City and County sites,
 the joint County/City media hub, Harbor District news/agenda/recording/update/
 procurement pages, Redwood Coast Transit, the airport authority, Redwood
 National and State Parks, Caltrans road conditions, five local/regional RSS
-feeds, eight alert services, the municipal code source, YouTube, and Triplicate
+feeds, the alert services, the municipal code source, YouTube, and Triplicate
 reference metadata. This is a declared coverage boundary, not a claim that
 every page on the public internet has been found.
 

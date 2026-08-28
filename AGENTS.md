@@ -5,8 +5,9 @@
 The most comprehensive local intelligence platform for Crescent City, CA.
 Built with TypeScript/Bun. Scrapes, verifies, exports, views, queries, and
 analyzes the Crescent City municipal code from ecode360.com, plus monitors
-8 real-time alert streams (tsunami, earthquake, weather, tides, fishing, air
-quality, wildfire, marine) and provides RAG chat with streaming SSE.
+13 real-time alert streams (8 core: tsunami, earthquake, weather, tides, fishing, air
+quality, wildfire, marine; 5 extended: USDM drought, PG&E PSPS, HRRR smoke, Caltrans
+roads, DUSD school closures) and provides RAG chat with streaming SSE.
 
 ## Architecture
 
@@ -28,7 +29,7 @@ ecode360.com/CR4919
  port 3000  + Chroma  Citations/Glossary
  RAG+SSE    RAG       Cross-refs
         |
- [Intelligence Layer — 8 monitors]
+ [Intelligence Layer — 13 monitors]
    NOAA Tsunami · USGS Earthquake · NWS Weather · NOAA Tides
    CDFW Fishing · EPA AirNow · CAL FIRE Wildfire · NDBC Marine
         |
@@ -178,7 +179,7 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.1)
 - Same RAG pipeline (Ollama + ChromaDB) with streaming output
 
 ### Alert Analytics
-- `GET /api/alerts/timeline` — Unified chronological timeline across all 8 monitors
+- `GET /api/alerts/timeline` — Unified chronological timeline across all alert monitors
 - `GET /api/alerts/recent?limit=N` — Most recent alert events
 - Per-type statistics (counts, severity distribution, frequency)
 
@@ -200,7 +201,7 @@ bun run index                # Index sections into ChromaDB
 bun run chat                 # Interactive RAG chat
 bun run query "question"     # Single RAG query
 bun run status               # Show index stats
-bun run alerts               # All 8 alert monitors concurrently
+bun run alerts               # All 13 alert monitors concurrently (8 core + 5 extended)
 bun run alerts:tsunami       # Individual alert monitors
 bun run alerts:earthquake
 bun run alerts:weather

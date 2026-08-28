@@ -241,7 +241,7 @@ Fetches real-time marine observations from 3 NDBC buoy stations nearest to Cresc
 
 ## `src/alerts/severity.ts` — Composite 8-Monitor Severity (v2.0)
 
-Aggregates all 8 alert monitors into a single composite severity level.
+Aggregates all 13 alert monitors (8 core + 5 extended: drought, PSPS, smoke, roads, schools) into a single composite severity level.
 
 ### Exports
 
@@ -288,7 +288,7 @@ of failing the run.
 
 ## `src/alert_analytics.ts` — Alert Analytics (v2.0)
 
-Aggregates all alert history JSONL files across all 8 monitor types into
+Aggregates all alert history JSONL files across all monitor types into
 a unified chronological timeline with per-type statistics.
 
 ### Exports
@@ -325,7 +325,7 @@ bun run alerts:fishing      # CDFW fishing
 bun run alerts:airquality   # EPA AirNow (v2.0)
 bun run alerts:wildfire     # CAL FIRE wildfire (v2.0)
 bun run alerts:marine       # NDBC marine buoy (v2.0)
-bun run alerts              # all 8 concurrently + composite severity
+bun run alerts              # all 13 concurrently + composite severity
 ```
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.
@@ -335,7 +335,7 @@ See [scripts/README.md](../../scripts/README.md) for cron setup.
 - The unified alert timeline (`src/alert_analytics.ts`) reads each monitor's
   `history.jsonl` — including tides (`output/tides/history.jsonl`) and fishing
   (`output/fishing/history.jsonl`), plus `output/alerts/<type>/history.jsonl` for
-  the other six — so all 8 monitor types appear in `/api/alerts/timeline`,
+  the other monitors — so every monitor type appears in `/api/alerts/timeline`,
   `/api/alerts/recent`, and the monthly report.
 - `GET /api/alerts/{type}/history` returns paginated history for one type
   (`?limit=&offset=`); unknown types return 400.

@@ -154,15 +154,17 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   (`/api/alerts/{type}/history`, `/api/alerts/timeline`, `getAlertsByType`); the map + trend
   widgets are SPA/Chart.js work. **Acceptance:** a dashboard tab rendering per-type trends from
   those endpoints. **Reason:** frontend, unverifiable without a browser here.
-- 🟡 **New external-source monitors: drought (USDM), PG&E PSPS, HRRR smoke forecast, Caltrans
-  road closures, DUSD school closures (Phase 12).** **Plan:** one `src/alerts/*` module per
-  source following the existing graceful-degradation monitor pattern (bounded fetch + empty
-  result on failure + source-health). **Acceptance:** each returns a typed report + source
-  health and no-throws on failure. **Reason:** response shapes must be validated against the
-  live feeds, which are not reachable/verified in this environment.
+- ✅ ~~**New external-source monitors: drought (USDM), PG&E PSPS, HRRR smoke forecast, Caltrans
+  road closures, DUSD school closures (Phase 12).**~~ **Closed 2026-08-28:** the five modules
+  existed since v2.6.0 but were orphaned (no runner wiring, no tests, no docs). Now wired into
+  `scripts/run-alerts.ts` (13-monitor allSettled batch, graceful degradation, typed
+  SourceHealth), covered offline by `tests/phase12-monitors.test.ts` (20 tests over the pure
+  classifiers), and documented. Residual: per-feed response-shape validation still requires a
+  live-feed observation window in production.
 - 🟢 **Hard coverage floor (Phase 11.1).** `bun run test:coverage` and `bun run test:browser`
   (real headless-Chromium GUI smoke) now exist. An enforced percentage threshold in CI remains
-  open until coverage is stable; a full in-suite `tests/browser.test.ts` (timeout/dead-page/
+  open until coverage is stable (a configured floor without a stable baseline would gate on a
+  number no one has measured, not on quality); a full in-suite `tests/browser.test.ts` (timeout/dead-page/
   retry unit tests) is optional given the smoke script covers the live path.
 - 🟡 **Deeper meeting minutes/vote extraction (Phase 4.2, part 2).** Link-item extraction is
   done; parsing yea/nay/abstain from minutes text, SHA-256 change detection on agenda/minutes
@@ -188,4 +190,4 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   extracted body text with graceful fallback. **Reason:** depends on the live CDFW page.
 
 ---
-_Last updated: 2026-08-24 (geo-intel completion pass) · v2.5.1 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-08-28 (Phase-12 monitor wiring completion pass) · v2.6.0 · run `bun run validate` for current test and contract counts_

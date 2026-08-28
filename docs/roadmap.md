@@ -40,14 +40,14 @@
 - Renamed from `crescent-city` → `crescent-city-intel`
 
 ### v2.1 — Integration & Documentation (2026-07)
-- All 8 monitors wired end-to-end through orchestrators + CI
+- All 13 monitors wired end-to-end through orchestrators + CI
 - BM25 fuzzy fallback integrated into search response shape
 - 3 new domains integrated into monthly report
-- GUI alerts dashboard (8-monitor composite panel)
+- GUI alerts dashboard (alert composite panel)
 - OpenAPI spec expanded to 40+ endpoints
 - 56 new tests (404 total, 38 files)
 - All documentation audited and updated
-- `run.sh` interactive menu expanded for 8 monitors
+- `run.sh` interactive menu expanded for the alert monitors
 - Bug fix: alert_analytics fishing/tides path resolution
 
 ## Future Direction

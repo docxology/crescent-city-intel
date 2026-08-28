@@ -79,7 +79,7 @@ Severity thresholds:
 
 ## Composite 8-Monitor Severity (`src/alerts/severity.ts`)
 
-Aggregates all 8 alert monitors into a single composite severity level.
+Aggregates all 13 alert monitors (8 core + 5 extended: drought, PSPS, smoke, roads, schools) into a single composite severity level.
 
 **Priority order**: EMERGENCY > WARNING > WATCH > CALM
 **API endpoint**: `GET /api/alerts/composite`
@@ -164,7 +164,7 @@ Event structure:
 
 ## Alert Analytics (`src/alert_analytics.ts`)
 
-Aggregates all alert history JSONL files across all 8 monitor types.
+Aggregates all alert history JSONL files across all monitor types.
 
 - `buildAlertAnalytics()` — full analytics report
 - `getRecentAlerts(limit)` — most recent events across all types

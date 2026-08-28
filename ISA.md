@@ -10,7 +10,7 @@ updated: 2026-07-24
 
 ## Problem
 
-The platform covers municipal code + 8 real-time alert feeds + 4 RSS news sources + government
+The platform covers municipal code + 13 real-time alert feeds (8 core + 5 extended) + 4 RSS news sources + government
 meeting agenda/minutes tracking (`GOV_SOURCES`) well, but has no coverage of:
 - **Video/audio civic record**: city council, planning commission, and harbor commission meetings
   livestream and archive to YouTube (`youtube.com/c/CityofCrescentCityCalifornia`), and the spoken
@@ -46,7 +46,7 @@ every source, not five different ways.
 - Building a general-purpose social-media scraper. Facebook integration, if built at all, is
   scoped to the single official city Page and only through a path that doesn't require evading
   bot detection or holding a personal login session against ToS (see Constraints).
-- Rewriting the existing 8 alert monitors, municipal code scraper, or existing 4 RSS feeds —
+- Rewriting the existing alert monitors, municipal code scraper, or existing RSS feeds —
   they work and are out of scope for this pass except where they migrate onto the new shared
   idempotency store.
 - Live video/audio processing (real-time transcription of a livestream in progress). Transcripts

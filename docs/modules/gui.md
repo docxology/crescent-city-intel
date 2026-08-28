@@ -36,7 +36,7 @@ the missing row as evidence that the source was checked.
 | GET | `/api/domains` | All 12 intelligence domains (from `domains.ts`) |
 | GET | `/api/monitor/status` | Latest monitor report `output/monitor-report.json` |
 | GET | `/api/monitor/alerts` | Latest persisted output from each alert monitor, composite level, and alert source-health artifact |
-| GET | `/api/alerts/timeline` | Bounded unified timeline plus per-type statistics across all eight monitors |
+| GET | `/api/alerts/timeline` | Bounded unified timeline plus per-type statistics across the alert monitors |
 | GET | `/api/alerts/{type}/history?limit=&offset=` | Bounded paginated history for one canonical alert type |
 | GET | `/api/metadata` | Build, provider, artifact, and source-lineage metadata |
 | GET | `/api/sources` | Canonical source registry and discovery joins; add `?format=csv` for a flat download |
@@ -145,7 +145,7 @@ event count and the latest monitor level from `/api/monitor/alerts`:
 
 | Export | Description |
 | :--- | :--- |
-| `buildAlertTrendView(input)` | Build bounded 14-day buckets for all eight alert types, with health/current-state metadata and deduplication diagnostics |
+| `buildAlertTrendView(input)` | Build bounded 14-day buckets for the alert types, with health/current-state metadata and deduplication diagnostics |
 | `classifyAlertCondition(level)` | Classify an explicit monitor level as `calm`, `active`, or `unknown` |
 | `deriveAlertDisplayState(health, condition)` | Preserve health-state precedence so missing evidence is never rendered as calm |
 | `alertHeatIntensity(count, maximum)` | Scale a count into the stable heatmap range 0–4 |
@@ -171,7 +171,7 @@ Seven top-level nav buttons, each a distinct, non-overlapping purpose. Exactly o
 | 📊 **Code Analytics** | Tools for analyzing the municipal code itself | Stats & Charts, Readability, Glossary, Cross-Refs, Domains, Compare Sections, Legislative History |
 | 📰 **News & Feeds** | Everything sourced from *outside* the code — the actual "news sources" (RSS, government meeting agendas, YouTube transcripts) | Civic Dashboard, News Feed, Monthly Report |
 | 🧭 **Sources** | Canonical source coverage, operational joins, provenance, and machine-readable exports | Source Coverage, Structured Output |
-| 🚨 **Alerts** | The 8 real-time safety monitors + their timeline (previously the timeline duplicated as a separate Intelligence sub-tab) | — (single panel) |
+| 🚨 **Alerts** | The real-time safety monitors + their timeline (previously the timeline duplicated as a separate Intelligence sub-tab) | — (single panel) |
 | 💬 **Chat** | RAG assistant over the code + transcripts | — |
 | 🔌 **Developer** | Meta/dev-facing tools, not end-user civic content | API Explorer, Search Analytics |
 

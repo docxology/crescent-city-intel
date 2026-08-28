@@ -763,7 +763,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/analytics/embeddings` | GET | PCA projection (requires ChromaDB) |
 | `/api/monitor/status` | GET | Latest monitor report |
 | `/api/monitor/history` | GET | Monitor history JSONL |
-| `/api/monitor/alerts` | GET | Aggregated alert status (all 8 monitors) |
+| `/api/monitor/alerts` | GET | Aggregated alert status (all 13 monitors) |
 | `/api/metadata` | GET | Build, provider, artifact, and source-lineage metadata |
 | `/api/sources` | GET | Canonical source registry, coverage boundaries, and health joins |
 | `/api/sources?format=csv` | GET | Flat downloadable source coverage table |
@@ -828,7 +828,7 @@ All settings support environment variable overrides:
 | 📝 [Logger](docs/modules/logger.md) | Structured logging, LOG_LEVEL |
 | 🧭 [Domains](docs/modules/domains.md) | 12 civic intelligence domains, coverage metrics |
 | 📡 [Monitoring](docs/modules/monitoring.md) | Code change, configured news sources, meetings, YouTube, Triplicate, curation |
-| 🚨 [Alerts](docs/modules/alerts.md) | All 8 monitors with availability-aware severity |
+| 🚨 [Alerts](docs/modules/alerts.md) | All 13 monitors with availability-aware severity |
 | 🌐 [GitHub Pages](docs/modules/pages.md) | Static snapshot export and deployment |
 | 🔐 [API Middleware](docs/modules/api.md) | Sliding-window rate limiting, API key auth |
 

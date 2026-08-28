@@ -1379,7 +1379,17 @@ export async function buildPagesSnapshot(
     : await buildSourceDiscoveryReport({ checkedAt: generatedAt, health, registry: sourceRegistry });
   const alerts = await collectCurrentAlerts(resolvedOutput);
   const reportPath = (await listFiles(join(resolvedOutput, "reports"), name => name.startsWith("monthly-") && name.endsWith(".md"))).at(-1) ?? null;
-  const monthly = reportPath ? await readFile(reportPath, "utf8").catch(() => null) : null;
+  const monthlyRaw = reportPath ? await readFile(reportPath, "utf8").catch(() => null) : null;
+  // The monthly report is written for the operator (its System Health section
+  // contains local commands like `bun run verify`). The Pages snapshot is a
+  // PUBLIC surface, so operator-command lines are stripped before the report
+  // is inlined/emitted; the operator artifact on disk keeps full detail.
+  const monthly = monthlyRaw === null
+    ? null
+    : monthlyRaw
+      .split("\n")
+      .filter(line => !/- Run `bun run [a-z:-]+`/.test(line))
+      .join("\n");
   const reportMetadata = reportPath
     ? await readJson<JsonRecord>(reportPath.replace(/\.md$/, ".json"))
     : null;

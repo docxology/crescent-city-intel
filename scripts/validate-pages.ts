@@ -894,6 +894,11 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
     for (const pattern of ["U0001", "\u2014ft@\u2014s", "[object Object]", "&amp;amp;"]) {
       if (html.includes(pattern)) errors.push(`${page} renders a leak pattern on a public surface (lane C data-honesty gate): "${pattern}"`);
     }
+    // Operator commands (`bun run ...`) belong to the operator's machine, not
+    // the public site. Regressed here once via the inlined monthly report.
+    if (/- Run `bun run [a-z:-]+`/.test(html)) {
+      errors.push(`${page} renders an operator command line on a public surface (lane C data-honesty gate)`);
+    }
   }
 }
 

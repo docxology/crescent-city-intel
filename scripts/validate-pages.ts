@@ -18,7 +18,7 @@ import {
   validatePagesSource,
   validatePagesHtml,
 } from "../src/pages_snapshot.js";
-import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES } from "../src/pages_snapshot.js";
+import { PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES, PAGES_CODE_META_ARTIFACT, PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, PAGES_SEARCH_BODY_ARTIFACT_PREFIX } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
 
@@ -193,8 +193,13 @@ for (const page of ALL_PAGES) {
   const html = await readFile(join(destination, page), "utf8").catch(() => null);
   if (html === null) { errors.push(`missing required Pages asset: ${page}`); continue; }
   let effective = html;
-  const sharedCssLinks = [...html.matchAll(/<link href="(assets\/site\.[0-9a-f]{8}\.css)" rel="stylesheet">/g)].map(match => match[1]);
-  if (sharedCssLinks.length > 1) errors.push(`${page} links more than one shared stylesheet`);
+  const sharedCssLinks = [...html.matchAll(/<link href="(assets\/(?:site|index)\.[0-9a-f]{8}\.css)" rel="stylesheet">/g)].map(match => match[1]);
+  // At most one stylesheet per family: the shared site.<hash>.css and the
+  // index-only index.<hash>.css (lane A r2). Duplicates would be drift.
+  for (const family of ["site", "index"]) {
+    const familyLinks = sharedCssLinks.filter(link => link.includes(`/${family}.`));
+    if (familyLinks.length > 1) errors.push(`${page} links more than one ${family} stylesheet`);
+  }
   for (const cssPath of sharedCssLinks) {
     const cssText = await readFile(join(destination, cssPath), "utf8").catch(() => null);
     if (cssText === null) { errors.push(`${page} links a missing shared stylesheet: ${cssPath}`); continue; }
@@ -300,13 +305,49 @@ if (snapshot) {
     const idxBytes = (await readFile(join(destination, idxPath)).catch(() => null))?.byteLength ?? null;
     if (idxBytes === null) errors.push(`missing required Pages asset: ${idxPath}`);
     else if (idxBytes > 3 * 1024 * 1024) errors.push(`${idxPath} is ${idxBytes} bytes (budget 3145728 bytes)`);
-    // The index must be referenced from code.html, but never fetched eagerly on page load:
-    // code.html must not contain an unconditional top-level load of data/code.json.
+    // Lane D §2: per-field shards must be emitted, hashed, and within budget —
+    // title/number shard ~0.5 MB (budget 700 KB), body shard ~2.4 MB (budget 3 MB).
+    for (const [fileKey, kind, prefix, budget] of [
+      ["codeSearchTitleIndex", "t", PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, 700 * 1024],
+      ["codeSearchBodyIndex", "x", PAGES_SEARCH_BODY_ARTIFACT_PREFIX, 3 * 1024 * 1024],
+    ] as Array<[string, string, string, number]>) {
+      const shardPath = snapshot.files?.[fileKey];
+      if (typeof shardPath !== "string" || shardPath === "") {
+        errors.push(`snapshot.files.${fileKey} is missing (lane D per-field shard split regressed)`);
+        continue;
+      }
+      if (!new RegExp(`^${prefix.replace(/\./g, "\\.")}[0-9a-f]{8}\\.json$`).test(shardPath)) {
+        errors.push(`snapshot.files.${fileKey} is not a content-hashed ${prefix} artifact: ${shardPath}`);
+        continue;
+      }
+      const shardBytes = (await readFile(join(destination, shardPath)).catch(() => null))?.byteLength ?? null;
+      if (shardBytes === null) errors.push(`missing required Pages asset: ${shardPath}`);
+      else if (shardBytes > budget) errors.push(`${shardPath} is ${shardBytes} bytes (budget ${budget} bytes)`);
+      const shard = JSON.parse(await readFile(join(destination, shardPath), "utf8").catch(() => "{}"));
+      if (shard.shard !== kind) {
+        errors.push(`${shardPath} does not declare the expected shard kind for ${fileKey}`);
+      }
+    }
+    // Lane D §3: the tiny code-meta artifact must exist and code.html must
+    // depend on it, never on the snapshot envelope.
+    const codeMetaBytes = (await readFile(join(destination, PAGES_CODE_META_ARTIFACT)).catch(() => null))?.byteLength ?? null;
+    if (codeMetaBytes === null) errors.push(`missing required Pages asset: ${PAGES_CODE_META_ARTIFACT}`);
+    else if (codeMetaBytes > 8 * 1024) errors.push(`${PAGES_CODE_META_ARTIFACT} is ${codeMetaBytes} bytes (budget 8192 bytes)`);
+    if (snapshot.files?.codeMeta !== PAGES_CODE_META_ARTIFACT) errors.push("snapshot.files.codeMeta does not point at data/code-meta.json");
+    const codeMetaJson = JSON.parse(await readFile(join(destination, PAGES_CODE_META_ARTIFACT), "utf8").catch(() => "{}"));
+    if (codeMetaJson.schema !== "crescent-city-code-meta/v1") errors.push("code-meta.json is missing the crescent-city-code-meta/v1 schema");
+    if (codeMetaJson.files?.codeSearchIndex !== idxPath) errors.push("code-meta.json files.codeSearchIndex does not match the envelope hash reference");
+
   } else {
     const codeJson = await readFile(join(destination, "data/code.json")).catch(() => null);
     if (codeJson !== null) errors.push("data/code.json is published but snapshot.files.codeSearchIndex is missing (§1.3 index regressed)");
   }
 }
+// Lane D §3: code.html must never fetch the snapshot envelope; its first-load
+// dependency is the tiny code-meta artifact.
+const codePageHtml = pageHtmlCache.get("code.html") ?? "";
+if (codePageHtml.includes('load("data/snapshot.json")')) errors.push("code.html still fetches the snapshot envelope (lane D code-meta split regressed)");
+if (!codePageHtml.includes('load("data/code-meta.json")')) errors.push("code.html does not load data/code-meta.json (lane D code-meta split regressed)");
 // §1.6: no page may defeat HTTP caching for immutable snapshot artifacts.
 for (const [page, html] of pageHtmlCache) {
   if (html.includes('cache:"no-store"') || html.includes('cache: "no-store"')) errors.push(`${page} still uses cache:"no-store" (§1.6)`);
@@ -321,11 +362,23 @@ for (const [page, html] of pageHtmlCache) {
   if (/Playfair\+Display:ital,wght@(?!0,700;0,900;1,700&)/.test(html) && html.includes("0,400;0,600")) errors.push(`${page} still requests unused font axes (§1.7)`);
 }
 // §1.8: grain overlay must be gated and z-index sane on the front page.
-const indexStyle = pageHtmlCache.get("index.html")?.match(/<style[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+// Lane A r2: the index-only CSS now ships as the content-hashed index.<hash>.css
+// asset, so the check unions every <style> block of the effective page CSS
+// (inline + linked shared stylesheets) exactly like the laneG page assertions.
+const indexStyle = [...(pageHtmlCache.get("index.html") ?? "").matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(match => match[1]).join("\n");
 if (indexStyle.includes("body::before") && !/@media \(max-width:767px\), \(prefers-reduced-motion:reduce\) \{ body::before \{ display:none; \} \}/.test(indexStyle)) {
   errors.push("index.html grain overlay is not disabled under 768px and prefers-reduced-motion (§1.8)");
 }
 if (/body::before \{[^}]*z-index:\s*(?:2147483647|2147483646)/.test(indexStyle)) errors.push("index.html grain overlay z-index is still max-int (§1.8)");
+// Lane A r2: the extracted index-only asset must actually carry the grain rule
+// (a positive control that the union above is not vacuously passing), and the
+// exported index must link exactly one index.<hash>.css.
+{
+  const indexCssLinks = [...(pageHtmlCache.get("index.html") ?? "").matchAll(/<link href="(assets\/index\.[0-9a-f]{8}\.css)" rel="stylesheet">/g)].map(match => match[1]);
+  if (indexCssLinks.length !== 1) errors.push(`index.html must link exactly one index-only stylesheet (found ${indexCssLinks.length})`);
+  const indexCss = await readFile(join(destination, indexCssLinks[0] ?? ""), "utf8").catch(() => "");
+  if (!indexCss.includes("body::before")) errors.push("index-only stylesheet lost the paper grain rule (§1.8)");
+}
 
 if (indexHtml.includes("__CC_API_KEY__") || indexHtml.includes("__CC_API_KEY_INJECT__")) errors.push("API key placeholder found in Pages HTML");
 if (indexHtml.includes("localhost:") || indexHtml.includes("127.0.0.1")) errors.push("local-only endpoint found in Pages HTML");
@@ -719,6 +772,16 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
       if (href.startsWith("/") || href.startsWith("#") || /^(https?:|mailto:|data:)/i.test(href)) continue;
       errors.push(`404.html contains a relative href (must be root-absolute): "${href}"`);
     }
+    // Lane A r2: the errata page now consumes the shared + 404-specific
+    // stylesheets; both links must be root-absolute (nested-path serving) and
+    // content-hashed, and the referenced assets must exist in the artifact.
+    const css404Links = [...html404.matchAll(/href="(\/?assets\/(?:site|404)\.[0-9a-f]{8}\.css)"/g)].map(match => match[1]);
+    if (css404Links.length !== 2) errors.push(`404.html must link the shared and 404-specific stylesheets (found ${css404Links.length})`);
+    for (const link of css404Links) {
+      if (!link.startsWith("/assets/")) errors.push(`404.html stylesheet link is not root-absolute: "${link}"`);
+      const cssBytes = await readFile(join(destination, link)).catch(() => null);
+      if (cssBytes === null) errors.push(`404.html links a missing stylesheet: ${link}`);
+    }
     for (const file of PAGES_STATIC_PAGES.map(page => page.file)) {
       if (!html404.includes(`href="/${file}"`)) errors.push(`404.html nav is missing the root-absolute link to ${file}`);
     }
@@ -790,6 +853,32 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
       if (!/^\d{4}-\d{2}-\d{2}$/.test(lastmod)) errors.push(`sitemap lastmod for ${loc} is not a date: ${lastmod}`);
       if (expected !== undefined && lastmod !== expected) errors.push(`sitemap lastmod for ${loc} does not match the source mtime (fabricated?)`);
       if (expected === undefined) errors.push(`sitemap lastmod for ${loc} has no matching source mtime (fabricated?)`);
+    }
+  }
+}
+
+// --- lane D gate: caching correctness (item 4) ---
+// Every emitted `assets/*` and `data/code-search*` reference in the exported
+// pages must match an emitted file exactly, and every such reference must carry
+// its content hash. A hashless reference to a mutable path would break between
+// builds; a hashed reference to a non-emitted file is a broken URL.
+{
+  const emitted = new Set(await readdirSync(destination).concat(readdirSync(join(destination, "data")).map(name => `data/${name}`), readdirSync(join(destination, "assets")).map(name => `assets/${name}`)));
+  for (const [page, html] of pageHtmlCache) {
+    const refs = [...html.matchAll(/(?:src|href)="((?:assets|data)\/[^"]+)"/g)].map(match => match[1]!);
+    for (const ref of refs) {
+      if (!emitted.has(ref)) errors.push(`${page} references a non-emitted artifact: ${ref} (lane D caching gate)`);
+      if (/^assets\//.test(ref) && !/^assets\/[a-z-]+\.[0-9a-f]{8}\.[a-z]+$/.test(ref)) {
+        errors.push(`${page} references a hashless assets path (lane D caching-correctness): ${ref}`);
+      }
+    }
+    // Envelope references must resolve to emitted files too.
+  }
+  if (snapshot) {
+    for (const [key, value] of Object.entries(snapshot.files ?? {})) {
+      if (typeof value !== "string" || value === "") continue;
+      if (!emitted.has(value)) errors.push(`snapshot.files.${key} references a non-emitted artifact: ${value}`);
+
     }
   }
 }

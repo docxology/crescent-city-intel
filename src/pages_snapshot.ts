@@ -34,6 +34,15 @@ export const PAGES_MEETINGS_ARTIFACT = "data/meetings.json";
 export const PAGES_ALERTS_ARTIFACT = "data/alerts.json";
 export const PAGES_ANALYTICS_ARTIFACT = "data/analytics.json";
 export const PAGES_SEARCH_INDEX_ARTIFACT_PREFIX = "data/code-search.";
+/** Per-field shard artifacts (lane D §2): the title/number shard (~0.5 MB) and
+ * the body shard (~2.4 MB) are emitted alongside the combined index so a client
+ * can answer title/number queries after fetching only the small shard. */
+export const PAGES_SEARCH_TITLE_ARTIFACT_PREFIX = "data/code-search-t.";
+export const PAGES_SEARCH_BODY_ARTIFACT_PREFIX = "data/code-search-x.";
+/** Tiny per-edition metadata artifact: code availability, counts, and the
+ * content-hashed index paths — code.html fetches this (~1 KB) instead of the
+ * ~236 KB snapshot envelope (lane D §3). */
+export const PAGES_CODE_META_ARTIFACT = "data/code-meta.json";
 
 /**
  * Content-hashed artifact filename (§1.6). Immutable snapshot artifacts get a
@@ -102,23 +111,49 @@ export function buildPagesCodeSearchIndex(code: unknown): {
   return { schema: "crescent-city-code-search/v1", articleCount: articles.length, sectionCount, shards };
 }
 
-/** Search the sharded index: title/number shard first, then full text. */
+/**
+ * Scoring function (lane D §1, documented in code):
+ *   2 — every query term hits the identity field `t` (section number/title/article)
+ *   1 — every query term hits the body text `x`
+ * Multi-word AND semantics: EVERY whitespace-separated term must hit the same
+ * field, so "business license" never matches a section containing only "license".
+ * A term hitting both fields scores by the strongest field (identity first).
+ * Results sort by score descending (title/number hits rank above body hits);
+ * within a tier, earlier index order (article/section order) is stable.
+ */
+export function scoreCodeSearchEntry(identityText: string, bodyText: string, terms: string[]): number {
+  if (terms.length === 0) return -1;
+  return terms.every(term => identityText.includes(term)) ? 2
+    : terms.every(term => bodyText.includes(term)) ? 1
+    : -1;
+}
+
+/** Search the sharded index: score title/number hits above body hits (multi-word AND). */
 export function searchPagesCodeIndex(index: ReturnType<typeof buildPagesCodeSearchIndex>, needle: string, limit = 30): Array<{ id: string; n: string; t: string; title: string; a: string; u: string | null; x?: string }> {
   const query = needle.trim().toLowerCase();
   if (!query) return [];
+  const terms = query.split(/\s+/).filter(Boolean);
   const textById = new Map(index.shards.x.map(entry => [entry.id, entry.x]));
-  const matches: Array<{ id: string; n: string; t: string; title: string; a: string; u: string | null; x?: string }> = [];
+  const scored: Array<{ score: number; match: { id: string; n: string; t: string; title: string; a: string; u: string | null; x?: string } }> = [];
+  const seen = new Set<string>();
   for (const entry of index.shards.t) {
-    if (entry.t.includes(query)) matches.push({ ...entry, x: textById.get(entry.id) ?? "" });
+    seen.add(entry.id);
+    const score = scoreCodeSearchEntry(entry.t, textById.get(entry.id) ?? "", terms);
+    if (score >= 0) matches_push(scored, score, { ...entry, x: textById.get(entry.id) ?? "" });
   }
   for (const entry of index.shards.x) {
-    if (matches.length >= limit) break;
-    if (entry.x.includes(query) && !matches.some(match => match.id === entry.id)) {
+    if (seen.has(entry.id)) continue; // already scored via the identity shard
+    const score = scoreCodeSearchEntry("", entry.x, terms);
+    if (score >= 0) {
       const identity = index.shards.t.find(candidate => candidate.id === entry.id);
-      if (identity) matches.push({ ...identity, x: entry.x });
+      if (identity) matches_push(scored, score, { ...identity, x: entry.x });
     }
   }
-  return matches.slice(0, limit);
+  return scored.sort((a, b) => b.score - a.score).slice(0, limit).map(item => item.match);
+}
+
+function matches_push<T>(list: Array<{ score: number; match: T }>, score: number, match: T): void {
+  list.push({ score, match });
 }
 const PAGES_SITE_URL = "https://quadruplicate.org";
 export const PAGES_ROBOTS_TXT = "robots.txt";
@@ -131,6 +166,17 @@ export const PAGES_FEED_LINK_HTML = '<link rel="alternate" type="application/rss
 export const PAGES_SHARED_ASSETS: ReadonlyArray<{ source: string; placeholder: string; hashPrefix: string }> = [
   { source: "site.css", placeholder: "assets/SITE_CSS_PLACEHOLDER", hashPrefix: "assets/site." },
   { source: "site.js", placeholder: "assets/SITE_JS_PLACEHOLDER", hashPrefix: "assets/site." },
+  // Lane A r2: the ~10 KB of index-only CSS (geo showcase, welcome grid,
+  // methods, FAQ, mobile, print) is content-hashed and emitted the same way.
+  // Only index.html consumes the INDEX_CSS placeholder, so a surviving
+  // placeholder anywhere else is already caught by the per-page replacement
+  // guarantee below.
+  { source: "index.css", placeholder: "assets/INDEX_CSS_PLACEHOLDER", hashPrefix: "assets/index." },
+  // Lane A r2: 404 page-specific CSS. The errata page keeps its distinct
+  // minimal layout (720px column, errata/stop-press styling) but its former
+  // divergent sepia :root palette fork is gone — the shared --cc/--rdark/--rtint
+  // family now supplies the accent/tint tokens, with page-local neutrals here.
+  { source: "404.css", placeholder: "assets/404_CSS_PLACEHOLDER", hashPrefix: "assets/404." },
 ];
 /** Placeholder in each page script slot; replaced with the hashed shared JS path at export. */
 export const PAGES_ASSET_PLACEHOLDER = "PAGES_ASSET_PLACEHOLDER";
@@ -222,6 +268,12 @@ export interface PagesSnapshot {
     analytics: string | null;
     /** Content-hashed sharded municipal-code search index (§1.3), lazy-loaded on first keystroke. */
     codeSearchIndex: string | null;
+    /** Per-field shards (lane D §2): title/number shard (~0.5 MB) and body shard (~2.4 MB),
+     * also content-hashed; null when no code export exists in this edition. */
+    codeSearchTitleIndex: string | null;
+    codeSearchBodyIndex: string | null;
+    /** Tiny code metadata artifact (lane D §3): code.html fetches this instead of the envelope. */
+    codeMeta: string | null;
   };
   publicationPolicy: {
     triplicate: "reference-citation-only";
@@ -677,6 +729,24 @@ function xmlEscape(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
+/**
+ * Lane C (round-2): sanitize a data-derived rendered string at the artifact
+ * boundary. Strips escaped-codepoint placeholder text ("U0001f7e1" style
+ * literals) that leaked from source copy, and collapses em-dash placeholder
+ * concatenations like "—ft@—s" / "—kt" / "—ft waves" that advertise missing
+ * readings instead of omitting them. Applied to feed titles/descriptions and
+ * asserted in the release gate so these classes cannot regress.
+ */
+export function sanitizeRenderedText(value: string): string {
+  return value
+    .replace(/U0001[0-9a-fA-F]{1,5}/g, "")
+    .replace(/\u2014ft@\u2014s/g, "")
+    .replace(/\u2014ft waves/g, "")
+    .replace(/\u2014kt/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function feedItemDate(item: JsonRecord): string | null {
   for (const key of ["pubDate", "date", "fetchedAt", "timestamp", "checkedAt"]) {
     const value = item[key];
@@ -707,9 +777,9 @@ export function buildPagesFeedXml(snapshot: PagesSnapshot): string {
     const title = feedItemTitle(item);
     if (!title) continue;
     items.push({
-      title,
+      title: sanitizeRenderedText(title),
       link: typeof item.link === "string" && /^https?:\/\//i.test(item.link) ? item.link : `${PAGES_SITE_URL}/news.html`,
-      description: typeof item.description === "string" ? item.description.slice(0, 500) : "",
+      description: typeof item.description === "string" ? sanitizeRenderedText(item.description.slice(0, 500)) : "",
       date: feedItemDate(item),
     });
   }
@@ -717,9 +787,9 @@ export function buildPagesFeedXml(snapshot: PagesSnapshot): string {
     const title = feedItemTitle(item);
     if (!title) continue;
     items.push({
-      title,
+      title: sanitizeRenderedText(title),
       link: typeof item.link === "string" && /^https?:\/\//i.test(item.link) ? item.link : `${PAGES_SITE_URL}/meetings.html`,
-      description: typeof item.content === "string" ? item.content.slice(0, 500) : "",
+      description: typeof item.content === "string" ? sanitizeRenderedText(item.content.slice(0, 500)) : "",
       date: feedItemDate(item),
     });
   }
@@ -728,9 +798,9 @@ export function buildPagesFeedXml(snapshot: PagesSnapshot): string {
     if (!title) continue;
     const monitor = typeof alert.monitor === "string" ? alert.monitor : "unknown";
     items.push({
-      title: `Alerts \u00b7 ${monitor}: ${title}`,
+      title: sanitizeRenderedText(`Alerts \u00b7 ${monitor}: ${title}`),
       link: `${PAGES_SITE_URL}/#alerts`,
-      description: typeof alert.detail === "string" && alert.detail.trim() ? alert.detail.slice(0, 500) : `Current ${monitor} alert state`,
+      description: typeof alert.detail === "string" && alert.detail.trim() ? sanitizeRenderedText(alert.detail.slice(0, 500)) : `Current ${monitor} alert state`,
       date: feedItemDate(alert),
     });
   }
@@ -1377,6 +1447,9 @@ export async function buildPagesSnapshot(
       alerts: PAGES_ALERTS_ARTIFACT,
       analytics: analytics?.schemaVersion === "1.0.0" ? PAGES_ANALYTICS_ARTIFACT : null,
       codeSearchIndex: null,
+      codeSearchTitleIndex: null,
+      codeSearchBodyIndex: null,
+      codeMeta: null,
     },
     publicationPolicy: {
       triplicate: "reference-citation-only",
@@ -1423,9 +1496,23 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       files[files.length] = hashed;
       sharedAssetPaths[asset.source] = hashed;
     }
-    const resolveAssetPlaceholders = (html: string): string => html
-      .split("assets/SITE_CSS_PLACEHOLDER").join(sharedAssetPaths["site.css"])
-      .split("assets/SITE_JS_PLACEHOLDER").join(sharedAssetPaths["site.js"]);
+    const resolveAssetPlaceholders = (html: string): string => {
+      let resolved = html;
+      for (const asset of PAGES_SHARED_ASSETS) {
+        resolved = resolved.split(asset.placeholder).join(sharedAssetPaths[asset.source]);
+      }
+      return resolved;
+    };
+    // Every shared-asset placeholder must resolve on every page; a surviving
+    // marker of any kind fails the export rather than shipping a broken link.
+    const assertNoAssetPlaceholders = (html: string, pageFile: string): string => {
+      for (const asset of PAGES_SHARED_ASSETS) {
+        if (html.includes(asset.placeholder)) {
+          throw new Error(`Pages shared-asset placeholders were not replaced: ${pageFile} (${asset.source})`);
+        }
+      }
+      return html;
+    };
     const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
     const faviconHead = buildPagesFaviconHeadHtml();
     // index.html keeps its hand-authored canonical/OG/Twitter head block; the
@@ -1443,7 +1530,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       throw new Error("Pages index JSON-LD date placeholders were not replaced");
     }
     const indexWithAssets = resolveAssetPlaceholders(indexHtmlFinal.replace("  <script>", `${PAGES_SHARED_JS_TAG}\n  <script>`));
-    await writeFile(join(temporary, "index.html"), indexWithAssets, "utf8");
+    await writeFile(join(temporary, "index.html"), assertNoAssetPlaceholders(indexWithAssets, "index.html"), "utf8");
     const page404Template = await readFile(join(STATIC_DIR, "404.html"), "utf8");
     const page404Chromed = embedPagesFooter(
       embedPagesBreadcrumb(
@@ -1453,7 +1540,15 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       ),
       "errata",
     );
-    await writeFile(join(temporary, "404.html"), resolveAssetPlaceholders(page404Chromed).replace("</head>", `${faviconHead}\n</head>`), "utf8");
+    // Lane A r2: 404.html is served at arbitrary nested paths, so its shared
+    // stylesheet links must be root-absolute exactly like its nav links (§2.2).
+    const page404Final = assertNoAssetPlaceholders(
+      resolveAssetPlaceholders(page404Chromed)
+        .replace("</head>", `${faviconHead}\n</head>`)
+        .replaceAll('href="assets/', 'href="/assets/'),
+      "404.html",
+    );
+    await writeFile(join(temporary, "404.html"), page404Final, "utf8");
     for (const page of PAGES_STATIC_PAGES) {
       if (!(await copyIfPresent(join(STATIC_DIR, page.file), join(temporary, page.file)))) {
         throw new Error(`Pages static page is missing from ${STATIC_DIR}: ${page.file}`);
@@ -1478,9 +1573,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
         .replace(PAGES_JSONLD_DATASET_PLACEHOLDER, "");
       if (hydrated.includes("PAGES_JSONLD")) throw new Error(`Pages page JSON-LD markers were not replaced: ${page.file}`);
       const withAssets = resolveAssetPlaceholders(hydrated.replace("    <script>", `    ${PAGES_SHARED_JS_TAG}\n    <script>`));
-      if (withAssets.includes("SITE_CSS_PLACEHOLDER") || withAssets.includes("SITE_JS_PLACEHOLDER")) {
-        throw new Error(`Pages shared-asset placeholders were not replaced: ${page.file}`);
-      }
+      assertNoAssetPlaceholders(withAssets, page.file);
       await writeFile(pagePath, withAssets, "utf8");
       files[files.length] = page.file;
     }
@@ -1546,16 +1639,56 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       if (await copyFirstPresent(source, join(temporary, target))) files.push(target);
     }
     // --- Sharded municipal-code search index (§1.3), content-hashed for normal caching (§1.6) ---
+    // Lane D §2: the combined index (client-compat, referenced by index.html's
+    // lazy loader — not lane D's file) is joined by per-field shards so future
+    // consumers can fetch only the ~0.5 MB title shard; plus a tiny code-meta
+    // artifact so code.html no longer needs the ~236 KB envelope (lane D §3).
     const codeJsonBytes = await readFile(join(temporary, "data/code.json")).catch(() => null);
     if (codeJsonBytes !== null) {
       const searchIndex = buildPagesCodeSearchIndex(JSON.parse(new TextDecoder().decode(codeJsonBytes)));
       const searchIndexSource = `${JSON.stringify(searchIndex)}\n`;
+      const titleSource = `${JSON.stringify({
+        schema: searchIndex.schema,
+        articleCount: searchIndex.articleCount,
+        sectionCount: searchIndex.sectionCount,
+        shard: "t" as const,
+        entries: searchIndex.shards.t,
+      })}\n`;
+      const bodySource = `${JSON.stringify({
+        schema: searchIndex.schema,
+        sectionCount: searchIndex.sectionCount,
+        shard: "x" as const,
+        entries: searchIndex.shards.x,
+      })}\n`;
       const searchIndexPath = pagesContentHashName(PAGES_SEARCH_INDEX_ARTIFACT_PREFIX + "json", searchIndexSource);
+      const titleIndexPath = pagesContentHashName(PAGES_SEARCH_TITLE_ARTIFACT_PREFIX + "json", titleSource);
+      const bodyIndexPath = pagesContentHashName(PAGES_SEARCH_BODY_ARTIFACT_PREFIX + "json", bodySource);
       await writeFile(join(temporary, searchIndexPath), searchIndexSource, "utf8");
+      await writeFile(join(temporary, titleIndexPath), titleSource, "utf8");
+      await writeFile(join(temporary, bodyIndexPath), bodySource, "utf8");
       snapshot.files.codeSearchIndex = searchIndexPath;
-      // Persist the envelope again so files.codeSearchIndex matches the emitted artifact.
+      snapshot.files.codeSearchTitleIndex = titleIndexPath;
+      snapshot.files.codeSearchBodyIndex = bodyIndexPath;
+      // Tiny code-meta artifact (lane D §3): code.html's whole first-load dependency.
+      const codeMeta = {
+        schema: "crescent-city-code-meta/v1",
+        generatedAt: snapshot.generatedAt,
+        available: snapshot.municipalCode.available,
+        source: snapshot.municipalCode.source,
+        counts: snapshot.municipalCode.counts,
+        files: {
+          code: snapshot.files.code,
+          codeSearchIndex: searchIndexPath,
+          codeSearchTitleIndex: titleIndexPath,
+          codeSearchBodyIndex: bodyIndexPath,
+        },
+      };
+      const codeMetaPath = PAGES_CODE_META_ARTIFACT;
+      await writeFile(join(temporary, codeMetaPath), `${JSON.stringify(codeMeta)}\n`, "utf8");
+      snapshot.files.codeMeta = codeMetaPath;
+      // Persist the envelope again so files.* match the emitted artifacts.
       await writeJson(join(temporary, "data/snapshot.json"), snapshot);
-      files.push(searchIndexPath);
+      files.push(searchIndexPath, titleIndexPath, bodyIndexPath, codeMetaPath);
     }
     if (snapshot.report.monthly !== null) {
       await writeFile(join(temporary, "data/report.md"), snapshot.report.monthly, "utf8");

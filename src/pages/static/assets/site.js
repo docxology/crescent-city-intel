@@ -140,16 +140,38 @@ function codeResultCard(section) {
   return `<article class="item"><h3>${esc(section.n || section.number || "")} ${esc(section.title || "")}</h3><div class="meta">${esc(section.a || section.articleTitle || "")}</div><p>${esc(text.slice(0, 420))}${text.length > 420 ? "…" : ""}</p>${(section.u || section.articleUrl) ? `<a href="${esc(href(section.u || section.articleUrl))}" rel="noopener noreferrer">source article</a>` : ""}</article>`;
 }
 
-/** Sharded code-index matcher (canonical index.html copy). */
+/**
+ * Sharded code-index matcher — mirrors the exporter's scoring contract
+ * (pages_snapshot.ts scoreCodeSearchEntry, lane D §1, documented there):
+ *   2 — every query term hits the identity field (number/title/article)
+ *   1 — every query term hits the body text
+ * Title/number hits rank above body hits; multi-word queries are AND semantics
+ * (every whitespace-separated term must hit the same field). `cap` limits the
+ * returned (already best-first) result list.
+ */
+function scoreCodeSearchEntry(identityText, bodyText, terms) {
+  if (!terms.length) return -1;
+  return terms.every(term => identityText.includes(term)) ? 2
+    : terms.every(term => bodyText.includes(term)) ? 1
+    : -1;
+}
 function searchIndexMatches(index, needle, cap = SEARCH_CAP) {
   const query = String(needle || "").trim().toLowerCase();
   if (!query || !index || !index.shards) return [];
+  const terms = query.split(/\s+/).filter(Boolean);
   const identity = new Map((index.shards.t || []).map(entry => [entry.id, entry]));
-  const matches = [];
-  for (const entry of index.shards.t || []) if (entry.t.includes(query)) matches.push({ ...entry, x: "" });
-  for (const entry of index.shards.x || []) {
-    if (matches.length >= cap * 4) break;
-    if (entry.x.includes(query) && identity.has(entry.id)) matches.push({ ...identity.get(entry.id), x: entry.x });
+  const bodyTextById = new Map((index.shards.x || []).map(entry => [entry.id, entry.x]));
+  const scored = [];
+  const seen = new Set();
+  for (const entry of index.shards.t || []) {
+    seen.add(entry.id);
+    const score = scoreCodeSearchEntry(entry.t, bodyTextById.get(entry.id) || "", terms);
+    if (score >= 0) scored.push({ score, match: { ...entry, x: bodyTextById.get(entry.id) || "" } });
   }
-  return matches.slice(0, cap * 4);
+  for (const entry of index.shards.x || []) {
+    if (seen.has(entry.id)) continue; // already scored via the identity shard
+    const score = scoreCodeSearchEntry("", entry.x, terms);
+    if (score >= 0 && identity.has(entry.id)) scored.push({ score, match: { ...identity.get(entry.id), x: entry.x } });
+  }
+  return scored.sort((a, b) => b.score - a.score).slice(0, cap * 4).map(item => item.match);
 }

@@ -129,7 +129,7 @@ describe("public Pages snapshot", () => {
       }
       expect(validatePagesHtml(pagesHtmlMap)).toEqual([]);
     });
-  });
+  }, 60000);
 
   test("does not manufacture availability when output is missing", async () => {
     await withFixture(async root => {

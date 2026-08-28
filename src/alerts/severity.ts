@@ -424,7 +424,15 @@ function assessMarine(input: MarineInput): MonitorStatus {
   }
   return {
     level: "CALM",
-    summary: `Normal marine conditions: ${input.waveHeightFt?.toFixed(1) ?? "\u2014"}ft waves, ${input.windSpeedKt?.toFixed(0) ?? "\u2014"}kt wind`,
+    summary: `Normal marine conditions: ${(() => {
+        // Data honesty: omit missing readings instead of publishing em-dash
+        // placeholder glyphs in the public composite summary.
+        const parts = [
+          input.waveHeightFt != null ? `${input.waveHeightFt.toFixed(1)}ft waves` : null,
+          input.windSpeedKt != null ? `${input.windSpeedKt.toFixed(0)}kt wind` : null,
+        ].filter((value): value is string => value !== null);
+        return parts.length > 0 ? parts.join(", ") : "no wave or wind reading recorded";
+      })()}`,
     count: 0,
   };
 }

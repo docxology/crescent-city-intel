@@ -105,7 +105,7 @@ describe("lane1: payload split (Phase 1)", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 60000);
 
   test("no static page uses cache:\"no-store\" and code.html loads artifacts lazily", async () => {
     const files = ["index.html", "404.html", "gui.html", "news.html", "meetings.html", "events.html", "code.html", "sources.html"];

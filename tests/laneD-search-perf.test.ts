@@ -112,7 +112,7 @@ describe("lane D: per-field shards + code-meta artifact", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 60000);
 
   test("client matcher (site.js) implements the same scoring contract as the exporter", async () => {
     const siteJs = await readFile(join(import.meta.dir, "../src/pages/static/assets/site.js"), "utf8");

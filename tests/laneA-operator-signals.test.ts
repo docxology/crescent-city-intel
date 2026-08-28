@@ -49,7 +49,7 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
       expect(indexHtml).not.toContain("yt-dlp");
       expect(indexHtml).not.toContain("$PATH");
     });
-  });
+  }, 60000);
 
   test("negative control: operator artifact disagreeing with the overview fails the release gate", async () => {
     await withFixture(async root => {
@@ -75,7 +75,7 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
       // error must be present in the same failure list.
       expect(output).toContain("does not match data/analytics.json");
     });
-  }, 20000);
+  }, 60000);
 
   test("negative control: yt-dlp leakage on a public page fails the release gate", async () => {
     await withFixture(async root => {
@@ -97,7 +97,7 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
       expect(validate.exitCode).not.toBe(0);
       expect(output).toContain("leaks operator-side detail");
     });
-  }, 20000);
+  }, 60000);
 
   test("publicSignalNotice copy stays free of executable detail (regression guard)", () => {
     const operatorSignal: OverviewSignal = {

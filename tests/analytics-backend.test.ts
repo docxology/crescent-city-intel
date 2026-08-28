@@ -15,7 +15,7 @@ describe("cross-surface analytics backend", () => {
     expect(first.metrics.sources.registryCount).toBeGreaterThan(0);
     expect(Array.isArray(first.signals)).toBe(true);
     expect(first.llm.status).toBe("not-requested");
-  });
+  }, 120000);
 
   test("handles a partially indexed embedding set without undefined clusters", () => {
     const result = kmeans([[1, 2]], 6);

@@ -187,6 +187,24 @@ const sourceDiscoveryExecution = await executePipelineStep("source-discovery", (
   outputPaths: [paths.sourceRegistry, paths.sourceDiscovery, paths.sourceDiscoverySeen],
 });
 steps.push(sourceDiscoveryExecution.report);
+// Community-calendar refresh: merge monitor artifacts + discovered calendar
+// feeds into output/events/events.json (+ events.ics) so the published
+// snapshot's events slice is regenerated on every weekly cycle, not stale.
+const eventsExecution = await executePipelineStep("community-calendar-events", async () => {
+  const proc = Bun.spawnSync(["bun", "run", "src/events.ts"], {
+    cwd: join(import.meta.dir, ".."),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (proc.exitCode !== 0) throw new Error(`events refresh exited ${proc.exitCode}: ${proc.stderr.toString().slice(0, 300)}`);
+  return { exited: proc.exitCode };
+}, {
+  classify: _result => "ok",
+  itemCount: _result => 1,
+  outputPaths: [join(paths.output ?? "output", "events", "events.json")],
+});
+steps.push(eventsExecution.report);
+if (eventsExecution.report.error) logger.warn("Community calendar refresh failed (non-fatal)", { error: eventsExecution.report.error });
 const reportExecution = await executePipelineStep("monthly-report", () => generateMonthlyReport(), {
   outputPaths: [paths.reports, paths.latestReportMetadata],
 });

@@ -54,6 +54,26 @@ jobs:
         run: bun run validate
         continue-on-error: true
 
+      # Community-calendar refresh (events.html + front-page calendar): merge
+      # live government calendars into the structured events artifact, then
+      # feed live-source discovery into the same pipeline. continue-on-error
+      # matches the rest of collection: an outage degrades source health, it
+      # does not block the public snapshot.
+      - name: Collect community calendar events
+        run: bun run events
+        continue-on-error: true
+        timeout-minutes: 5
+
+      - name: Discover community events from public feeds
+        run: bun run src/event_discovery.ts
+        continue-on-error: true
+        timeout-minutes: 5
+
+      - name: Re-merge discovered events into the calendar
+        run: bun run events
+        continue-on-error: true
+        timeout-minutes: 5
+
 
       # Municipal-code snapshot collection must precede snapshot export so the
       # published edition contains real code statistics. A failed collection

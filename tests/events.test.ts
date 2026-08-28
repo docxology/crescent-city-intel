@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import { join } from "path";
+import { tmpdir } from "os";
 import {
   MAX_EVENTS,
   MAX_SOURCE_LINKS,
@@ -299,5 +300,36 @@ describe("buildEventsIcs", () => {
     const backward = buildEventsIcs([b, a]);
     expect(forward.indexOf("a-first")).toBeLessThan(forward.indexOf("b-second"));
     expect(backward.indexOf("b-second")).toBeLessThan(backward.indexOf("a-first"));
+  });
+});
+
+describe('collectEvents > discovery merge', () => {
+  test('merges discovered calendar events and drops URL-less/undated discovery records', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'events-disc-'));
+    const batch = (items: unknown[]) => JSON.stringify({ schemaVersion: 'x', items });
+    await mkdir(join(base, 'gov_meetings'), { recursive: true });
+    await Bun.write(join(base, 'gov_meetings', 'batch-1.json'), batch([
+      { title: 'Council Regular Meeting', link: 'https://example.com/m1', date: '2026-09-15', source: 'City Council' },
+    ]));
+    await mkdir(join(base, 'events'), { recursive: true });
+    await Bun.write(join(base, 'events', 'event_discovery.json'), JSON.stringify({
+      schemaVersion: 'crescent-city-events-discovery/v1',
+      events: [
+        { title: 'Board of Supervisors', kind: 'government-meeting', dateStart: '2026-10-06', sourceUrl: 'https://example.com/bos', sourceName: 'County of Del Norte Community Events Calendar', confidence: 0.9 },
+        { title: 'No URL Workshop', kind: 'community-listing', dateStart: '2026-10-07', sourceName: 'Library' },
+        { title: 'Undated Fair', kind: 'community-listing', sourceUrl: 'https://example.com/fair', sourceName: 'Chamber' },
+      ],
+    }));
+    const events = await collectEvents(base);
+    const titles = events.map(event => event.title);
+    expect(titles).toContain('Council Regular Meeting');
+    expect(titles).toContain('Board of Supervisors');
+    expect(titles).not.toContain('No URL Workshop');
+    expect(titles).not.toContain('Undated Fair');
+    const bos = events.find(event => event.title === 'Board of Supervisors')!;
+    expect(bos.kind).toBe('government-meeting');
+    expect(bos.dateStart).toBe('2026-10-06');
+    expect(bos.sourceLinks).toContain('https://example.com/bos');
+    await rm(base, { recursive: true, force: true });
   });
 });

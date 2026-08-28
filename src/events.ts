@@ -295,6 +295,24 @@ async function loadItems(dir: string, requireItemsArray: boolean): Promise<Array
   return items;
 }
 
+/** Read discovered community-calendar events from <outputDir>/events/event_discovery.json. */
+async function loadDiscoveryEvents(outputDir: string): Promise<Array<Record<string, unknown>>> {
+  const parsed = await readJsonObject(join(outputDir, 'events', 'event_discovery.json'));
+  if (!parsed) return [];
+  const events = parsed.events;
+  if (!Array.isArray(events)) return [];
+  return events.flatMap(item => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return [];
+    const record = item as Record<string, unknown>;
+    // Discovery artifacts carry `sourceUrl` + `dateStart`; normalize to the
+    // `link` + `date` field names mapCandidate expects. A discovery record
+    // without both a usable URL and a resolvable date is dropped (never guessed).
+    const link = typeof record.sourceUrl === 'string' ? record.sourceUrl.trim() : '';
+    if (!/^https?:\/\//i.test(link)) return [];
+    return [{ ...record, link, date: record.dateStart ?? record.date }];
+  });
+}
+
 /**
  * Read deterministic monitor artifacts (<outputDir>/gov_meetings|news|youtube)
  * and produce a sorted, capped list of structured events. Sorts ascending by
@@ -313,6 +331,21 @@ export async function collectEvents(outputDir = join(process.cwd(), 'output')): 
   const candidates: RawEventCandidate[] = [];
   for (const item of meetingItems) {
     const mapped = mapCandidate(item, kindFor('meetings', str(item.source)), 'Government meeting');
+    if (mapped) candidates.push(mapped);
+  }
+  // Discovered community-calendar events (event_discovery.ts) join the same
+  // dedupe/merge pipeline: their date+source grounding is already enforced at
+  // discovery time, so any candidate with a URL but no resolvable date is
+  // dropped here too — never guessed.
+  const discoveryItems = await loadDiscoveryEvents(base);
+  for (const item of discoveryItems) {
+    // Discovery records name their originating calendar in sourceName; city and
+    // county calendars are government sources, so classify accordingly.
+    const sourceName = str(item.sourceName);
+    const kind: EventKind = /city|county|supervisor|commission|transit|authority|district/i.test(`${sourceName} ${str(item.title)}`)
+      ? 'government-meeting'
+      : 'community-listing';
+    const mapped = mapCandidate(item, kind, 'Community listing');
     if (mapped) candidates.push(mapped);
   }
   for (const item of newsItems) {

@@ -887,6 +887,14 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
       if (html.includes(leaked)) errors.push(`${page} leaks operator-side detail on a public surface: "${leaked}"`);
     }
   }
+  // --- lane C gate: rendered-copy leak patterns (data honesty) ---
+  // Escaped emoji codepoints, em-dash placeholder concatenations, JS object
+  // stringification, and double-escaped entities must never reach published copy.
+  for (const [page, html] of pageHtmlCache) {
+    for (const pattern of ["U0001", "\u2014ft@\u2014s", "[object Object]", "&amp;amp;"]) {
+      if (html.includes(pattern)) errors.push(`${page} renders a leak pattern on a public surface (lane C data-honesty gate): "${pattern}"`);
+    }
+  }
 }
 
 // --- lane D gate: caching correctness (item 4) ---

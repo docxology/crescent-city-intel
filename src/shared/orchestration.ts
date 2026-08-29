@@ -1,6 +1,8 @@
 /** Shared durable orchestration and build metadata helpers. */
 import type { PipelineRunReport, PipelineStepReport, SourceHealth, SourceHealthSummary } from "../types.js";
 import { errorMessage, summarizeSourceHealth, writeJsonAtomic } from "./source_health.js";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 export interface StepExecution<T> {
   value?: T;
@@ -75,9 +77,23 @@ function gitCommit(): string | null {
   return null;
 }
 
+/**
+ * The shipped version, read from package.json rather than typed here. The
+ * literal fallback said 2.5.1 while the package was at 2.6.0, so every pipeline
+ * run reported a version the code had not been for two releases — a value
+ * presented to a reader as fact and quietly invented.
+ */
+function packageVersion(): string {
+  try {
+    const manifest = JSON.parse(readFileSync(join(import.meta.dir, "..", "..", "package.json"), "utf-8")) as { version?: string };
+    if (typeof manifest.version === "string" && manifest.version.length > 0) return manifest.version;
+  } catch { /* fall through: an unreadable manifest must not break a run */ }
+  return "unknown";
+}
+
 export function runtimeMetadata(): PipelineRunReport["metadata"] {
   return {
-    appVersion: process.env.APP_VERSION ?? "2.5.1",
+    appVersion: process.env.APP_VERSION ?? packageVersion(),
     commit: gitCommit(),
     runtime: `bun/${process.versions.bun ?? "unknown"}`,
     ci: Boolean(process.env.CI || process.env.GITHUB_ACTIONS),

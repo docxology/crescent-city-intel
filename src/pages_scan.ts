@@ -14,7 +14,9 @@
  * controls live in tests/pages-scan.test.ts.
  */
 
-const SAFE_CALLS = new Set(["esc", "href", "status", "empty", "date", "Number"]);
+/** The escaping helpers an interpolation may pass through. */
+export const SAFE_CALLS = ["esc", "href", "status", "empty", "date", "Number"] as const;
+const SAFE_CALL_PATTERN = new RegExp(`^(?:${SAFE_CALLS.join("|")})\\s*\\(`);
 
 function skipString(src: string, i: number, quote: string): number {
   i++;
@@ -149,7 +151,7 @@ function checkOperand(expr: string, ctx: Ctx): void {
     const open = e.indexOf("(");
     if (matchDelim(e, open, "(", ")") === e.length) return;
   }
-  const call = /^(?:esc|href|status|empty|date|Number)\s*\(/.exec(e);
+  const call = SAFE_CALL_PATTERN.exec(e);
   if (call) {
     const open = e.indexOf("(");
     if (matchDelim(e, open, "(", ")") === e.length) return;

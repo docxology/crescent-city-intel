@@ -319,6 +319,10 @@ describe("lane cci-frontend: authored markup + export gate", () => {
         // P1-H — one window wiring, called by both pages.
         { name: "a page re-inlines its own window-button loop", file: "index.html", from: 'wireCalendarWindowButtons("event-window-controls"', to: 'for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {} legacyWire("event-window-controls"', expect: "index.html does not use the shared wireCalendarWindowButtons (duplicated window wiring, P1-H)" },
         { name: "site.js loses the shared window wiring", file: `assets/${siteJsName}`, from: "function wireCalendarWindowButtons", to: "function legacyWireWindowButtons", expect: "does not evaluate, or no longer exports the calendar helpers" },
+        // §1.1 — the envelope must reference the standalone artifacts, not carry
+        // them. (This assertion was a loop whose only statement was `continue`.)
+        { name: "the envelope re-inlines the readability artifact", file: "data/snapshot.json", from: '"files":', to: '"readability": {"score": 1, "grade": "x"}, "files":', expect: "inlines the readability artifact" },
+        { name: "the envelope drops its reference to the verification artifact", file: "data/snapshot.json", from: '"verification":', to: '"verificationMoved":', expect: "no reference for the verification artifact" },
         // The contrast gate must see the SHIPPED palette, not its own constants:
         // lightening a variable in the emitted stylesheet has to fail it.
         { name: "the palette lightens below the contrast floor", file: `assets/${siteCssName}`, from: "--ink-faint:#666666", to: "--ink-faint:#bbbbbb", expect: "contrast regression: .meta on --paper" },

@@ -326,9 +326,24 @@ for (const [artifact, budget] of Object.entries(lane1Budgets)) {
 }
 // §1.1: the envelope must never re-inline the four standalone artifacts.
 if (snapshot) {
-  const envelopeSource = JSON.stringify(snapshot);
-  for (const inlined of ["readability", "verification", "domainCoverage", "domain-coverage"]) {
-    if (inlined === "verification" && envelopeSource.includes("files.verification")) continue;
+  // The four standalone artifacts must be referenced, never re-inlined. This
+  // was a loop whose only statement was `continue`: it iterated the four names
+  // and could not push an error under any input.
+  // Each of these ships as its own artifact and must be REFERENCED from
+  // snapshot.files, never carried inline in the envelope every page downloads.
+  // (sourceDiscovery is a deliberate exception: the envelope carries its small
+  // summary and files.sourceDiscovery points at the full artifact.)
+  const envelope = snapshot as unknown as Record<string, unknown>;
+  for (const inlined of ["readability", "verification", "domainCoverage", "coverage"]) {
+    const value = envelope[inlined];
+    if (value && typeof value === "object") {
+      errors.push(`snapshot envelope inlines the ${inlined} artifact instead of referencing it (§1.1 split regressed)`);
+    }
+    if (!(inlined in (snapshot.files ?? {})) && inlined !== "domainCoverage") {
+      // The reference must exist, or "not inlined" is trivially satisfied by
+      // the artifact not being published at all.
+      errors.push(`snapshot.files has no reference for the ${inlined} artifact (§1.1 split)`);
+    }
   }
   const mc = snapshot.municipalCode as Record<string, unknown> | undefined;
   if (mc && ("manifest" in mc || "verification" in mc || "coverage" in mc || "readability" in mc)) {

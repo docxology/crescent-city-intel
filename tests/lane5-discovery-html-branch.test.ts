@@ -32,12 +32,12 @@ const htmlSource: EventSourceRecord = {
 };
 
 const listing = (rows: string): string => `<html><body>${rows}</body></html>`;
-const row = (title: string, date: string, href: string): string =>
-  `<article class="event"><h3><a href="${href}">${title}</a></h3><time>${date}</time></article>`;
+const row = (title: string, date: string, href: string, location?: string): string =>
+  `<article class="event"><h3><a href="${href}">${title}</a></h3><time>${date}</time>${location ? `<span class="location">${location}</span>` : ""}</article>`;
 
 describe("lane 5: discoverFromSource HTML branch (real function, stubbed transport)", () => {
   test("a row whose markup carries a parseable date becomes a markup event, with no LLM call", async () => {
-    serveHtml(listing(row("Harbor District Meeting", "October 6, 2026", "https://calendar.example.org/e/1")));
+    serveHtml(listing(row("Harbor District Meeting", "October 6, 2026", "https://calendar.example.org/e/1", "Harbor Office")));
     const counters: DropCounters = { droppedAmbiguous: 0, droppedUndated: 0 };
     let llmCalls = 0;
     const result = await discoverFromSource(htmlSource, counters, {
@@ -109,5 +109,40 @@ describe("lane 5: discoverFromSource HTML branch (real function, stubbed transpo
     expect(result.status).toBe("error");
     expect(result.error).toContain("503");
     expect(result.events).toEqual([]);
+  });
+});
+
+describe("lane 5b: completeness assist inside the reachable markup branch", () => {
+  test("a markup-dated row with no location gets LLM time/location assist and is labelled llm at 0.75", async () => {
+    serveHtml(listing(row("Harbor District Meeting", "October 6, 2026", "https://calendar.example.org/e/1")));
+    const counters: DropCounters = { droppedAmbiguous: 0, droppedUndated: 0 };
+    let llmCalls = 0;
+    const result = await discoverFromSource(htmlSource, counters, {
+      resolveLlm: async () => { llmCalls += 1; return { date: "2099-01-01", timeNote: "6:30 PM", location: "Harbor Office" }; },
+    });
+
+    expect(result.status).toBe("ok");
+    expect(result.events).toHaveLength(1);
+    const event = result.events[0]!;
+    // The markup date survives; only the missing fields are filled. The LLM
+    // date ("2099-01-01") must NOT win.
+    expect(event.dateStart).toBe("2026-10-06");
+    expect(event.timeNote).toBe("6:30 PM");
+    expect(event.location).toBe("Harbor Office");
+    expect(event.extractionMethod).toBe("llm");
+    expect(event.confidence).toBe(0.75);
+    expect(llmCalls).toBe(1);
+  });
+
+  test("a markup-dated row WITH a location never spends an LLM call", async () => {
+    serveHtml(listing(row("Harbor District Meeting", "October 6, 2026", "https://calendar.example.org/e/1", "Harbor Office")));
+    const counters: DropCounters = { droppedAmbiguous: 0, droppedUndated: 0 };
+    let llmCalls = 0;
+    const result = await discoverFromSource(htmlSource, counters, {
+      resolveLlm: async () => { llmCalls += 1; return { date: "2099-01-01", timeNote: "invented", location: "invented" }; },
+    });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]!.extractionMethod).toBe("markup");
+    expect(llmCalls).toBe(0);
   });
 });

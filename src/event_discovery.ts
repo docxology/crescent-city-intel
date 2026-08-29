@@ -474,29 +474,10 @@ export async function discoverFromSource(
     for (const row of rows.slice(0, MAX_EVENTS_PER_SOURCE)) {
       const markupDate = parseEventDate(row.dateRaw ?? "");
       if (row.hasDateContext && markupDate) {
-        events.push({
-          title: row.title,
-          kind: "community-listing",
-          dateStart: markupDate,
-          dateAllDay: true,
-          timeNote: sanitizeTimeNote(row.dateRaw),
-          location: row.location,
-          organizer: source.name,
-          description: "",
-          sourceUrl: row.link,
-          sourceName: source.name,
-          sourceLinks: [row.link],
-          extractionMethod: "markup",
-          confidence: 0.85,
-        });
-        continue;
-      }
-      if (row.hasDateContext) {
-        // Completeness assist: markup already yielded a date but the listing
-        // lacks a time or location - ask the LLM to extract those fields from
-        // the listing text, grounded ONLY in what the row states. The LLM
-        // date is never trusted over a markup-parsed date.
-        if (markupDate && !row.location) {
+        // Completeness assist: the markup yielded a date but the row lacks a
+        // location - ask the LLM to fill ONLY the missing fields, grounded in
+        // what the row states. The markup-parsed date is never replaced.
+        if (!row.location) {
           const assist = await resolveLlm(`${row.title} ${row.dateRaw ?? ""} ${row.location ?? ""}`.trim());
           if (assist && (assist.timeNote || assist.location)) {
             events.push({
@@ -517,6 +498,24 @@ export async function discoverFromSource(
             continue;
           }
         }
+        events.push({
+          title: row.title,
+          kind: "community-listing",
+          dateStart: markupDate,
+          dateAllDay: true,
+          timeNote: sanitizeTimeNote(row.dateRaw),
+          location: row.location,
+          organizer: source.name,
+          description: "",
+          sourceUrl: row.link,
+          sourceName: source.name,
+          sourceLinks: [row.link],
+          extractionMethod: "markup",
+          confidence: 0.85,
+        });
+        continue;
+      }
+      if (row.hasDateContext) {
         // Date-like text present but not strictly parseable -> ask the LLM, else drop.
         const llm = await resolveLlm(`${row.title} ${row.dateRaw ?? ""} ${row.location ?? ""}`.trim());
         if (llm?.date) {

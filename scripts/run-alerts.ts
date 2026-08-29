@@ -27,6 +27,8 @@ import { monitorTides, type TideReport } from "../src/alerts/noaa_tides.ts";
 import { monitorFishing, type FishingReport } from "../src/alerts/cdfw_fishing.ts";
 import { computeAlertSeverity } from "../src/alerts/severity.ts";
 import {
+  MONITOR_KEYS,
+  NULL_ON_FAILURE_MONITORS,
   buildCompositeInput,
   buildExtendedCompositeInput,
   buildExtendedMonitorDefinitions,
@@ -34,6 +36,7 @@ import {
   buildTidesInput,
   classifySourceHealth,
   type AlertMonitorDefinition,
+  type MonitorKey,
 } from "../src/alerts/composite.ts";
 import { createLogger } from "../src/logger.ts";
 import { readFile, mkdir, unlink, open, stat } from "fs/promises";
@@ -98,67 +101,67 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
   try {
     logger.info("=== Running All 13 Alert Monitors ===");
 
-    const monitorErrors = new Map<number, string>();
+    const monitorErrors = new Map<MonitorKey, string>();
     function runNullableMonitor<T>(
-      index: number,
+      key: MonitorKey,
       label: string,
       monitor: () => Promise<T | null>,
       lastError: () => string | undefined,
     ): Promise<T | null> {
       return monitor()
         .then(report => {
-          if (report === null) monitorErrors.set(index, lastError() ?? "Monitor returned no report");
+          if (report === null) monitorErrors.set(key, lastError() ?? "Monitor returned no report");
           return report;
         })
         .catch(err => {
           const message = err instanceof Error ? err.message : String(err);
-          monitorErrors.set(index, message);
+          monitorErrors.set(key, message);
           logger.error(`${label} monitor failed`, { error: message });
           return null;
         });
     }
 
-    const settledResults = await Promise.allSettled([
-      monitorNOAATsunamiAlerts().catch((err) => { logger.error("NOAA tsunami monitor failed", { error: err.message }); throw err; }),
-      monitorUSGSEarthquakeAlerts().catch((err) => { logger.error("USGS earthquake monitor failed", { error: err.message }); throw err; }),
-      monitorNWSWeatherAlerts().catch((err) => { logger.error("NWS weather monitor failed", { error: err.message }); throw err; }),
-      runNullableMonitor(3, "EPA air quality", runAirQualityMonitor, getLastAirQualityError),
-      runNullableMonitor(4, "CAL FIRE wildfire", runWildfireMonitor, getLastWildfireError),
-      runNullableMonitor(5, "NDBC marine", runMarineMonitor, () => undefined),
-      monitorTides().catch((err) => { logger.error("NOAA tides monitor failed", { error: err.message }); return null; }),
-      monitorFishing().catch((err) => { logger.error("CDFW fishing monitor failed", { error: err.message }); return null; }),
+    // Keyed batch: each monitor's identity is its key, not where it sits here.
+    const batch: Array<{ key: MonitorKey; run: () => Promise<unknown> }> = [
+      { key: "tsunami", run: () => monitorNOAATsunamiAlerts().catch((err) => { logger.error("NOAA tsunami monitor failed", { error: err.message }); throw err; }) },
+      { key: "earthquake", run: () => monitorUSGSEarthquakeAlerts().catch((err) => { logger.error("USGS earthquake monitor failed", { error: err.message }); throw err; }) },
+      { key: "weather", run: () => monitorNWSWeatherAlerts().catch((err) => { logger.error("NWS weather monitor failed", { error: err.message }); throw err; }) },
+      { key: "airquality", run: () => runNullableMonitor("airquality", "EPA air quality", runAirQualityMonitor, getLastAirQualityError) },
+      { key: "wildfire", run: () => runNullableMonitor("wildfire", "CAL FIRE wildfire", runWildfireMonitor, getLastWildfireError) },
+      { key: "marine", run: () => runNullableMonitor("marine", "NDBC marine", runMarineMonitor, () => undefined) },
+      { key: "tides", run: () => monitorTides().catch((err) => { logger.error("NOAA tides monitor failed", { error: err.message }); return null; }) },
+      { key: "fishing", run: () => monitorFishing().catch((err) => { logger.error("CDFW fishing monitor failed", { error: err.message }); return null; }) },
       // Phase-12 extended monitors: same graceful-degradation contract —
       // a live-feed failure records source health and never fails the run.
-      runNullableMonitor(8, "USDM drought", runDroughtMonitor, getLastDroughtError),
-      runNullableMonitor(9, "PG&E PSPS", runPSPSMonitor, getLastPspsError),
-      runNullableMonitor(10, "HRRR smoke", runSmokeMonitor, getLastSmokeError),
-      runNullableMonitor(11, "Caltrans roads", runRoadClosureMonitor, getLastRoadsError),
-      runNullableMonitor(12, "DUSD schools", runSchoolClosureMonitor, getLastSchoolsError),
-    ]);
+      { key: "drought", run: () => runNullableMonitor("drought", "USDM drought", runDroughtMonitor, getLastDroughtError) },
+      { key: "psps", run: () => runNullableMonitor("psps", "PG&E PSPS", runPSPSMonitor, getLastPspsError) },
+      { key: "smoke", run: () => runNullableMonitor("smoke", "HRRR smoke", runSmokeMonitor, getLastSmokeError) },
+      { key: "roads", run: () => runNullableMonitor("roads", "Caltrans roads", runRoadClosureMonitor, getLastRoadsError) },
+      { key: "schools", run: () => runNullableMonitor("schools", "DUSD schools", runSchoolClosureMonitor, getLastSchoolsError) },
+    ];
+    if (batch.length !== MONITOR_KEYS.length || batch.some((entry, position) => entry.key !== MONITOR_KEYS[position])) {
+      throw new Error(`alert batch does not match MONITOR_KEYS: [${batch.map(entry => entry.key).join(", ")}]`);
+    }
+    const settledResults = await Promise.allSettled(batch.map(entry => entry.run()));
+    const resultsByKey = Object.fromEntries(batch.map((entry, position) => [entry.key, settledResults[position]!])) as Record<MonitorKey, PromiseSettledResult<unknown>>;
 
-    /** Resolve a monitor's settled value by its batch position's stable meaning. */
-    const settledValue = (index: number): unknown => {
-      const result = settledResults[index];
+    /** A monitor's fulfilled value, by key — never by position. */
+    const settledValue = (key: MonitorKey): unknown => {
+      const result = resultsByKey[key];
       return result && result.status === "fulfilled" ? result.value : null;
     };
-    const [tidesResult, fishingResult] = settledResults.slice(6) as [
-      PromiseSettledResult<TideReport | null>,
-      PromiseSettledResult<FishingReport | null>,
-    ];
-    const tidesReport: TideReport | null =
-      tidesResult.status === "fulfilled" ? tidesResult.value : null;
-    const fishingReport: FishingReport | null =
-      fishingResult.status === "fulfilled" ? fishingResult.value : null;
+    const tidesReport = settledValue("tides") as TideReport | null;
+    const fishingReport = settledValue("fishing") as FishingReport | null;
 
     // ─── Compute composite severity ───────────────────────────────────
     logger.info("Computing 13-monitor composite alert severity...");
 
     // Remove any prior snapshot when a feed failed this run.
-    const currentTypes = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"];
-    for (const [index, type] of currentTypes.entries()) {
-      const result = settledResults[index];
+    const currentTypes: MonitorKey[] = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"];
+    for (const type of currentTypes) {
+      const result = resultsByKey[type];
       const failed = result.status === "rejected" ||
-        (result.status === "fulfilled" && index >= 3 && result.value === null);
+        (result.status === "fulfilled" && NULL_ON_FAILURE_MONITORS.has(type) && result.value === null);
       if (failed) await unlink(join(process.cwd(), "output", "alerts", type, "current.json")).catch(() => {});
     }
 
@@ -184,11 +187,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     // school closures defaulted to "nothing happening" in the composite level
     // the front page presents, however loudly their own artifacts said otherwise.
     const extendedInput = buildExtendedCompositeInput({
-      drought: settledValue(8),
-      psps: settledValue(9),
-      smoke: settledValue(10),
-      roads: settledValue(11),
-      schools: settledValue(12),
+      drought: settledValue("drought"),
+      psps: settledValue("psps"),
+      smoke: settledValue("smoke"),
+      roads: settledValue("roads"),
+      schools: settledValue("schools"),
     });
 
     const severityReport = computeAlertSeverity(
@@ -234,19 +237,19 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
 
     const checkedAt = new Date().toISOString();
     const monitorDefinitions: AlertMonitorDefinition[] = [
-      { source: "NOAA Tsunami", index: 0, report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?area=CA", provenance: "NOAA CAP alerts (tsunami Warning/Watch/Advisory)" },
-      { source: "USGS Earthquake", index: 1, report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", provenance: "USGS GeoJSON feed" },
-      { source: "NWS Weather", index: 2, report: weather, itemCount: weather?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?zone=CAZ006", provenance: "NWS active alerts" },
-      { source: "NOAA Tides", index: 6, report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", provenance: "NOAA CO-OPS station 9419750" },
-      { source: "CDFW Fishing", index: 7, report: fishingReport, itemCount: fishingReport?.bulletins?.length ?? 0, url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", provenance: "CDFW North Coast bulletins" },
-      { source: "EPA AirNow", index: 3, report: airquality, itemCount: airquality?.readings?.length ?? 0, url: airquality?.provider === "airnow-public-kml" ? AIRNOW_PUBLIC_KML_URL : "https://www.airnowapi.org/aq/observation/zipCode/current/", provenance: airquality?.provider === "airnow-public-kml" ? "EPA AirNow public KML; keyed ZIP API fallback not required" : "EPA AirNow ZIP 95531 API" },
-      { source: "CAL FIRE Wildfire", index: 4, report: wildfire, itemCount: wildfire?.incidents?.length ?? 0, url: CALFIRE_API_URL, provenance: "CAL FIRE current active-incident JSON feed" },
-      { source: "NDBC Marine", index: 5, report: marine, itemCount: marine?.observations?.length ?? 0, url: "https://www.ndbc.noaa.gov/data/realtime2/", provenance: "NDBC monitored buoys" },
-      ...buildExtendedMonitorDefinitions(settledResults),
+      { source: "NOAA Tsunami", key: "tsunami", report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?area=CA", provenance: "NOAA CAP alerts (tsunami Warning/Watch/Advisory)" },
+      { source: "USGS Earthquake", key: "earthquake", report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", provenance: "USGS GeoJSON feed" },
+      { source: "NWS Weather", key: "weather", report: weather, itemCount: weather?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?zone=CAZ006", provenance: "NWS active alerts" },
+      { source: "NOAA Tides", key: "tides", report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", provenance: "NOAA CO-OPS station 9419750" },
+      { source: "CDFW Fishing", key: "fishing", report: fishingReport, itemCount: fishingReport?.bulletins?.length ?? 0, url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", provenance: "CDFW North Coast bulletins" },
+      { source: "EPA AirNow", key: "airquality", report: airquality, itemCount: airquality?.readings?.length ?? 0, url: airquality?.provider === "airnow-public-kml" ? AIRNOW_PUBLIC_KML_URL : "https://www.airnowapi.org/aq/observation/zipCode/current/", provenance: airquality?.provider === "airnow-public-kml" ? "EPA AirNow public KML; keyed ZIP API fallback not required" : "EPA AirNow ZIP 95531 API" },
+      { source: "CAL FIRE Wildfire", key: "wildfire", report: wildfire, itemCount: wildfire?.incidents?.length ?? 0, url: CALFIRE_API_URL, provenance: "CAL FIRE current active-incident JSON feed" },
+      { source: "NDBC Marine", key: "marine", report: marine, itemCount: marine?.observations?.length ?? 0, url: "https://www.ndbc.noaa.gov/data/realtime2/", provenance: "NDBC monitored buoys" },
+      ...buildExtendedMonitorDefinitions(resultsByKey),
     ];
 
     const alertSources: SourceHealth[] = monitorDefinitions.map(definition =>
-      classifySourceHealth(definition, settledResults[definition.index], monitorErrors, checkedAt));
+      classifySourceHealth(definition, resultsByKey[definition.key], monitorErrors, checkedAt));
 
     await writeJsonAtomic(paths.alertsHealth, { checkedAt, sources: alertSources });
 

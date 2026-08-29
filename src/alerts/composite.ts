@@ -25,9 +25,36 @@ import { CALTRANS_API_D1_URL } from "./caltrans_roads.js";
 import { DUSD_ALERTS_URL } from "./dusd_schools.js";
 
 /** A single monitor's run outcome + the metadata needed to classify it. */
+/**
+ * The monitors the alert runner starts, in batch order, each with a stable key.
+ *
+ * A monitor's identity used to be its POSITION in the runner's Promise.allSettled
+ * array, re-declared by hand as a literal index in five places across three
+ * files. Inserting a monitor mid-list would have silently handed one monitor's
+ * result to another's health record — and the same positional thinking is how
+ * five monitors' reports went missing from the composite severity entirely.
+ * The key is the contract now; the order is just how they are launched.
+ */
+export const MONITOR_KEYS = [
+  "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine",
+  "tides", "fishing", "drought", "psps", "smoke", "roads", "schools",
+] as const;
+
+export type MonitorKey = typeof MONITOR_KEYS[number];
+
+/**
+ * Monitors that answer a failure with `null` rather than throwing. For these, a
+ * null result is an unavailable source; for the others it would be a real empty
+ * report. Membership is by key, not by position in the runner's batch.
+ */
+export const NULL_ON_FAILURE_MONITORS = new Set<MonitorKey>([
+  "airquality", "wildfire", "marine", "tides", "fishing",
+  "drought", "psps", "smoke", "roads", "schools",
+]);
+
 export interface AlertMonitorDefinition {
   source: string;
-  index: number;
+  key: MonitorKey;
   report: unknown | null;
   itemCount: number;
   url: string;
@@ -234,18 +261,18 @@ export function buildExtendedCompositeInput(reports: {
 /** The five Phase-12 extended monitors, by stable index in the runner batch. */
 export type ExtendedMonitorSpec = readonly [
   source: string,
-  index: number,
+  key: MonitorKey,
   listField: string,
   url: string,
   provenance: string,
 ];
 
 export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
-  ["USDM Drought", 8, "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
-  ["PG&E PSPS", 9, "events", PGE_PSPS_API_URL, "PG&E PSPS events JSON"],
-  ["HRRR Smoke", 10, "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
-  ["Caltrans Roads", 11, "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
-  ["DUSD Schools", 12, "items", DUSD_ALERTS_URL, "Del Norte USD announcements"],
+  ["USDM Drought", "drought", "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
+  ["PG&E PSPS", "psps", "events", PGE_PSPS_API_URL, "PG&E PSPS events JSON"],
+  ["HRRR Smoke", "smoke", "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
+  ["Caltrans Roads", "roads", "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
+  ["DUSD Schools", "schools", "items", DUSD_ALERTS_URL, "Del Norte USD announcements"],
 ];
 
 /**
@@ -256,15 +283,15 @@ export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
  * value like the smoke `forecast` object counts as 1).
  */
 export function buildExtendedMonitorDefinitions(
-  settledResults: Array<PromiseSettledResult<unknown>>,
+  results: Partial<Record<MonitorKey, PromiseSettledResult<unknown>>>,
 ): AlertMonitorDefinition[] {
-  return EXTENDED_MONITOR_SPECS.map(([source, index, listField, url, provenance]): AlertMonitorDefinition => {
-    const result = settledResults[index];
+  return EXTENDED_MONITOR_SPECS.map(([source, key, listField, url, provenance]): AlertMonitorDefinition => {
+    const result = results[key];
     const report = result && result.status === "fulfilled" ? result.value : null;
     const count = (report as Record<string, any> | null)?.[listField];
     return {
       source,
-      index,
+      key,
       report,
       itemCount: Array.isArray(count) ? count.length : count ? 1 : 0,
       url,
@@ -282,7 +309,7 @@ export function buildExtendedMonitorDefinitions(
 export function classifySourceHealth(
   definition: AlertMonitorDefinition,
   result: PromiseSettledResult<unknown>,
-  monitorErrors: Map<number, string>,
+  monitorErrors: Map<MonitorKey, string>,
   checkedAt = new Date().toISOString(),
 ): SourceHealth {
   const fetchedAt = (() => {
@@ -290,11 +317,12 @@ export function classifySourceHealth(
     return r.fetchedAt ?? r.timestamp;
   })();
   const fresh = isFreshReport(definition.report);
-  // Monitors index >= 3 are the "null-report on failure" family (epa/calfire/
-  // marine/tides/fishing); a null value there means it failed to produce a
-  // report, not that it produced an empty one.
+  // The "null-report on failure" family: for these monitors a null value means
+  // the monitor failed to produce a report, not that it produced an empty one.
+  // This used to read `index >= 3`, so the family was defined by where a monitor
+  // happened to sit in the runner's array.
   const failed = result.status === "rejected" ||
-    (result.status === "fulfilled" && definition.index >= 3 && result.value === null);
+    (result.status === "fulfilled" && NULL_ON_FAILURE_MONITORS.has(definition.key) && result.value === null);
 
   let status: SourceHealthStatus = failed
     ? "unavailable"
@@ -304,7 +332,7 @@ export function classifySourceHealth(
 
   const error = result.status === "rejected"
     ? String(result.reason instanceof Error ? result.reason.message : result.reason)
-    : failed ? (monitorErrors.get(definition.index) ?? "Monitor returned no report") : undefined;
+    : failed ? (monitorErrors.get(definition.key) ?? "Monitor returned no report") : undefined;
 
   const health: SourceHealth = {
     source: definition.source,

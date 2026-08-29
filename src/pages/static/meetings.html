@@ -46,7 +46,7 @@
       const list = Array.isArray(meetings) ? meetings : [];
       const shown = list.slice(0, 30);
       document.getElementById("meeting-items").innerHTML = (list.length ? shown.map(item => itemCard(item, "public record")).join("") : empty("No meeting records were available in this snapshot.")) + `<div class="meta">Showing ${esc(shown.length)} of ${esc(list.length)} meeting records.</div>`;
-    }).catch(error => { document.getElementById("meeting-items").innerHTML = empty(`Meetings artifact unavailable \u2014 ${error.message || error}`); });
+    }).catch(error => { document.getElementById("meeting-items").innerHTML = empty(`Meetings artifact unavailable \u2014 ${publicErrorNote(error && error.message || error)}.`); });
     };
     if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
     </script>

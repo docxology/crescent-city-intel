@@ -8,6 +8,29 @@ const href = value => /^https?:\/\//i.test(String(value || "")) ? String(value) 
 const date = value => { const parsed = Date.parse(String(value || "")); return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : "not recorded"; };
 const status = value => `<span class="status ${esc(value)}">${esc(String(value || "unknown").toUpperCase())}</span>`;
 const empty = message => `<div class="empty-state">${esc(message)}</div>`;
+/**
+ * List-context empty state (P1-G). `empty()` returns a <div>, which is invalid
+ * inside the <ol id="event-items"> calendar list; every list path uses this
+ * instead so the loading, error, and no-match states are real list items.
+ */
+const emptyListItem = message => `<li class="item meta">${esc(message)}</li>`;
+/**
+ * P0.6: operator diagnostics (fetch URLs, "Failed to parse JSON", DNS codes)
+ * are facts about the operator's machine, not public copy. Public surfaces keep
+ * the fact that a check did not succeed and drop the internals, mapping the raw
+ * string onto a closed set of honest public phrases — an unrecognised error is
+ * never passed through verbatim, and is never reported as a success either.
+ */
+function publicErrorNote(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/timed? ?out|timeout|abort/i.test(raw)) return "the request timed out before a response arrived";
+  const httpStatus = /\b([45]\d{2})\b/.exec(raw);
+  if (httpStatus) return `the source returned HTTP ${httpStatus[1]}`;
+  if (/parse|json|xml|unexpected token|syntaxerror/i.test(raw)) return "the response could not be parsed";
+  if (/enotfound|econnrefused|econnreset|dns|network|fetch failed|socket|tls|certificate/i.test(raw)) return "the source could not be reached";
+  return "the last check did not succeed";
+}
 const FETCH_TIMEOUT_MS = 15000;
 async function load(path) {
   const controller = new AbortController();
@@ -43,9 +66,13 @@ function itemCard(item, kind) {
   const detail = esc(item.description || item.content || item.summary || "");
   const when = item.pubDate || item.date || item.uploadDate || item.curatedAt || item.fetchedAt;
   const tags = Array.isArray(item.tags) ? item.tags.map(tag => `<span class="tag">${esc(tag)}</span>`).join("") : "";
+  // P1-L: meeting records carry their agenda/minutes documents as structured
+  // {label, url} pairs; they render as labelled links, never as raw URL text.
+  const documents = (Array.isArray(item.documents) ? item.documents : []).filter(doc => doc && /^https?:\/\//i.test(String(doc.url || "")));
+  const documentsHtml = documents.length ? `<div class="meta">${documents.map(doc => `<a href="${esc(href(doc.url))}" rel="noopener noreferrer">${esc(doc.label || "Document")}</a>`).join(" \u00b7 ")}</div>` : "";
   // §2.7: only wrap the title in an anchor when a real http(s) link exists.
   const heading = /^https?:\/\//i.test(String(item.link || "")) ? `<a href="${esc(link)}" rel="noopener noreferrer">${title}</a>` : title;
-  return `<article class="item"><h3>${heading}</h3><div class="meta">${source}${when ? ` · ${esc(date(when))}` : ""}</div>${detail ? `<p>${detail}</p>` : ""}${tags}</article>`;
+  return `<article class="item"><h3>${heading}</h3><div class="meta">${source}${when ? ` · ${esc(date(when))}` : ""}</div>${detail ? `<p>${detail}</p>` : ""}${documentsHtml}${tags}</article>`;
 }
 
 function eventStatusChip(eventStatus) {
@@ -91,21 +118,59 @@ function eventMonthKey(event) {
 /** Map each event kind to a chip modifier class (palette: --cc/--rdark/--rtint family only). */
 const EVENT_KIND_CHIP_CLASS = { "government-meeting": "meeting", "community-listing": "community", "civic-news": "news", youtube: "youtube", "holiday-closure": "closure" };
 
-/** Per-kind color chip for calendar entries; the visible kind text doubles as the accessible label. */
-function calendarEventKindChip(event) {
-  const kind = String(event && event.kind || "");
-  const label = EVENT_KIND_LABELS[kind] || kind || "Event";
-  const cls = EVENT_KIND_CHIP_CLASS[kind] || "other";
-  return `<span class="kind-chip kind-chip--${esc(cls)}" data-kind="${esc(kind)}" aria-label="Event kind: ${esc(label)}">${esc(label)}</span>`;
+/** Map an event kind onto the kind-<select> value that selects it (chip -> one shared filter state). */
+function eventKindFilterValue(kind) {
+  if (kind === "government-meeting") return "meetings";
+  if (kind === "youtube") return "youtube";
+  if (kind === "holiday-closure") return "holiday-closure";
+  return "community";
 }
 
 /**
- * Deterministic civic-timezone quick filters (lane cci-frontend §1a):
- * "week" = current Monday-Sunday window, "month" = current calendar month,
- * both computed in CIVIC_TZ from `now` (or the real clock). Undated events are
- * excluded, never guessed into a window; any other window value is a no-op.
+ * Per-kind chip for calendar entries (P1-B). The chip is a real filter button,
+ * not a decorative span with an invented aria-label: it carries the kind filter
+ * it applies, its pressed state reflects the one shared filter value, and it
+ * controls the list it filters. `activeFilter` is the current kind-select value.
+ */
+function calendarEventKindChip(event, activeFilter) {
+  const kind = String(event && event.kind || "");
+  const label = EVENT_KIND_LABELS[kind] || kind || "Event";
+  const cls = EVENT_KIND_CHIP_CLASS[kind] || "other";
+  const filterValue = eventKindFilterValue(kind);
+  const pressed = String(activeFilter || "") === filterValue ? "true" : "false";
+  return `<button type="button" class="kind-chip kind-chip--${esc(cls)}" data-kind="${esc(kind)}" data-kind-filter="${esc(filterValue)}" aria-pressed="${esc(pressed)}" aria-controls="event-items" aria-label="Filter events by kind: ${esc(label)}">${esc(label)}</button>`;
+}
+
+/**
+ * P1-B wiring: chip clicks drive the same kind <select> a keyboard user drives,
+ * so there is one filter state and no second, silent one. Clicks are delegated
+ * from the list container, so cards re-rendered after a filter change stay wired.
+ */
+function wireCalendarKindChips(listId, selectId, onChange) {
+  const list = document.getElementById(listId);
+  const select = document.getElementById(selectId);
+  if (!list || !select) return;
+  list.addEventListener("click", event => {
+    const chip = event.target && event.target.closest ? event.target.closest("[data-kind-filter]") : null;
+    if (!chip || !list.contains(chip)) return;
+    const value = chip.getAttribute("data-kind-filter") || "all";
+    select.value = chip.getAttribute("aria-pressed") === "true" ? "all" : value;
+    onChange(select.value);
+  });
+}
+
+/**
+ * Deterministic civic-timezone window filter — the single calendar window state
+ * (P1-D; the page previously ran a select and a button group against separate,
+ * uncoordinated states). "week" = current Monday-Sunday window, "month" =
+ * current calendar month, both computed in CIVIC_TZ from `now` (or the real
+ * clock); "upcoming"/"past" read the event's recorded status. Undated events are
+ * excluded from the date windows, never guessed into one; any other window
+ * value ("all") is a no-op passthrough.
  */
 function calendarWindowFilter(events, window, now) {
+  if (window === "upcoming") return (events || []).filter(event => event && event.status === "scheduled");
+  if (window === "past") return (events || []).filter(event => event && event.status === "completed");
   if (window !== "week" && window !== "month") return events || [];
   const ref = civicDayStamp((now instanceof Date ? now : new Date()).toISOString());
   if (ref === null) return [];
@@ -127,8 +192,80 @@ function calendarWindowFilter(events, window, now) {
   });
 }
 
+/**
+ * P1-H: one wiring for the calendar window control, shared by events.html and
+ * the front page (the loop was byte-identical in both). The group is
+ * single-select: exactly one button is aria-pressed, and its data-window value
+ * is the single window state the list reads (P1-D).
+ */
+function wireCalendarWindowButtons(containerId, state, onChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const buttons = Array.from(container.querySelectorAll(".window-btn"));
+  const sync = () => {
+    for (const button of buttons) button.setAttribute("aria-pressed", button.getAttribute("data-window") === state.window ? "true" : "false");
+  };
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      state.window = button.getAttribute("data-window") || "all";
+      sync();
+      onChange(state.window);
+    });
+  }
+  sync();
+}
+
+/**
+ * P1-E: the calendar freshness line. An absent or unparseable generatedAt
+ * renders nothing — a missing timestamp is not an age of NaN days.
+ */
+function calendarFreshnessText(generatedAt) {
+  const stamp = Date.parse(String(generatedAt || ""));
+  if (!Number.isFinite(stamp)) return "";
+  const days = Math.floor((Date.now() - stamp) / 86400000);
+  if (!Number.isFinite(days)) return "";
+  const day = String(generatedAt).slice(0, 10);
+  return days >= 7
+    ? `Calendar data refreshed ${day} \u2014 ${days} days old; the next collection cycle may add newer events.`
+    : `Calendar data refreshed ${day}.`;
+}
+
+/**
+ * P0.1: search over a lazily-loaded index. The code pages load the sharded
+ * search index on the first query; before this, that first query rendered
+ * "Showing 0 of 0" against a null index and nothing ever re-ran it, so the page
+ * stayed empty until the visitor typed again. `search(needle)` renders what is
+ * available now and re-renders the same needle once the index settles.
+ * `render(needle, index, state)` receives state "ready" | "pending" |
+ * "unavailable" so the caller can show a pending line instead of a false zero.
+ */
+function createDeferredIndexSearch(loadIndex, render) {
+  let index = null;
+  let pending = false;
+  let failed = false;
+  let lastNeedle = "";
+  const indexState = () => (index ? "ready" : failed ? "unavailable" : "pending");
+  const draw = () => render(lastNeedle, index, indexState());
+  const begin = () => {
+    if (index || pending || failed || typeof loadIndex !== "function") return;
+    pending = true;
+    Promise.resolve()
+      .then(() => loadIndex())
+      .then(loaded => { index = loaded || null; failed = !loaded; })
+      .catch(() => { failed = true; })
+      .finally(() => { pending = false; draw(); });
+  };
+  return {
+    search(needle) {
+      lastNeedle = String(needle || "");
+      if (lastNeedle) begin();
+      draw();
+    },
+  };
+}
+
 /** Calendar event list item (canonical: index.html copy with status chip, day hint, LLM summary, provenance links). */
-function calendarEventCard(event, summaries) {
+function calendarEventCard(event, summaries, activeFilter) {
   const when = esc(event.dateStart || "date not recorded");
   const timeEl = event.dateStart ? `<time datetime="${esc(event.dateStart)}">${when}</time>` : when;
   const hint = daysUntilHint(event.dateStart, event.status);
@@ -141,7 +278,7 @@ function calendarEventCard(event, summaries) {
   const placeHtml = [locationHtml, event.organizer ? esc(event.organizer) : ""].filter(Boolean).join(" · ");
   const summaryHtml = summary ? `<p><strong>LLM summary — verify against the linked source.</strong> ${esc(summary.text)}</p><div class="meta">${esc(summary.provider)}${summary.model ? `/${esc(summary.model)}` : ""} · generated ${esc(date(summary.generatedAt))}</div>` : "";
   const linksHtml = links.length ? `<div class="meta">Sources: ${links.map((link, index) => `<a href="${esc(href(link))}" rel="noopener noreferrer">[${index + 1}]</a>`).join(" ")}</div>` : "";
-  return `<li class="item cal-entry">${calendarEventKindChip(event)}<div class="cal-when">${timeEl ? `<span class="cal-time">${timeEl}</span>` : ""}</div>${titleHtml}<div class="meta">${hint}</div><div>${eventStatusChip(event.status)}</div>${placeHtml ? `<div class="meta">${placeHtml}</div>` : ""}${summaryHtml}${linksHtml}</li>`;
+  return `<li class="item cal-entry">${calendarEventKindChip(event, activeFilter)}<div class="cal-when">${timeEl ? `<span class="cal-time">${timeEl}</span>` : ""}</div>${titleHtml}<div class="meta">${hint}</div><div>${eventStatusChip(event.status)}</div>${placeHtml ? `<div class="meta">${placeHtml}</div>` : ""}${summaryHtml}${linksHtml}</li>`;
 }
 
 /** Group events by month (dateline headers; undated land in a trailing group). Returns [{label, items}]. */
@@ -169,7 +306,7 @@ function analyticsSignalsHtml(overview, limit = 6) {
 
 /** Source-health card html — the sources.html copy extended with fetchedAt/ageMs/provenance (the index.html copy). */
 function healthCardHtml(source) {
-  return `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}${source.fetchedAt ? ` · fetched ${esc(date(source.fetchedAt))}` : ""}${source.ageMs != null ? ` · age ${esc(Math.round(source.ageMs / 3600000))}h` : ""}</div>${source.provenance ? `<div class="meta">${esc(source.provenance)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}${source.error ? `<div class="error">${esc(source.error)}</div>` : ""}</article>`;
+  return `<article class="source ${esc(source.status)}"><h3>${esc(source.source)}</h3><div>${status(source.status)} · ${esc(source.itemCount)} item(s)</div><div class="meta">Checked ${esc(date(source.checkedAt))}${source.fetchedAt ? ` · fetched ${esc(date(source.fetchedAt))}` : ""}${source.ageMs != null ? ` · age ${esc(Math.round(source.ageMs / 3600000))}h` : ""}</div>${source.provenance ? `<div class="meta">${esc(source.provenance)}</div>` : ""}${source.url ? `<div><a href="${esc(href(source.url))}" rel="noopener noreferrer">source</a></div>` : ""}${source.error ? `<div class="error">Source check note: ${esc(publicErrorNote(source.error))}</div>` : ""}</article>`;
 }
 
 /** Canonical code-section result card (shared by code.html and the index fallback). */

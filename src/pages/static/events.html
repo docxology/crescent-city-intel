@@ -38,46 +38,40 @@
       <div class="section-head"><h2>Community calendar</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe · .ics — Crescent City community events calendar in iCalendar format">&#128197; Subscribe &middot; .ics</a>&nbsp;<a href="data/events.json">events JSON</a>&nbsp;&middot;&nbsp;<a href="./#events">Front-page section</a></span></div>
       <details class="ics-help"><summary>What is this?</summary><div class="ics-help-body"><p>The <strong>Subscribe &middot; .ics</strong> link downloads an iCalendar file of the community calendar. One-time setup, then your calendar app keeps the entries:</p><ul><li><strong>Google Calendar:</strong> open <a href="https://calendar.google.com/calendar/u/0/r/settings/addcalendar" rel="noopener noreferrer">Settings &rarr; Add calendar &rarr; From URL</a>, paste <code>https://quadruplicate.org/data/events.ics</code>, and save. Google re-checks the file periodically.</li><li><strong>Apple Calendar (macOS/iOS):</strong> open <em>File &rarr; New Calendar Subscription</em> (or <em>Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other &rarr; Subscribe to Calendar</em> on iOS), paste the same URL, and confirm.</li><li><strong>Other apps:</strong> any client that supports &ldquo;subscribe to calendar by URL&rdquo; works with the same address; the direct <a href="data/events.ics" type="text/calendar" download="crescent-city-events.ics">file download</a> is a fallback for one-time imports.</li></ul></div></details>
       <div class="controls">
-        <select id="event-filter" aria-label="Filter community events by kind or time window">
-          <option value="all">All events</option>
-          <option value="upcoming">Upcoming</option>
-          <option value="past">Past</option>
+        <select id="event-filter" aria-label="Filter community events by kind" aria-controls="event-items">
+          <option value="all">All kinds</option>
           <option value="meetings">Government meetings</option>
           <option value="community">Community &amp; news</option>
           <option value="youtube">YouTube</option>
           <option value="holiday-closure">Holiday closures</option>
         </select>
-        <span class="meta" id="event-window-controls" role="group" aria-label="Quick date filters"><button type="button" id="event-window-week" class="window-btn" aria-pressed="false">This week</button><button type="button" id="event-window-month" class="window-btn" aria-pressed="false">This month</button></span>
+        <span class="meta" id="event-window-controls" role="group" aria-label="Filter community events by date window"><button type="button" id="event-window-all" class="window-btn" data-window="all" aria-controls="event-items" aria-pressed="true">All dates</button><button type="button" id="event-window-upcoming" class="window-btn" data-window="upcoming" aria-controls="event-items" aria-pressed="false">Upcoming</button><button type="button" id="event-window-past" class="window-btn" data-window="past" aria-controls="event-items" aria-pressed="false">Past</button><button type="button" id="event-window-week" class="window-btn" data-window="week" aria-controls="event-items" aria-pressed="false">This week</button><button type="button" id="event-window-month" class="window-btn" data-window="month" aria-controls="event-items" aria-pressed="false">This month</button></span>
         <span id="event-count" class="meta" role="status"></span>
-          <span id="event-freshness" class="meta"></span>
+        <span id="event-freshness" class="meta" role="status"></span>
       </div>
       <ol id="event-items" class="items"></ol>
     </section>
     <script>
     const __bootPage = () => {
     let snapshotData = null;
-    // The artifact is served in two shapes: the flat crescent-city-events/v1
-    // calendar (events: [...], count) at data/events.json, and the snapshot
-    // envelope (events: { events: [...], count }) inside data/snapshot.json.
-    // Normalize once at load so filters and counts read one canonical view.
+    // P1-F: this page loads data/events.json, which is the flat
+    // crescent-city-events/v1 calendar (events: [...], count). The snapshot
+    // envelope shape it used to also accept was never reachable from here, so
+    // it is gone; an artifact that is not the expected shape says so instead of
+    // rendering "0 of 0" plus copy telling the reader to adjust their filters.
     function eventsView(data) {
-      if (!data) return { events: [], count: 0, summaries: null, generatedAt: null };
-      const envelope = (data.events && typeof data.events === "object" && !Array.isArray(data.events)) ? data.events : null;
-      const events = Array.isArray(envelope && envelope.events) ? envelope.events : (Array.isArray(data.events) ? data.events : []);
+      if (!data || !Array.isArray(data.events)) return null;
       return {
-        events,
-        count: (envelope && typeof envelope.count === "number") ? envelope.count : (typeof data.count === "number" ? data.count : events.length),
-        summaries: (envelope && envelope.summaries) ? envelope.summaries : (data.summaries || null),
-        generatedAt: data.generatedAt || (envelope && envelope.generatedAt) || null,
+        events: data.events,
+        count: typeof data.count === "number" ? data.count : data.events.length,
+        summaries: data.summaries || null,
+        generatedAt: typeof data.generatedAt === "string" ? data.generatedAt : null,
       };
     }
     const windowState = { window: "all" };
-    function applyWindow(events) { return calendarWindowFilter(events, windowState.window); }
-    function filtered() {
-      const events = applyWindow(eventsView(snapshotData).events);
+    function filtered(view) {
+      const events = calendarWindowFilter(view.events, windowState.window);
       switch (document.getElementById("event-filter").value) {
-        case "upcoming": return events.filter(item => item.status === "scheduled");
-        case "past": return events.filter(item => item.status === "completed");
         case "meetings": return events.filter(item => item.kind === "government-meeting");
         case "youtube": return events.filter(item => item.kind === "youtube");
         case "holiday-closure": return events.filter(item => item.kind === "holiday-closure");
@@ -87,39 +81,27 @@
     }
     function render() {
       const view = eventsView(snapshotData);
-      const events = filtered();
-      document.getElementById("event-count").textContent = `${events.length} of ${view.count} event(s)`;
-      const summaries = view.summaries;
-      const freshness = document.getElementById("event-freshness");
-      if (freshness) {
-        if (!view.generatedAt) { freshness.textContent = ""; }
-        else {
-          const ageDays = Math.floor((Date.now() - new Date(view.generatedAt).getTime()) / 86400000);
-          freshness.textContent = ageDays >= 7
-            ? `Calendar data refreshed ${view.generatedAt.slice(0, 10)} — ${ageDays} days old; the next collection cycle may add newer events.`
-            : `Calendar data refreshed ${view.generatedAt.slice(0, 10)}.`;
-        }
+      if (!view) {
+        document.getElementById("event-count").textContent = "";
+        document.getElementById("event-freshness").textContent = "";
+        document.getElementById("event-items").innerHTML = emptyListItem("The events artifact loaded but was not in the expected calendar shape, so nothing is being shown. This is a data problem, not an empty calendar.");
+        return;
       }
+      const activeFilter = document.getElementById("event-filter").value;
+      const events = filtered(view);
+      document.getElementById("event-count").textContent = `${events.length} of ${view.count} event(s)`;
+      document.getElementById("event-freshness").textContent = calendarFreshnessText(view.generatedAt);
       const html = calendarMonthGroups(events).map(group =>
         `<li class="cal-dateline" data-month-header="${esc(group.label)}">${esc(group.label)}</li>` +
-        group.items.map(event => calendarEventCard(event, summaries)).join("")
+        group.items.map(event => calendarEventCard(event, view.summaries, activeFilter)).join("")
       ).join("");
-      document.getElementById("event-items").innerHTML = events.length ? html : `<li class="item meta">No events matched the current filter. Choose another filter to see more of the calendar.</li>`;
+      document.getElementById("event-items").innerHTML = events.length ? html : emptyListItem("No events matched the current filter. Choose another filter to see more of the calendar.");
     }
     document.getElementById("event-filter").addEventListener("change", () => { if (snapshotData) render(); });
-    for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {
-      button.addEventListener("click", () => {
-        const value = button.id === "event-window-week" ? "week" : "month";
-        const active = windowState.window === value;
-        windowState.window = active ? "all" : value;
-        for (const other of document.querySelectorAll("#event-window-controls .window-btn")) {
-          other.setAttribute("aria-pressed", other === button && !active ? "true" : "false");
-        }
-        if (snapshotData) render();
-      });
-    }
-    document.getElementById("event-items").innerHTML = empty("Loading the community calendar\u2026");
-    load("data/events.json").then(data => { snapshotData = data; render(); }).catch(() => { document.getElementById("event-items").innerHTML = empty("The events artifact could not be loaded."); });
+    wireCalendarWindowButtons("event-window-controls", windowState, () => { if (snapshotData) render(); });
+    wireCalendarKindChips("event-items", "event-filter", () => { if (snapshotData) render(); });
+    document.getElementById("event-items").innerHTML = emptyListItem("Loading the community calendar\u2026");
+    load("data/events.json").then(data => { snapshotData = data; render(); }).catch(() => { document.getElementById("event-items").innerHTML = emptyListItem("The events artifact could not be loaded."); });
     };
     if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
     </script>

@@ -190,6 +190,7 @@ steps.push(sourceDiscoveryExecution.report);
 // Community-calendar refresh: merge monitor artifacts + discovered calendar
 // feeds into output/events/events.json (+ events.ics) so the published
 // snapshot's events slice is regenerated on every weekly cycle, not stale.
+const eventsArtifactPath = join(paths.output ?? "output", "events", "events.json");
 const eventsExecution = await executePipelineStep("community-calendar-events", async () => {
   const proc = Bun.spawnSync(["bun", "run", "src/events.ts"], {
     cwd: join(import.meta.dir, ".."),
@@ -197,14 +198,28 @@ const eventsExecution = await executePipelineStep("community-calendar-events", a
     stderr: "pipe",
   });
   if (proc.exitCode !== 0) throw new Error(`events refresh exited ${proc.exitCode}: ${proc.stderr.toString().slice(0, 300)}`);
-  return { exited: proc.exitCode };
+  // The step's success is what the run produced, not that the process returned.
+  // `classify: () => "ok"` and `itemCount: () => 1` reported a green stage with
+  // one item even when the refresh wrote no calendar at all, so the artifact it
+  // claims to have written is read back and counted here.
+  const artifact = await readFile(eventsArtifactPath, "utf-8").then(
+    text => JSON.parse(text) as { events?: unknown },
+    () => null,
+  );
+  const events = artifact && Array.isArray(artifact.events) ? artifact.events : null;
+  return { exited: proc.exitCode, artifactRead: events !== null, eventCount: events ? events.length : 0 };
 }, {
-  classify: _result => "ok",
-  itemCount: _result => 1,
-  outputPaths: [join(paths.output ?? "output", "events", "events.json")],
+  // No artifact is a failed refresh; an artifact with zero events is a real
+  // empty calendar — recorded as degraded, never as a clean "ok".
+  classify: result => (!result.artifactRead ? "failed" : result.eventCount === 0 ? "degraded" : "ok"),
+  itemCount: result => result.eventCount,
+  outputPaths: [eventsArtifactPath],
 });
 steps.push(eventsExecution.report);
 if (eventsExecution.report.error) logger.warn("Community calendar refresh failed (non-fatal)", { error: eventsExecution.report.error });
+else if (!eventsExecution.value?.artifactRead) logger.error(`Community calendar refresh wrote no readable artifact at ${eventsArtifactPath}`);
+else if (eventsExecution.value.eventCount === 0) logger.warn("Community calendar refreshed with zero events; the calendar artifact is empty");
+else logger.info(`✅ Community calendar refreshed: ${eventsExecution.value.eventCount} event(s)`);
 const reportExecution = await executePipelineStep("monthly-report", () => generateMonthlyReport(), {
   outputPaths: [paths.reports, paths.latestReportMetadata],
 });

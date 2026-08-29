@@ -303,19 +303,18 @@
     </section>
     <section id="events" class="section">
       <div class="section-head"><span class="newspaper-label">Community Calendar</span><h2>Events</h2><span class="meta"><a class="ics-badge" href="data/events.ics" type="text/calendar" download="crescent-city-events.ics" aria-label="Subscribe · .ics — Crescent City community events calendar in iCalendar format">📅 Subscribe · .ics</a>&nbsp;<a href="data/events.json">Download events JSON</a></span></div>
-      <details class="ics-help"><summary>What is this?</summary><div class="ics-help-body"><p>The <strong>Subscribe &middot; .ics</strong> link downloads an iCalendar file of the community calendar. One-time setup, then your calendar app keeps the entries:</p><ul><li><strong>Google Calendar:</strong> open <a href="https://calendar.google.com/calendar/u/0/r/settings/addcalendar" rel="noopener noreferrer">Settings &rarr; Add calendar &rarr; From URL</a>, paste <code>https://quadruplicate.org/data/events.ics</code>, and save.</li><li><strong>Apple Calendar (macOS/iOS):</strong> open <em>File &rarr; New Calendar Subscription</em> (or <em>Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other</em> on iOS), paste the same URL, and confirm.</li><li><strong>Other apps:</strong> any client that supports &ldquo;subscribe to calendar by URL&rdquo; works with the same address.</li></ul></div></details>
+      <details class="ics-help"><summary>What is this?</summary><div class="ics-help-body"><p>The <strong>Subscribe &middot; .ics</strong> link downloads an iCalendar file of the community calendar. One-time setup, then your calendar app keeps the entries:</p><ul><li><strong>Google Calendar:</strong> open <a href="https://calendar.google.com/calendar/u/0/r/settings/addcalendar" rel="noopener noreferrer">Settings &rarr; Add calendar &rarr; From URL</a>, paste <code>https://quadruplicate.org/data/events.ics</code>, and save. Google re-checks the file periodically.</li><li><strong>Apple Calendar (macOS/iOS):</strong> open <em>File &rarr; New Calendar Subscription</em> (or <em>Settings &rarr; Calendar &rarr; Accounts &rarr; Add Account &rarr; Other &rarr; Subscribe to Calendar</em> on iOS), paste the same URL, and confirm.</li><li><strong>Other apps:</strong> any client that supports &ldquo;subscribe to calendar by URL&rdquo; works with the same address; the direct <a href="data/events.ics" type="text/calendar" download="crescent-city-events.ics">file download</a> is a fallback for one-time imports.</li></ul></div></details>
       <div class="controls">
-        <select id="event-filter" aria-label="Filter community events by kind or date range">
-          <option value="all">All events</option>
-          <option value="upcoming">Upcoming</option>
-          <option value="past">Past</option>
+        <select id="event-filter" aria-label="Filter community events by kind" aria-controls="event-items">
+          <option value="all">All kinds</option>
           <option value="meetings">Meetings</option>
           <option value="community">Community &amp; news</option>
           <option value="youtube">YouTube</option>
           <option value="holiday-closure">Holiday closures</option>
         </select>
-        <span class="meta" id="event-window-controls" role="group" aria-label="Quick date filters"><button type="button" id="event-window-week" class="window-btn" aria-pressed="false">This week</button><button type="button" id="event-window-month" class="window-btn" aria-pressed="false">This month</button></span>
+        <span class="meta" id="event-window-controls" role="group" aria-label="Filter community events by date window"><button type="button" id="event-window-all" class="window-btn" data-window="all" aria-controls="event-items" aria-pressed="true">All dates</button><button type="button" id="event-window-upcoming" class="window-btn" data-window="upcoming" aria-controls="event-items" aria-pressed="false">Upcoming</button><button type="button" id="event-window-past" class="window-btn" data-window="past" aria-controls="event-items" aria-pressed="false">Past</button><button type="button" id="event-window-week" class="window-btn" data-window="week" aria-controls="event-items" aria-pressed="false">This week</button><button type="button" id="event-window-month" class="window-btn" data-window="month" aria-controls="event-items" aria-pressed="false">This month</button></span>
         <span id="event-count" class="meta" role="status"></span>
+        <span id="event-freshness" class="meta" role="status"></span>
       </div>
       <ol id="event-items" class="items"></ol>
     </section>
@@ -386,12 +385,11 @@
       $("overview-summary").innerHTML = `<strong>${esc(overview.entryPoint?.title || "Entry point not recorded")}</strong><div style=\"margin-top:6px\">${esc(overview.entryPoint?.startHere || "")}</div><div class=\"meta\" style=\"margin-top:6px\">${esc(overview.entryPoint?.interpretation || "")}</div><div class=\"grid\" style=\"margin-top:12px\"><div><strong>${esc(overview.metrics?.code?.sections ?? "—")}</strong><div class=\"meta\">code sections</div></div><div><strong>${esc(overview.metrics?.content?.curated ?? "—")}</strong><div class=\"meta\">LLM briefs</div></div><div><strong>${esc(overview.metrics?.alerts?.totalEvents ?? "—")}</strong><div class=\"meta\">alert events</div></div><div><strong>${esc(overview.metrics?.sources?.missing ?? "—")}</strong><div class=\"meta\">unavailable/stale</div></div></div><div style=\"margin-top:12px\">${signalHtml}</div>`;
       $("analytics-download").innerHTML = snapshot.files?.analyticsOverview ? `<a class=\"button\" href=\"${esc(snapshot.files.analyticsOverview)}\" download>Analytics JSON</a>` : "";
     }
-    function applyWindow(events) { return calendarWindowFilter(events, state.eventWindow); }
+    // P1-D: one window state (calendarWindowFilter) and one kind state (the
+    // select). Upcoming/Past moved out of the select and into the window group.
     function filteredEvents(snapshot) {
-      const events = applyWindow(Array.isArray(snapshot.events?.events) ? snapshot.events.events : []);
+      const events = calendarWindowFilter(Array.isArray(snapshot.events?.events) ? snapshot.events.events : [], state.eventWindow);
       const filter = state.eventFilter;
-      if (filter === "upcoming") return events.filter(item => item.status === "scheduled");
-      if (filter === "past") return events.filter(item => item.status === "completed");
       if (filter === "meetings") return events.filter(item => item.kind === "government-meeting");
       if (filter === "youtube") return events.filter(item => item.kind === "youtube");
       if (filter === "holiday-closure") return events.filter(item => item.kind === "holiday-closure");
@@ -401,14 +399,15 @@
     function renderEvents(snapshot) {
       const filtered = filteredEvents(snapshot);
       $("event-count").textContent = `${filtered.length} of ${snapshot.events?.count ?? (snapshot.events?.events || []).length} event(s)`;
+      $("event-freshness").textContent = calendarFreshnessText(snapshot.events?.generatedAt || snapshot.generatedAt);
       if (!filtered.length) {
-        $("event-items").innerHTML = `<li class="item meta">${state.eventFilter === "all" ? "No calendar events were available in this snapshot. Empty is a successful check with no matching records." : "No events matched the current filter. Choose another filter to see more of the calendar."}</li>`;
+        $("event-items").innerHTML = emptyListItem(state.eventFilter === "all" && state.eventWindow === "all" ? "No calendar events were available in this snapshot. Empty is a successful check with no matching records." : "No events matched the current filter. Choose another filter to see more of the calendar.");
         return;
       }
       const summaries = state.snapshot?.events?.summaries;
       const html = calendarMonthGroups(filtered).map(group =>
         `<li class="cal-dateline" data-month-header="${esc(group.label)}">${esc(group.label)}</li>` +
-        group.items.map(event => calendarEventCard(event, summaries)).join("")
+        group.items.map(event => calendarEventCard(event, summaries, state.eventFilter)).join("")
       ).join("");
       $("event-items").dataset.calendarColumn = "true";
       $("event-items").innerHTML = html;
@@ -440,7 +439,7 @@
     }
     function renderSourceDetail(record) {
       if (!record) { $("source-detail").innerHTML = "Select a source to inspect its complete structured record."; return; }
-      $("source-detail").innerHTML = `<strong>${esc(record.name)}</strong><div class="meta">${status(record.operationalStatus || "not-checked")} · ${esc(record.canonicalUrl)} · ${esc(record.provenance || "provenance not recorded")}</div><div class="action-bar"><a class="button" href="${esc(href(record.canonicalUrl))}" rel="noopener noreferrer">Open canonical source</a><button id="copy-source-json" class="button secondary" type="button">Copy record JSON</button><span class="meta">${esc(record.error || "No source error recorded")}</span></div><pre tabindex="0" role="region" aria-label="Full source record JSON (scrollable)">${esc(JSON.stringify(record, null, 2))}</pre>`;
+      $("source-detail").innerHTML = `<strong>${esc(record.name)}</strong><div class="meta">${status(record.operationalStatus || "not-checked")} · ${esc(record.canonicalUrl)} · ${esc(record.provenance || "provenance not recorded")}</div><div class="action-bar"><a class="button" href="${esc(href(record.canonicalUrl))}" rel="noopener noreferrer">Open canonical source</a><button id="copy-source-json" class="button secondary" type="button">Copy record JSON</button><span class="meta">${esc(record.error ? `Source check note: ${publicErrorNote(record.error)}` : "No source error recorded")}</span></div><pre tabindex="0" role="region" aria-label="Full source record JSON (scrollable)">${esc(JSON.stringify(record, null, 2))}</pre>`;
     }
     function renderRegistry(snapshot) {
       const discovery = snapshot.sourceDiscovery || {};
@@ -453,7 +452,7 @@
       const sortKey = state.registrySort;
       filtered.sort((left, right) => { const a = String(left[sortKey] ?? "").toLowerCase(); const b = String(right[sortKey] ?? "").toLowerCase(); return (a.localeCompare(b) || String(left.name).localeCompare(String(right.name))) * (state.registryDirection === "asc" ? 1 : -1); });
       $("registry-summary").innerHTML = `<strong>${esc(discovery.sourceCount ?? records.length)} discovered sources</strong><div class="meta">${esc(discovery.monitoredCount ?? 0)} monitored · ${esc(discovery.discoveryOnlyCount ?? 0)} discovery-only · ${esc(discovery.referenceOnlyCount ?? 0)} reference-only · showing ${esc(filtered.length)} · fingerprint ${esc(String(discovery.registryFingerprint || "").slice(0,16))}</div>`;
-      $("source-registry").innerHTML = filtered.length ? `<div class="table-scroll" tabindex="0" role="region" aria-label="Source registry table (scrollable)"><table><thead><tr><th>Source</th><th>Coverage</th><th>Operational state</th><th>Region / authority</th><th>Actions</th></tr></thead><tbody>${filtered.map(source => `<tr><td><strong>${esc(source.name)}</strong><div class="meta">${esc(source.id)} · ${esc(source.kind)}</div></td><td><span class="pill ${esc(source.automation)}">${esc(source.automation)}</span>${source.referenceOnly ? `<div class="meta">citation-only</div>` : ""}</td><td>${status(source.operationalStatus || "not-checked")}<div class="meta">${esc(source.itemCount ?? 0)} item(s)${source.error ? ` · ${esc(source.error)}` : ""}</div></td><td>${esc(source.region)} · ${esc(source.authority)}</td><td><button class="button source-select" type="button" data-source-id="${esc(source.id)}">Inspect</button> <a href="${esc(href(source.canonicalUrl))}" rel="noopener noreferrer">open</a></td></tr>`).join("")}</tbody></table></div>` : empty("No registry sources matched the current filters.");
+      $("source-registry").innerHTML = filtered.length ? `<div class="table-scroll" tabindex="0" role="region" aria-label="Source registry table (scrollable)"><table><thead><tr><th>Source</th><th>Coverage</th><th>Operational state</th><th>Region / authority</th><th>Actions</th></tr></thead><tbody>${filtered.map(source => `<tr><td><strong>${esc(source.name)}</strong><div class="meta">${esc(source.id)} · ${esc(source.kind)}</div></td><td><span class="pill ${esc(source.automation)}">${esc(source.automation)}</span>${source.referenceOnly ? `<div class="meta">citation-only</div>` : ""}</td><td>${status(source.operationalStatus || "not-checked")}<div class="meta">${esc(source.itemCount ?? 0)} item(s)${source.error ? ` · ${esc(publicErrorNote(source.error))}` : ""}</div></td><td>${esc(source.region)} · ${esc(source.authority)}</td><td><button class="button source-select" type="button" data-source-id="${esc(source.id)}">Inspect</button> <a href="${esc(href(source.canonicalUrl))}" rel="noopener noreferrer">open</a></td></tr>`).join("")}</tbody></table></div>` : empty("No registry sources matched the current filters.");
       renderSourceDetail(records.find(source => source.id === state.selectedSourceId));
       const gaps = Array.isArray(discovery.coverageGaps) ? discovery.coverageGaps : [];
       $("coverage-gaps").innerHTML = gaps.length ? `<strong>Known coverage gaps</strong><ul>${gaps.map(gap => `<li>${esc(gap)}</li>`).join("")}</ul>` : "No coverage gaps recorded.";
@@ -508,24 +507,23 @@
       state.code = code;
       const snapshot = state.snapshot || {};
       renderCodeMeta(snapshot);
-      const show = query => {
-        const needle = query.trim().toLowerCase();
+      // P0.1: the index loads lazily, so the first query is answered again once
+      // it arrives. Previously the first query rendered "Showing 0 of 0" against
+      // a null index and nothing re-ran it — the page looked empty for a term
+      // the code plainly contains.
+      const controller = createDeferredIndexSearch(() => ensureCodeSearchIndex(state.snapshot || {}), (needle, index, indexState) => {
         if (!needle) { renderCodeMatches([], ""); return; }
-        if (codeSearchIndex) { renderCodeMatches(searchIndexMatches(codeSearchIndex, needle), needle); return; }
-        // Fallback (e.g. no index artifact in this edition): scan the in-memory export.
+        if (index) { renderCodeMatches(searchIndexMatches(index, needle), needle); return; }
+        if (indexState === "pending") { $("code-results").innerHTML = empty("Loading the municipal-code search index\u2026"); return; }
+        // Fallback (no index artifact in this edition): scan the in-memory export.
         const articles = code && Array.isArray(code.articles) ? code.articles : [];
         const sections = articles.flatMap(article => (article.sections || []).map(section => ({ ...section, articleTitle: article.title, articleUrl: article.url })));
         const matches = sections.filter(section => [section.number, section.title, section.text].join(" ").toLowerCase().includes(needle));
         renderCodeMatches(matches, needle);
-      };
-      const debouncedShow = debounce(event => show(event.target.value));
-      $("code-search").addEventListener("input", event => {
-        if (state.codeSearchPending) return;
-        state.codeSearchPending = true;
-        ensureCodeSearchIndex(state.snapshot || {}).catch(() => null).finally(() => { state.codeSearchPending = false; });
-        debouncedShow(event);
       });
-      show("");
+      const debouncedSearch = debounce(value => controller.search(String(value || "").trim().toLowerCase()));
+      $("code-search").addEventListener("input", event => { debouncedSearch(event.target.value); });
+      controller.search("");
     }
     async function start() {
       try {
@@ -534,26 +532,18 @@
         $("banner").className = `banner ${esc(snapshot.status)}`;
         $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "The export pipeline reported a failure; inspect pipeline metadata and Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below; empty is a successful check with no matching records."}`;
         renderAnalytics(snapshot); renderWelcome(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News", ["title", "source", "description", "content", "summary", "pubDate", "date"]); renderList("meeting-items", snapshot.meetings || [], "Meetings", ["title", "source", "description", "summary", "date", "pubDate"]); renderEvents(snapshot); renderList("curated-items", snapshot.curated || [], "Curation", ["title", "source", "summary", "curatedAt"]); renderAlerts(snapshot);
-        try { renderGeoIntel(await load(snapshot.files?.geoIntel || "data/geo-intel.json")); } catch (error) { $("geo-tags").innerHTML = `<span class="error">Contract details unavailable: ${esc(error.message || error)}</span>`; $("geo-sections").innerHTML = empty("Download the geo-intel JSON to inspect the map-ready view."); }
+        try { renderGeoIntel(await load(snapshot.files?.geoIntel || "data/geo-intel.json")); } catch (error) { $("geo-tags").innerHTML = `<span class="error">Contract details unavailable: ${esc(publicErrorNote(error && error.message || error))}.</span>`; $("geo-sections").innerHTML = empty("Download the geo-intel JSON to inspect the map-ready view."); }
         if (snapshot.files && snapshot.files.code) { try { renderCode({ articles: [] }); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
         $("report-content").innerHTML = snapshot.report && snapshot.report.monthly ? `<pre tabindex="0" role="region" aria-label="Monthly civic health report (scrollable)">${esc(snapshot.report.monthly)}</pre>` : empty("No monthly report was present.");
       } catch (error) {
         $("banner").className = "banner unavailable";
-        $("banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(error.message || error)}. The deployment is not presenting a false-success dashboard.`;
+        $("banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(publicErrorNote(error && error.message || error))}. The deployment is not presenting a false-success dashboard.`;
       }
     }
     $("event-filter").addEventListener("change", event => { state.eventFilter = event.target.value; if (state.snapshot) renderEvents(state.snapshot); });
-    for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {
-      button.addEventListener("click", () => {
-        const value = button.id === "event-window-week" ? "week" : "month";
-        const active = state.eventWindow === value;
-        state.eventWindow = active ? "all" : value;
-        for (const other of document.querySelectorAll("#event-window-controls .window-btn")) {
-          other.setAttribute("aria-pressed", other === button && !active ? "true" : "false");
-        }
-        if (state.snapshot) renderEvents(state.snapshot);
-      });
-    }
+    const eventWindowState = { window: state.eventWindow };
+    wireCalendarWindowButtons("event-window-controls", eventWindowState, window => { state.eventWindow = window; if (state.snapshot) renderEvents(state.snapshot); });
+    wireCalendarKindChips("event-items", "event-filter", value => { state.eventFilter = value; if (state.snapshot) renderEvents(state.snapshot); });
     $("health-filter").addEventListener("change", event => { state.healthFilter = event.target.value; renderHealth(state.snapshot?.sourceHealth || []); });
     $("download-health").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-health.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, status: state.snapshot.status, filter: state.healthFilter, sources: filteredHealth(state.snapshot.sourceHealth || []) }); });
     $("registry-filter").addEventListener("input", debounce(event => { state.registryFilter = event.target.value; if (state.snapshot) renderRegistry(state.snapshot); }));

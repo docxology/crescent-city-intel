@@ -117,6 +117,11 @@ describe("lane1: payload split (Phase 1)", () => {
     const code = await readFile(join(import.meta.dir, "../src/pages/static/code.html"), "utf8");
     expect(code).not.toContain("load(snapshot.files.code)");
     expect(code).toContain("codeSearchIndex");
-    expect(code).toContain("setTimeout(() => search(event.target.value.trim().toLowerCase()), 200)");
+    // R3 P0.1: the search is still debounced and the index still loads lazily,
+    // but through the shared debounce() and the deferred-index controller that
+    // re-runs the pending query when the index arrives — the page no longer
+    // owns its own setTimeout, so this asserts the behaviour, not the literal.
+    expect(code).toContain("debounce(value => controller.search(");
+    expect(code).toContain("createDeferredIndexSearch(");
   });
 });

@@ -103,7 +103,7 @@
         renderAnalytics(snapshot); renderAlerts(snapshot); renderTimelineEvents(snapshot);
       } catch (error) {
         $("console-banner").className = "banner unavailable";
-        $("console-banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(error.message || error)}.`;
+        $("console-banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(publicErrorNote(error && error.message || error))}.`;
       }
     }
     start();

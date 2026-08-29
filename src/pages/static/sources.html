@@ -72,7 +72,7 @@
         }).catch(error => {
       // Every render target gets an honest failure state; a table with headers
       // and zero rows is never presented as a success (§5.2 spirit, lane1 slice).
-      document.getElementById("health").innerHTML = empty(`Source artifacts unavailable — ${error.message || error}`);
+      document.getElementById("health").innerHTML = empty(`Source artifacts unavailable — ${publicErrorNote(error && error.message || error)}.`);
       const summary = document.getElementById("registry-summary");
       if (summary) summary.innerHTML = empty("Source artifacts unavailable — no registry summary can be shown for this edition.");
       const body = document.getElementById("registry-body");

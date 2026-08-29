@@ -765,7 +765,7 @@ const staticPagesDir = resolve(import.meta.dir, "../src/pages/static");
 // template still fails the gate via the direct site.js scan below).
 const siteJsPath = join(staticPagesDir, "assets", "site.js");
 const siteJs = await readFile(siteJsPath, "utf8");
-const SHARED_SAFE_FNS = ["itemCard", "healthCardHtml", "codeResultCard", "analyticsSignalsHtml", "alertBannerHtml", "calendarEventCard", "calendarMonthGroups", "searchIndexMatches", "eventStatusChip"];
+const SHARED_SAFE_FNS = ["itemCard", "healthCardHtml", "codeResultCard", "analyticsSignalsHtml", "alertBannerHtml", "calendarEventCard", "calendarMonthGroups", "searchIndexMatches", "eventStatusChip", "emptyListItem"];
 for (const finding of scanPage(`<script>${siteJs}</script>`, "assets/site.js")) errors.push(`unsafe innerHTML interpolation (${finding})`);
 for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html")).sort()) {
   const pageHtml = await readFile(join(staticPagesDir, pageFile), "utf8");
@@ -781,17 +781,70 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
   const eventsHtml = pageHtmlCache.get("events.html") ?? "";
   const indexHtmlPage = pageHtmlCache.get("index.html") ?? "";
   const siteJsText = siteJs;
+  // R3: the assertions below read the *exported* asset copies, not the authored
+  // sources, so a negative control can mutate a real export and see them fire.
+  const exportedAssets = readdirSync(join(destination, "assets"));
+  const readExported = async (pattern: RegExp): Promise<string> => {
+    const name = exportedAssets.find(asset => pattern.test(asset));
+    return name ? await readFile(join(destination, "assets", name), "utf8").catch(() => "") : "";
+  };
+  const exportedSiteJs = await readExported(/^site\.[0-9a-f]{8}\.js$/);
+  const exportedSiteCss = await readExported(/^site\.[0-9a-f]{8}\.css$/);
+  if (!exportedSiteJs) errors.push("the export contains no hashed assets/site.*.js");
+  if (!exportedSiteCss) errors.push("the export contains no hashed assets/site.*.css");
   for (const [page, html] of [["events.html", eventsHtml], ["index.html", indexHtmlPage]] as Array<[string, string]>) {
     if (!html.includes('id="event-window-week"')) errors.push(`${page} is missing the This-week quick filter button`);
     if (!html.includes('id="event-window-month"')) errors.push(`${page} is missing the This-month quick filter button`);
     if (!html.includes('aria-pressed="false"')) errors.push(`${page} quick-filter buttons are missing aria-pressed state`);
     if (!html.includes('class="ics-help"')) errors.push(`${page} is missing the .ics What-is-this explainer`);
     if (!html.includes("data/events.ics")) errors.push(`${page} lost the .ics subscribe link`);
+    // R3 P1-D: one window control. Every window value lives in the button group,
+    // and the kind <select> must not carry date-window options in parallel.
+    for (const window of ["all", "upcoming", "past", "week", "month"]) {
+      if (!html.includes(`data-window="${window}"`)) errors.push(`${page} is missing the "${window}" window button (P1-D single window control)`);
+    }
+    const selectBlock = /<select id="event-filter"[\s\S]*?<\/select>/.exec(html)?.[0] ?? "";
+    for (const strayOption of ['value="upcoming"', 'value="past"']) {
+      if (selectBlock.includes(strayOption)) errors.push(`${page} kind select still carries a date-window option (${strayOption}) — two uncoordinated window controls (P1-D)`);
+    }
+    // R3 P1-C: every window button must name the list it controls — one that
+    // does not is exactly the button whose state change is announced nowhere.
+    const windowButtons = [...html.matchAll(/<button[^>]*class="window-btn"[^>]*>/g)].map(match => match[0]);
+    if (windowButtons.length === 0) errors.push(`${page} has no .window-btn buttons`);
+    for (const button of windowButtons) {
+      if (!button.includes('aria-controls="event-items"')) errors.push(`${page} window buttons are missing aria-controls="event-items" (P1-C)`);
+    }
+    // R3 P1-E/P1-H: both calendar pages carry the freshness line as a live region.
+    if (!/id="event-freshness"[^>]*role="status"/.test(html)) errors.push(`${page} is missing the #event-freshness status line (P1-E/P1-H)`);
+    // R3 P1-H: the window wiring is defined once in site.js and called by both.
+    if (!html.includes('wireCalendarWindowButtons("event-window-controls"')) errors.push(`${page} does not use the shared wireCalendarWindowButtons (duplicated window wiring, P1-H)`);
+    if (/for \(const button of document\.querySelectorAll\("#event-window-controls/.test(html)) errors.push(`${page} still inlines its own window-button loop (P1-H)`);
   }
   if (!siteJsText.includes("function calendarEventKindChip")) errors.push("assets/site.js is missing calendarEventKindChip (per-kind chips regressed)");
   if (!siteJsText.includes("function calendarWindowFilter")) errors.push("assets/site.js is missing calendarWindowFilter (quick filters regressed)");
-  if (!siteJsText.includes('aria-label="Event kind:')) errors.push("calendarEventKindChip lost its accessible label");
+  // R3 P1-B: the kind chips are real filter buttons wired to the kind filter,
+  // not decorative spans carrying an aria-label they cannot act on.
+  if (!/return `<button type="button" class="kind-chip/.test(exportedSiteJs)) errors.push("calendarEventKindChip no longer renders a real filter button (P1-B)");
+  if (!exportedSiteJs.includes('data-kind-filter="')) errors.push("calendarEventKindChip lost the kind-filter value that wires it to the kind select (P1-B)");
+  if (!exportedSiteJs.includes('aria-label="Filter events by kind:')) errors.push("calendarEventKindChip lost its accessible label");
   if (!eventsHtml.includes("event-freshness")) errors.push("events.html lost the calendar-freshness meta line");
+  if (!exportedSiteJs.includes("function wireCalendarWindowButtons")) errors.push("assets/site.js is missing wireCalendarWindowButtons (the per-page wiring loops must not return, P1-H)");
+  // R3 P0.1: code search must re-run once the lazily loaded index arrives.
+  if (!exportedSiteJs.includes("function createDeferredIndexSearch")) errors.push("assets/site.js is missing createDeferredIndexSearch (code search cannot re-run after index load, P0.1)");
+  for (const [page, html] of [["code.html", pageHtmlCache.get("code.html") ?? ""], ["index.html", indexHtmlPage]] as Array<[string, string]>) {
+    if (!html.includes("createDeferredIndexSearch(")) errors.push(`${page} code search does not re-run after the search index loads (P0.1)`);
+  }
+  // R3 P1-G: #event-items is an <ol>; its states must be list items, so the
+  // calendar page uses emptyListItem() and never the <div>-returning empty().
+  if (!exportedSiteJs.includes("const emptyListItem =")) errors.push("assets/site.js is missing emptyListItem (list-context empty state, P1-G)");
+  if (/\bempty\(/.test(eventsHtml)) errors.push("events.html renders a <div> empty state inside the <ol> calendar list (P1-G)");
+  // R3 P0.6: raw operator error text must not be interpolated into public copy.
+  if (!exportedSiteJs.includes("function publicErrorNote")) errors.push("assets/site.js is missing publicErrorNote (operator errors reach public copy, P0.6)");
+  if (/esc\(source\.error\)/.test(exportedSiteJs)) errors.push("assets/site.js renders a raw source error string in public copy (P0.6)");
+  for (const [pageFile, html] of pageHtmlCache) {
+    if (/\$\{(?:esc\()?error\.message \|\| error/.test(html)) errors.push(`${pageFile} renders a raw operator error string in public copy (P0.6)`);
+    if (/esc\((?:source|record)\.error\)/.test(html)) errors.push(`${pageFile} renders a raw source error string in public copy (P0.6)`);
+  }
   // Per-kind chip styles must survive CSS extraction into the shared asset.
   // (The sticky month-header rule used to be checked here as a literal string.
   // That assertion could not fail for the defect it was written against: the
@@ -799,6 +852,43 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
   // below, which resolves position/display over the real element path.)
   const siteCssText = await readFile(join(staticPagesDir, "assets", "site.css"), "utf8").catch(() => "");
   if (!siteCssText.includes(".kind-chip--")) errors.push("site.css lost the per-kind chip styles");
+  // R3 P1-C: .window-btn follows the site conventions instead of a width hack.
+  const focusRule = /a:focus-visible[^{]*\{[^}]*\}/.exec(exportedSiteCss)?.[0] ?? "";
+  if (!focusRule.includes(".window-btn:focus-visible")) errors.push("site.css focus-ring rule does not cover .window-btn (P1-C)");
+  const coarseRule = /@media \(pointer: coarse\) \{[^}]*\}/.exec(exportedSiteCss)?.[0] ?? "";
+  if (!coarseRule.includes(".window-btn")) errors.push("site.css coarse-pointer 44px rule does not cover .window-btn (P1-C)");
+  if (/@media \(max-width:600px\) \{ \.window-btn/.test(exportedSiteCss)) errors.push("site.css still sizes .window-btn by viewport width instead of pointer type (P1-C)");
+}
+
+// --- R3 P1-L gate: meeting copy is about the meeting ---
+// The city's meeting pages repeat their own navigation inside the scraped body
+// ("Meeting Agenda (View the agenda...)", "Submit Written Public Comment (...)",
+// "Media Site"). That chrome, and the bare agenda URLs beside it, were being
+// published as meeting copy on the public meetings list and in the feed.
+{
+  const MEETING_CHROME = ["Meeting Agenda (View the agenda", "Submit Written Public Comment", "YouTube Channel (View", "Media Site", "City of Crescent City Website"];
+  const meetingsJson = await readFile(join(destination, "data", "meetings.json"), "utf8").catch(() => null);
+  if (meetingsJson !== null) {
+    const meetings = JSON.parse(meetingsJson) as Array<Record<string, unknown>>;
+    meetings.forEach((meeting, index) => {
+      const content = typeof meeting.content === "string" ? meeting.content : "";
+      for (const chrome of MEETING_CHROME) {
+        if (content.includes(chrome)) errors.push(`data/meetings.json[${index}] publishes source-site nav chrome as meeting copy: "${chrome}" (P1-L)`);
+      }
+      if (/https?:\/\//.test(content)) errors.push(`data/meetings.json[${index}] publishes a raw URL as meeting copy instead of a labelled document link (P1-L)`);
+      const documents = Array.isArray(meeting.documents) ? meeting.documents : [];
+      for (const document of documents as Array<Record<string, unknown>>) {
+        if (typeof document.label !== "string" || !document.label.trim()) errors.push(`data/meetings.json[${index}] has an unlabelled meeting document (P1-L)`);
+        if (typeof document.url !== "string" || !/^https?:\/\//i.test(document.url)) errors.push(`data/meetings.json[${index}] has a meeting document with no usable URL (P1-L)`);
+      }
+    });
+  }
+  const feedXml = await readFile(join(destination, "feed.xml"), "utf8").catch(() => null);
+  if (feedXml !== null) {
+    for (const chrome of MEETING_CHROME) {
+      if (feedXml.includes(chrome)) errors.push(`feed.xml syndicates source-site nav chrome as item copy: "${chrome}" (P1-L)`);
+    }
+  }
 }
 
 // --- lane2 gate: navigation/IA and SEO assertions (§2.1-2.8, §3.1-3.3, §3.7) ---

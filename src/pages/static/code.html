@@ -62,10 +62,8 @@
       const counts = meta.counts || {};
       metaLine.innerHTML = `${esc(counts.articlePageCount ?? "?")} articles and ${esc(counts.sectionCount ?? "?")} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(meta.files.code)}" rel="noopener noreferrer">download code.json</a>.`;
       results.innerHTML = empty("Enter a search term to search the exported municipal code.");
-      let codeSearchPath = meta.files.codeSearchIndex;
-      let searchIndex = null;
-      let indexPending = false;
-      const render = (matches, needle) => {
+      const codeSearchPath = meta.files.codeSearchIndex;
+      const renderMatches = (matches, needle) => {
         const shown = matches.slice(0, CAP);
         results.innerHTML = !needle
           ? empty("Enter a search term to search the exported municipal code.")
@@ -74,24 +72,21 @@
             : empty("No code sections matched this query."));
         if (needle) results.innerHTML += `<div class="meta">Showing ${esc(shown.length)} of ${esc(matches.length)} matching code sections.</div>`;
       };
-      const search = needle => {
-        if (!needle) { render([], ""); return; }
-        if (searchIndex) {
-          render(searchIndexMatches(searchIndex, needle, CAP), needle);
-          return;
-        }
-        if (!indexPending && codeSearchPath) {
-          indexPending = true;
-          load(codeSearchPath).then(index => { searchIndex = index; }).catch(() => { codeSearchPath = null; }).finally(() => { indexPending = false; });
-        }
-        render([], needle); // empty result until the index arrives on the next keystroke; never invent matches
-      };
-      let timer = null;
-      document.getElementById("code-search").addEventListener("input", event => {
-        clearTimeout(timer);
-        timer = setTimeout(() => search(event.target.value.trim().toLowerCase()), 200);
+      // P0.1: the sharded index loads on the first query. It used to render an
+      // empty result at that moment and never re-run, so a first search for a
+      // term the code contains ("harbor") reported "Showing 0 of 0" forever.
+      // The controller re-runs the pending query as soon as the index settles,
+      // and the interim state says "loading" rather than reporting zero matches.
+      const controller = createDeferredIndexSearch(() => (codeSearchPath ? load(codeSearchPath) : null), (needle, index, indexState) => {
+        if (!needle) { renderMatches([], ""); return; }
+        if (index) { renderMatches(searchIndexMatches(index, needle, CAP), needle); return; }
+        results.innerHTML = indexState === "pending"
+          ? empty("Loading the municipal-code search index\u2026")
+          : empty("The municipal-code search index could not be loaded, so this query was not run. Download code.json above to search the full export.");
       });
-    }).catch(error => { document.getElementById("code-results").innerHTML = empty(`Code export unavailable — ${error.message || error}`); });
+      const debouncedSearch = debounce(value => controller.search(String(value || "").trim().toLowerCase()));
+      document.getElementById("code-search").addEventListener("input", event => { debouncedSearch(event.target.value); });
+    }).catch(error => { document.getElementById("code-results").innerHTML = empty(`Code export unavailable — ${publicErrorNote(error && error.message || error)}.`); });
     };
     if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
     </script>

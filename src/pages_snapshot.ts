@@ -757,6 +757,57 @@ export function sanitizeRenderedText(value: string): string {
     .trim();
 }
 
+/**
+ * P1-L: strip the site chrome the meeting scraper captures with the record.
+ * The city's meeting page repeats its own navigation ("Meeting Agenda (View the
+ * agenda...)", "Submit Written Public Comment (...)", "YouTube Channel (...)",
+ * "Media Site", "City of Crescent City Website") inside the body text; those
+ * strings describe the source site's furniture, not the meeting, and reading
+ * them as meeting copy is what put nav boilerplate on the public page.
+ */
+const MEETING_NAV_CHROME = [
+  /Meeting Agenda \(View the agenda[^)]*\)/gi,
+  /Submit Written Public Comment \([^)]*\)/gi,
+  /YouTube Channel \([^)]*\)/gi,
+  /Media Site/gi,
+  /City of Crescent City Website/gi,
+];
+
+/** A labelled meeting document extracted from the scraped body text. */
+export type MeetingDocument = { label: string; url: string };
+
+/**
+ * Split a scraped meeting body into public prose and labelled documents.
+ * "Agenda: https://... , https://..." and "Minutes: https://..." segments become
+ * {label, url} pairs the page renders as links; the remaining prose keeps only
+ * text that is about the meeting. Nothing is invented: a body with no documents
+ * yields an empty list, and a body that is entirely chrome yields empty prose.
+ */
+export function splitMeetingContent(raw: string): { content: string; documents: MeetingDocument[] } {
+  let text = String(raw ?? "");
+  for (const pattern of MEETING_NAV_CHROME) text = text.replace(pattern, " ");
+  const documents: MeetingDocument[] = [];
+  // URLs are matched without commas so a comma-separated list splits into its
+  // real members instead of one URL that swallows the separator.
+  const labelled = /\b(Agenda|Minutes|Packet|Presentation|Staff Report)\s*:\s*((?:https?:\/\/[^\s,]+)(?:\s*,\s*https?:\/\/[^\s,]+)*)/gi;
+  text = text.replace(labelled, (_match, label: string, urls: string) => {
+    const list = urls.split(/\s*,\s*/).map(url => url.trim()).filter(url => /^https?:\/\//i.test(url));
+    list.forEach((url, index) => {
+      const suffix = list.length > 1 ? ` ${index + 1}` : "";
+      documents.push({ label: `${label.charAt(0).toUpperCase()}${label.slice(1).toLowerCase()}${suffix}`, url });
+    });
+    return " ";
+  });
+  // Any URL left in the prose is a bare link with no label; it belongs in the
+  // document list too rather than as raw URL text in a sentence.
+  text = text.replace(/https?:\/\/\S+/g, url => {
+    documents.push({ label: "Related document", url });
+    return " ";
+  });
+  const content = text.replace(/[|\u00b7]+/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s,;:-]+|[\s,;:-]+$/g, "").trim();
+  return { content, documents };
+}
+
 function feedItemDate(item: JsonRecord): string | null {
   for (const key of ["pubDate", "date", "fetchedAt", "timestamp", "checkedAt"]) {
     const value = item[key];
@@ -799,7 +850,7 @@ export function buildPagesFeedXml(snapshot: PagesSnapshot): string {
     items.push({
       title: sanitizeRenderedText(title),
       link: typeof item.link === "string" && /^https?:\/\//i.test(item.link) ? item.link : `${PAGES_SITE_URL}/meetings.html`,
-      description: typeof item.content === "string" ? sanitizeRenderedText(item.content.slice(0, 500)) : "",
+      description: typeof item.content === "string" ? sanitizeRenderedText(splitMeetingContent(item.content).content.slice(0, 500)) : "",
       date: feedItemDate(item),
     });
   }
@@ -1137,7 +1188,11 @@ function normalizeMeeting(item: JsonRecord): JsonRecord | null {
     link,
     source: typeof item.source === "string" ? item.source : "Government meeting",
     date: typeof item.date === "string" ? item.date : null,
-    content: typeof item.content === "string" ? item.content : typeof item.body === "string" ? item.body : "",
+    ...(() => {
+      const body = typeof item.content === "string" ? item.content : typeof item.body === "string" ? item.body : "";
+      const split = splitMeetingContent(body);
+      return { content: split.content, documents: split.documents };
+    })(),
     fetchedAt: typeof item.fetchedAt === "string" ? item.fetchedAt : null,
   };
 }

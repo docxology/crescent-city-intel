@@ -19,8 +19,7 @@
     .page { max-width:1260px; margin:0 auto; padding:0 20px 60px; }
     .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 12px; padding-bottom:5px; border-top:3px solid var(--cc); flex-wrap:wrap; }
     .section-head h2 { font:700 clamp(1.15rem,2vw,1.5rem)/1.15 "Playfair Display",Georgia,serif; margin:0; letter-spacing:-.01em; color:var(--ink); }
-    .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; white-space:nowrap; max-width:100%; overflow-wrap:anywhere; }
-@media (max-width:600px) { .section-head .meta { white-space:normal; } }
+    .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; max-width:100%; overflow-wrap:anywhere; }
     .banner { border:1px solid var(--rule); border-left:4px solid var(--cc); background:var(--panel); padding:12px 16px; font-size:.92rem; margin-bottom:10px; }
     .banner.degraded { border-left-color:var(--rdark); background:var(--rtint); }
     .banner.unavailable { border-left-color:var(--ink); background:var(--rule-light); }
@@ -146,7 +145,20 @@ input:focus,select:focus,.button:focus-visible { outline:2px solid var(--ink); o
    `.table-scroll` was index-only while gui.html and sources.html both emit
    wrapped tables; `.scroll-x` is the general-purpose wrapper. */
 code { overflow-wrap:anywhere; }
-.table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; max-width:100%; }
+/* min-width:0 is what makes the scroller actually scroll. A grid or flex child
+   defaults to min-width:auto — it refuses to shrink below its content's
+   min-content width — so a wide table grew its own wrapper instead of
+   overflowing inside it, and the document grew with it. max-width:100% cannot
+   fix that on its own: the track was already wider than the viewport. */
+.table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; max-width:100%; min-width:0; }
+.items > *, .grid > *, .cards-row > *, .section-head > *, .controls > *, .action-bar > * { min-width:0; }
+/* Every string on these pages is data: a source id, a station name, an agenda
+   URL, a monitor summary. Any of them can be one long unbreakable token, and a
+   token wider than the viewport widens the document no matter how the layout is
+   built. `anywhere` only breaks when a break is needed to avoid overflow, and
+   unlike `break-word` it also shrinks min-content, so grid tracks and table
+   cells stop being sized by their longest word. */
+.page, .red-banner, .masthead-nav-wrap, .breadcrumb { overflow-wrap:anywhere; }
 .table-scroll table { min-width:640px; max-width:none; width:max-content; }
 /* A single unbreakable token in a cell (a long URL, a station id, a CI-rendered
    wide word) used to spill past the table's own box and widen the document even

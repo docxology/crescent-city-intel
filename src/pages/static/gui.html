@@ -56,7 +56,13 @@
     const __bootPage = () => {
     function renderAnalytics(snapshot) {
       const analytics = snapshot.analytics;
-      const summary = snapshot.healthSummary || {};
+      // This console builds its snapshot from data/analytics.json, not from
+      // data/snapshot.json, so `snapshot.healthSummary` is never populated here
+      // and the "Source checks"/"Coverage" cards read 0/— while the detail
+      // below showed real coverage. The equivalent figures live on the
+      // analytics envelope; keep healthSummary as a fallback for callers that
+      // do pass a full snapshot.
+      const summary = (analytics && analytics.metrics && analytics.metrics.sources) || snapshot.healthSummary || {};
       if (!analytics) {
         $("analytics-signals").innerHTML = empty("No shared analytical overview was published for this edition. Source health below remains authoritative.");
       } else {

@@ -67,6 +67,46 @@ async function resetProviderBudget(): Promise<void> {
   } catch { /* module unavailable — nothing to reset */ }
 }
 
+// ─── Cached alert-trend diagnostics for GET /api/health ──────────
+
+/**
+ * GET /api/health is polled by uptime checks, so it must not do unbounded
+ * blocking I/O per request. `buildAlertAnalytics()` synchronously reads eight
+ * JSONL history files; caching its derived trend summary keeps the endpoint
+ * O(1) between refreshes. The window it describes is 30 days wide, so a 60s
+ * TTL costs nothing in freshness.
+ */
+const HEALTH_TRENDS_TTL_MS = 60_000;
+
+let healthTrendsCache: { computedAt: number; value: import("../alert_analytics.js").AlertTypeTrendSummary[] } | null = null;
+
+/**
+ * Trend summary for /api/health, recomputed at most once per TTL.
+ * Returns null when analytics are unavailable — diagnostics never break liveness.
+ */
+export async function getHealthAlertTrends(): Promise<import("../alert_analytics.js").AlertTypeTrendSummary[] | null> {
+  const now = Date.now();
+  if (healthTrendsCache && now - healthTrendsCache.computedAt < HEALTH_TRENDS_TTL_MS) {
+    return healthTrendsCache.value;
+  }
+  try {
+    const { buildAlertAnalytics, computeAlertTypeTrends, summarizeAlertTypeTrends } = await import("../alert_analytics.js");
+    const analytics = buildAlertAnalytics();
+    const value = summarizeAlertTypeTrends(
+      computeAlertTypeTrends(analytics.timeline, new Date(), { retainedFrom: analytics.timelineRetainedFrom }),
+    );
+    healthTrendsCache = { computedAt: now, value };
+    return value;
+  } catch {
+    return healthTrendsCache?.value ?? null;
+  }
+}
+
+/** Test hook: drop the cached trend summary so the next call recomputes. */
+export function _resetHealthTrendsCache(): void {
+  healthTrendsCache = null;
+}
+
 // ─── Route handler ───────────────────────────────────────────────
 
 /** Route an API request and return a Response */
@@ -978,13 +1018,13 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
 
     // Per-type 30-day alert trend summary, computed from the bounded history
-    // JSONL files (same data source as /api/alerts/timeline). Diagnostics-only:
-    // a failure here never breaks liveness.
-    try {
-      const { buildAlertAnalytics, computeAlertTypeTrends } = await import("../alert_analytics.js");
-      const analytics = buildAlertAnalytics();
-      health.alertTrends30d = computeAlertTypeTrends(analytics.timeline);
-    } catch { /* diagnostics never break liveness */ }
+    // JSONL files (same data source as /api/alerts/timeline) and cached for
+    // HEALTH_TRENDS_TTL_MS so health polling does not re-read them every hit.
+    // Compact projection: per-UTC-day counts, not one ISO stamp per event —
+    // the raw stamps stay on GET /api/alerts/timeline. Diagnostics-only: a
+    // failure here never breaks liveness.
+    const alertTrends30d = await getHealthAlertTrends();
+    if (alertTrends30d) health.alertTrends30d = alertTrends30d;
 
     // Include composite alert severity if available
     const compositePath = "output/alerts/composite/current.json";
@@ -1221,24 +1261,85 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   }
 
   // GET /api/events/discover - community-event discovery artifact
+  //
+  // Reads the persisted artifact by default. Fanning out to every registered
+  // event source costs a full network round of third-party fetches, so it is
+  // not something an arbitrary caller gets to trigger by asking for one event:
+  // `?refresh=1` is the only path that touches the network, and the route is
+  // API-key gated (it is absent from PUBLIC_PATHS in api/middleware.ts) and
+  // rate limited by the same middleware.
+  //
   // Supports ?limit=&offset= pagination over artifact.events, matching the
-  // alerts/history pattern ({total, offset, limit, count}). Without limit the
+  // alerts/history pattern ({total, offset, limit, count}). Without either the
   // full unpaginated artifact is returned (backwards compatible).
   if (path === "/api/events/discover") {
     try {
-      const { buildDiscoveryArtifact } = await import("../event_discovery.js");
-      const includeNetwork = url.searchParams.get("live") !== "false";
-      const artifact = await buildDiscoveryArtifact(new Date().toISOString(), process.cwd(), { includeNetwork });
+      const refresh = ["1", "true"].includes((url.searchParams.get("refresh") ?? "").toLowerCase());
+      // Legacy parameter: live=false meant "build the offline shell". Preserved
+      // so existing callers keep their documented behaviour.
+      const liveParam = url.searchParams.get("live");
+
+      // Pagination parameters are validated BEFORE any work: rejecting
+      // limit=0 after a network fan-out would still have paid for it. `0 || 50`
+      // previously turned limit=0 into a silent 50, contradicting the published
+      // `minimum: 1`.
       const limitParam = url.searchParams.get("limit");
       const offsetParam = url.searchParams.get("offset");
-      if (limitParam === null && offsetParam === null) {
-        return json(artifact);
+      const paginated = limitParam !== null || offsetParam !== null;
+      let limit = 50;
+      let offset = 0;
+      if (paginated) {
+        if (limitParam !== null) {
+          if (!/^\d+$/.test(limitParam.trim())) {
+            return json({ error: "limit must be an integer between 1 and 500" }, 400);
+          }
+          limit = parseInt(limitParam, 10);
+          if (limit < 1) return json({ error: "limit must be at least 1" }, 400);
+          if (limit > 500) limit = 500;
+        }
+        if (offsetParam !== null) {
+          if (!/^\d+$/.test(offsetParam.trim())) {
+            return json({ error: "offset must be a non-negative integer" }, 400);
+          }
+          offset = parseInt(offsetParam, 10);
+        }
       }
-      const limit = Math.min(500, Math.max(1, parseInt(limitParam ?? "50", 10) || 50));
-      const offset = Math.max(0, parseInt(offsetParam ?? "0", 10) || 0);
+
+      let artifact: import("../event_discovery.js").DiscoveryArtifact | null = null;
+      let source: "persisted" | "network" | "offline-shell";
+
+      if (refresh) {
+        const { buildDiscoveryArtifact } = await import("../event_discovery.js");
+        artifact = await buildDiscoveryArtifact(new Date().toISOString(), process.cwd(), { includeNetwork: true });
+        source = "network";
+      } else if (liveParam === "false") {
+        const { buildDiscoveryArtifact } = await import("../event_discovery.js");
+        artifact = await buildDiscoveryArtifact(new Date().toISOString(), process.cwd(), { includeNetwork: false });
+        source = "offline-shell";
+      } else {
+        const { existsSync, readFileSync } = await import("fs");
+        const persistedPath = join(process.cwd(), "output", "events", "event_discovery.json");
+        if (existsSync(persistedPath)) {
+          try {
+            artifact = JSON.parse(readFileSync(persistedPath, "utf-8")) as import("../event_discovery.js").DiscoveryArtifact;
+          } catch { artifact = null; }
+        }
+        if (artifact && Array.isArray(artifact.events)) {
+          source = "persisted";
+        } else {
+          // No usable artifact on disk: return the deterministic offline shell
+          // rather than silently escalating to a network fan-out.
+          const { buildDiscoveryArtifact } = await import("../event_discovery.js");
+          artifact = await buildDiscoveryArtifact(new Date().toISOString(), process.cwd(), { includeNetwork: false });
+          source = "offline-shell";
+        }
+      }
+
+      const body = { ...artifact, source };
+      if (!paginated) return json(body);
       const total = artifact.events.length;
       const page = artifact.events.slice(offset, offset + limit);
-      return json({ ...artifact, total, offset, limit, count: page.length, events: page });
+      return json({ ...body, total, offset, limit, count: page.length, events: page });
     } catch (err: any) {
       return json({ error: `Event discovery failed: ${err.message}` }, 500);
     }

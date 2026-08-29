@@ -464,10 +464,13 @@
       $("alert-items").innerHTML = current.length ? `<div class="table-scroll" tabindex="0" role="region" aria-label="Current alert snapshots table (scrollable)"><table><thead><tr><th>Monitor</th><th>Level/status</th><th>Summary</th><th>Observed</th></tr></thead><tbody>${current.map(item => `<tr><td>${esc(item.monitor)}</td><td>${status(item.level || item.status || "unknown")}</td><td>${esc(item.summary || item.reason || item.message || "No summary")}</td><td>${esc(date(item.fetchedAt || item.assessedAt || item.timestamp))}</td></tr>`).join("")}</tbody></table></div>` : empty("No per-monitor current snapshots were available.");
     }
     function renderCards(snapshot) {
-      const manifest = snapshot.municipalCode && snapshot.municipalCode.manifest;
+      // §1.1 envelope split moved these counts to municipalCode.counts; the
+      // old municipalCode.manifest path is not present in the exported
+      // snapshot, so both cards rendered the "—" placeholder forever.
+      const counts = snapshot.municipalCode && snapshot.municipalCode.counts;
       const cards = [
-        [manifest && manifest.articlePageCount, "Code articles"],
-        [manifest && manifest.sectionCount, "Code sections"],
+        [counts && counts.articlePageCount, "Code articles"],
+        [counts && counts.sectionCount, "Code sections"],
         [snapshot.news.length, "News items"],
         [snapshot.meetings.length, "Meeting items"],
         [snapshot.sourceHealth.length, "Health records"],

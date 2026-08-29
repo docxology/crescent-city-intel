@@ -66,6 +66,19 @@ export interface AlertAnalyticsReport {
   mostRecentAlert: TimelineEntry | null;
   /** Alert type with the most events */
   mostActiveType: AlertType | null;
+  /**
+   * True when `timeline` is a suffix of a longer history because the entry cap
+   * was hit. Consumers doing window math over `timeline` (see
+   * `computeAlertTypeTrends`) MUST NOT read absence of old entries as absence
+   * of old events.
+   */
+  timelineTruncated: boolean;
+  /**
+   * ISO timestamp of the oldest entry still present in `timeline` when
+   * `timelineTruncated` is true; null when the timeline is the complete
+   * history. Nothing before this instant can be counted from `timeline`.
+   */
+  timelineRetainedFrom: string | null;
 }
 
 /** Read a JSONL file and return parsed records */
@@ -218,13 +231,17 @@ export function buildAlertAnalytics(maxTimelineEntries = 1000): AlertAnalyticsRe
   // Sort timeline chronologically
   timeline.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
   // Bound the number of entries carried into the report (keep the most recent).
-  if (timeline.length > maxTimelineEntries) {
+  // Truncation is recorded, not silent: a consumer counting events per window
+  // needs to know the retained timeline has a floor.
+  const timelineTruncated = timeline.length > maxTimelineEntries;
+  if (timelineTruncated) {
     timeline = timeline.slice(-maxTimelineEntries);
   }
+  const timelineRetainedFrom = timelineTruncated && timeline.length > 0 ? timeline[0].timestamp : null;
 
   const mostRecentAlert = timeline.length > 0 ? timeline[timeline.length - 1] : null;
 
-  log.info(`Alert analytics: ${totalEvents} total events, ${timeline.length} timeline entries`);
+  log.info(`Alert analytics: ${totalEvents} total events, ${timeline.length} timeline entries${timelineTruncated ? ` (truncated, retained from ${timelineRetainedFrom})` : ""}`);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -233,6 +250,8 @@ export function buildAlertAnalytics(maxTimelineEntries = 1000): AlertAnalyticsRe
     totalEvents,
     mostRecentAlert,
     mostActiveType,
+    timelineTruncated,
+    timelineRetainedFrom,
   };
 }
 
@@ -245,45 +264,123 @@ export interface AlertTypeTrend {
   countPrevious30d: number;
   /** count30d - countPrevious30d. */
   delta: number;
-  /** "rising" | "steady" | "falling" | "insufficient" - insufficient when both windows are empty. */
-  trend: "rising" | "steady" | "falling" | "insufficient";
+  /**
+   * "rising" | "falling" — |delta| exceeds the steady band.
+   * "changed"  — inside the band but one window is empty and the other is not
+   *              (0 <-> 1): presence appearing or disappearing is a state change,
+   *              not steadiness.
+   * "steady"   — inside the band with both windows non-empty.
+   * "insufficient" — both windows empty, OR the counts cannot be trusted because
+   *              the source timeline was truncated below the 60-day span.
+   */
+  trend: "rising" | "steady" | "falling" | "changed" | "insufficient";
+  /**
+   * Events dated after `now` (NWS onset/expiry stamps routinely are). They are
+   * deliberately excluded from both windows — a forecast is not an observation —
+   * and reported here so the exclusion is visible rather than silent.
+   */
+  futureDated: number;
+  /**
+   * True when the supplied entries are a truncated suffix of a longer history
+   * whose floor lands inside the 60-day span, so `countPrevious30d` (and
+   * possibly `count30d`) undercounts. `trend` is forced to "insufficient".
+   */
+  truncated: boolean;
   /** Timestamps of the current window's events (ISO, chronological). */
   eventTimestamps30d: string[];
 }
 
-/** One-sided steady band: |delta| <= 1 counts as steady (matches insights STEADY_BAND=1). */
+/**
+ * Two-sided steady band: |delta| <= 1 counts as steady (matches insights
+ * STEADY_BAND=1). Applied symmetrically to rises and falls, with the 0 <-> 1
+ * boundary case broken out as "changed" — see AlertTypeTrend.trend.
+ */
 export const ALERT_TREND_STEADY_BAND = 1;
+
+/** Compact per-type trend for size-sensitive payloads (e.g. GET /api/health). */
+export interface AlertTypeTrendSummary {
+  type: AlertType;
+  count30d: number;
+  countPrevious30d: number;
+  delta: number;
+  trend: AlertTypeTrend["trend"];
+  futureDated: number;
+  truncated: boolean;
+  /**
+   * Sparse UTC-day histogram of the current window: "YYYY-MM-DD" -> count.
+   * At most 31 keys per type, versus one ISO string per event in
+   * `eventTimestamps30d` (the raw stamps stay on GET /api/alerts/timeline).
+   */
+  eventsPerDay30d: Record<string, number>;
+}
+
+/**
+ * Project full trends onto the compact summary carried by GET /api/health.
+ * Drops `eventTimestamps30d` (unbounded in the number of events) in favour of a
+ * per-UTC-day histogram bounded by the window length.
+ */
+export function summarizeAlertTypeTrends(trends: AlertTypeTrend[]): AlertTypeTrendSummary[] {
+  return trends.map(({ eventTimestamps30d, ...rest }) => {
+    const eventsPerDay30d: Record<string, number> = {};
+    for (const stamp of eventTimestamps30d) {
+      const day = stamp.slice(0, 10);
+      eventsPerDay30d[day] = (eventsPerDay30d[day] ?? 0) + 1;
+    }
+    return { ...rest, eventsPerDay30d };
+  });
+}
 
 /**
  * Compute a per-type 30-day trend summary from timeline entries. Deterministic;
  * no LLM. Undated entries are excluded from window math, never guessed into a
  * bucket. Both windows empty => "insufficient".
+ *
+ * `options.retainedFrom` is the ISO floor of a truncated timeline (see
+ * `AlertAnalyticsReport.timelineRetainedFrom`). When that floor falls after the
+ * start of the previous window the counts are known-incomplete, so every type
+ * reports `truncated: true` and `trend: "insufficient"` rather than a confident
+ * "rising" manufactured by the missing tail.
  */
 export function computeAlertTypeTrends(
   entries: TimelineEntry[],
   now: Date = new Date(),
+  options: { retainedFrom?: string | null } = {},
 ): AlertTypeTrend[] {
   const nowMs = now.getTime();
   const day = 24 * 60 * 60 * 1000;
   const curStart = nowMs - 30 * day;
   const prevStart = curStart - 30 * day;
 
+  const retainedFromMs = options.retainedFrom ? new Date(options.retainedFrom).getTime() : NaN;
+  const truncated = Number.isFinite(retainedFromMs) && retainedFromMs > prevStart;
+
   const trends: AlertTypeTrend[] = [];
   for (const type of ALERT_TYPES) {
     const dated = entries
-      .filter(e => e.type === type && Number.isFinite(new Date(e.timestamp).getTime()))
-      .map(e => new Date(e.timestamp).getTime())
+      .filter(e => e.type === type)
+      // An entry is dated only if it carries a non-empty string that parses.
+      // `null`/`undefined`/"" must not slip through: `new Date(null)` is a
+      // finite epoch-0 date and would bucket an undated record into 1970.
+      .map(e => (typeof e.timestamp === "string" && e.timestamp.trim() !== "" ? new Date(e.timestamp).getTime() : NaN))
+      .filter(t => Number.isFinite(t))
       .sort((a, b) => a - b);
     const cur = dated.filter(t => t >= curStart && t <= nowMs);
     const prev = dated.filter(t => t >= prevStart && t < curStart);
+    const futureDated = dated.filter(t => t > nowMs).length;
     const count30d = cur.length;
     const countPrevious30d = prev.length;
     const delta = count30d - countPrevious30d;
+    // Presence flipping on or off is categorically different from a small
+    // fluctuation between two non-empty windows, even though both sit inside
+    // the band.
+    const crossesEmpty = (count30d === 0) !== (countPrevious30d === 0);
     let trend: AlertTypeTrend["trend"];
-    if (count30d === 0 && countPrevious30d === 0) {
+    if (truncated) {
+      trend = "insufficient";
+    } else if (count30d === 0 && countPrevious30d === 0) {
       trend = "insufficient";
     } else if (Math.abs(delta) <= ALERT_TREND_STEADY_BAND) {
-      trend = "steady";
+      trend = crossesEmpty ? "changed" : "steady";
     } else {
       trend = delta > 0 ? "rising" : "falling";
     }
@@ -293,6 +390,8 @@ export function computeAlertTypeTrends(
       countPrevious30d,
       delta,
       trend,
+      futureDated,
+      truncated,
       eventTimestamps30d: cur.map(t => new Date(t).toISOString()),
     });
   }

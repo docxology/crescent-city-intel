@@ -444,6 +444,31 @@ export async function discoverFromSource(
         continue;
       }
       if (row.hasDateContext) {
+        // Completeness assist: markup already yielded a date but the listing
+        // lacks a time or location - ask the LLM to extract those fields from
+        // the listing text, grounded ONLY in what the row states. The LLM
+        // date is never trusted over a markup-parsed date.
+        if (markupDate && !row.location) {
+          const assist = await resolveLlm(`${row.title} ${row.dateRaw ?? ""} ${row.location ?? ""}`.trim());
+          if (assist && (assist.timeNote || assist.location)) {
+            events.push({
+              title: row.title,
+              kind: "community-listing",
+              dateStart: markupDate,
+              dateAllDay: true,
+              timeNote: assist.timeNote,
+              location: assist.location ?? row.location,
+              organizer: source.name,
+              description: "",
+              sourceUrl: row.link,
+              sourceName: source.name,
+              sourceLinks: [row.link],
+              extractionMethod: "llm",
+              confidence: 0.75,
+            });
+            continue;
+          }
+        }
         // Date-like text present but not strictly parseable -> ask the LLM, else drop.
         const llm = await resolveLlm(`${row.title} ${row.dateRaw ?? ""} ${row.location ?? ""}`.trim());
         if (llm?.date) {

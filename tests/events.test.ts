@@ -16,6 +16,7 @@ import {
   formatIcsStamp,
   nextIsoDay,
   parseEventDate,
+  extractTimeNote,
   EVENTS_SCHEMA,
   type EventKind,
 } from "../src/events.ts";
@@ -330,6 +331,44 @@ describe('collectEvents > discovery merge', () => {
     expect(bos.kind).toBe('government-meeting');
     expect(bos.dateStart).toBe('2026-10-06');
     expect(bos.sourceLinks).toContain('https://example.com/bos');
+    await rm(base, { recursive: true, force: true });
+  });
+});
+
+describe('extractTimeNote — publish metadata vs event time', () => {
+  test('rejects full RFC-2822 and ISO publish stamps', () => {
+    expect(extractTimeNote('Thu, 06 Aug 2026 16:45:19 +0000')).toBeNull();
+    expect(extractTimeNote('Wed, 12 Aug 2026 16:25:00 -0700')).toBeNull();
+    expect(extractTimeNote('2026-09-10T17:30:00Z')).toBeNull();
+    expect(extractTimeNote('2026-09-10 17:30:00')).toBeNull();
+  });
+  test('extracts bare clock times with optional meridiem', () => {
+    expect(extractTimeNote('5:30 PM')).toBe('5:30 PM');
+    expect(extractTimeNote('6:00pm')).toBe('6:00 PM');
+    expect(extractTimeNote('10:00')).toBe('10:00');
+    expect(extractTimeNote('Meets 9:00 AM upstairs')).toBe('9:00 AM');
+  });
+  test('returns null for absent or junk input', () => {
+    expect(extractTimeNote(null)).toBeNull();
+    expect(extractTimeNote('')).toBeNull();
+    expect(extractTimeNote('all day')).toBeNull();
+    expect(extractTimeNote('25:99')).toBeNull();
+  });
+  test('structured discovery timeNote passes through collectEvents', async () => {
+    const base = await mkdtemp(join(tmpdir(), 'events-time-'));
+    await mkdir(join(base, 'events'), { recursive: true });
+    await Bun.write(join(base, 'events', 'event_discovery.json'), JSON.stringify({
+      schemaVersion: 'crescent-city-events-discovery/v1',
+      events: [
+        { title: 'Board of Supervisors', kind: 'government-meeting', dateStart: '2026-10-06', timeNote: '10:00 AM', sourceUrl: 'https://example.com/bos', sourceName: 'County of Del Norte Community Events Calendar' },
+        { title: 'Workshop No Time', kind: 'community-listing', dateStart: '2026-10-07', sourceUrl: 'https://example.com/w', sourceName: 'Library' },
+      ],
+    }));
+    const events = await collectEvents(base);
+    const bos = events.find(event => event.title === 'Board of Supervisors')!;
+    expect(bos.timeNote).toBe('10:00 AM');
+    const ws = events.find(event => event.title === 'Workshop No Time')!;
+    expect(ws.timeNote).toBeNull();
     await rm(base, { recursive: true, force: true });
   });
 });

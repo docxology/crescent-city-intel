@@ -179,6 +179,31 @@ function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * Extract a clean event time note from raw listing text. A full RFC-2822 or
+ * ISO timestamp (news publish metadata) is NOT an event start time - it is
+ * rejected outright so the calendar never presents a publish stamp as the
+ * event time. Bare clock times ("5:30 PM", "18:00", "5:30") pass through.
+ */
+export function extractTimeNote(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const text = raw.trim();
+  if (!text) return null;
+  // Publish-metadata shapes: full RFC-2822 stamps and ISO datetimes carry a
+  // year/seconds/offset - none of that is a human event time.
+  if (/\b(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+\d{1,2}\s+[a-z]{3}\s+\d{4}\b/i.test(text)) return null;
+  // Any leading full-date (ISO with T or space) is machine metadata, not a
+  // human-facing event time.
+  if (/\b\d{4}-\d{2}-\d{2}\b/.test(text)) return null;
+  const match = text.match(/\b(\d{1,2}):(\d{2})\s*(am|pm)?\b/i);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = match[2];
+  if (hour < 0 || hour > 23 || Number(minute) > 59) return null;
+  const meridiem = match[3] ? ` ${match[3].toUpperCase()}` : "";
+  return `${hour}:${minute}${meridiem}`;
+}
+
 /** Convert one raw item into a candidate, or null when it must be excluded. */
 function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSourceName: string): RawEventCandidate | null {
   const title = str(item.title);
@@ -198,6 +223,9 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
 
   const content = str(item.content) || str(item.description) || str(item.summary) || str(item.body);
   const rawDateStr = str(rawDate);
+  // A structured timeNote field (discovery artifacts carry one) wins over
+  // anything derivable from the raw date string, which is often publish metadata.
+  const structuredTime = extractTimeNote(str(item.timeNote));
   return {
     title,
     link,
@@ -205,7 +233,7 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
     kind,
     dateStart,
     dateAllDay: true,
-    timeNote: /\d{1,2}:\d{2}/.test(rawDateStr) ? rawDateStr : null,
+    timeNote: structuredTime ?? extractTimeNote(rawDateStr),
     location: str(item.location) || null,
     organizer: str(item.organizer) || str(item.source) || str(item.channel) || null,
     description: content,
@@ -309,7 +337,7 @@ async function loadDiscoveryEvents(outputDir: string): Promise<Array<Record<stri
     // without both a usable URL and a resolvable date is dropped (never guessed).
     const link = typeof record.sourceUrl === 'string' ? record.sourceUrl.trim() : '';
     if (!/^https?:\/\//i.test(link)) return [];
-    return [{ ...record, link, date: record.dateStart ?? record.date }];
+    return [{ ...record, link, date: record.dateStart ?? record.date, timeNote: record.timeNote ?? null }];
   });
 }
 

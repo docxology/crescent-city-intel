@@ -793,6 +793,63 @@ paths:
                       provider: {type: string, example: chroma}
                       collection: {type: string}
                       url: {type: string, format: uri}
+                  sourceCoverage:
+                    type: object
+                    description: Aggregate source-health coverage across every monitor.
+                    properties:
+                      total: {type: integer}
+                      present: {type: integer}
+                      missing: {type: integer}
+                      coveragePercent: {type: number}
+                      coverageStatus: {type: string, enum: [complete, partial, none]}
+                  alertTrends30d:
+                    type: array
+                    description: >-
+                      Per-alert-type trailing-30-day trend diagnostics, derived
+                      from the same JSONL history that backs
+                      GET /api/alerts/timeline and cached server-side for 60s so
+                      health polling does no per-request file I/O. Compact
+                      projection: the current window is reported as a sparse
+                      per-UTC-day histogram, not one ISO stamp per event — the
+                      raw stamps stay on GET /api/alerts/timeline. Absent when
+                      analytics are unavailable; a failure here never changes
+                      the liveness status.
+                    items:
+                      type: object
+                      properties:
+                        type: {type: string, enum: [tsunami, earthquake, weather, tides, airquality, wildfire, marine, fishing]}
+                        count30d: {type: integer, description: Events inside the trailing 30-day window.}
+                        countPrevious30d: {type: integer, description: Events in the 30-day window ending where the current window begins.}
+                        delta: {type: integer, description: count30d minus countPrevious30d.}
+                        trend:
+                          type: string
+                          enum: [rising, steady, falling, changed, insufficient]
+                          description: >-
+                            rising/falling when |delta| exceeds the steady band
+                            (1). changed when |delta| is inside the band but one
+                            window is empty and the other is not (0 <-> 1) —
+                            presence appearing or disappearing is a state change,
+                            not steadiness. steady when inside the band with both
+                            windows non-empty. insufficient when both windows are
+                            empty, or when truncated is true.
+                        futureDated:
+                          type: integer
+                          description: >-
+                            Events dated after the request instant (NWS onset and
+                            expiry stamps routinely are). Excluded from both
+                            windows — a forecast is not an observation — and
+                            counted here so the exclusion is visible.
+                        truncated:
+                          type: boolean
+                          description: >-
+                            True when the source timeline was capped below the
+                            60-day span, so the window counts undercount. trend
+                            is forced to insufficient rather than reporting a
+                            rise manufactured by the missing tail.
+                        eventsPerDay30d:
+                          type: object
+                          description: 'Sparse UTC-day histogram of the current window: YYYY-MM-DD to count. At most 31 keys.'
+                          additionalProperties: {type: integer}
   /api/stats/count:
     get:
       summary: Lightweight section count
@@ -1107,29 +1164,61 @@ paths:
     get:
       summary: Community-event discovery artifact
       description: >-
-        Fetches the registered Crescent City / Del Norte County event source
-        feeds (bounded-timeout), parses ICS/RSS/HTML listings into candidate
-        events with per-event provenance (sourceUrl, extractionMethod,
-        confidence), and reconciles them against the deterministic calendar.
-        Pass live=false to rebuild from cached state without network access.
+        Serves the persisted discovery artifact
+        (output/events/event_discovery.json) by default: the registered
+        Crescent City / Del Norte County event source feeds parsed into
+        candidate events with per-event provenance (sourceUrl,
+        extractionMethod, confidence) and reconciled against the deterministic
+        calendar. Rebuilding it fans out a bounded-timeout fetch to every
+        registered third-party source, so that happens only when refresh=1 is
+        passed explicitly; this route is API-key gated (it is not a public
+        path) and rate limited, so pagination can never be used to make an
+        anonymous caller trigger the fan-out. When no persisted artifact
+        exists the deterministic offline shell is returned rather than
+        silently escalating to the network.
       operationId: getEventDiscovery
       tags: [Events]
       parameters:
+        - name: refresh
+          in: query
+          required: false
+          schema: {type: boolean, default: false}
+          description: >-
+            When 1/true, rebuild the artifact by fetching every registered
+            source. The only parameter that performs network I/O.
         - name: live
           in: query
           required: false
           schema: {type: boolean, default: true}
-          description: When false, skip network fetching and return the zeroed shell artifact.
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 50 }, description: Page size over artifact.events. Omit limit and offset to receive the full unpaginated artifact. }
-        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 }, description: Pagination start index over artifact.events. }
+          description: >-
+            Legacy. When false, return the zeroed offline shell artifact built
+            without network access. Ignored when refresh=1. Since the default
+            response is now the persisted artifact (also network-free), this
+            parameter is only needed to request the shell specifically.
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 50 }, description: "Page size over artifact.events. Omit limit and offset to receive the full unpaginated artifact. Values below 1 or non-integers are rejected with 400; values above 500 are clamped to 500." }
+        - { name: offset, in: query, required: false, schema: { type: integer, minimum: 0, default: 0 }, description: "Pagination start index over artifact.events. Negative or non-integer values are rejected with 400." }
       responses:
+        '400':
+          description: >-
+            Invalid pagination parameter (limit below 1, or a non-integer limit
+            or offset). Validated before any artifact work is done.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: {type: string}
         '200':
           description: >-
             Event discovery artifact (schema crescent-city-events-discovery/v1).
             With limit or offset supplied, the artifact gains pagination
             envelope fields (total, offset, limit, count) and events holds the
             requested page. Without them the full artifact is returned
-            unchanged.
+            unchanged. Note the two distinct count fields: the top-level
+            `count` is the size of the returned PAGE (present only when
+            paginated), while `counts.count` is the number of events in the
+            whole artifact and is always present. `total` equals `counts.count`
+            whenever the page is taken from the same artifact.
           content:
             application/json:
               schema:
@@ -1137,6 +1226,24 @@ paths:
                 properties:
                   schemaVersion: {type: string}
                   generatedAt: {type: string}
+                  source:
+                    type: string
+                    enum: [persisted, network, offline-shell]
+                    description: >-
+                      Where this body came from: the persisted artifact on disk,
+                      a live network rebuild (refresh=1), or the deterministic
+                      zeroed shell (live=false, or no persisted artifact).
+                  total:
+                    type: integer
+                    description: Total events in the artifact. Present only when paginated.
+                  offset: {type: integer, description: Page start index. Present only when paginated.}
+                  limit: {type: integer, description: Page size in effect. Present only when paginated.}
+                  count:
+                    type: integer
+                    description: >-
+                      Number of events in the returned PAGE. Present only when
+                      paginated. Distinct from counts.count, which is the event
+                      total for the whole artifact.
                   counts:
                     type: object
                     properties:
@@ -1147,7 +1254,11 @@ paths:
                       droppedUndated: {type: integer}
                       conflictsFlagged: {type: integer}
                       reconciled: {type: integer}
-                      count: {type: integer}
+                      count:
+                        type: integer
+                        description: >-
+                          Events in the whole artifact, independent of paging.
+                          Distinct from the top-level count (page size).
                   sources:
                     type: array
                     items:

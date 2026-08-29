@@ -31,7 +31,7 @@ the missing row as evidence that the source was checked.
 | GET | `/api/toc` | Full TOC tree (JSON) |
 | GET | `/api/article/:guid` | Single article with all sections |
 | GET | `/api/section/:guid` | Single section with parent article metadata |
-| GET | `/api/search?q=...&limit=N` | Full-text search (default limit: 20) |
+| GET | `/api/search?q=...&limit=N` | Full-text search (default limit: 50) |
 | GET | `/api/stats` | Municipality stats (article/section counts, timestamps) |
 | GET | `/api/domains` | All 12 intelligence domains (from `domains.ts`) |
 | GET | `/api/monitor/status` | Latest monitor report `output/monitor-report.json` |
@@ -68,19 +68,23 @@ In-memory full-text search across all municipal code sections.
 
 | Function | Signature | Description |
 | :--- | :--- | :--- |
-| `initSearch` | `() → Promise<void>` | Load all sections into memory (singleton; subsequent calls no-op) |
-| `search` | `(query, limit?) → SearchResult[]` | Keyword search with relevance ranking |
+| `search` | `(query, options?) → PagedSearchResult` | BM25 keyword search with pagination, title/type/field filters, highlight, and fuzzy-correction fallback |
+| `searchSimple` | `(query, limit?) → SearchResult[]` | Legacy simple ranked-search entry point |
 | `getIndexedCount` | `() → number` | Current number of indexed sections |
+
+`initSearch()` (called by `server.ts` on startup) loads all sections into
+memory as a singleton; subsequent calls no-op.
 
 ### Ranking Algorithm
 
-| Match Type | Score Boost |
-| :--- | :--- |
-| Section number prefix | +10 |
-| Title substring | +5 |
-| Text occurrence (each) | +1 |
+BM25 with a field-weighted index:
 
-Results sorted by total match count descending.
+- Section number prefix match: heavy boost (×20)
+- Title matches: 3× weight boost
+- Body text: standard BM25 scoring
+
+When BM25 returns 0 results, Levenshtein fuzzy corrections are returned in the
+`fuzzyCorrections` field of `PagedSearchResult`.
 
 ---
 

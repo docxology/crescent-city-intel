@@ -13,7 +13,7 @@ streaming and explicit provider/freshness diagnostics.
 | `config.ts` | Centralized LLM/RAG configuration constants | `tests/llm-config.test.ts` |
 | `ollama.ts` | Ollama API wrapper (embeddings, local chat, models, bounded health check) | Manual only (requires Ollama) |
 | `openrouter.ts` | OpenRouter chat, native SSE, rate cap, and non-generative preflight | `tests/llm-openrouter.test.ts` |
-| `provider.ts` | Explicit selected chat-provider routing and model/preflight metadata | `tests/llm-openrouter.test.ts`, route integration |
+| `provider.ts` | Explicit selected chat-provider routing and model/preflight metadata | `tests/llm-provider.test.ts`, `tests/llm-openrouter.test.ts` |
 | `chroma.ts` | ChromaDB client wrapper (add, query, stats) | Manual only (requires ChromaDB) |
 | `embeddings.ts` | Chunking pipeline + bulk indexing into ChromaDB | `tests/embeddings.test.ts` |
 | `rag.ts` | RAG pipeline: Ollama embedding → query ChromaDB → configured-provider chat | Manual only |
@@ -29,7 +29,7 @@ streaming and explicit provider/freshness diagnostics.
 
 - `llmConfig` object centralizes all tunable parameters (URLs, model names, chunk size, overlap, topK).
 - `indexAllSections()` uses a content fingerprint and removes stale chunks before skipping an unchanged index.
-- `ragQuery()` returns both the answer text and source documents with relevance scores.
+- `ragQuery()` returns both the answer text and source documents with relevance scores, plus query ID, context fingerprint, grounding flag, and provider/model lineage.
 - `checkChatProvider()` verifies the selected chat provider; OpenRouter uses a
   bounded `/models` preflight without consuming a chat completion, while Ollama
   uses a bounded `/api/tags` check.

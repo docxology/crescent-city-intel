@@ -874,8 +874,8 @@ intelligence (Del Norte + Humboldt), anchored on Crescent City — not Crescent 
   (Pulse renders graceful empty states). `meta.overview` carries the live composite alert
   + code stats.
 - `scripts/lifeos-daily.sh` (`bun run lifeos:daily`) refreshes news/meetings/alerts then
-  writes the digest. A Hermes cron job (`lifeos-crescent-city-digest`, daily 06:00,
-  `job a85bcf3bd06d`) runs it automatically.
+  writes the digest. Schedule it with your platform scheduler (a Hermes cron job was
+  used previously; re-create it if the daily digest stops arriving).
 - The LifeOS `LocalIntelligence` skill is configured for **Crescent City, CA** (ZIP 95531,
-  Del Norte County): `**Hometown:**` set in `PRINCIPAL_IDENTITY.md`, and verified local
-  news RSS feeds in `CUSTOMIZATIONS/SKILLS/LocalIntelligence/sources.json`.
+  Del Norte County): `**Hometown:**` set in `PRINCIPAL_IDENTITY.md`, with the verified
+  local news RSS feeds registered in `NEWS_FEEDS` (`src/news_monitor.ts`).

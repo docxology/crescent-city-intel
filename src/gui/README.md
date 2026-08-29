@@ -15,19 +15,14 @@ PORT=8080 bun run gui   # custom port
 Bun.serve (server.ts)
     ├── applyMiddleware()    # rate limit + API key auth
     ├── handleApiRoute()     # /api/* handlers (routes.ts)
-    │     ├── /api/toc
-    │     ├── /api/article/:guid
-    │     ├── /api/section/:guid
-    │     ├── /api/search?q=
-    │     ├── /api/stats
     │     ├── /api/chat
     │     ├── /api/analytics/*
-    │     ├── /api/summarize/:guid
+    │     ├── /api/summarize
     │     ├── /api/domains
-    │     ├── /api/monitor-status
+    │     ├── /api/monitor/status
     │     ├── /api/health
     │     ├── /api/openapi.yaml
-    │     └── /api/swagger
+    │     └── /api/docs
     └── static/index.html   # SPA fallback
 ```
 
@@ -39,14 +34,15 @@ Bun.serve (server.ts)
 | `routes.ts` | All `/api/*` route handlers | `tests/routes.test.ts` |
 | `search.ts` | In-memory full-text search (init once, query many) | `tests/search.test.ts` |
 | `analytics.ts` | PCA, K-means, word loadings for the analytics dashboard | `tests/analytics.test.ts` |
+| `semantic_search.ts` | Ollama-embed + ChromaDB semantic search with BM25 fallback | `tests/semantic-search.test.ts` |
 | `static/index.html` | Single-file SPA (no build step) — TOC, viewer, search, analytics, chat | Manual |
 
 ## Features
 
-- Collapsible TOC tree with 2486 nodes
+- Collapsible TOC tree sized from the current `pages-data/toc.json` seed (2,486 nodes as of the last `pages:seed` run)
 - Instant keyword search with relevance ranking
 - Analytics dashboard (bar charts, PCA scatter plot, word loadings)
-- Per-section **✨ Summarize** via Ollama
+- Per-section ✨ Summarize via the configured chat provider
 - **💬 Chat panel** — RAG queries with cited sources
 - Dark / light mode toggle
 

@@ -9,14 +9,12 @@ Composable middleware chain applied to every request before route handlers.
 | Middleware | Behavior |
 | :--- | :--- |
 | **Request logger** | Logs method, URL, duration (ms) |
-| **Rate limiter** | 1 req / 2 s per IP (in-memory; configurable via `RATE_LIMIT_MS`) |
-| **API key auth** | Validates `X-API-Key` header or `?api_key=` param |
+| **Rate limiter** | Sliding-window cap of 100 requests per IP per hour (stricter per-path limits for `/api/chat`, `/api/summarize`, `/api/analytics/embeddings`; in-memory) |
+| **API key auth** | Validates the `X-API-Key` header (header-only; a prior `?api_key=` query-param form was removed for credential-leak reasons) |
 
-**Bypass routes** (no rate limit or auth):
+**Rate-limit bypass paths**: `GET /api/health`, `GET /api/monitor/status`, `GET /api/openapi.yaml`.
 
-- `GET /api/health`
-- `GET /api/openapi.yaml`
-- `GET /api/swagger`
+**Public paths** (no API key required): `/api/health`, `/api/stats`, `/api/stats/count`, `/api/toc`, `/api/domains`, `/api/search`, `/api/sections`, `/api/openapi.yaml`, `/api/docs`, `/api/curated`.
 
 ## Usage
 
@@ -30,6 +28,5 @@ if (res !== null) return res;  // short-circuit
 ## Environment
 
 ```bash
-CRESCENT_CITY_API_KEY=my-secret-key   # override default dev key
-RATE_LIMIT_MS=1000                     # stricter rate limiting
+CRESCENT_CITY_API_KEY=my-secret-key   # random per-boot key when unset
 ```

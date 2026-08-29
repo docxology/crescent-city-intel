@@ -36,7 +36,9 @@ const articles = await loadAllArticles();  // ArticlePage[]
 const sections = await loadAllSections();  // SectionContent[]
 ```
 
-All loaders throw if files are absent — callers should handle errors or use `try/catch`.
+`loadToc`, `loadManifest`, and `loadArticle` throw actionable errors if files
+are absent; `loadAllArticles` returns `[]` when the articles directory is
+missing. Callers should handle errors or use `try/catch`.
 
 ### `source_health.ts` — truthful source state
 

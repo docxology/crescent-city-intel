@@ -8,7 +8,7 @@ Composable middleware chain applied to every GUI server request before route han
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `applyMiddleware` | `(req: Request) → Promise<Response \| null>` | Run full middleware chain; `null` means pass through |
+| `applyMiddleware` | `(req: Request, socketIp?: string) → Promise<Response \| null>` | Run full middleware chain; `null` means pass through |
 
 ### Middleware Chain
 
@@ -17,23 +17,21 @@ Applied in order:
 | Middleware | Behavior |
 | :--- | :--- |
 | **Request logger** | Logs method, URL path, client IP, response time (ms) |
-| **Rate limiter** | Max 1 request per `RATE_LIMIT_MS` (default 2000ms) per client IP. Returns `429 Too Many Requests` on violation. |
-| **API key auth** | Validates `X-API-Key` header or `?api_key=` query param against `CRESCENT_CITY_API_KEY`. Returns `401 Unauthorized` on failure. |
+| **Rate limiter** | Sliding-window cap: 100 requests per IP per hour (`RATE_LIMIT_MAX_REQUESTS`), with stricter per-path limits for `/api/chat` (20), `/api/summarize` (20), and `/api/analytics/embeddings` (10). Returns `429 Too Many Requests` on violation. |
+| **API key auth** | Validates the `X-API-Key` header against `CRESCENT_CITY_API_KEY`. Returns `401 Unauthorized` on failure. (A prior `?api_key=` query-param form was removed for credential-leak reasons.) |
 
-### Bypass Routes
+### Bypass and Public Paths
 
-The following paths skip rate limiting and API key auth:
+**Rate-limit bypass**: `GET /api/health`, `GET /api/monitor/status`, `GET /api/openapi.yaml`.
 
-- `GET /api/health`
-- `GET /api/openapi.yaml`
-- `GET /api/swagger`
+**Public paths** (no API key required): `/api/health`, `/api/stats`, `/api/stats/count`, `/api/toc`, `/api/domains`, `/api/search`, `/api/sections`, `/api/openapi.yaml`, `/api/docs`, `/api/curated`.
 
 ### Configuration
 
 | Env variable | Default | Description |
 | :--- | :--- | :--- |
 | `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key(s) — comma-separated for multiple |
-| `RATE_LIMIT_MS` | `2000` | Minimum ms between requests per client IP |
+| `RATE_LIMIT_MAX_REQUESTS` | `100` | Sliding-window request cap per IP per hour |
 
 ### Integration
 

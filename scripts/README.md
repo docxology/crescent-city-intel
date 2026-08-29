@@ -18,11 +18,18 @@ Thin TypeScript orchestrators for the Crescent City pipeline. All business logic
 | `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Resolve source manuscript tokens from the analytics overview |
 | `z_generate_manuscript_variables.py` | template renderer hook | Delegate template hydration to the Bun implementation |
 | `run-source-discovery.ts` | `bun run source-discovery [-- --check]` | Canonical source inventory, fingerprint, and optional bounded probes |
+| `run-coverage.ts` | `bun run coverage` | Domain coverage % across the current manifest |
+| `run-readability.ts` | `bun run readability` | Flesch-Kincaid + Gunning Fog scoring |
 | `export-pages.ts` | `bun run pages:export` | Build a bounded static GitHub Pages snapshot |
 | `refresh-pages-data.ts` | `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
 | `validate-pages.ts` | `bun run pages:validate` | Validate the static snapshot and publication boundaries |
 | `validate.ts` | `bun run validate` | Strict TypeScript, deterministic tests, and output checks |
 | `repair-output.ts` | `bun run repair-output` | Quarantine malformed history and migrate legacy runtime envelopes |
+| `browser-smoke.ts` | `bun run test:browser` | Playwright/Chromium smoke test of the running GUI |
+| `cron-setup.sh` | `bun run cron-setup` | macOS Launchd / Linux cron installer |
+| `lifeos-bridge.ts` | `bun run lifeos:bridge` | Write the LifeOS/Pulse LocalIntelligence digest from platform outputs |
+| `lifeos-daily.sh` | `bun run lifeos:daily` | Refresh news/meetings/alerts then write the LifeOS digest |
+| `weekly-check.sh` | _(legacy)_ | Bash predecessor to `weekly-check.ts`, kept for reference |
 
 ## Data Flow
 

@@ -38,7 +38,7 @@ if (middlewareResponse !== null) return middlewareResponse;
 
 ## Key Patterns
 
-- **Skip list**: `/api/health`, `/api/openapi.yaml`, `/api/swagger` bypass both rate limiting and auth.
+- **Skip list**: `/api/health`, `/api/monitor/status`, and `/api/openapi.yaml` bypass rate limiting; `/api/health`, `/api/stats`, `/api/toc`, `/api/domains`, `/api/search`, `/api/sections`, `/api/docs`, and `/api/curated` are additionally public (no API key required).
 - **In-memory rate limit store**: keyed by client IP. Resets on server restart. For production, replace with Redis.
 - **API key source**: the `X-API-Key` header only (a prior `?api_key=` query-parameter
   form was removed because it leaked credentials into proxy/access logs and browser history).

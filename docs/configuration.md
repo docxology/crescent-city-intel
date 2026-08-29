@@ -61,8 +61,12 @@ Hard-coded project constants. Change these to target a different municipality.
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key for `/api/*` endpoints |
-| `RATE_LIMIT_MS` | `2000` | Minimum ms between requests per client IP |
+| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key for `/api/*` endpoints (comma-separated for multiple) |
+
+The API rate limiter uses a sliding window of 100 requests per IP per hour
+(`RATE_LIMIT_MAX_REQUESTS`, not env-overridable) with stricter per-path limits
+for `/api/chat`, `/api/summarize`, and `/api/analytics/embeddings`. The
+`RATE_LIMIT_MS` variable listed under Scraper applies to scraping, not the API.
 
 ### Scraper
 

@@ -69,9 +69,16 @@ jobs:
         continue-on-error: true
         timeout-minutes: 5
 
+      # The re-merge is deterministic local work: it reads the artifacts the two
+      # steps above wrote and rebuilds output/events/events.json. It performs no
+      # network I/O, so a failure here is a code or data defect, not an outage —
+      # it fails the build rather than publishing whatever the last step left
+      # behind. Total-failure honesty is enforced downstream too: the Pages
+      # validator rejects an empty calendar published alongside non-empty
+      # meeting/news/YouTube inputs, so three silently-skipped collection steps
+      # can no longer leave a green build with an empty community calendar.
       - name: Re-merge discovered events into the calendar
         run: bun run events
-        continue-on-error: true
         timeout-minutes: 5
 
 
@@ -103,6 +110,14 @@ jobs:
 
       - name: Validate public Pages snapshot
         run: bun run pages:validate -- .pages
+
+      # Renders every exported page in the Chromium installed above and fails on
+      # a script error, a failed request, an empty render target, or horizontal
+      # overflow outside the known-defect ledger the test carries. It exports
+      # into its own temp directory, intercepts every request, and reaches no
+      # network — so it is the same check locally and here.
+      - name: Render smoke test over the exported pages
+        run: bun test tests/lane5-render-smoke.test.ts
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

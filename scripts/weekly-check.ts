@@ -27,7 +27,7 @@ import { generateMonthlyReport } from "../src/monthly_report.ts";
 import { writeAnalyticsOverview } from "../src/analytics_backend.ts";
 import { createLogger } from "../src/logger.ts";
 import { existsSync } from "fs";
-import { mkdir, readFile } from "fs/promises";
+import { mkdir, readdir, readFile } from "fs/promises";
 import { join } from "path";
 import { paths } from "../src/shared/paths.ts";
 import { completeSourceHealth, writeJsonAtomic } from "../src/shared/source_health.ts";
@@ -90,9 +90,10 @@ if (!report) {
 // 2. All 8 real-time alert monitors (run concurrently, retain per-task failures)
 logger.info("Stage 2/8: Polling all 8 real-time alert feeds...");
 const alertExecution = await executePipelineStep("alert-monitors", () => runAllAlertMonitors(), {
-  // A reachable empty source and a missing source are facts about coverage,
-  // not failures of this completed monitoring stage.
-  classify: _sources => "ok",
+  // A reachable empty source and a missing source are facts about coverage, not
+  // failures of this completed monitoring stage — but a stage where NO monitor
+  // came back usable is not "ok" either, which is what the old `() => "ok"` said.
+  classify: sources => (sources.length === 0 ? "failed" : sources.every(source => source.status === "unavailable" || source.status === "stale") ? "degraded" : "ok"),
   itemCount: sources => sources.length,
   outputPaths: [paths.alertsHealth, "output/alerts/composite/current.json"],
 });
@@ -128,6 +129,41 @@ if (feedFailures.length > 0) {
   logger.error(`${feedFailures.length} news/meeting monitor(s) failed`, { errors: feedFailures.map(result => String(result.reason)) });
 } else {
   logger.info("✅ News and meeting monitors complete; inspect source-health artifacts for empty/unavailable feeds");
+}
+
+/** What a completed community-calendar refresh produced, as read back from disk. */
+export type CalendarRefreshResult = { artifactRead: boolean; eventCount: number; inputItems: number };
+
+/**
+ * Classify a community-calendar refresh (R3 P2 — this replaced
+ * `classify: () => "ok"`, which reported a clean stage for every outcome).
+ *
+ *   failed   — no readable artifact, or zero events out of a non-empty input
+ *              set: the merge is broken, not the week.
+ *   degraded — zero events out of zero inputs: an honest empty calendar.
+ *   ok       — events were produced.
+ *
+ * Exported so the honesty rule can be executed by a test instead of read.
+ */
+export function classifyCalendarRefresh(result: CalendarRefreshResult): "ok" | "degraded" | "failed" {
+  if (!result.artifactRead) return "failed";
+  if (result.eventCount === 0) return result.inputItems > 0 ? "failed" : "degraded";
+  return "ok";
+}
+
+/**
+ * Count the records in a monitor's batch directory. Used to tell an honest empty
+ * calendar (no inputs) apart from a broken merge (inputs present, no output).
+ */
+async function countBatchItems(directory: string): Promise<number> {
+  const names = await readdir(directory).catch(() => [] as string[]);
+  let total = 0;
+  for (const name of names) {
+    if (!name.endsWith(".json") || name === "source-health.json") continue;
+    const parsed = await readFile(join(directory, name), "utf-8").then(text => JSON.parse(text) as { items?: unknown }, () => null);
+    if (parsed && Array.isArray(parsed.items)) total += parsed.items.length;
+  }
+  return total;
 }
 
 async function readHealth(path: string): Promise<SourceHealth[]> {
@@ -182,7 +218,9 @@ steps.push(curationExecution.report);
 const sourceDiscoveryExecution = await executePipelineStep("source-discovery", () => writeSourceDiscoveryArtifacts({
   probe: process.env.SOURCE_DISCOVERY_LIVE_CHECK === "1",
 }), {
-  classify: _result => "ok",
+  // `classify: () => "ok"` reported a completed discovery stage even when the
+  // registry came back empty — the one outcome that means discovery did not work.
+  classify: result => (result.sourceCount > 0 ? "ok" : "failed"),
   itemCount: result => result.sourceCount,
   outputPaths: [paths.sourceRegistry, paths.sourceDiscovery, paths.sourceDiscoverySeen],
 });
@@ -207,18 +245,33 @@ const eventsExecution = await executePipelineStep("community-calendar-events", a
     () => null,
   );
   const events = artifact && Array.isArray(artifact.events) ? artifact.events : null;
-  return { exited: proc.exitCode, artifactRead: events !== null, eventCount: events ? events.length : 0 };
+  // Zero events only tells the truth next to the inputs it was built from. The
+  // calendar is merged out of the meeting, news and YouTube batches plus the
+  // discovery artifact (events.ts provenance.deterministicFrom); an empty
+  // calendar built from a non-empty input set is a broken merge, not a quiet
+  // week, and must not be recorded as a completed stage.
+  const inputCounts = await Promise.all([
+    countBatchItems(paths.govMeetings),
+    countBatchItems(join(paths.output ?? "output", "news")),
+    countBatchItems(join(paths.output ?? "output", "youtube")),
+  ]);
+  const inputItems = inputCounts.reduce((total, count) => total + count, 0);
+  return {
+    exited: proc.exitCode,
+    artifactRead: events !== null,
+    eventCount: events ? events.length : 0,
+    inputItems,
+  };
 }, {
-  // No artifact is a failed refresh; an artifact with zero events is a real
-  // empty calendar — recorded as degraded, never as a clean "ok".
-  classify: result => (!result.artifactRead ? "failed" : result.eventCount === 0 ? "degraded" : "ok"),
+  classify: classifyCalendarRefresh,
   itemCount: result => result.eventCount,
   outputPaths: [eventsArtifactPath],
 });
 steps.push(eventsExecution.report);
 if (eventsExecution.report.error) logger.warn("Community calendar refresh failed (non-fatal)", { error: eventsExecution.report.error });
 else if (!eventsExecution.value?.artifactRead) logger.error(`Community calendar refresh wrote no readable artifact at ${eventsArtifactPath}`);
-else if (eventsExecution.value.eventCount === 0) logger.warn("Community calendar refreshed with zero events; the calendar artifact is empty");
+else if (eventsExecution.value.eventCount === 0 && eventsExecution.value.inputItems > 0) logger.error(`Community calendar refresh produced zero events from ${eventsExecution.value.inputItems} input record(s) — the merge is broken, not the week`);
+else if (eventsExecution.value.eventCount === 0) logger.warn("Community calendar refreshed with zero events; no calendar inputs were collected this cycle");
 else logger.info(`✅ Community calendar refreshed: ${eventsExecution.value.eventCount} event(s)`);
 const reportExecution = await executePipelineStep("monthly-report", () => generateMonthlyReport(), {
   outputPaths: [paths.reports, paths.latestReportMetadata],

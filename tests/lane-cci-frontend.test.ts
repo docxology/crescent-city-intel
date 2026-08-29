@@ -7,13 +7,17 @@
  */
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, readdir, readFile, rm } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 import { exportPagesSnapshot, splitMeetingContent } from "../src/pages_snapshot.ts";
+import { loadSiteJs, type SiteJsApi } from "./helpers/site-js.ts";
 
 const STATIC_DIR = join(process.cwd(), "src", "pages", "static");
 
 async function withFixture(run: (root: string) => Promise<void>): Promise<void> {
-  const root = await mkdtemp(join(process.cwd(), ".ccife-"));
+  // R3 P2: fixtures live in os.tmpdir(). They used to be mkdtemp'd inside the
+  // repo, so an interrupted run left .ccife-* directories in the working tree.
+  const root = await mkdtemp(join(tmpdir(), "ccife-"));
   try { await run(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
@@ -23,63 +27,21 @@ async function put(root: string, relative: string, value: unknown): Promise<void
 }
 
 /**
- * Evaluate the real authored site.js in a subprocess with a minimal DOM stub.
- * The stub overrides globals (fetch/document/window), so the evaluation runs in
- * its own `bun` process — in-process globals would leak into sibling test
- * files and break the real fetch-based suites.
+ * Lane 5 (R3 P2): the helpers under test are the ones the browser gets. The
+ * previous version of this file extracted each function's source, shipped it
+ * through JSON, and rebuilt it around a hand-written `esc()` mirror — so the
+ * chip-escaping assertions validated the test file's copy of `esc`, not
+ * site.js's. `loadSiteJs()` evaluates the real file once and returns its own
+ * closures.
  */
-async function loadCalendarHelpers(): Promise<Record<string, unknown>> {
-  const source = await readFile(join(STATIC_DIR, "assets", "site.js"), "utf8");
-  const tmp = await mkdtemp(join(process.cwd(), ".ccife-"));
-  const modulePath = join(tmp, "site-helpers.cjs");
-  const runnerPath = join(tmp, "eval-helpers.cjs");
-  const runner = [
-    "const fs = require('fs');",
-    "let src = fs.readFileSync(process.argv[2], 'utf8');",
-    "globalThis.document = { getElementById: () => null, querySelectorAll: () => [] };",
-    "globalThis.window = { addEventListener: () => {} };",
-    "globalThis.fetch = async () => { throw new Error('no network in helper eval'); };",
-    "src += String.fromCharCode(10) + 'process.stdout.write(JSON.stringify({ calendarWindowFilter: calendarWindowFilter.toString(), calendarEventKindChip: calendarEventKindChip.toString(), civicDayStamp: civicDayStamp.toString(), esc: esc.toString(), publicErrorNote: publicErrorNote.toString(), eventKindFilterValue: eventKindFilterValue.toString(), emptyListItem: emptyListItem.toString(), calendarFreshnessText: calendarFreshnessText.toString(), kindLabels: EVENT_KIND_LABELS, chipClasses: EVENT_KIND_CHIP_CLASS }));';",
-    "new Function(src)();",
-  ].join("\n");
-  await Bun.write(modulePath, source);
-  await Bun.write(runnerPath, runner);
-  try {
-    const proc = Bun.spawnSync(["bun", runnerPath, modulePath], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" });
-    if (proc.exitCode !== 0) throw new Error(`helper eval failed: ${proc.stderr.toString()}`);
-    // Functions cannot cross the process boundary through JSON, so each real
-    // authored function arrives as its own source and is rebuilt here with its
-    // real closure constants (CIVIC_TZ, EVENT_KIND_LABELS) from the authored file.
-    const sources = JSON.parse(proc.stdout.toString()) as {
-      calendarWindowFilter: string; calendarEventKindChip: string; civicDayStamp: string; esc: string;
-      publicErrorNote: string; eventKindFilterValue: string; emptyListItem: string; calendarFreshnessText: string;
-      kindLabels: Record<string, string>; chipClasses: Record<string, string>;
-    };
-    // The real authored esc() comes back with everything else — a hand-written
-    // mirror here would let the chip assertions pass against escaping the
-    // shipped page does not actually do.
-    const esc = new Function(`return (${sources.esc});`)() as (value: unknown) => string;
-    const eventKindFilterValue = new Function(`return (${sources.eventKindFilterValue});`)() as (kind: string) => string;
-    const civicDayStamp = new Function("CIVIC_TZ", `return (${sources.civicDayStamp});`)("America/Los_Angeles") as (value: string) => number | null;
-    return {
-      esc,
-      civicDayStamp,
-      eventKindFilterValue,
-      publicErrorNote: new Function(`return (${sources.publicErrorNote});`)(),
-      emptyListItem: new Function("esc", `return (${sources.emptyListItem});`)(esc),
-      calendarFreshnessText: new Function(`return (${sources.calendarFreshnessText});`)(),
-      calendarWindowFilter: new Function("civicDayStamp", `return (${sources.calendarWindowFilter});`)(civicDayStamp),
-      calendarEventKindChip: new Function("EVENT_KIND_LABELS", "EVENT_KIND_CHIP_CLASS", "esc", "eventKindFilterValue", `return (${sources.calendarEventKindChip});`)(sources.kindLabels, sources.chipClasses, esc, eventKindFilterValue),
-    };
-  } finally {
-    await rm(tmp, { recursive: true, force: true });
-  }
+async function loadCalendarHelpers(): Promise<SiteJsApi> {
+  return await loadSiteJs();
 }
 
 describe("lane cci-frontend: calendarWindowFilter (real site.js evaluation)", () => {
   test("week window keeps only dated events inside the current Monday-Sunday civic window", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarWindowFilter = helpers.calendarWindowFilter as (events: unknown[], window: string, now?: Date) => unknown[];
+    const calendarWindowFilter = helpers.calendarWindowFilter;
     const now = new Date("2026-08-28T12:00:00Z"); // a Friday, America/Los_Angeles
     const events = [
       { id: "in-week", dateStart: "2026-08-25" },
@@ -98,7 +60,7 @@ describe("lane cci-frontend: calendarWindowFilter (real site.js evaluation)", ()
 
   test("month window spans the full calendar month, including adjacent weekdays", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarWindowFilter = helpers.calendarWindowFilter as (events: unknown[], window: string, now?: Date) => unknown[];
+    const calendarWindowFilter = helpers.calendarWindowFilter;
     const now = new Date("2026-08-28T12:00:00Z");
     const events = [
       { id: "first-day", dateStart: "2026-08-01" },
@@ -111,7 +73,7 @@ describe("lane cci-frontend: calendarWindowFilter (real site.js evaluation)", ()
 
   test("empty window input degrades to empty output, never fabricated inclusion", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarWindowFilter = helpers.calendarWindowFilter as (events: unknown[], window: string, now?: Date) => unknown[];
+    const calendarWindowFilter = helpers.calendarWindowFilter;
     expect(calendarWindowFilter([], "week", new Date("2026-08-28T12:00:00Z"))).toEqual([]);
     expect(calendarWindowFilter(null, "week", new Date("2026-08-28T12:00:00Z"))).toEqual([]);
   }, 20000);
@@ -120,7 +82,7 @@ describe("lane cci-frontend: calendarWindowFilter (real site.js evaluation)", ()
 describe("lane cci-frontend: calendarEventKindChip", () => {
   test("chip is a real filter button carrying the kind class, kind, filter value, and accessible label", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarEventKindChip = helpers.calendarEventKindChip as (event: { kind?: string }, activeFilter?: string) => string;
+    const calendarEventKindChip = helpers.calendarEventKindChip;
     const chip = calendarEventKindChip({ kind: "government-meeting" });
     expect(chip.startsWith('<button type="button" class="kind-chip')).toBe(true);
     expect(chip).toContain("kind-chip--meeting");
@@ -144,7 +106,7 @@ describe("lane cci-frontend: calendarEventKindChip", () => {
 
   test("chip markup is escaped by the real authored esc(), not a test-local mirror", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarEventKindChip = helpers.calendarEventKindChip as (event: { kind?: string }, activeFilter?: string) => string;
+    const calendarEventKindChip = helpers.calendarEventKindChip;
     const chip = calendarEventKindChip({ kind: '"><img src=x onerror=alert(1)>' });
     expect(chip).not.toContain("<img");
     expect(chip).toContain("&quot;&gt;&lt;img");
@@ -152,7 +114,7 @@ describe("lane cci-frontend: calendarEventKindChip", () => {
 
   test("kind chips map onto the kind-select values, so chip and select share one state", async () => {
     const helpers = await loadCalendarHelpers();
-    const eventKindFilterValue = helpers.eventKindFilterValue as (kind: string) => string;
+    const eventKindFilterValue = helpers.eventKindFilterValue;
     expect(eventKindFilterValue("government-meeting")).toBe("meetings");
     expect(eventKindFilterValue("youtube")).toBe("youtube");
     expect(eventKindFilterValue("holiday-closure")).toBe("holiday-closure");
@@ -164,7 +126,7 @@ describe("lane cci-frontend: calendarEventKindChip", () => {
 describe("lane cci-frontend r3: window states, freshness, list states, public error copy", () => {
   test("the window filter owns upcoming/past as well as the date windows (P1-D)", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarWindowFilter = helpers.calendarWindowFilter as (events: unknown[], window: string, now?: Date) => Array<{ id: string }>;
+    const calendarWindowFilter = helpers.calendarWindowFilter;
     const events = [
       { id: "future", dateStart: "2026-12-01", status: "scheduled" },
       { id: "done", dateStart: "2026-01-05", status: "completed" },
@@ -180,7 +142,7 @@ describe("lane cci-frontend r3: window states, freshness, list states, public er
 
   test("freshness copy is omitted rather than rendered as NaN (P1-E)", async () => {
     const helpers = await loadCalendarHelpers();
-    const calendarFreshnessText = helpers.calendarFreshnessText as (generatedAt: unknown) => string;
+    const calendarFreshnessText = helpers.calendarFreshnessText;
     expect(calendarFreshnessText(null)).toBe("");
     expect(calendarFreshnessText("")).toBe("");
     expect(calendarFreshnessText("not-a-timestamp")).toBe("");
@@ -194,7 +156,7 @@ describe("lane cci-frontend r3: window states, freshness, list states, public er
 
   test("list empty states are list items, never a <div> inside the <ol> (P1-G)", async () => {
     const helpers = await loadCalendarHelpers();
-    const emptyListItem = helpers.emptyListItem as (message: string) => string;
+    const emptyListItem = helpers.emptyListItem;
     const rendered = emptyListItem("Loading the community calendar");
     expect(rendered.startsWith('<li class="item meta">')).toBe(true);
     expect(rendered).not.toContain("<div");
@@ -203,7 +165,7 @@ describe("lane cci-frontend r3: window states, freshness, list states, public er
 
   test("operator error strings are mapped to public copy, never passed through (P0.6)", async () => {
     const helpers = await loadCalendarHelpers();
-    const publicErrorNote = helpers.publicErrorNote as (value: unknown) => string;
+    const publicErrorNote = helpers.publicErrorNote;
     const leaky = [
       "Failed to parse JSON from https://quickmap.dot.ca.gov/api/v1/incidents?district=1&format=json",
       "All QuickMap endpoints failed: QuickMap returned 503 from https://quickmap.dot.ca.gov/api/v1/incidents",
@@ -329,12 +291,12 @@ describe("lane cci-frontend: authored markup + export gate", () => {
       const assets = await readdir(join(destination, "assets"));
       const siteJsName = assets.find(asset => /^site\.[0-9a-f]{8}\.js$/.test(asset))!;
       const siteCssName = assets.find(asset => /^site\.[0-9a-f]{8}\.css$/.test(asset))!;
-      const cases: Array<{ name: string; file: string; from: string; to: string; expect: string }> = [
+      const cases: Array<{ name: string; file: string; from: string; to: string; expect: string; all?: boolean; remove?: boolean }> = [
         // P0.1 — code search must re-run after the index loads.
         { name: "code.html drops the deferred-search controller", file: "code.html", from: "createDeferredIndexSearch(", to: "legacySearch(", expect: "code.html code search does not re-run after the search index loads (P0.1)" },
-        { name: "site.js drops createDeferredIndexSearch", file: `assets/${siteJsName}`, from: "function createDeferredIndexSearch", to: "function legacyDeferredIndexSearch", expect: "createDeferredIndexSearch (code search cannot re-run after index load, P0.1)" },
+        { name: "site.js drops createDeferredIndexSearch", file: `assets/${siteJsName}`, from: "function createDeferredIndexSearch", to: "function legacyDeferredIndexSearch", expect: "does not evaluate, or no longer exports the calendar helpers" },
         // P0.6 — no raw operator error text in public copy.
-        { name: "site.js prints the raw source error", file: `assets/${siteJsName}`, from: "function publicErrorNote", to: "function renamedErrorNote", expect: "publicErrorNote (operator errors reach public copy, P0.6)" },
+        { name: "site.js prints the raw source error", file: `assets/${siteJsName}`, from: "function publicErrorNote", to: "function renamedErrorNote", expect: "does not evaluate, or no longer exports the calendar helpers" },
         { name: "a page prints the raw thrown error", file: "sources.html", from: "publicErrorNote(error && error.message || error)", to: "error.message || error", expect: "sources.html renders a raw operator error string in public copy (P0.6)" },
         { name: "a page prints the raw source-health error", file: "index.html", from: "esc(publicErrorNote(source.error))", to: "esc(source.error)", expect: "index.html renders a raw source error string in public copy (P0.6)" },
         // P1-B — chips are real filter buttons.
@@ -353,21 +315,51 @@ describe("lane cci-frontend: authored markup + export gate", () => {
         { name: "index.html loses the freshness status line", file: "index.html", from: '<span id="event-freshness" class="meta" role="status">', to: '<span id="event-freshness" class="meta">', expect: "index.html is missing the #event-freshness status line (P1-E/P1-H)" },
         // P1-G — list states are list items.
         { name: "events.html renders a <div> empty state in the <ol>", file: "events.html", from: 'emptyListItem("The events artifact could not be loaded.")', to: 'empty("The events artifact could not be loaded.")', expect: "events.html renders a <div> empty state inside the <ol> calendar list (P1-G)" },
-        { name: "site.js loses emptyListItem", file: `assets/${siteJsName}`, from: "const emptyListItem =", to: "const unusedListItem =", expect: "emptyListItem (list-context empty state, P1-G)" },
+        { name: "site.js loses emptyListItem", file: `assets/${siteJsName}`, from: "const emptyListItem =", to: "const unusedListItem =", expect: "does not evaluate, or no longer exports the calendar helpers" },
         // P1-H — one window wiring, called by both pages.
         { name: "a page re-inlines its own window-button loop", file: "index.html", from: 'wireCalendarWindowButtons("event-window-controls"', to: 'for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {} legacyWire("event-window-controls"', expect: "index.html does not use the shared wireCalendarWindowButtons (duplicated window wiring, P1-H)" },
-        { name: "site.js loses the shared window wiring", file: `assets/${siteJsName}`, from: "function wireCalendarWindowButtons", to: "function legacyWireWindowButtons", expect: "wireCalendarWindowButtons (the per-page wiring loops must not return, P1-H)" },
+        { name: "site.js loses the shared window wiring", file: `assets/${siteJsName}`, from: "function wireCalendarWindowButtons", to: "function legacyWireWindowButtons", expect: "does not evaluate, or no longer exports the calendar helpers" },
         // P1-L — meeting copy is about the meeting.
         { name: "meeting copy regrows source-site nav chrome", file: "data/meetings.json", from: '"content": ""', to: '"content": "Submit Written Public Comment (Email your comments)"', expect: "publishes source-site nav chrome as meeting copy" },
         { name: "meeting copy regrows a raw agenda URL", file: "data/meetings.json", from: '"content": ""', to: '"content": "Agenda: https://www.crescentcity.org/a.pdf"', expect: "publishes a raw URL as meeting copy instead of a labelled document link (P1-L)" },
         { name: "a meeting document loses its label", file: "data/meetings.json", from: '"label": "Agenda"', to: '"label": ""', expect: "has an unlabelled meeting document (P1-L)" },
         { name: "the feed syndicates nav chrome", file: "feed.xml", from: "<channel>", to: "<channel><!-- Submit Written Public Comment -->", expect: "feed.xml syndicates source-site nav chrome as item copy" },
+        // R3 lane 5 — the gate executes the shipped bundle, so these mutations
+        // leave every string it used to grep for in place and still fail.
+        { name: "the upcoming window stops selecting scheduled events", file: `assets/${siteJsName}`, from: 'window === "upcoming"', to: 'window === "upcoming-disabled"', expect: 'calendarWindowFilter("upcoming") does not select scheduled events' },
+        { name: "the month window leaks across the year boundary", file: `assets/${siteJsName}`, from: "return day >= start && day < end;", to: "return day >= start;", expect: "calendarWindowFilter month window crosses the December/January boundary" },
+        // The classic form of this defect is an epoch fallback, which renders a
+        // confident "refreshed 1970-01-01" line for a timestamp nobody recorded.
+        { name: "an unusable timestamp falls back to the epoch", file: `assets/${siteJsName}`, from: 'const stamp = Date.parse(String(generatedAt || ""));', to: 'const stamp = Date.parse(String(generatedAt || "")) || 0;', expect: "calendarFreshnessText invents a freshness line" },
+        { name: "publicErrorNote passes the operator string through", file: `assets/${siteJsName}`, from: 'return "the last check did not succeed";', to: "return raw;", expect: "publicErrorNote leaks operator detail into public copy" },
+        { name: "the deferred search never re-renders", file: `assets/${siteJsName}`, from: ".finally(() => { pending = false; draw(); });", to: ".finally(() => { pending = false; });", expect: "createDeferredIndexSearch does not re-render after the index loads" },
+        { name: "the chip stops reflecting the active filter", file: `assets/${siteJsName}`, from: 'const pressed = String(activeFilter || "") === filterValue ? "true" : "false";', to: 'const pressed = "false";', expect: "calendarEventKindChip does not reflect the active kind filter" },
+        // R3 P2 — a calendar emptied while its inputs are non-empty is a failed
+        // refresh; the build must not publish it as a quiet week.
+        // The remaining string-presence assertions this lane kept (rather than
+        // deleted as redundant) each need to be shown failing too.
+        { name: "the .ics explainer is dropped", file: "events.html", from: 'class="ics-help"', to: 'class="ics-helper"', expect: "is missing the .ics What-is-this explainer" },
+        { name: "the .ics subscribe link is dropped", file: "events.html", from: "data/events.ics", to: "data/events-removed.ics", expect: "lost the .ics subscribe link", all: true },
+        { name: "the per-kind chip styles are dropped", file: `assets/${siteCssName}`, from: ".kind-chip--", to: ".kind-chip-removed--", expect: "site.css lost the per-kind chip styles", all: true },
+        // The two preconditions the executed assertions stand on: without the
+        // emitted bundle there is nothing to execute, and that must be an error
+        // rather than a silently skipped block of checks.
+        { name: "the emitted site.js is missing entirely", file: `assets/${siteJsName}`, from: "", to: "", expect: "the export contains no hashed assets/site.*.js", remove: true },
+        { name: "the emitted site.css is missing entirely", file: `assets/${siteCssName}`, from: "", to: "", expect: "the export contains no hashed assets/site.*.css", remove: true },
+        { name: "the published calendar artifact is missing", file: "data/events.json", from: "", to: "", expect: "the published edition has no community calendar at all", remove: true },
+        { name: "the calendar artifact declares an unknown schema", file: "data/events.json", from: '"schemaVersion": "crescent-city-events/v1"', to: '"schemaVersion": "crescent-city-events/v2"', expect: "has an unsupported schemaVersion" },
+        { name: "the calendar artifact loses its events array", file: "data/events.json", from: '"events": [', to: '"eventsList": [', expect: "has no events array" },
+        { name: "the published calendar is emptied while inputs remain", file: "data/events.json", from: '"events": [', to: '"events": [], "unusedEvents": [', expect: "the calendar refresh failed and the build must not report success" },
       ];
       for (const testCase of cases) {
         const path = join(destination, testCase.file);
         const original = await readFile(path, "utf8");
-        expect(original.includes(testCase.from)).toBe(true); // the mutation must actually bite
-        await Bun.write(path, original.replace(testCase.from, testCase.to));
+        if (testCase.remove) {
+          await rm(path);
+        } else {
+          expect(original.includes(testCase.from)).toBe(true); // the mutation must actually bite
+          await Bun.write(path, testCase.all ? original.replaceAll(testCase.from, testCase.to) : original.replace(testCase.from, testCase.to));
+        }
         const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
         const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
         await Bun.write(path, original);
@@ -376,24 +368,4 @@ describe("lane cci-frontend: authored markup + export gate", () => {
       }
     });
   }, 300000);
-
-  test("negative control: removing a quick-filter button from exported events.html fails the gate", async () => {
-    await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
-      await put(root, "state/analytics-overview.json", {
-        schemaVersion: "1.0.0",
-        generatedAt: "2026-08-28T00:00:00Z",
-        inputFingerprint: "0".repeat(64),
-        operatorSignalsNoticed: [],
-      });
-      const destination = join(root, "pages");
-      await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-08-28T00:00:00Z" });
-      const html = await readFile(join(destination, "events.html"), "utf8");
-      await Bun.write(join(destination, "events.html"), html.replace('id="event-window-month"', 'id="event-window-moved"'));
-      const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
-      const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
-      expect(validate.exitCode).not.toBe(0);
-      expect(output).toContain("This-month quick filter button");
-    });
-  }, 120000);
 });

@@ -18,7 +18,7 @@ import {
   validatePagesSource,
   validatePagesHtml,
 } from "../src/pages_snapshot.js";
-import { PAGES_OPERATOR_SIGNALS_ARTIFACT, PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES, PAGES_CODE_META_ARTIFACT, PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, PAGES_SEARCH_BODY_ARTIFACT_PREFIX } from "../src/pages_snapshot.js";
+import { PAGES_EVENTS_ARTIFACT, PAGES_OPERATOR_SIGNALS_ARTIFACT, PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES, PAGES_CODE_META_ARTIFACT, PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, PAGES_SEARCH_BODY_ARTIFACT_PREFIX } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
 import { auditPagesCss, auditStylesheetBraces, type PageCssInput } from "../src/pages_css.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
@@ -780,7 +780,6 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
 {
   const eventsHtml = pageHtmlCache.get("events.html") ?? "";
   const indexHtmlPage = pageHtmlCache.get("index.html") ?? "";
-  const siteJsText = siteJs;
   // R3: the assertions below read the *exported* asset copies, not the authored
   // sources, so a negative control can mutate a real export and see them fire.
   const exportedAssets = readdirSync(join(destination, "assets"));
@@ -793,9 +792,6 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
   if (!exportedSiteJs) errors.push("the export contains no hashed assets/site.*.js");
   if (!exportedSiteCss) errors.push("the export contains no hashed assets/site.*.css");
   for (const [page, html] of [["events.html", eventsHtml], ["index.html", indexHtmlPage]] as Array<[string, string]>) {
-    if (!html.includes('id="event-window-week"')) errors.push(`${page} is missing the This-week quick filter button`);
-    if (!html.includes('id="event-window-month"')) errors.push(`${page} is missing the This-month quick filter button`);
-    if (!html.includes('aria-pressed="false"')) errors.push(`${page} quick-filter buttons are missing aria-pressed state`);
     if (!html.includes('class="ics-help"')) errors.push(`${page} is missing the .ics What-is-this explainer`);
     if (!html.includes("data/events.ics")) errors.push(`${page} lost the .ics subscribe link`);
     // R3 P1-D: one window control. Every window value lives in the button group,
@@ -820,26 +816,111 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
     if (!html.includes('wireCalendarWindowButtons("event-window-controls"')) errors.push(`${page} does not use the shared wireCalendarWindowButtons (duplicated window wiring, P1-H)`);
     if (/for \(const button of document\.querySelectorAll\("#event-window-controls/.test(html)) errors.push(`${page} still inlines its own window-button loop (P1-H)`);
   }
-  if (!siteJsText.includes("function calendarEventKindChip")) errors.push("assets/site.js is missing calendarEventKindChip (per-kind chips regressed)");
-  if (!siteJsText.includes("function calendarWindowFilter")) errors.push("assets/site.js is missing calendarWindowFilter (quick filters regressed)");
-  // R3 P1-B: the kind chips are real filter buttons wired to the kind filter,
-  // not decorative spans carrying an aria-label they cannot act on.
-  if (!/return `<button type="button" class="kind-chip/.test(exportedSiteJs)) errors.push("calendarEventKindChip no longer renders a real filter button (P1-B)");
-  if (!exportedSiteJs.includes('data-kind-filter="')) errors.push("calendarEventKindChip lost the kind-filter value that wires it to the kind select (P1-B)");
-  if (!exportedSiteJs.includes('aria-label="Filter events by kind:')) errors.push("calendarEventKindChip lost its accessible label");
-  if (!eventsHtml.includes("event-freshness")) errors.push("events.html lost the calendar-freshness meta line");
-  if (!exportedSiteJs.includes("function wireCalendarWindowButtons")) errors.push("assets/site.js is missing wireCalendarWindowButtons (the per-page wiring loops must not return, P1-H)");
+  // R3 lane 5: the shipped bundle is EXECUTED, not grepped. A string-presence
+  // check ("does site.js contain the word calendarWindowFilter") passes for a
+  // function that returns the wrong events; these call the exported asset's own
+  // functions and assert what they return. The bundle runs with an inert
+  // document/window, so nothing here touches the filesystem or the network.
+  const siteJsApi = (() => {
+    try {
+      const inertElement = { setAttribute() {}, getAttribute: () => null, addEventListener() {}, contains: () => false, querySelectorAll: () => [] };
+      const factory = new Function("document", "window", "fetch", `${exportedSiteJs}\nreturn { calendarWindowFilter, calendarFreshnessText, publicErrorNote, calendarEventKindChip, emptyListItem, eventKindFilterValue, createDeferredIndexSearch, wireCalendarWindowButtons, searchIndexMatches };`);
+      return factory(
+        { getElementById: () => inertElement, querySelectorAll: () => [], addEventListener() {} },
+        { addEventListener() {} },
+        () => { throw new Error("the gate never fetches"); },
+      ) as Record<string, Function>;
+    } catch (error) {
+      errors.push(`assets/site.js does not evaluate, or no longer exports the calendar helpers: ${(error as Error).message}`);
+      return null;
+    }
+  })();
+  if (siteJsApi) {
+    // P1-D — the window filter is the single window state, and it answers for
+    // every value the button group offers.
+    const windowFixture = [
+      { id: "future", dateStart: "2027-03-04", status: "scheduled" },
+      { id: "past", dateStart: "2024-01-02", status: "completed" },
+      { id: "undated" },
+    ];
+    const ids = (value: unknown): string => (value as Array<{ id: string }>).map(event => event.id).join(",");
+    const windowFilter = siteJsApi.calendarWindowFilter as (events: unknown[], window: string, now?: Date) => unknown[];
+    if (ids(windowFilter(windowFixture, "all")) !== "future,past,undated") errors.push('site.js calendarWindowFilter("all") is no longer a passthrough (P1-D)');
+    if (ids(windowFilter(windowFixture, "upcoming")) !== "future") errors.push('site.js calendarWindowFilter("upcoming") does not select scheduled events (P1-D)');
+    if (ids(windowFilter(windowFixture, "past")) !== "past") errors.push('site.js calendarWindowFilter("past") does not select completed events (P1-D)');
+    // A December "this week" must not leak January, and vice versa.
+    const rollover = [{ id: "dec31", dateStart: "2026-12-31" }, { id: "jan01", dateStart: "2027-01-01" }];
+    if (ids(windowFilter(rollover, "month", new Date("2026-12-15T20:00:00Z"))) !== "dec31") errors.push("site.js calendarWindowFilter month window crosses the December/January boundary (P1-D)");
+    // P1-E — a missing or unparseable timestamp renders nothing, never "NaN".
+    const freshness = siteJsApi.calendarFreshnessText as (value: unknown) => string;
+    if (freshness("not-a-timestamp") !== "" || freshness(null) !== "") errors.push("site.js calendarFreshnessText invents a freshness line for an unusable timestamp (P1-E)");
+    if (/NaN/.test(freshness(new Date().toISOString()))) errors.push("site.js calendarFreshnessText renders NaN (P1-E)");
+    // P0.6 — operator strings are mapped, never passed through.
+    // The contract is a closed set of public phrases, so any pass-through of the
+    // raw operator string fails here whichever branch produced it.
+    const errorNote = siteJsApi.publicErrorNote as (value: unknown) => string;
+    const publicPhrases = [
+      "the request timed out before a response arrived",
+      "the response could not be parsed",
+      "the source could not be reached",
+      "the last check did not succeed",
+    ];
+    const operatorStrings = [
+      "Failed to parse JSON from https://quickmap.dot.ca.gov/api/v1/incidents?format=json",
+      "All QuickMap endpoints failed: QuickMap returned 503 from https://quickmap.dot.ca.gov",
+      "getaddrinfo ENOTFOUND quickmap.dot.ca.gov",
+      "unexpected failure in /Users/operator/output/events/events.json",
+      "yt-dlp not found in $PATH",
+    ];
+    for (const operatorString of operatorStrings) {
+      const mapped = errorNote(operatorString);
+      if (!publicPhrases.includes(mapped) && !/^the source returned HTTP [45]\d{2}$/.test(mapped)) {
+        errors.push(`site.js publicErrorNote leaks operator detail into public copy: "${mapped}" (P0.6)`);
+      }
+    }
+    if (errorNote("") !== "") errors.push("site.js publicErrorNote invents a failure note for a source with no error (P0.6)");
+    // P1-G — the calendar list's empty state is a list item.
+    const listItem = siteJsApi.emptyListItem as (message: string) => string;
+    if (!listItem("x").startsWith("<li") || listItem("x").includes("<div")) errors.push("site.js emptyListItem no longer renders a list item (P1-G)");
+    // P1-B — the chip is a real button, escaped, wired to the kind filter.
+    const chip = siteJsApi.calendarEventKindChip as (event: { kind?: string }, activeFilter?: string) => string;
+    const meetingChip = chip({ kind: "government-meeting" }, "meetings");
+    if (!meetingChip.startsWith("<button")) errors.push("site.js calendarEventKindChip no longer renders a real filter button (P1-B)");
+    if (!meetingChip.includes('data-kind-filter="meetings"')) errors.push("site.js calendarEventKindChip lost the kind-filter value that wires it to the kind select (P1-B)");
+    if (!meetingChip.includes('aria-pressed="true"')) errors.push("site.js calendarEventKindChip does not reflect the active kind filter (P1-B)");
+    if (!meetingChip.includes('aria-label="Filter events by kind:')) errors.push("calendarEventKindChip lost its accessible label");
+    if (chip({ kind: '"><img src=x onerror=alert(1)>' }).includes("<img")) errors.push("site.js calendarEventKindChip does not escape the event kind (P1-B)");
+    // P0.1 — the defect was a first query answered "0 of 0" against an index
+    // that had not loaded yet and never re-run. Drive the real controller: the
+    // pending render must be followed by a second render carrying the index.
+    if (typeof siteJsApi.createDeferredIndexSearch !== "function") {
+      errors.push("assets/site.js is missing createDeferredIndexSearch (code search cannot re-run after index load, P0.1)");
+    } else {
+      const renders: Array<{ needle: string; hasIndex: boolean; state: string }> = [];
+      const controller = (siteJsApi.createDeferredIndexSearch as (load: () => Promise<unknown>, render: (needle: string, index: unknown, state: string) => void) => { search: (needle: string) => void })(
+        async () => ({ shards: { t: [{ id: "1", t: "harbor" }], x: [{ id: "1", x: "harbor district" }] } }),
+        (needle, index, state) => renders.push({ needle, hasIndex: index !== null && index !== undefined, state }),
+      );
+      controller.search("harbor");
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (renders.length < 2) errors.push("site.js createDeferredIndexSearch does not re-render after the index loads — the first query stays empty (P0.1)");
+      const settled = renders[renders.length - 1];
+      if (!settled || settled.needle !== "harbor" || !settled.hasIndex || settled.state !== "ready") {
+        errors.push("site.js createDeferredIndexSearch does not re-run the pending query against the loaded index (P0.1)");
+      }
+      if (renders[0] && renders[0].state !== "pending") errors.push("site.js createDeferredIndexSearch reports a non-pending state before the index arrives (P0.1)");
+    }
+    if (typeof siteJsApi.wireCalendarWindowButtons !== "function") errors.push("assets/site.js is missing wireCalendarWindowButtons (the per-page wiring loops must not return, P1-H)");
+    if (typeof siteJsApi.publicErrorNote !== "function") errors.push("assets/site.js is missing publicErrorNote (operator errors reach public copy, P0.6)");
+  }
   // R3 P0.1: code search must re-run once the lazily loaded index arrives.
-  if (!exportedSiteJs.includes("function createDeferredIndexSearch")) errors.push("assets/site.js is missing createDeferredIndexSearch (code search cannot re-run after index load, P0.1)");
   for (const [page, html] of [["code.html", pageHtmlCache.get("code.html") ?? ""], ["index.html", indexHtmlPage]] as Array<[string, string]>) {
     if (!html.includes("createDeferredIndexSearch(")) errors.push(`${page} code search does not re-run after the search index loads (P0.1)`);
   }
   // R3 P1-G: #event-items is an <ol>; its states must be list items, so the
   // calendar page uses emptyListItem() and never the <div>-returning empty().
-  if (!exportedSiteJs.includes("const emptyListItem =")) errors.push("assets/site.js is missing emptyListItem (list-context empty state, P1-G)");
   if (/\bempty\(/.test(eventsHtml)) errors.push("events.html renders a <div> empty state inside the <ol> calendar list (P1-G)");
   // R3 P0.6: raw operator error text must not be interpolated into public copy.
-  if (!exportedSiteJs.includes("function publicErrorNote")) errors.push("assets/site.js is missing publicErrorNote (operator errors reach public copy, P0.6)");
   if (/esc\(source\.error\)/.test(exportedSiteJs)) errors.push("assets/site.js renders a raw source error string in public copy (P0.6)");
   for (const [pageFile, html] of pageHtmlCache) {
     if (/\$\{(?:esc\()?error\.message \|\| error/.test(html)) errors.push(`${pageFile} renders a raw operator error string in public copy (P0.6)`);
@@ -850,14 +931,44 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
   // That assertion could not fail for the defect it was written against: the
   // rule was present and inert. It now lives in the lane 4 computed-value gate
   // below, which resolves position/display over the real element path.)
-  const siteCssText = await readFile(join(staticPagesDir, "assets", "site.css"), "utf8").catch(() => "");
-  if (!siteCssText.includes(".kind-chip--")) errors.push("site.css lost the per-kind chip styles");
+  // Read the emitted stylesheet, not the authored one: what ships is what the
+  // assertion is about, and it is what a negative control can mutate.
+  if (!exportedSiteCss.includes(".kind-chip--")) errors.push("site.css lost the per-kind chip styles");
   // R3 P1-C: .window-btn follows the site conventions instead of a width hack.
   const focusRule = /a:focus-visible[^{]*\{[^}]*\}/.exec(exportedSiteCss)?.[0] ?? "";
   if (!focusRule.includes(".window-btn:focus-visible")) errors.push("site.css focus-ring rule does not cover .window-btn (P1-C)");
   const coarseRule = /@media \(pointer: coarse\) \{[^}]*\}/.exec(exportedSiteCss)?.[0] ?? "";
   if (!coarseRule.includes(".window-btn")) errors.push("site.css coarse-pointer 44px rule does not cover .window-btn (P1-C)");
   if (/@media \(max-width:600px\) \{ \.window-btn/.test(exportedSiteCss)) errors.push("site.css still sizes .window-btn by viewport width instead of pointer type (P1-C)");
+}
+
+// --- R3 lane 5 gate: an empty published calendar must be explained ---
+// The Pages workflow tolerates calendar-collection outages (three
+// continue-on-error steps). That tolerance silently accepted a *total* failure:
+// the build stayed green and published an empty calendar that looked like a
+// quiet week. The honest rule needs no hand-written marker file — the evidence
+// is already in the artifact. A zero-event calendar is only honest when the
+// inputs a calendar is built from (meetings, news, YouTube) are themselves
+// empty; zero events built from non-empty inputs is a broken refresh, and fails.
+{
+  const eventsRaw = await readFile(join(destination, PAGES_EVENTS_ARTIFACT), "utf8").catch(() => null);
+  if (eventsRaw === null) {
+    errors.push(`${PAGES_EVENTS_ARTIFACT} is missing — the published edition has no community calendar at all`);
+  } else {
+    const artifact = JSON.parse(eventsRaw) as { schemaVersion?: unknown; events?: unknown; count?: unknown };
+    if (artifact.schemaVersion !== "crescent-city-events/v1") errors.push(`${PAGES_EVENTS_ARTIFACT} has an unsupported schemaVersion`);
+    if (!Array.isArray(artifact.events)) {
+      errors.push(`${PAGES_EVENTS_ARTIFACT} has no events array — the calendar page would render its wrong-shape message`);
+    } else if (artifact.events.length === 0 && snapshot) {
+      const inputs = [snapshot.meetings, snapshot.news, snapshot.youtube].reduce((total, list) => total + (Array.isArray(list) ? list.length : 0), 0);
+      if (inputs > 0) {
+        errors.push(`${PAGES_EVENTS_ARTIFACT} is empty while ${inputs} calendar input record(s) were published — the calendar refresh failed and the build must not report success (R3 P2)`);
+      }
+    }
+    if (Array.isArray(artifact.events) && typeof artifact.count === "number" && artifact.count < artifact.events.length) {
+      errors.push(`${PAGES_EVENTS_ARTIFACT} count (${artifact.count}) is smaller than the events it carries (${artifact.events.length})`);
+    }
+  }
 }
 
 // --- R3 P1-L gate: meeting copy is about the meeting ---

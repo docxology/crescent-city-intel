@@ -6,6 +6,7 @@ import {
     ARTICLES_DIR,
     RATE_LIMIT_MS,
     SCRAPE_TIMEOUT_MS,
+    envInt,
     CLOUDFLARE_WAIT_MS,
     SPA_RENDER_MS,
     MAX_RETRIES,
@@ -55,8 +56,29 @@ describe("extended constants", () => {
         expect(RATE_LIMIT_MS).toBe(2000);
     });
 
-    test("SCRAPE_TIMEOUT_MS defaults to 60000", () => {
-        expect(SCRAPE_TIMEOUT_MS).toBe(60000);
+    test("SCRAPE_TIMEOUT_MS reads its env override, and falls back to 60000 without one", () => {
+        // The exported constant is resolved at import time from the environment,
+        // so asserting "it equals the default" only holds where nobody set the
+        // variable. CI sets SCRAPE_TIMEOUT_MS=180000 for the live scrape, and
+        // this assertion failed there the moment the release gate stopped being
+        // continue-on-error. Assert the RULE — override wins, default otherwise —
+        // by exercising the resolver, and check the constant honours the ambient
+        // environment rather than a number that happens to be true locally.
+        const ambient = process.env.SCRAPE_TIMEOUT_MS;
+        expect(SCRAPE_TIMEOUT_MS).toBe(ambient ? Number(ambient) : 60000);
+
+        const previous = ambient;
+        try {
+            delete process.env.SCRAPE_TIMEOUT_MS;
+            expect(envInt("SCRAPE_TIMEOUT_MS", 60000)).toBe(60000);
+            process.env.SCRAPE_TIMEOUT_MS = "180000";
+            expect(envInt("SCRAPE_TIMEOUT_MS", 60000)).toBe(180000);
+            process.env.SCRAPE_TIMEOUT_MS = "not-a-number";
+            expect(envInt("SCRAPE_TIMEOUT_MS", 60000)).toBe(60000);
+        } finally {
+            if (previous === undefined) delete process.env.SCRAPE_TIMEOUT_MS;
+            else process.env.SCRAPE_TIMEOUT_MS = previous;
+        }
     });
 
     test("Original constants still correct", () => {

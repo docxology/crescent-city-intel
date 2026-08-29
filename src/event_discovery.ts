@@ -70,7 +70,7 @@ export interface DiscoveredEvent {
   sourceName: string;
   sourceLinks: string[];
   extractionMethod: "markup" | "llm";
-  /** 0..1 fidelity score: 0.95 ICS markup, 0.9 RSS markup, 0.85 HTML markup, 0.55 LLM. */
+  /** 0..1 fidelity score: 0.95 ICS markup, 0.9 RSS markup, 0.85 HTML markup, 0.75 LLM completeness assist, 0.55 LLM date resolution. */
   confidence: number;
 }
 

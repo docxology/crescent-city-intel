@@ -5,8 +5,12 @@
  * configurable pipeline behavior without code changes.
  */
 
-/** Helper to parse an integer env var with fallback */
-function envInt(key: string, fallback: number): number {
+/**
+ * Parse an integer env var with a fallback. Exported so a test can assert the
+ * RULE (override wins, malformed falls back) instead of asserting a resolved
+ * constant's value, which is only true in an environment nobody has configured.
+ */
+export function envInt(key: string, fallback: number): number {
   const val = process.env[key];
   if (val === undefined) return fallback;
   const n = parseInt(val, 10);

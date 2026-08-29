@@ -27,7 +27,7 @@
 
 ### v2.0 — Comprehensive Intelligence Platform (2026-07)
 - 3 new alert monitors (EPA AirNow, CAL FIRE, NDBC Marine)
-- 8-monitor composite severity scoring
+- 13-monitor composite severity scoring
 - Structured query engine (legislative history, section diff, semantic similarity)
 - Legal citation parser (CA Code, U.S.C., case law, ordinance amendments)
 - Definition glossary builder

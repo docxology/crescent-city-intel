@@ -239,7 +239,7 @@ Fetches real-time marine observations from 3 NDBC buoy stations nearest to Cresc
 
 ---
 
-## `src/alerts/severity.ts` — Composite 8-Monitor Severity (v2.0)
+## `src/alerts/severity.ts` — Composite alert severity
 
 Aggregates all 13 alert monitors (8 core + 5 extended: drought, PSPS, smoke, roads, schools) into a single composite severity level.
 
@@ -247,7 +247,7 @@ Aggregates all 13 alert monitors (8 core + 5 extended: drought, PSPS, smoke, roa
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `computeAlertSeverity(...)` | `(8 monitor inputs) → AlertSeverityReport` | Composite severity assessment |
+| `computeAlertSeverity(...)` | `(13 monitor inputs) → AlertSeverityReport` | Composite severity assessment; an absent monitor is `available: false`, never a calm reading |
 
 ### Priority Order
 
@@ -312,7 +312,7 @@ a unified chronological timeline with per-type statistics.
 - **Persistent JSONL history**: All monitors append to `history.jsonl` for analytics
 - **In-process deduplication**: Module-level `Set<string>` tracks processed IDs
 - **import.meta.main**: Each file can be run directly via `bun run src/alerts/<file>.ts`
-- **Composite severity**: `run-alerts.ts` computes 8-monitor composite after all monitors complete
+- **Composite severity**: `run-alerts.ts` runs all 13 monitors and computes the composite from all 13 — the five Phase-12 monitors (drought, PSPS, smoke, roads, schools) feed it through `buildExtendedCompositeInput`
 
 ## Running
 

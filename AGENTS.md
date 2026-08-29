@@ -65,7 +65,7 @@ src/
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   alert_analytics.ts    # Unified alert timeline + per-type statistics
   alerts/
-    severity.ts         # Composite 8-monitor alert severity scoring
+    severity.ts         # Composite alert severity over all 13 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km)
@@ -123,7 +123,7 @@ tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
 pages-data/             # Reviewed public seed artifacts for static Pages
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.1)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.6.0)
 ```
 
 ## What's New in v2.5.0
@@ -184,7 +184,7 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.1)
 - Per-type statistics (counts, severity distribution, frequency)
 
 ### Enhanced Composite Severity
-- 8-monitor composite (up from 5)
+- 13-monitor composite (8 core + the 5 Phase-12 extended monitors)
 - Air quality, wildfire, and marine integrated into severity scoring
 - Priority-ordered severity levels: CALM → WATCH → WARNING → EMERGENCY
 
@@ -247,7 +247,7 @@ Run `bun run validate` for the current pass/fail result.
 - **Cloudflare bypass**: Non-headless Chromium with custom user agent
 - **Resume support**: Manifest tracks scraped articles
 - **SHA-256 verification**: Every page hashed at scrape time
-- **8-monitor composite severity**: Priority-ordered aggregation
+- **13-monitor composite severity**: priority-ordered aggregation over every monitor the runner collects
 - **Persistent JSONL history**: All alert events logged for analytics
 - **Fuzzy search fallback**: Levenshtein correction when BM25 returns 0 results
 - **SSE streaming**: Word-by-word RAG answer delivery

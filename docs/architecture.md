@@ -50,7 +50,7 @@ Real-Time Intelligence Layer (13 monitors: 8 core + 5 extended):
 │  epa_airnow.ts      EPA AQI (v2.0)    │
 │  calfire_wildfire.ts CAL FIRE (v2.0)  │
 │  ndbc_marine.ts     NDBC buoys (v2.0) │
-│  severity.ts        8-monitor composite│
+│  severity.ts       13-monitor composite│
 └──────────────────────────────────────┘
 
 Structured Query + Legal Analysis (v2.0):

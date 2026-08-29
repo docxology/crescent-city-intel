@@ -521,10 +521,10 @@ async function loadDiscoveryEvents(outputDir: string): Promise<Array<Record<stri
 
 /**
  * Read deterministic monitor artifacts (<outputDir>/gov_meetings|news|youtube)
- * and produce a sorted, capped list of structured events. Sorts ascending by
- * dateStart with nulls last; caps at MAX_EVENTS. Accepts an explicit output
- * directory so offline tests can point at a temporary fixture tree mirroring
- * the output/ layout.
+ * and produce a partitioned, capped list of structured events. Upcoming events
+ * (ascending by date) fill the cap first, then past events (most recent first),
+ * then undated ones by title — so the cap truncates the past, never the future,
+ * and the calendar opens on what has not happened yet.
  */
 export async function collectEvents(outputDir = join(process.cwd(), 'output')): Promise<StructuredEvent[]> {
   const base = outputDir.replace(/\/+$/, '');

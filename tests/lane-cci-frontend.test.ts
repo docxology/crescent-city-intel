@@ -319,6 +319,10 @@ describe("lane cci-frontend: authored markup + export gate", () => {
         // P1-H — one window wiring, called by both pages.
         { name: "a page re-inlines its own window-button loop", file: "index.html", from: 'wireCalendarWindowButtons("event-window-controls"', to: 'for (const button of document.querySelectorAll("#event-window-controls .window-btn")) {} legacyWire("event-window-controls"', expect: "index.html does not use the shared wireCalendarWindowButtons (duplicated window wiring, P1-H)" },
         { name: "site.js loses the shared window wiring", file: `assets/${siteJsName}`, from: "function wireCalendarWindowButtons", to: "function legacyWireWindowButtons", expect: "does not evaluate, or no longer exports the calendar helpers" },
+        // The contrast gate must see the SHIPPED palette, not its own constants:
+        // lightening a variable in the emitted stylesheet has to fail it.
+        { name: "the palette lightens below the contrast floor", file: `assets/${siteCssName}`, from: "--ink-faint:#666666", to: "--ink-faint:#bbbbbb", expect: "contrast regression: .meta on --paper" },
+        { name: "the palette variable a pair names disappears", file: `assets/${siteCssName}`, from: "--rtint:#f7dcdc", to: "--rtint-renamed:#f7dcdc", expect: "references a palette variable the emitted stylesheet does not define" },
         // P1-L — meeting copy is about the meeting.
         { name: "meeting copy regrows source-site nav chrome", file: "data/meetings.json", from: '"content": ""', to: '"content": "Submit Written Public Comment (Email your comments)"', expect: "publishes source-site nav chrome as meeting copy" },
         { name: "meeting copy regrows a raw agenda URL", file: "data/meetings.json", from: '"content": ""', to: '"content": "Agenda: https://www.crescentcity.org/a.pdf"', expect: "publishes a raw URL as meeting copy instead of a labelled document link (P1-L)" },

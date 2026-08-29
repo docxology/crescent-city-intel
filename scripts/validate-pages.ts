@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /** Validate a generated public Pages artifact without making network calls. */
 import { readFile } from "fs/promises";
-import { readdirSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import {
   PAGES_APPLE_TOUCH_ICON_PNG,
@@ -253,16 +253,42 @@ function contrastRatio(foreground: string, background: string): number {
   const l2 = relLuminance(background);
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
+/**
+ * Contrast pairs named by PALETTE VARIABLE, resolved against the stylesheet
+ * this build actually emits.
+ *
+ * They used to be hard-coded hex literals in this file, so the gate computed
+ * ratios over its own constants: lightening --ink-faint in site.css could not
+ * fail it, and only editing the gate could. A check whose subject is a constant
+ * in the same file is not checking the artifact.
+ */
 const CONTRAST_PAIRS: Array<{ fg: string; bg: string; label: string; min: number }> = [
-  { fg: "#666666", bg: "#ffffff", label: ".meta on --paper", min: 4.5 },
-  { fg: "#333333", bg: "#f7dcdc", label: "banner.degraded meta on --rtint", min: 4.5 },
-  { fg: "#000000", bg: "#888888", label: "geo-metric meta on --rule-light", min: 4.5 },
-  { fg: "#000000", bg: "#888888", label: "banner.unavailable meta on --rule-light", min: 4.5 },
-  { fg: "#ffffff", bg: "#c41e1e", label: "masthead text on --cc", min: 4.5 },
+  { fg: "--ink-faint", bg: "--paper", label: ".meta on --paper", min: 4.5 },
+  { fg: "--ink-dim", bg: "--rtint", label: "banner.degraded meta on --rtint", min: 4.5 },
+  { fg: "--ink", bg: "--rule-light", label: "geo-metric meta on --rule-light", min: 4.5 },
+  { fg: "--ink", bg: "--sepia", label: "meta on --sepia", min: 4.5 },
+  { fg: "#ffffff", bg: "--cc", label: "masthead text on --cc", min: 4.5 },
 ];
-for (const pair of CONTRAST_PAIRS) {
-  const ratio = contrastRatio(pair.fg, pair.bg);
-  if (ratio < pair.min) errors.push(`contrast regression: ${pair.label} computes to ${ratio.toFixed(2)}:1 (minimum ${pair.min}:1)`);
+{
+  const emittedCss = readdirSync(join(destination, "assets"))
+    .filter(asset => /^site\.[0-9a-f]{8}\.css$/.test(asset))
+    .map(asset => readFileSync(join(destination, "assets", asset), "utf8"))
+    .join("\n");
+  const palette = new Map<string, string>();
+  for (const match of emittedCss.matchAll(/(--[a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})/g)) {
+    if (!palette.has(match[1]!)) palette.set(match[1]!, match[2]!);
+  }
+  if (palette.size === 0) errors.push("contrast gate: the emitted site stylesheet declares no palette variables to check");
+  for (const pair of CONTRAST_PAIRS) {
+    const foreground = pair.fg.startsWith("--") ? palette.get(pair.fg) : pair.fg;
+    const background = pair.bg.startsWith("--") ? palette.get(pair.bg) : pair.bg;
+    if (!foreground || !background) {
+      errors.push(`contrast gate: ${pair.label} references a palette variable the emitted stylesheet does not define (${pair.fg} / ${pair.bg})`);
+      continue;
+    }
+    const ratio = contrastRatio(foreground, background);
+    if (ratio < pair.min) errors.push(`contrast regression: ${pair.label} computes to ${ratio.toFixed(2)}:1 (minimum ${pair.min}:1)`);
+  }
 }
 
 // The syndication artifact must exist, parse, and carry channel metadata.

@@ -12,7 +12,7 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.5.1-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.6.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -210,7 +210,7 @@ The API tester (`option 7`) live-checks 12 endpoints and reports HTTP status cod
 
 ```
   /api/health                    HTTP 200  server/provider/source health
-  /api/domains                   HTTP 200  array len=6
+  /api/domains                   HTTP 200  array len=12
   /api/search?q=tsunami&limit=3  HTTP 200  keys:query,total,offset,limit,count
   /api/domains/coverage          HTTP 200  keys:computedAt,totalSections,...
   /api/readability               HTTP 200  keys:computedAt,totalSections,...
@@ -546,12 +546,12 @@ artifact boundaries, and local preview instructions.
   source_registry.ts    # Canonical online source inventory + bounded discovery probes
   monthly_report.ts     # Monthly civic health report generator
   analytics_backend.ts  # Cross-surface analytics envelope (GUI, pipeline, Pages)
-  alert_analytics.ts    # Unified 8-monitor alert timeline + per-type statistics
+  alert_analytics.ts    # Unified alert timeline across all 13 monitors + per-type statistics
   structured_queries.ts # Legislative history, section compare, semantic similarity
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   manuscript_variables.ts # Durable manuscript variable extraction from analytics
   alerts/
-    severity.ts         # Composite 8-monitor alert severity scoring
+    severity.ts         # Composite alert severity over all 13 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750, 48h predictions)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km, Cascadia)
@@ -593,7 +593,7 @@ artifact boundaries, and local preview instructions.
   pages/static/         # Static dashboard and 404 fallback for Pages
 scripts/
   weekly-check.ts       # Weekly health check orchestrator (all monitors + composite)
-  run-alerts.ts         # Alert monitor runner (concurrent 8-monitor composite)
+  run-alerts.ts         # Alert monitor runner (13 monitors, all feeding the composite)
   run-monitor.ts        # Change detection runner
   run-news.ts           # News monitor runner (--keywords= CLI flag)
   run-meetings.ts       # Meeting monitor runner
@@ -619,7 +619,7 @@ manuscript/             # Evidence-bound IMRAD paper with formal contracts and c
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.5.1)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.6.0)
 ```
 
 ---
@@ -772,7 +772,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.5.1)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.6.0)
 
 ---
 

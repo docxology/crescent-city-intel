@@ -147,7 +147,12 @@ input:focus,select:focus,.button:focus-visible { outline:2px solid var(--ink); o
    wrapped tables; `.scroll-x` is the general-purpose wrapper. */
 code { overflow-wrap:anywhere; }
 .table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; max-width:100%; }
-.table-scroll table { min-width:640px; max-width:none; }
+.table-scroll table { min-width:640px; max-width:none; width:max-content; }
+/* A single unbreakable token in a cell (a long URL, a station id, a CI-rendered
+   wide word) used to spill past the table's own box and widen the document even
+   though the wrapper scrolls: the cell overflowed visibly rather than the table
+   growing inside its scroller. Cells wrap; the table sizes to its content. */
+.table-scroll td, .table-scroll th { overflow-wrap:anywhere; }
 
 /* P0.9: `.items` is applied to <ol>, so the UA list reset has to be authored —
    without it the calendar renders browser decimals at a 40px inline indent. */

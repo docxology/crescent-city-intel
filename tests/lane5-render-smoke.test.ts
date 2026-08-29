@@ -211,8 +211,20 @@ async function measureLoadWidthOverflow(name: string): Promise<Array<{ width: nu
     await serveExport(page, STRESS_FONT_CSS);
     await page.goto(`${ORIGIN}/${name}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(200);
-    const scrollWidth = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
-    if (scrollWidth > width + 1) found.push({ width, scrollWidth, how: "stress-font-at-load" });
+    const measured = await page.evaluate(() => {
+      const scrollWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+      // Name the elements that reach past the viewport, so a failure says WHAT
+      // overflowed rather than only by how much — the difference between a
+      // number to argue with and a defect to fix.
+      const offenders = Array.from(document.querySelectorAll<HTMLElement>("*"))
+        .map(element => ({ element, rect: element.getBoundingClientRect() }))
+        .filter(entry => entry.rect.width > 0 && entry.rect.right > window.innerWidth + 1)
+        .sort((a, b) => b.rect.right - a.rect.right)
+        .slice(0, 4)
+        .map(entry => `${entry.element.tagName.toLowerCase()}${entry.element.id ? `#${entry.element.id}` : ""}${entry.element.className && typeof entry.element.className === "string" ? `.${entry.element.className.split(/\s+/).join(".")}` : ""}@${Math.round(entry.rect.right)}`);
+      return { scrollWidth, offenders };
+    });
+    if (measured.scrollWidth > width + 1) found.push({ width, scrollWidth: measured.scrollWidth, how: `stress-font-at-load [${measured.offenders.join(" ")}]` });
     await context.close();
   }
   return found;

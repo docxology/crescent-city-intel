@@ -70,16 +70,10 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
  * with a named cause, kept visible until its owner clears it.
  */
 const KNOWN_OVERFLOW: Record<string, Array<{ width: number; cause: string }>> = {
-  "index.html": [{ width: 320, cause: "alert table inside .table-scroll still widens the document (lane 4 CSS)" }],
   "gui.html": [
     { width: 320, cause: "long unbroken .pill label (391px) plus the alert table (lane 4 CSS)" },
     { width: 375, cause: "long unbroken .pill label (391px) plus the alert table (lane 4 CSS)" },
   ],
-  "events.html": [
-    { width: 320, cause: ".ics-help <code> subscription URL does not wrap (lane 1 markup / lane 4 CSS)" },
-    { width: 375, cause: ".ics-help <code> subscription URL does not wrap (lane 1 markup / lane 4 CSS)" },
-  ],
-  "code.html": [{ width: 320, cause: "section-head .meta line with the ecode360 link does not wrap (lane 4 CSS)" }],
   "404.html": [{ width: 320, cause: "masthead h1 renders 353px wide at a 320px viewport (404.css)" }],
 };
 

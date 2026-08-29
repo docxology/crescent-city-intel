@@ -19,7 +19,8 @@
     .page { max-width:1260px; margin:0 auto; padding:0 20px 60px; }
     .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 12px; padding-bottom:5px; border-top:3px solid var(--cc); flex-wrap:wrap; }
     .section-head h2 { font:700 clamp(1.15rem,2vw,1.5rem)/1.15 "Playfair Display",Georgia,serif; margin:0; letter-spacing:-.01em; color:var(--ink); }
-    .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; white-space:nowrap; }
+    .section-head .meta { font:.72rem/1 Inter,sans-serif; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.1em; margin-left:auto; white-space:nowrap; max-width:100%; overflow-wrap:anywhere; }
+@media (max-width:600px) { .section-head .meta { white-space:normal; } }
     .banner { border:1px solid var(--rule); border-left:4px solid var(--cc); background:var(--panel); padding:12px 16px; font-size:.92rem; margin-bottom:10px; }
     .banner.degraded { border-left-color:var(--rdark); background:var(--rtint); }
     .banner.unavailable { border-left-color:var(--ink); background:var(--rule-light); }
@@ -144,8 +145,9 @@ input:focus,select:focus,.button:focus-visible { outline:2px solid var(--ink); o
 /* Per-container horizontal scroll, replacing the global overflow-x backstop.
    `.table-scroll` was index-only while gui.html and sources.html both emit
    wrapped tables; `.scroll-x` is the general-purpose wrapper. */
-.table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; }
-.table-scroll table { min-width:640px; }
+code { overflow-wrap:anywhere; }
+.table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; max-width:100%; }
+.table-scroll table { min-width:640px; max-width:none; }
 
 /* P0.9: `.items` is applied to <ol>, so the UA list reset has to be authored —
    without it the calendar renders browser decimals at a 40px inline indent. */

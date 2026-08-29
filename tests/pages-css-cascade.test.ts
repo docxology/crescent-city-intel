@@ -163,7 +163,7 @@ describe("Per-page CSS contract (P0.2 split by consumption)", () => {
   });
 
   test("a page that renders .table-scroll but loads no rule for it fails", async () => {
-    const site = (await siteCss()).replace(".table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; }", "");
+    const site = (await siteCss()).replace(/^\.table-scroll, \.scroll-x \{[^}]*\}$/m, "");
     const problems = auditPagesCss([{ page: "sources.html", css: site, hasEventList: false, hasTableScroll: true }]);
     expect(problems.some(problem => problem.includes("horizontal scroll container"))).toBe(true);
   });

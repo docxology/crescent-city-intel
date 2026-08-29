@@ -18,23 +18,28 @@ import type { FlatSection, SearchResult } from "../types.js";
 import { loadAllSections } from "../shared/data.js";
 import { createLogger } from "../logger.js";
 import { stem } from "../shared/porter_stem.js";
+import { paths } from "../shared/paths.js";
 import { fuzzyCorrect } from "../shared/fuzzy.js";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
 
 const logger = createLogger("search");
 
 // ─── Search query logging ──────────────────────────────────────────
-const SEARCH_LOG_PATH = "output/search-queries.jsonl";
-
-function logSearchQuery(query: string, resultCount: number): void {
+/**
+ * Append one query to the analytics log. Exported and called by the HTTP
+ * handlers only: while search() itself logged, every unit-level call appended a
+ * fixture query to the real corpus with no cleanup, which both polluted the
+ * analytics evidence and moved the fingerprint the overview reports.
+ */
+export function logSearchQuery(query: string, resultCount: number): void {
   try {
-    if (!existsSync("output")) mkdirSync("output", { recursive: true });
+    if (!existsSync(paths.output)) mkdirSync(paths.output, { recursive: true });
     const entry = JSON.stringify({
       ts: new Date().toISOString(),
       query,
       resultCount,
     });
-    appendFileSync(SEARCH_LOG_PATH, entry + "\n", "utf-8");
+    appendFileSync(paths.searchQueryLog, entry + "\n", "utf-8");
   } catch {
     // Non-fatal — search logging should never break search
   }
@@ -371,7 +376,6 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
       const section = sections[idx];
       return { section, snippet: `§ ${section.number} — ${section.title}`, matchCount: Math.round(score * 100) / 100 };
     });
-    logSearchQuery(rawQuery, total);
     return { results, total, offset, limit };
   }
 
@@ -392,7 +396,6 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
       const section = sections[idx];
       return { section, snippet: section.title, matchCount: Math.round(score * 100) / 100 };
     });
-    logSearchQuery(rawQuery, total);
     return { results, total, offset, limit };
   }
 
@@ -460,7 +463,6 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
       if (corrections.length > 0) {
         // Log the zero-result query too so /api/search/analytics counts it —
         // previously this fuzzy short-circuit returned before logSearchQuery.
-        logSearchQuery(rawQuery, 0);
         return { results, total, offset, limit, fuzzyCorrections: corrections };
       }
     } catch {
@@ -469,7 +471,6 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
   }
 
   // Log search query for analytics (non-fatal)
-  logSearchQuery(rawQuery, total);
 
   return { results, total, offset, limit };
 }

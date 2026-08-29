@@ -1,6 +1,6 @@
     :root { --paper:#faf6ef; --paper2:#f4efe6; --ink:#0a0a0a; --ink-dim:#3a3a3a; --ink-faint:#6a6a6a; --rule:#d0cac4; --rule-light:#e0dcd6; --panel:rgba(255,255,255,.92); --panel-hover:rgba(245,240,235,.82); }
     a:hover { color:var(--rdark); }
-    .red-banner .masthead-h1 { font:900 clamp(2.4rem,6vw,4.2rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.03em; margin:0; text-transform:uppercase; color:#fff; }
+    .red-banner .masthead-h1 { font:900 clamp(1.7rem,6.5vw,4.2rem)/1.05 "Playfair Display",Georgia,serif; letter-spacing:-.03em; margin:0; text-transform:uppercase; color:#fff; max-width:100%; overflow-wrap:anywhere; }
     .masthead-date { font:600 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-faint); }
     .masthead-nav { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; padding:6px 0; }
     .masthead-nav a { font:500 .74rem/1 Inter,sans-serif; letter-spacing:.03em; text-transform:uppercase; color:var(--ink); text-decoration:none; padding:5px 10px; transition:color .15s; }

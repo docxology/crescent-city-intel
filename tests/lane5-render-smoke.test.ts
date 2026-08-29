@@ -12,7 +12,7 @@
  * needs the network is not a gate.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "fs/promises";
 import { existsSync, readdirSync } from "fs";
 import { tmpdir } from "os";
 import { extname, join, normalize } from "path";
@@ -60,29 +60,18 @@ const EMPTY_BY_DESIGN: Record<string, string> = {
 };
 
 /**
- * Horizontal overflow this test found on 2026-08-29 and could not fix: the
- * causes are CSS and markup owned by other R3 lanes (site.css / index.css /
- * 404.css and the page markup), and this lane may not edit them.
+ * The stylesheet the overflow pass forces on every page. Overflow is a function
+ * of text metrics, so measuring in whatever fonts the host happens to have made
+ * this gate environment-dependent: pages that fit on macOS re-overflowed in CI's
+ * system-font fallback, and a per-environment ledger of "known" overflow is a
+ * gate that reports the environment rather than the page.
  *
- * The assertion below requires the observed set to EQUAL this ledger, so a new
- * overflow fails the gate and a fixed one also fails it — with "delete this
- * entry" as the fix. Nothing here is asserted as correct; each line is a defect
- * with a named cause, kept visible until its owner clears it.
+ * Forcing a monospace stack instead measures a STRICTER property — no real
+ * fallback is wider than monospace, so a page that fits here fits anywhere,
+ * including for a visitor whose webfont request never lands. Deterministic on
+ * every machine, and no ledger to keep honest.
  */
-const KNOWN_OVERFLOW: Record<string, Array<{ width: number; cause: string }>> = {
-  // index.html: passes locally with the bundled font stack; CI's system-font
-  // fallback renders the events banner .meta and alert table wider. Widths
-  // observed in CI 2026-08-29 after the c243d50 root-cause fixes.
-  "index.html": [
-    { width: 320, cause: "system-font fallback in CI renders section-head .meta + alert table wider than local (env-dependent)" },
-    { width: 375, cause: "system-font fallback in CI renders section-head .meta + alert table wider than local (env-dependent)" },
-  ],
-  "gui.html": [
-    { width: 320, cause: "long unbroken .pill label (391px) plus the alert table (lane 4 CSS)" },
-    { width: 375, cause: "long unbroken .pill label (391px) plus the alert table (lane 4 CSS)" },
-  ],
-  "404.html": [{ width: 320, cause: "masthead h1 renders 353px wide at a 320px viewport (404.css)" }],
-};
+const STRESS_FONT_CSS = '*, *::before, *::after { font-family: "Courier New", monospace !important; }'
 
 let browser: Browser;
 let root: string;
@@ -130,18 +119,25 @@ afterAll(async () => {
 });
 
 /** Serve the exported directory to the page; refuse everything else. */
-async function serveExport(page: Page): Promise<void> {
+async function serveExport(page: Page, fontCss = ""): Promise<void> {
+  await serveDir(page, destination, fontCss);
+}
+
+/** Serve one exported directory to the page; refuse everything else. */
+async function serveDir(page: Page, root: string, fontCss = ""): Promise<void> {
   await page.route("**/*", async route => {
     const url = new URL(route.request().url());
     if (url.origin !== ORIGIN) {
-      // Fonts and any other third-party asset: an empty body, never a request.
-      const type = url.hostname.includes("fonts.googleapis.com") ? "text/css" : "text/plain";
-      await route.fulfill({ status: 200, contentType: type, body: "" });
+      // Fonts and any other third-party asset: a local body, never a request.
+      // The webfont stylesheet is where the stress stack is injected, because
+      // that is exactly the request a visitor's blocked or slow CDN replaces.
+      const isFontCss = url.hostname.includes("fonts.googleapis.com");
+      await route.fulfill({ status: 200, contentType: isFontCss ? "text/css" : "text/plain", body: isFontCss ? fontCss : "" });
       return;
     }
     const relative = normalize(decodeURIComponent(url.pathname)).replace(/^\/+/, "");
-    const file = join(destination, relative === "" ? "index.html" : relative);
-    if (!file.startsWith(destination) || !existsSync(file)) {
+    const file = join(root, relative === "" ? "index.html" : relative);
+    if (!file.startsWith(root) || !existsSync(file)) {
       await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
       return;
     }
@@ -154,7 +150,7 @@ interface PageReport {
   pageErrors: string[];
   failedRequests: string[];
   emptyTargets: string[];
-  overflow: Array<{ width: number; scrollWidth: number }>;
+  overflow: Array<{ width: number; scrollWidth: number; how: string }>;
 }
 
 async function renderPage(name: string): Promise<PageReport> {
@@ -184,17 +180,42 @@ async function renderPage(name: string): Promise<PageReport> {
     return empty;
   }, EMPTY_BY_DESIGN);
 
-  const overflow: Array<{ width: number; scrollWidth: number }> = [];
+  // Overflow after a resize is a real experience (rotating a phone), and it is
+  // not the same measurement as loading at that width — an element sized at
+  // 1440 can leave a wider scroll extent behind. Both are measured.
+  const overflow: Array<{ width: number; scrollWidth: number; how: string }> = [];
   for (const width of VIEWPORTS) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(60);
     const scrollWidth = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
     // One pixel of slack for sub-pixel layout rounding.
-    if (scrollWidth > width + 1) overflow.push({ width, scrollWidth });
+    if (scrollWidth > width + 1) overflow.push({ width, scrollWidth, how: "after-resize" });
   }
-
   await context.close();
+
+  overflow.push(...await measureLoadWidthOverflow(name));
   return { consoleErrors, pageErrors, failedRequests, emptyTargets, overflow };
+}
+
+/**
+ * Load the page fresh at each viewport width, in the stress font stack, and
+ * report any width whose document is wider than its viewport. A fresh load is
+ * what a phone visitor actually gets; the stress stack makes the answer the
+ * same on every machine.
+ */
+async function measureLoadWidthOverflow(name: string): Promise<Array<{ width: number; scrollWidth: number; how: string }>> {
+  const found: Array<{ width: number; scrollWidth: number; how: string }> = [];
+  for (const width of VIEWPORTS) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    const page = await context.newPage();
+    await serveExport(page, STRESS_FONT_CSS);
+    await page.goto(`${ORIGIN}/${name}`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(200);
+    const scrollWidth = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth));
+    if (scrollWidth > width + 1) found.push({ width, scrollWidth, how: "stress-font-at-load" });
+    await context.close();
+  }
+  return found;
 }
 
 describe("lane 5: exported pages render cleanly in real Chromium", () => {
@@ -205,13 +226,10 @@ describe("lane 5: exported pages render cleanly in real Chromium", () => {
       expect(`${name} page errors: ${JSON.stringify(report.pageErrors)}`).toBe(`${name} page errors: []`);
       expect(`${name} failed requests: ${JSON.stringify(report.failedRequests)}`).toBe(`${name} failed requests: []`);
       expect(`${name} empty render targets: ${JSON.stringify(report.emptyTargets)}`).toBe(`${name} empty render targets: []`);
-      // Subset, not equality: a NEW overflow fails here. Equality proved
-      // unrunnable across environments — CI's system-font fallback renders
-      // wider than local font stacks, so ledger-cleared pages re-overflow in
-      // CI only. Stale-entry hygiene is a local review duty, not a CI gate.
-      const expectedWidths = (KNOWN_OVERFLOW[name] ?? []).map(entry => entry.width);
-      const newOverflows = report.overflow.filter(entry => !expectedWidths.includes(entry.width));
-      expect(`${name} NEW overflowing widths: ${JSON.stringify(newOverflows.map(entry => entry.width))}`).toBe(`${name} NEW overflowing widths: []`);
+      // No ledger, no environment carve-out: the page must fit its viewport at
+      // every measured width, both freshly loaded in the stress font and after
+      // a resize down from the desktop layout.
+      expect(`${name} overflow: ${JSON.stringify(report.overflow)}`).toBe(`${name} overflow: []`);
     }, 120000);
   }
 });
@@ -279,4 +297,38 @@ describe("lane 5: the calendar page tells the truth about a wrong-shaped artifac
     expect(result.count).toBe("0 of 0 event(s)");
     expect(result.listChildren).toEqual(["li"]);
   }, 120000);
+});
+
+describe("lane 5: an edition missing its optional artifacts still renders", () => {
+  /**
+   * The seed-only edition — what CI publishes when live collection fails
+   * entirely. gui.html used to fetch data/analytics.json unconditionally, so
+   * this edition served every visitor a 404 and, because the three console
+   * fetches shared one Promise.all, rendered the whole console as
+   * "Snapshot unavailable" while alerts and events had loaded fine.
+   */
+  test("the console page loads with no console error and no dead banner when no analytics overview exists", async () => {
+    const seedRoot = await mkdtemp(join(tmpdir(), "cci-seed-"));
+    const seedOutput = join(seedRoot, "empty-output");
+    const seedDestination = join(seedRoot, "pages");
+    await mkdir(seedOutput, { recursive: true });
+    await exportPagesSnapshot({ outputDir: seedOutput, destination: seedDestination, seedDir: "pages-data" });
+
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    const consoleErrors: string[] = [];
+    page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    await serveDir(page, seedDestination);
+    await page.goto(`${ORIGIN}/gui.html`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(250);
+    const banner = await page.evaluate(() => document.getElementById("console-banner")?.textContent ?? "");
+    const alertsRendered = await page.evaluate(() => (document.getElementById("alert-items")?.textContent ?? "").trim().length > 0);
+    await context.close();
+    await rm(seedRoot, { recursive: true, force: true });
+
+    expect(`console errors: ${JSON.stringify(consoleErrors)}`).toBe("console errors: []");
+    expect(banner).not.toContain("Snapshot unavailable");
+    // The sections whose artifacts DO exist still render.
+    expect(alertsRendered).toBe(true);
+  }, 180000);
 });

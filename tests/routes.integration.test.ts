@@ -10,6 +10,12 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { handleApiRoute } from "../src/gui/routes.ts";
 import { initSearch } from "../src/gui/search.ts";
+import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
+
+// Every write this suite makes lands in a throwaway copy of the corpus, never
+// in the real output/ tree the published snapshot is built from.
+beforeAll(async () => { await beginCorpusCopy(); }, 120000);
+afterAll(async () => { await endCorpusCopy(); }, 60000);
 
 let server: ReturnType<typeof Bun.serve>;
 let BASE: string;

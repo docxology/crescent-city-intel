@@ -93,9 +93,21 @@ describe("thin-coverage routes: domain + toc helpers", () => {
     }
   });
 
-  test("GET /api/toc/breadcrumb responds (200 with ancestry, or 404 without data)", async () => {
+  test("GET /api/toc/breadcrumb answers honestly and leaks no operator detail", async () => {
     const res = await get("/api/toc/breadcrumb?guid=nonexistent-guid");
-    expect([200, 400, 404]).toContain(res.status);
+    // 404 = the guid is not in the TOC; 503 = this edition has no TOC artifact
+    // to search. It used to answer 500 with the raw thrown message, which both
+    // misreported an absent input as a server defect and published the
+    // operator's filesystem paths to any caller.
+    expect([200, 404, 503]).toContain(res.status);
+    const body = await res.text();
+    expect(body).not.toMatch(/\/(Users|home|Volumes)\//);
+    expect(body).not.toContain("ENOENT");
+  });
+
+  test("GET /api/toc/breadcrumb 400s when no guid is given", async () => {
+    const res = await get("/api/toc/breadcrumb");
+    expect(res.status).toBe(400);
   });
 });
 

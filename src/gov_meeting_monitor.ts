@@ -485,11 +485,16 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
 export async function saveMeetingItems(
   items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean, vote?: VoteResult | null}>,
   documentDrift: DocumentDrift[] = [],
+  /**
+   * Where the batch is written. Production leaves this at the real corpus; a
+   * test passes its own temp directory. Without the parameter a test could only
+   * write into `output/gov_meetings`, which is exactly what happened: 381 of the
+   * 384 batches in this repo's corpus were one test's fixture, and the Pages
+   * export published its fabricated council meeting as a real record.
+   */
+  dataDir: string = join(process.cwd(), 'output', 'gov_meetings'),
 ): Promise<void> {
   const fs = await import('fs/promises');
-  const path = await import('path');
-  
-  const dataDir = path.join(process.cwd(), 'output', 'gov_meetings');
   try {
     await fs.mkdir(dataDir, { recursive: true });
   } catch (e) {
@@ -497,7 +502,7 @@ export async function saveMeetingItems(
   }
   
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = path.join(dataDir, `gov_meetings-${timestamp}.json`);
+  const filename = join(dataDir, `gov_meetings-${timestamp}.json`);
   
   // Separate new and changed items for better tracking
   const newItems = items.filter(item => item.isNew);

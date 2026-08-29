@@ -1,7 +1,7 @@
 /** API route handlers for the GUI server */
 import { join } from "path";
 import { loadToc, loadArticle, loadSection, loadManifest, loadAllSections } from "../shared/data.js";
-import { search, getIndexedCount, type PagedSearchResult } from "./search.js";
+import { search, logSearchQuery, getIndexedCount, type PagedSearchResult } from "./search.js";
 import { createLogger } from "../logger.js";
 import { llmConfig } from "../llm/config.js";
 import { paths } from "../shared/paths.js";
@@ -173,6 +173,9 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const typeFilter = url.searchParams.get("type") as "article" | "section" | undefined;
     const field = url.searchParams.get("field") as "number" | "text" | "title" | undefined;
     const paged: PagedSearchResult = search(q, { limit, offset, titleFilter, highlight, typeFilter, field });
+    // Query logging is an HTTP-layer concern (see src/gui/search.ts): a library
+    // call must not append to the analytics corpus.
+    logSearchQuery(q, paged.total);
     return json({
       query: q,
       total: paged.total,
@@ -196,7 +199,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const result = await semanticSearch(q, { limit, offset });
       return json(result);
     } catch (err: any) {
-      return json({ error: `Semantic search failed: ${err.message}` }, 500);
+      return json({ error: `Semantic search failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -241,7 +244,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         })),
       });
     } catch (err: any) {
-      return json({ error: `Failed to load sections: ${err.message}` }, 500);
+      return json({ error: `Failed to load sections: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -274,7 +277,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return jsonWithETag(overview, req);
     } catch (err: any) {
       log.error("[analytics] Overview error", { error: err.message });
-      return json({ error: `Failed to build analytics overview: ${err.message}` }, 500);
+      return json({ error: `Failed to build analytics overview: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -348,7 +351,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       });
     } catch (err: any) {
       log.error("[chat] RAG error", { error: err.message });
-      return json({ error: `RAG query failed: ${err.message}` }, dependencyFailureStatus(err.message));
+      return json({ error: `RAG query failed: ${publicApiDetail(err.message)}` }, dependencyFailureStatus(err.message));
     }
   }
   // POST /api/chat — RAG query via JSON body (for longer questions)
@@ -383,7 +386,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider, queryId: result.queryId, metadata: result.metadata });
     } catch (err: any) {
       log.error("[chat POST] RAG error", { error: err.message });
-      return json({ error: `RAG query failed: ${err.message}` }, dependencyFailureStatus(err.message));
+      return json({ error: `RAG query failed: ${publicApiDetail(err.message)}` }, dependencyFailureStatus(err.message));
     }
   }
 
@@ -400,7 +403,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json(stats);
     } catch (err: any) {
       log.error("[analytics] Stats error", { error: err.message });
-      return json({ error: `Failed to compute stats: ${err.message}` }, 500);
+      return json({ error: `Failed to compute stats: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -421,7 +424,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json(projection);
     } catch (err: any) {
       log.error("[analytics] Embeddings error", { error: err.message });
-      return json({ error: `Failed to compute projection: ${err.message}` }, 500);
+      return json({ error: `Failed to compute projection: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -461,7 +464,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ summary, model: llm.provider.configuredChatModel(), provider: llm.provider.configuredChatProvider() });
     } catch (err: any) {
       log.error("[summarize] Error", { error: err.message });
-      return json({ error: `Summarization failed: ${err.message}` }, 500);
+      return json({ error: `Summarization failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -494,7 +497,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       };
       return jsonWithETag(payload, req);
     } catch (err: any) {
-      return json({ error: `Readability scoring failed: ${err.message}` }, 500);
+      return json({ error: `Readability scoring failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -512,7 +515,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const { computeDomainCoverage } = await import("../domains/coverage.js");
       return jsonWithETag(await computeDomainCoverage(), req);
     } catch (err: any) {
-      return json({ error: `Coverage computation failed: ${err.message}` }, 500);
+      return json({ error: `Coverage computation failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -594,7 +597,11 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       return json({ guid, breadcrumb, depth: breadcrumb.length });
     } catch (err: any) {
-      return json({ error: `TOC breadcrumb failed: ${err.message}` }, 500);
+      log.error("[toc] breadcrumb failed", { error: err.message });
+      // A missing TOC artifact is an absent input, not a server defect: 503 says
+      // "this edition cannot answer that", which is what is actually true.
+      const absent = /enoent|no such file|not found|missing/i.test(String(err?.message ?? ""));
+      return json({ error: `TOC breadcrumb unavailable: ${publicApiDetail(err.message)}` }, absent ? 503 : 500);
     }
   }
 
@@ -675,14 +682,14 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     try {
       const { readFile } = await import("fs/promises");
       const { existsSync } = await import("fs");
-      const reportPath = "output/monitor-report.json";
+      const reportPath = paths.monitorReport;
       if (!existsSync(reportPath)) {
         return json({ error: "No monitor report. Run: bun run monitor" }, 404);
       }
       const report = JSON.parse(await readFile(reportPath, "utf-8"));
       return json(report);
     } catch (err: any) {
-      return json({ error: `Failed to read monitor report: ${err.message}` }, 500);
+      return json({ error: `Failed to read monitor report: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -713,7 +720,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       return json({ items: items.slice(0, limit), count: items.length });
     } catch (err: any) {
-      return json({ error: `Failed to read curated output: ${err.message}` }, 500);
+      return json({ error: `Failed to read curated output: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -726,7 +733,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     try {
       return json(JSON.parse(readFileSync(paths.curationReport, "utf8")));
     } catch (err: any) {
-      return json({ error: `Failed to read curation metadata: ${err.message}` }, 500);
+      return json({ error: `Failed to read curation metadata: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -735,7 +742,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     try {
       const { readFile } = await import("fs/promises");
       const { existsSync } = await import("fs");
-      const histPath = "output/monitor-history.jsonl";
+      const histPath = `${paths.output}/monitor-history.jsonl`;
       if (!existsSync(histPath)) return json({ history: [], count: 0 });
 
       const raw = await readFile(histPath, "utf-8");
@@ -749,7 +756,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "20", 10));
       return json({ history: history.slice(0, limit), count: history.length });
     } catch (err: any) {
-      return json({ error: `Failed to read monitor history: ${err.message}` }, 500);
+      return json({ error: `Failed to read monitor history: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -797,7 +804,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const filePath = "output/alerts/airquality/current.json";
     if (!existsSync(filePath)) return json({ error: "No air quality data. Run: bun run alerts:airquality" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
-    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+    catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
   }
 
   // GET /api/alerts/wildfire — current wildfire report
@@ -806,7 +813,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const filePath = "output/alerts/wildfire/current.json";
     if (!existsSync(filePath)) return json({ error: "No wildfire data. Run: bun run alerts:wildfire" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
-    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+    catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
   }
 
   // GET /api/alerts/marine — current marine buoy report
@@ -815,7 +822,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const filePath = "output/alerts/marine/current.json";
     if (!existsSync(filePath)) return json({ error: "No marine data. Run: bun run alerts:marine" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
-    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+    catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
   }
 
   // GET /api/alerts/composite — composite 8-monitor severity
@@ -824,7 +831,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const filePath = "output/alerts/composite/current.json";
     if (!existsSync(filePath)) return json({ error: "No composite severity. Run: bun run alerts" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
-    catch (err: any) { return json({ error: `Failed to read: ${err.message}` }, 500); }
+    catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
   }
 
   // GET /api/openapi.yaml — OpenAPI specification
@@ -844,7 +851,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         }
       });
     } catch (err: any) {
-      return json({ error: `Failed to read OpenAPI specification: ${err.message}` }, 500);
+      return json({ error: `Failed to read OpenAPI specification: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -865,7 +872,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         }
       });
     } catch (err: any) {
-      return json({ error: `Failed to serve Swagger UI: ${err.message}` }, 500);
+      return json({ error: `Failed to serve Swagger UI: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1000,7 +1007,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
 
     // Include manifest staleness info if available
-    const manifestPath = "output/manifest.json";
+    const manifestPath = paths.manifest;
     if (existsSync(manifestPath)) {
       try {
         const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
@@ -1093,7 +1100,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         },
       });
     } catch (err: any) {
-      return json({ error: `Failed to read report: ${err.message}` }, 500);
+      return json({ error: `Failed to read report: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1107,14 +1114,14 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     try {
       return jsonWithETag(JSON.parse(readFileSync(`${reportsDir}/${files[0]}`, "utf8")), req);
     } catch (err: any) {
-      return json({ error: `Failed to read report metadata: ${err.message}` }, 500);
+      return json({ error: `Failed to read report metadata: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
   // GET /api/search/analytics — most-queried search terms
   if (path === "/api/search/analytics") {
     const { existsSync, readFileSync } = await import("fs");
-    const logPath = "output/search-queries.jsonl";
+    const logPath = paths.searchQueryLog;
     if (!existsSync(logPath)) return json({ totalQueries: 0, topTerms: [] });
     try {
       const lines = readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
@@ -1137,7 +1144,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         .map(([term, count]) => ({ term, count }));
       return json({ totalQueries: lines.length, topTerms });
     } catch (err: any) {
-      return json({ error: `Search analytics failed: ${err.message}` }, 500);
+      return json({ error: `Search analytics failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1152,7 +1159,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!domain) return json({ error: `Domain "${domainId}" not found` }, 404);
       return json({ domain: domainId, ...domain, totalSections: report.totalSections });
     } catch (err: any) {
-      return json({ error: `Coverage failed: ${err.message}` }, 500);
+      return json({ error: `Coverage failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1167,7 +1174,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!history) return json({ error: "Section not found" }, 404);
       return json(history);
     } catch (err: any) {
-      return json({ error: `History lookup failed: ${err.message}` }, 500);
+      return json({ error: `History lookup failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1182,7 +1189,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!diff) return json({ error: "One or both sections not found" }, 404);
       return json(diff);
     } catch (err: any) {
-      return json({ error: `Compare failed: ${err.message}` }, 500);
+      return json({ error: `Compare failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1195,7 +1202,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const similar = await findSimilarSections(similarMatch[1], limit);
       return json({ guid: similarMatch[1], limit, results: similar, count: similar.length });
     } catch (err: any) {
-      return json({ error: `Similarity search failed: ${err.message}` }, 500);
+      return json({ error: `Similarity search failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1210,7 +1217,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const amendments = extractOrdinanceAmendments(section.history);
       return json({ guid: section.guid, number: section.number, citations, amendments });
     } catch (err: any) {
-      return json({ error: `Citation extraction failed: ${err.message}` }, 500);
+      return json({ error: `Citation extraction failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1222,7 +1229,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const glossary = buildGlossary(sections);
       return json({ total: glossary.length, entries: glossary });
     } catch (err: any) {
-      return json({ error: `Glossary build failed: ${err.message}` }, 500);
+      return json({ error: `Glossary build failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1233,7 +1240,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const result = await validateAllCrossReferences();
       return json(result);
     } catch (err: any) {
-      return json({ error: `Cross-ref validation failed: ${err.message}` }, 500);
+      return json({ error: `Cross-ref validation failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1244,7 +1251,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const report = buildAlertAnalytics();
       return json(report);
     } catch (err: any) {
-      return json({ error: `Alert analytics failed: ${err.message}` }, 500);
+      return json({ error: `Alert analytics failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1256,7 +1263,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const recent = getRecentAlerts(limit);
       return json({ limit, count: recent.length, alerts: recent });
     } catch (err: any) {
-      return json({ error: `Recent alerts failed: ${err.message}` }, 500);
+      return json({ error: `Recent alerts failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1341,7 +1348,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const page = artifact.events.slice(offset, offset + limit);
       return json({ ...body, total, offset, limit, count: page.length, events: page });
     } catch (err: any) {
-      return json({ error: `Event discovery failed: ${err.message}` }, 500);
+      return json({ error: `Event discovery failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1408,7 +1415,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const result = expandQueryFuzzy(q, vocab);
       return json({ original: q, expanded: result.query, corrections: result.corrections });
     } catch (err: any) {
-      return json({ error: `Fuzzy search failed: ${err.message}` }, 500);
+      return json({ error: `Fuzzy search failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1427,7 +1434,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const page = typed.slice(offset, offset + limit);
       return json({ type, total: typed.length, offset, limit, count: page.length, alerts: page });
     } catch (err: any) {
-      return json({ error: `Alert history failed: ${err.message}` }, 500);
+      return json({ error: `Alert history failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1476,7 +1483,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       return json({ totalCorrelations: correlations.length, correlations });
     } catch (err: any) {
-      return json({ error: `Correlation failed: ${err.message}` }, 500);
+      return json({ error: `Correlation failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1516,7 +1523,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       }
       return json({ totalGaps: gaps.length, gaps });
     } catch (err: any) {
-      return json({ error: `Ordinal check failed: ${err.message}` }, 500);
+      return json({ error: `Ordinal check failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1546,7 +1553,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       }
       return json({ totalConflicts: conflicts.length, conflicts });
     } catch (err: any) {
-      return json({ error: `Conflict detection failed: ${err.message}` }, 500);
+      return json({ error: `Conflict detection failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 
@@ -1564,6 +1571,29 @@ function json(data: unknown, status = 200): Response {
 }
 
 /** Provider, vector-store, and network failures are retryable dependencies. */
+/**
+ * Map a thrown message onto a public API detail (R3 P0.6, API surface).
+ *
+ * A thrown Error carries the operator's machine in it: absolute paths, provider
+ * endpoints, ports, parser internals. Those belong in the server log — which
+ * every call site here already writes — not in a response body a browser or a
+ * third-party client will render. The public detail keeps the FACT of the
+ * failure and its kind, and nothing else; an unrecognised message is never
+ * passed through, and no failure is ever reported as a success.
+ */
+export function publicApiDetail(message: unknown): string {
+  const raw = String(message ?? "").trim();
+  if (!raw) return "the request did not succeed";
+  if (/timed? ?out|timeout|abort/i.test(raw)) return "the dependency did not respond before the request timed out";
+  const httpStatus = /\b([45]\d{2})\b/.exec(raw);
+  if (httpStatus) return `an upstream dependency returned HTTP ${httpStatus[1]}`;
+  if (/enoent|no such file|not found|missing/i.test(raw)) return "the artifact this endpoint reads is not present in this edition";
+  if (/parse|json|xml|unexpected token|syntaxerror/i.test(raw)) return "an artifact this endpoint reads could not be parsed";
+  if (/econnrefused|econnreset|enotfound|network|fetch failed|socket|tls|certificate/i.test(raw)) return "a dependency could not be reached";
+  if (/ollama|openrouter|chroma|provider|embedding|model/i.test(raw)) return "a model or vector-store dependency is unavailable";
+  return "the request did not succeed";
+}
+
 function dependencyFailureStatus(message: string): number {
   return /ollama|openrouter|chroma|provider\s+(error|unavailable|not|failed)|request cap|timed? ?out|embedding model|retrieved context|(index|collection).*(empty|missing|not found)/i.test(message) ? 503 : 500;
 }

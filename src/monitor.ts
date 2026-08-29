@@ -98,7 +98,7 @@ export async function checkSectionCoverage(): Promise<{
 }
 
 /** Run full monitoring check and generate report */
-export async function runMonitor(): Promise<MonitorReport> {
+export async function runMonitor(options: { reportPath?: string } = {}): Promise<MonitorReport> {
   log.info("=== Municipal Code Change Detection Monitor ===");
 
   if (!existsSync(paths.toc) || !existsSync(paths.manifest)) {
@@ -141,8 +141,11 @@ export async function runMonitor(): Promise<MonitorReport> {
   };
 
   // Save report
-  await writeFile(paths.monitorReport, JSON.stringify(report, null, 2));
-  log.info(`Report saved to ${paths.monitorReport}`);
+  // The destination is injectable so a test can exercise the real monitor
+  // without writing into the corpus the published snapshot is built from.
+  const reportPath = options.reportPath ?? paths.monitorReport;
+  await writeFile(reportPath, JSON.stringify(report, null, 2));
+  log.info(`Report saved to ${reportPath}`);
   log.info(`Overall: ${report.overallStatus.toUpperCase()} — ${report.summary}`);
 
   // Generate diff report if changes detected

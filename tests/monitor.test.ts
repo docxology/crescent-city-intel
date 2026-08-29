@@ -9,12 +9,18 @@
  */
 import { describe, expect, test } from "bun:test";
 import { checkHashes, checkSectionCoverage, runMonitor } from "../src/monitor";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 
 describe("runMonitor", () => {
   test("returns an appropriate status when scraped data is absent or present", async () => {
     // In the test environment, output/ may or may not have data.
     // Either way, runMonitor must return a well-shaped MonitorReport.
-    const report = await runMonitor();
+    // The report goes to a throwaway path: exercising the monitor must not
+    // overwrite the corpus artifact the published snapshot reports from.
+    const reportDir = await mkdtemp(join(tmpdir(), "cci-monitor-"));
+    const report = await runMonitor({ reportPath: join(reportDir, "monitor-report.json") });
     expect(report).toHaveProperty("timestamp");
     expect(report).toHaveProperty("overallStatus");
     expect(report).toHaveProperty("articlesChecked");

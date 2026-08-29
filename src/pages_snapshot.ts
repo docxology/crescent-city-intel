@@ -1695,6 +1695,21 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, PAGES_MEETINGS_ARTIFACT), snapshot.meetings);
     await writeJson(join(temporary, PAGES_ALERTS_ARTIFACT), snapshot.alerts);
     files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT, PAGES_NEWS_ARTIFACT, PAGES_MEETINGS_ARTIFACT, PAGES_ALERTS_ARTIFACT);
+    // The analytics artifact is ALWAYS emitted, even when this edition has no
+    // overview: gui.html fetches it on load, and a missing file made that fetch
+    // 404 — which killed the whole console (the fetches shared one Promise.all,
+    // so alerts and events that had loaded fine were discarded and the page
+    // rendered "Snapshot unavailable"). An explicit unavailable envelope is the
+    // honest answer to "is there an overview this edition?", and snapshot.files
+    // .analytics stays null so nothing claims an overview that does not exist.
+    if (!snapshot.analytics) {
+      await writeJson(join(temporary, PAGES_ANALYTICS_ARTIFACT), {
+        schemaVersion: "crescent-city-analytics-unavailable/v1",
+        generatedAt,
+        available: false,
+        reason: "No analytics overview was produced for this edition.",
+      });
+    }
     if (snapshot.analytics) {
       await writeJson(join(temporary, PAGES_ANALYTICS_ARTIFACT), snapshot.analytics);
       files.push(PAGES_ANALYTICS_ARTIFACT);

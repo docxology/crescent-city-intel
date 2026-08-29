@@ -1,5 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { handleApiRoute } from "../src/gui/routes";
+import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
+
+// Every write this suite makes lands in a throwaway copy of the corpus, never
+// in the real output/ tree the published snapshot is built from.
+beforeAll(async () => { await beginCorpusCopy(); }, 120000);
+afterAll(async () => { await endCorpusCopy(); }, 60000);
 
 describe("handleApiRoute", () => {
     test("returns 404 for unknown API path", async () => {

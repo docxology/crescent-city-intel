@@ -169,8 +169,14 @@ describe("standalone static pages", () => {
       expect(html).toContain('class="masthead-h1"');
       expect(html).toContain('class="masthead-nav"');
       expect(html).toContain('<a href="./">Front page</a>');
-      // Data fetching stays relative to the exported artifact (per-page artifacts since §1.2).
-      expect(html).toMatch(/load\("data\/[a-z-]+\.json"\)|loadFirstPresent\("data\//);
+      // Data fetching stays relative to the exported artifact (per-page artifacts
+      // since §1.2). Assert the property, not one call shape: the page must name
+      // at least one relative data/ artifact and must not fetch an absolute URL.
+      // (gui.html loads its three artifacts from an array, which the old literal
+      // pattern could not see even though every path in it is relative.)
+      const artifactPaths = [...html.matchAll(/"(data\/[A-Za-z0-9._-]+)"/g)].map(match => match[1]);
+      expect(`${file}: ${artifactPaths.length > 0}`).toBe(`${file}: true`);
+      expect(html).not.toMatch(/\b(?:load|fetch)\(\s*[`'"]https?:\/\//);
       for (const other of STATIC_PAGE_FILES) {
         if (other === file) { expect(html).toContain(`href="${other}" aria-current="page"`); continue; }
         expect(html).toContain(`href="${other}"`);

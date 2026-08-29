@@ -11,8 +11,9 @@
 import { createLogger } from "../logger.js";
 import { domains } from "../domains.js";
 import { loadAllSections } from "../shared/data.js";
+import { paths } from "../shared/paths.js";
 import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { dirname, join } from "path";
 
 const logger = createLogger("domain-coverage");
 
@@ -40,7 +41,7 @@ export interface CoverageReport {
  * Compute how many scraped sections each domain's topics reference.
  * Matches by section number prefix (§ stripped, normalized).
  */
-export async function computeDomainCoverage(): Promise<CoverageReport> {
+export async function computeDomainCoverage(options: { outPath?: string | null } = {}): Promise<CoverageReport> {
   logger.info("Computing domain coverage metrics...");
 
   const sections = await loadAllSections();
@@ -115,9 +116,14 @@ export async function computeDomainCoverage(): Promise<CoverageReport> {
     domains: domainEntries,
   };
 
-  await mkdir("output", { recursive: true });
-  const outPath = join("output", "domain-coverage.json");
-  await writeFile(outPath, JSON.stringify(report, null, 2));
+  // Computing a report and publishing it are different acts. `outPath: null`
+  // computes without touching the corpus, which is what a test wants; the
+  // pipeline keeps the default and writes where it always did.
+  const outPath = options.outPath === undefined ? join(paths.output, "domain-coverage.json") : options.outPath;
+  if (outPath !== null) {
+    await mkdir(dirname(outPath), { recursive: true });
+    await writeFile(outPath, JSON.stringify(report, null, 2));
+  }
 
   logger.info(
     `Domain coverage: ${coveredCount}/${totalSections} sections (${overallCoveragePct}%) covered by at least one domain`

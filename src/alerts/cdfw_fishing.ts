@@ -16,14 +16,17 @@ import { createLogger } from "../logger.js";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { SOURCE_FETCH_TIMEOUT_MS, appendBoundedJsonl } from "../shared/source_health.js";
+import { outputRoot } from "../shared/paths.js";
 
 const logger = createLogger("cdfw-fishing");
 
-const OUTPUT_DIR = join(process.cwd(), "output", "fishing");
+/** Resolved per call so the artifact-root seam is honoured at run time. */
+const outputDir = (): string => join(outputRoot(), "fishing");
 // NB: must be `history.jsonl` in output/fishing/ — alert_analytics.ts reads this
 // exact path for the unified alert timeline. Previously the fishing monitor wrote
 // no history file at all, so fishing never appeared in the timeline/stats.
-export const FISHING_HISTORY_PATH = join(OUTPUT_DIR, "history.jsonl");
+/** The history file the analytics layer reads; resolved per call. */
+export const fishingHistoryPath = (): string => join(outputDir(), "history.jsonl");
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -278,7 +281,7 @@ export function estimateCrabSeasonStatus(): CrabSeasonStatus {
 /** Run the full fishing monitor: season status + CDFW bulletins. */
 export async function monitorFishing(): Promise<FishingReport> {
   logger.info("=== Starting CDFW Crescent City Fishing Monitor ===");
-  await mkdir(OUTPUT_DIR, { recursive: true });
+  await mkdir(outputDir(), { recursive: true });
 
   const [bulletins, crabStatus] = await Promise.all([
     fetchCdfwBulletins(),
@@ -299,13 +302,13 @@ export async function monitorFishing(): Promise<FishingReport> {
   };
 
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const outPath = join(OUTPUT_DIR, `fishing-${ts}.json`);
+  const outPath = join(outputDir(), `fishing-${ts}.json`);
   await writeFile(outPath, JSON.stringify(report, null, 2));
 
   // Append a one-line history record so the fishing monitor appears in the
   // unified alert timeline/analytics (it previously wrote no history file at all).
   const closureActive = !report.crabStatus.commercialOpen || !report.crabStatus.recreationalOpen;
-  await appendBoundedJsonl(FISHING_HISTORY_PATH, {
+  await appendBoundedJsonl(fishingHistoryPath(), {
     fetchedAt: report.fetchedAt,
     crabCommercialOpen: report.crabStatus.commercialOpen,
     crabRecreationalOpen: report.crabStatus.recreationalOpen,

@@ -17,6 +17,7 @@ import { mkdir, writeFile, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import { SOURCE_FETCH_TIMEOUT_MS, appendBoundedJsonl } from "../shared/source_health.js";
+import { outputRoot } from "../shared/paths.js";
 
 const logger = createLogger("noaa-tides");
 
@@ -35,13 +36,15 @@ const HIGH_TIDE_ALERT_FT = 7.0;
 /** NOAA CO-OPS API base URL */
 const COOPS_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
 
-const OUTPUT_DIR = join(process.cwd(), "output", "tides");
+/** Resolved per call so the artifact-root seam is honoured at run time. */
+const outputDir = (): string => join(outputRoot(), "tides");
 // NB: must be `history.jsonl` in output/tides/ — alert_analytics.ts reads this
 // exact path for the unified alert timeline. It was previously
 // `tide-history.jsonl`, a filename nothing read, so tides never appeared in the
 // timeline/stats even though the monitor wrote history every run (see
 // tests/alert-analytics-contract.test.ts).
-export const TIDES_HISTORY_PATH = join(OUTPUT_DIR, "history.jsonl");
+/** The history file the analytics layer reads; resolved per call. */
+export const tidesHistoryPath = (): string => join(outputDir(), "history.jsonl");
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -171,7 +174,7 @@ export async function fetchCurrentWaterLevel(): Promise<WaterLevel | null> {
 export async function monitorTides(): Promise<TideReport> {
   logger.info("=== Starting NOAA Crescent City Tides Monitor ===");
 
-  await mkdir(OUTPUT_DIR, { recursive: true });
+  await mkdir(outputDir(), { recursive: true });
 
   const [predictions, waterLevel] = await Promise.all([
     fetchTidePredictions(),
@@ -205,12 +208,12 @@ export async function monitorTides(): Promise<TideReport> {
 
   // Persist timestamped JSON report
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const outPath = join(OUTPUT_DIR, `tides-${ts}.json`);
+  const outPath = join(outputDir(), `tides-${ts}.json`);
   await writeFile(outPath, JSON.stringify(report, null, 2));
 
   // Append one-line to history (solely from the report; level mirrors severity.ts
   // so the analytics timeline shows a meaningful severity, not the default CALM).
-  await appendBoundedJsonl(TIDES_HISTORY_PATH, {
+  await appendBoundedJsonl(tidesHistoryPath(), {
     fetchedAt: report.fetchedAt,
     maxPredictedLevel: maxPredicted,
     highTideAlert,

@@ -116,8 +116,9 @@ describe("verify — domain coverage module", () => {
 
   test("domain coverage report has expected fields without scraped data", async () => {
     const { computeDomainCoverage } = await import("../src/domains/coverage.ts");
+    // outPath:null — compute the report without publishing it into output/.
     // No scraped data → should still return a valid (empty) report
-    const report = await computeDomainCoverage();
+    const report = await computeDomainCoverage({ outPath: null });
     expect(typeof report.computedAt).toBe("string");
     expect(typeof report.totalSections).toBe("number");
     expect(typeof report.overallCoveragePct).toBe("number");

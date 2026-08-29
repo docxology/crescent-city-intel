@@ -37,6 +37,7 @@ import { SCRAPE_TIMEOUT_MS } from './constants.js';
 import { paths } from './shared/paths.js';
 import { sourceHealth, writeJsonAtomic } from './shared/source_health.js';
 import type { SourceHealth } from './types.js';
+import { outputRoot } from './shared/paths.js';
 
 const logger = createLogger('triplicate_monitor');
 
@@ -61,7 +62,7 @@ export const TRIPLICATE_SECTIONS: Record<string, string> = {
   News: 'https://www.triplicate.com/news/',
 };
 
-const TRIPLICATE_OUTPUT_DIR = join(process.cwd(), 'output', 'triplicate');
+const TRIPLICATE_OUTPUT_DIR = join(outputRoot(), 'triplicate');
 /** Persistent dedup index — normalized article URL keys, survives restarts.
  * Lives under output/state/, NOT output/triplicate/, so it never collides
  * with a listing of the batch article-output files. */

@@ -1,7 +1,16 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { handleApiRoute } from "../src/gui/routes.js";
 import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "fs";
 import { join } from "path";
+import { paths } from "../src/shared/paths.ts";
+import { mkdtemp, rm } from "fs/promises";
+import { tmpdir } from "os";
+import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
+
+// Every write this suite makes lands in a throwaway copy of the corpus, never
+// in the real output/ tree the published snapshot is built from.
+beforeAll(async () => { await beginCorpusCopy(); }, 120000);
+afterAll(async () => { await endCorpusCopy(); }, 60000);
 
 // Test helper — create a temporary output directory with test data
 function setupTestOutput() {
@@ -29,14 +38,11 @@ describe("v2.2 New API Endpoints", () => {
 
   test("GET /api/health includes manifest info when available", async () => {
     // Create a test manifest
-    const manifestPath = join(process.cwd(), "output", "manifest.json");
-    const hadManifest = existsSync(manifestPath);
-    // Save the real content (if any) so it can be restored, not just deleted —
-    // a prior version of this test permanently overwrote a real scrape's
-    // output/manifest.json with this fixture's empty `articles: {}`, since the
-    // cleanup only removed the file when none existed before, never restoring
-    // real content when one did.
-    const originalManifest = hadManifest ? readFileSync(manifestPath, "utf-8") : null;
+    // Written through the artifact-root seam, so it lands in this file's
+    // throwaway corpus copy. Save-and-restore used to stand in for isolation
+    // here and it is what raced: two concurrent runs saved each other's fixture
+    // as "the original" and the real manifest was permanently replaced.
+    const manifestPath = paths.manifest;
     const testManifest = {
       municipality: "Crescent City",
       municipalityGuid: "CR4919",
@@ -61,13 +67,8 @@ describe("v2.2 New API Endpoints", () => {
       expect(data.manifest.stale).toBe(false); // just created, not stale
       expect(data.manifest.sectionCount).toBe(2194);
     } finally {
-      try {
-        if (originalManifest !== null) {
-          writeFileSync(manifestPath, originalManifest, "utf-8");
-        } else {
-          rmSync(manifestPath);
-        }
-      } catch { /* ignore */ }
+      // The copy is discarded wholesale in afterAll; nothing to restore.
+      try { rmSync(manifestPath); } catch { /* ignore */ }
     }
   });
 
@@ -111,7 +112,7 @@ describe("v2.2 New API Endpoints", () => {
   });
 
   test("GET /api/search/analytics returns empty when no log", async () => {
-    const logPath = join(process.cwd(), "output", "search-queries.jsonl");
+    const logPath = paths.searchQueryLog;
     const hadLog = existsSync(logPath);
     if (!hadLog) {
       const url = new URL("http://localhost:3000/api/search/analytics");
@@ -124,15 +125,8 @@ describe("v2.2 New API Endpoints", () => {
   });
 
   test("GET /api/search/analytics returns term counts when log exists", async () => {
-    const logPath = join(process.cwd(), "output", "search-queries.jsonl");
-    const hadLog = existsSync(logPath);
-    // Same class of bug already fixed above (manifest.json, report fixture):
-    // this used to overwrite the real search-queries.jsonl log unconditionally
-    // and only deleted it in cleanup if it hadn't existed before — silently
-    // permanently mixing synthetic "tsunami harbor"/"tsunami zoning" entries
-    // into real query history whenever a real log already existed. Save and
-    // restore the original content instead.
-    const originalLog = hadLog ? readFileSync(logPath, "utf-8") : null;
+    // Same seam: the fixture log replaces the copy's log, never the real one.
+    const logPath = paths.searchQueryLog;
     const testLog = JSON.stringify({ ts: new Date().toISOString(), query: "tsunami harbor", resultCount: 5 }) + "\n" +
                     JSON.stringify({ ts: new Date().toISOString(), query: "tsunami zoning", resultCount: 3 }) + "\n";
     writeFileSync(logPath, testLog, "utf-8");
@@ -148,13 +142,7 @@ describe("v2.2 New API Endpoints", () => {
       expect(tsunami).toBeDefined();
       expect(tsunami.count).toBe(2);
     } finally {
-      try {
-        if (originalLog !== null) {
-          writeFileSync(logPath, originalLog, "utf-8");
-        } else {
-          rmSync(logPath);
-        }
-      } catch { /* ignore */ }
+      try { rmSync(logPath); } catch { /* ignore */ }
     }
   });
 
@@ -174,25 +162,31 @@ describe("v2.2 New API Endpoints", () => {
 });
 
 describe("Search query logging", () => {
-  test("search function writes to search-queries.jsonl", async () => {
-    const { initSearch, search, getIndexedCount } = await import("../src/gui/search.js");
-    const logPath = join(process.cwd(), "output", "search-queries.jsonl");
-
-    // Ensure search is initialized
+  test("search() itself never writes to the query log; the HTTP layer logs", async () => {
+    const { initSearch, search, getIndexedCount, logSearchQuery } = await import("../src/gui/search.js");
+    const { paths } = await import("../src/shared/paths.ts");
     if (getIndexedCount() === 0) {
       try { await initSearch(); } catch { /* no output data */ }
     }
+    const redirected = await mkdtemp(join(tmpdir(), "cci-searchlog-"));
+    process.env.CC_OUTPUT_DIR = redirected;
+    try {
+      // A library search must leave no trace: every unit-level search used to
+      // append a fixture query to the real analytics corpus, which both
+      // polluted the evidence and moved the fingerprint the overview reports.
+      search("tsunami evacuation");
+      expect(existsSync(paths.searchQueryLog)).toBe(false);
 
-    // Perform a search
-    search("tsunami evacuation");
-
-    // Check that log was written (if output dir exists)
-    if (existsSync(logPath)) {
-      const content = require("fs").readFileSync(logPath, "utf-8");
-      const lines = content.trim().split("\n");
-      const lastEntry = JSON.parse(lines[lines.length - 1]);
+      // The HTTP layer's explicit call is what writes, and it writes where the
+      // artifact-root seam points.
+      logSearchQuery("tsunami evacuation", 3);
+      const lines = readFileSync(paths.searchQueryLog, "utf-8").trim().split("\n");
+      const lastEntry = JSON.parse(lines[lines.length - 1]!);
       expect(lastEntry.query).toBe("tsunami evacuation");
-      expect(typeof lastEntry.resultCount).toBe("number");
+      expect(lastEntry.resultCount).toBe(3);
+    } finally {
+      delete process.env.CC_OUTPUT_DIR;
+      await rm(redirected, { recursive: true, force: true });
     }
   });
 });

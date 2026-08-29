@@ -13,6 +13,7 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { createLogger } from "./logger.js";
+import { outputRoot } from "./shared/paths.js";
 
 const log = createLogger("alert_analytics");
 
@@ -190,8 +191,8 @@ function computeTypeStats(type: AlertType, records: AlertHistoryRecord[]): Alert
  */
 export function buildAlertAnalytics(maxTimelineEntries = 1000): AlertAnalyticsReport {
   const alertsDir = join(process.cwd(), "output", "alerts");
-  const fishingDir = join(process.cwd(), "output", "fishing");
-  const tidesDir = join(process.cwd(), "output", "tides");
+  const fishingDir = join(outputRoot(), "fishing");
+  const tidesDir = join(outputRoot(), "tides");
 
   let timeline: TimelineEntry[] = [];
   const typeStats: AlertTypeStats[] = [];

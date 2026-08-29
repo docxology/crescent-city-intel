@@ -208,6 +208,9 @@ describe('monitorTriplicate', () => {
       fetchHtml: async () => FIXTURE_HTML,
       seenPath,
       outputDir,
+      // Without an explicit healthPath the monitor writes its source-health
+      // artifact into the real corpus, which is what the output fence caught.
+      healthPath: join(workDir, 'source-health.json'),
       sections: singleSection,
       retry: fastRetry,
     });
@@ -285,6 +288,7 @@ describe('monitorTriplicate', () => {
       fetchHtml: flakyFetch,
       seenPath,
       outputDir,
+      healthPath: join(workDir, 'source-health.json'),
       sections: singleSection,
       retry: { maxRetries: 2, baseDelayMs: 1 },
     });

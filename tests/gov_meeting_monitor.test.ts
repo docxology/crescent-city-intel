@@ -9,7 +9,8 @@
 import { describe, expect, test } from "bun:test";
 import { fetchGovMeetings, saveMeetingItems } from "../src/gov_meeting_monitor";
 import { existsSync } from "fs";
-import { readdir, readFile, rm } from "fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 
 describe("fetchGovMeetings", () => {
@@ -46,9 +47,14 @@ describe("saveMeetingItems", () => {
       },
     ];
 
-    await saveMeetingItems(testItems);
+    // The batch goes to a throwaway directory, never the real corpus. This test
+    // used to write into output/gov_meetings with no cleanup, so every run left
+    // another fabricated council meeting in the corpus the Pages export reads —
+    // 381 of them by the time it was found, one of which the site published.
+    const dir = await mkdtemp(join(tmpdir(), "cci-meetings-"));
+    try {
+    await saveMeetingItems(testItems, [], dir);
 
-    const dir = join(process.cwd(), "output", "gov_meetings");
     expect(existsSync(dir)).toBe(true);
 
     const files = (await readdir(dir)).filter((f) =>
@@ -66,5 +72,22 @@ describe("saveMeetingItems", () => {
     expect(parsed).toHaveProperty("items");
     expect(Array.isArray(parsed.items)).toBe(true);
     expect(parsed.items[0].title).toBe("City Council Meeting - March 2026");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("the real corpus is left untouched by this test", async () => {
+    const corpus = join(process.cwd(), "output", "gov_meetings");
+    const before = existsSync(corpus) ? (await readdir(corpus)).length : 0;
+    const dir = await mkdtemp(join(tmpdir(), "cci-meetings-"));
+    try {
+      await saveMeetingItems([{ title: "fixture", link: "https://example.test/a", date: "Mar 1, 2026", content: "", source: "Fixture", fetchedAt: new Date().toISOString(), isNew: true, changed: false }], [], dir);
+      expect((await readdir(dir)).length).toBe(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+    const after = existsSync(corpus) ? (await readdir(corpus)).length : 0;
+    expect(after).toBe(before);
   });
 });

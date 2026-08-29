@@ -64,6 +64,10 @@
       // do pass a full snapshot.
       const summary = (analytics && analytics.metrics && analytics.metrics.sources) || snapshot.healthSummary || {};
       if (!analytics) {
+        // Say so in every panel the overview would have filled. Leaving them
+        // blank reads as "nothing happened" rather than "nothing was published".
+        $("analytics-cards").innerHTML = empty("No analytics overview was published for this edition, so these counts are not available.");
+        $("analytics-summary").innerHTML = empty("No shared analytical overview was published for this edition.");
         $("analytics-signals").innerHTML = empty("No shared analytical overview was published for this edition. Source health below remains authoritative.");
       } else {
         const metrics = analytics.metrics || {};
@@ -94,11 +98,17 @@
     }
     async function start() {
       try {
-        const [analytics, alerts, events] = await Promise.all([
-          load("data/analytics.json"),
-          load("data/alerts.json"),
-          load("data/events.json"),
-        ]);
+        // Each slice is loaded independently: one unreadable artifact used to
+        // take the whole console down with it, discarding the slices that had
+        // loaded. What is missing is named instead of hidden.
+        const paths = ["data/analytics.json", "data/alerts.json", "data/events.json"];
+        const settled = await Promise.allSettled(paths.map(path => load(path)));
+        const [analytics, alerts, events] = settled.map(entry => (entry.status === "fulfilled" ? entry.value : null));
+        const missing = paths.filter((path, index) => settled[index].status === "rejected");
+        if (missing.length === paths.length) throw settled[0].reason;
+        // An edition without an analytics overview publishes an explicit
+        // unavailable envelope rather than omitting the file, so this reads as
+        // "no overview this edition" instead of failing the whole console.
         const snapshot = {
           status: "ok",
           generatedAt: (analytics && analytics.generatedAt) || null,
@@ -107,6 +117,10 @@
           events: events || { events: [] },
         };
         renderAnalytics(snapshot); renderAlerts(snapshot); renderTimelineEvents(snapshot);
+        if (missing.length) {
+          $("console-banner").className = "banner degraded";
+          $("console-banner").innerHTML = `<strong>Partial edition</strong> — ${esc(missing.length)} of ${esc(paths.length)} console artifacts could not be read; the sections below show what this edition does carry.`;
+        }
       } catch (error) {
         $("console-banner").className = "banner unavailable";
         $("console-banner").innerHTML = `<strong>Snapshot unavailable</strong> — ${esc(publicErrorNote(error && error.message || error))}.`;

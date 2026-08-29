@@ -6,6 +6,7 @@ import { EXPECTED_SOURCE_HEALTH, isIsoTimestamp } from "../src/shared/source_hea
 import { PAGES_STATIC_PAGES, validatePagesHtml } from "../src/pages_snapshot.ts";
 import { getSourceRegistry, sourceRegistryFingerprint, validateSourceRegistry } from "../src/source_registry.ts";
 import { paths } from "../src/shared/paths.ts";
+import { describeDrift, diffTrees, isUnchanged, snapshotTree } from "../src/shared/output_fence.ts";
 
 type Check = { name: string; args: string[] };
 
@@ -236,7 +237,26 @@ if (existsSync(paths.analyticsOverview)) {
 // degradation paths. A 30-second per-test bound keeps transient CPU/IO
 // contention from turning a correct test into a false timeout while still
 // catching genuine hangs.
+// The output fence (R3 follow-up). `output/` is gitignored, so neither
+// `git status` nor the whitespace check below can see a test writing into the
+// real artifact corpus — which is how 381 fabricated government-meeting batches
+// accumulated there from one test with no cleanup, and how the published
+// calendar came to carry a fabricated city council meeting. The suite runs
+// between two snapshots of the tree; any drift fails the gate and names the
+// paths, because a test that mutates the corpus is a mock on a path reachable
+// from a reported result.
+const outputTree = join(root, "output");
+const outputBefore = await snapshotTree(outputTree);
 run({ name: "Deterministic test suite", args: ["bun", "test", "tests/", "--timeout", "30000"] });
+{
+  console.log("\n== Output-corpus fence ==");
+  const drift = diffTrees(outputBefore, await snapshotTree(outputTree));
+  if (!isUnchanged(drift)) {
+    console.error(describeDrift(drift).join("\n"));
+    throw new Error(`The test suite modified ${drift.added.length + drift.removed.length + drift.changed.length} file(s) in the real output/ corpus; tests must write to os.tmpdir() instead`);
+  }
+  console.log(`Output corpus unchanged across the suite (${Object.keys(outputBefore).length} files watched).`);
+}
 
 // Hard coverage floor (Phase 11.1, closed 2026-08-28). Measured baseline at
 // enforcement time: 73.46% lines / 64.94% branches across the deterministic

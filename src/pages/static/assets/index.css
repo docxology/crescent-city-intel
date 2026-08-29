@@ -6,20 +6,7 @@
     .masthead-nav a { position:relative; font:500 .74rem/1 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); text-decoration:none; padding:5px 10px; transition:color .15s; }
     .masthead-nav a:hover { color:var(--cc); text-decoration-color:var(--cc); }
     .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 12px; padding-bottom:5px; border-top:3px solid var(--cc); }
-    .banner.degraded .meta, .banner.degraded .item .meta { color:var(--ink-dim); }
-    .banner strong { font-weight:600; }
-    .source.ok::before { background:var(--ink); }
-    .source.empty::before { background:var(--sepia); }
     .registry-table { overflow:auto; margin:8px 0; }
-    .pill.monitored { color:var(--ink); border-color:var(--ink-dim); }
-    .pill.discovery-only { color:var(--ink-faint); border-color:var(--ink-faint); }
-    .pill.reference-only { color:var(--ink-faint); }
-    input,select,.button { border:1px solid var(--rule); background:var(--card-bg); color:var(--ink); padding:6px 10px; font:500 .8rem/1 Inter,sans-serif; }
-    input:focus,select:focus,.button:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
-    .button { cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:3px; transition:background .15s,border-color .15s; }
-    .button:hover { background:var(--panel-hover); border-color:var(--cc); color:var(--cc); }
-    .button.secondary { background:transparent; color:var(--ink-dim); }
-    .button[disabled] { opacity:.5; cursor:default; }
     .geo-showcase { display:grid; grid-template-columns:minmax(0,2.2fr) minmax(230px,.8fr); gap:14px; align-items:start; }
     .geo-showcase > :first-child { border-right:1px solid var(--rule); padding-right:14px; }
     .geo-map-frame,.geo-details { border:1px solid var(--rule); background:var(--panel); }
@@ -28,7 +15,7 @@
     .geo-details { padding:12px; border-left:0; }
     .geo-metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:8px; }
     .geo-metric { background:var(--rule-light); border:1px solid var(--rule-thin); padding:6px; text-align:center; }
-    .geo-metric .meta, .banner.unavailable .meta { color:var(--ink); }
+    .geo-metric .meta { color:var(--ink); }
     .geo-metric strong { display:block; font:700 1rem/1 "Playfair Display",Georgia,serif; color:var(--cc); }
     .geo-tag { display:inline-block; margin:2px 2px 0 0; padding:2px 7px; border:1px solid var(--rule); font-size:.72rem; font-family:Inter,sans-serif; color:var(--ink-dim); }
     .geo-sections { display:grid; gap:4px; margin-top:6px; max-height:180px; overflow:auto; }
@@ -50,15 +37,12 @@
     .welcome-external a:hover { background:var(--panel-hover); color:var(--cc); border-color:var(--cc); }
     .action-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:6px; }
     pre { white-space:pre-wrap; background:var(--paper2); border:1px solid var(--rule); padding:12px; max-height:480px; overflow:auto; font-size:.8rem; font-family:"DM Mono","SF Mono","Courier New",monospace; }
-    .meta { font:.74rem/1.4 Inter,sans-serif; color:var(--ink-faint); }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     .details-panel { margin-top:8px; border:1px solid var(--rule); background:var(--paper2); padding:12px; }
     .details-panel pre { margin:8px 0 0; max-height:280px; }
     .welcome-section-title { font:.68rem/1 Inter,sans-serif; letter-spacing:.14em; text-transform:uppercase; color:var(--cc); margin:14px 0 6px; font-weight:700; }
-    .footer a { color:var(--ink-dim); }
     @media (max-width:700px) { .geo-showcase { grid-template-columns:1fr; } .geo-showcase > :first-child { border-right:0; padding-right:0; } }
     @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } }
-    /* --- Events .ics subscribe badge (palette vars only) --- */
     /* --- Methods & Provenance --- */
     #methods-counts-list { columns:2; gap:18px; margin:8px 0; padding-left:20px; font:.86rem/1.7 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
     #methods-counts-list strong { color:var(--ink); }
@@ -79,13 +63,6 @@
     .section-head { margin-top:40px; }
     .section-head h2 { font-weight:900; }
     .paper-rule-note { font:.78rem/1.5 "Source Serif 4",Georgia,serif; color:var(--ink-faint); font-style:italic; margin:4px 0 0; }
-    /* --- Community Calendar column --- */
-    #event-items.items { gap:0; margin-top:10px; border-top:3px solid var(--ink); }
-    /* --- Lane2: wide-table scroll containers (2.4) --- */
-    .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; }
-    .table-scroll table { min-width:640px; }
-    /* --- Lane2: mobile nav wrap under 768px (2.3) --- */
-      .masthead-nav-wrap { overflow:visible; }
     /* --- Mobile 375px usability --- */
     @media (max-width:480px) {
       body { font-size:16px; }
@@ -100,5 +77,6 @@
       .cards-row { grid-template-columns:repeat(2,1fr); }
       input, select { max-width:100%; }
       .controls select, .controls .button { flex:0 1 auto; }
+    }
     /* --- Print stylesheet --- */
     @media print { body { background:#fff; color:#000; font-size:11pt; } .red-banner { background:#000!important; } body::before { display:none!important; } .masthead-h1 { color:#fff!important; } .red-banner .masthead-sub,.red-banner .masthead-contact { color:#eee!important; } a { text-decoration:none; } #event-items .cal-entry,#event-items .cal-dateline { border-color:#999!important; background:#fff!important; } #event-items .cal-dateline { background:#000!important; color:#fff!important; } .masthead-nav-wrap,.masthead-date-row,.controls,.action-bar { display:none; } .page { max-width:100%; padding:0; } .source,.item,.card,.banner { break-inside:avoid; } }

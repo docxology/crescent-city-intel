@@ -20,6 +20,7 @@ import {
 } from "../src/pages_snapshot.js";
 import { PAGES_OPERATOR_SIGNALS_ARTIFACT, PAGES_ROBOTS_TXT, PAGES_SITEMAP_XML, PAGES_STATIC_PAGES, PAGES_CODE_META_ARTIFACT, PAGES_SEARCH_TITLE_ARTIFACT_PREFIX, PAGES_SEARCH_BODY_ARTIFACT_PREFIX } from "../src/pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.js";
+import { auditPagesCss, auditStylesheetBraces, type PageCssInput } from "../src/pages_css.js";
 import type { PagesSnapshot } from "../src/pages_snapshot.js";
 
 const destination = resolve(Bun.argv.find((arg, index) => index > 1 && !arg.startsWith("-")) ?? ".pages");
@@ -185,6 +186,10 @@ if (jsonLdBlocks.length === 0) {
 // --- lane3 gate: a11y, structured data, and syndication assertions across all 8 pages ---
 const ALL_PAGES = ["index.html", "404.html", ...PAGES_STATIC_PAGES.map(page => page.file)];
 const pageHtmlCache = new Map<string, string>();
+/** Per page: the concatenated CSS of only the stylesheets that page links. */
+const pageCssCache = new Map<string, string>();
+/** Per page: raw exported HTML, kept apart from the CSS-augmented cache above. */
+const pageMarkupCache = new Map<string, string>();
 // SS6.3: shared a11y/reduced-motion/touch CSS now lives in the content-hashed
 // site.<hash>.css asset. Every page-level style assertion below is checked
 // against the page HTML PLUS the CSS of its linked shared stylesheet, so
@@ -201,11 +206,18 @@ for (const page of ALL_PAGES) {
     const familyLinks = sharedCssLinks.filter(link => link.includes(`/${family}.`));
     if (familyLinks.length > 1) errors.push(`${page} links more than one ${family} stylesheet`);
   }
+  // Lane 4 r3: the same stylesheets are kept unconcatenated with the HTML so the
+  // cascade can be resolved per page (string presence cannot tell a rule that is
+  // loaded from one that merely exists in the repo).
+  let pageCss = "";
   for (const cssPath of sharedCssLinks) {
     const cssText = await readFile(join(destination, cssPath.replace(/^\//, "")), "utf8").catch(() => null);
     if (cssText === null) { errors.push(`${page} links a missing shared stylesheet: ${cssPath}`); continue; }
     effective += `\n<style>${cssText}</style>`;
+    pageCss += `\n${cssText}`;
   }
+  pageCssCache.set(page, pageCss);
+  pageMarkupCache.set(page, html);
   pageHtmlCache.set(page, effective);
   if (!effective.includes('class="skip-link"')) errors.push(`${page} is missing the skip link`);
   if (!effective.includes(".skip-link:focus")) errors.push(`${page} is missing the skip-link focus rule`);
@@ -780,9 +792,12 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
   if (!siteJsText.includes("function calendarWindowFilter")) errors.push("assets/site.js is missing calendarWindowFilter (quick filters regressed)");
   if (!siteJsText.includes('aria-label="Event kind:')) errors.push("calendarEventKindChip lost its accessible label");
   if (!eventsHtml.includes("event-freshness")) errors.push("events.html lost the calendar-freshness meta line");
-  // Sticky month headers + chip styles must survive CSS extraction (shared asset).
+  // Per-kind chip styles must survive CSS extraction into the shared asset.
+  // (The sticky month-header rule used to be checked here as a literal string.
+  // That assertion could not fail for the defect it was written against: the
+  // rule was present and inert. It now lives in the lane 4 computed-value gate
+  // below, which resolves position/display over the real element path.)
   const siteCssText = await readFile(join(staticPagesDir, "assets", "site.css"), "utf8").catch(() => "");
-  if (!siteCssText.includes("#event-items .cal-dateline { position:sticky")) errors.push("site.css lost the sticky month-header rule");
   if (!siteCssText.includes(".kind-chip--")) errors.push("site.css lost the per-kind chip styles");
 }
 
@@ -951,6 +966,38 @@ for (const pageFile of readdirSync(staticPagesDir).filter(f => f.endsWith(".html
 
     }
   }
+}
+
+// --- lane 4 r3 gate: CSS integrity by computed value, not string presence ---
+// Two defect classes escaped every earlier assertion: a rule living in a
+// stylesheet its consuming page never loads (`.meta`), and a rule that is
+// present but inert (sticky datelines inside a grid; a print block nested in an
+// unclosed `@media (max-width:480px)`). Both need the cascade resolved for a
+// concrete element, which is what src/pages_css.ts does.
+{
+  // Brace balance over the emitted stylesheets. An unclosed block does not fail
+  // to parse — the browser closes it at EOF — so everything authored after it
+  // silently inherits its at-rule condition.
+  for (const cssFile of readdirSync(join(destination, "assets")).filter(name => name.endsWith(".css"))) {
+    const cssText = await readFile(join(destination, "assets", cssFile), "utf8").catch(() => null);
+    if (cssText === null) { errors.push(`emitted stylesheet is unreadable: assets/${cssFile}`); continue; }
+    for (const problem of auditStylesheetBraces(`assets/${cssFile}`, cssText)) errors.push(problem);
+  }
+  const siteJsAsset = readdirSync(join(destination, "assets")).find(name => /^site\.[0-9a-f]{8}\.js$/.test(name));
+  const siteJsForCss = siteJsAsset ? await readFile(join(destination, "assets", siteJsAsset), "utf8").catch(() => "") : "";
+  const cssInputs: PageCssInput[] = [];
+  for (const [page, css] of pageCssCache) {
+    const markup = pageMarkupCache.get(page) ?? "";
+    // site.js renders the alert table wrapper on any page that mounts it.
+    const rendersTableScroll = markup.includes("table-scroll") || (markup.includes("alert-items") && siteJsForCss.includes("table-scroll"));
+    cssInputs[cssInputs.length] = {
+      page,
+      css,
+      hasEventList: markup.includes('id="event-items"'),
+      hasTableScroll: rendersTableScroll,
+    };
+  }
+  for (const problem of auditPagesCss(cssInputs)) errors.push(problem);
 }
 
 if (errors.length) {

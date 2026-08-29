@@ -61,11 +61,11 @@
     .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
     @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } .page { padding:0 12px 48px; } }
     /* --- Accessibility (lane3) --- */
-    a:focus-visible, .welcome-link:focus-visible, .ics-badge:focus-visible, .button:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
+    a:focus-visible, .welcome-link:focus-visible, .ics-badge:focus-visible, .button:focus-visible, .window-btn:focus-visible, .kind-chip:focus-visible { outline:3px solid var(--cc); outline-offset:2px; }
     .skip-link { position:absolute; left:-9999px; }
     .skip-link:focus, .skip-link:focus-visible { position:fixed; top:8px; left:8px; width:auto; height:auto; margin:0; padding:10px 16px; clip:auto; overflow:visible; white-space:nowrap; background:var(--paper); color:var(--ink); border:2px solid var(--cc); z-index:2147483646; font:600 .85rem/1 Inter,sans-serif; text-decoration:none; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } body::before { display:none; } }
-    @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
+    @media (pointer: coarse) { .masthead-nav a, .ics-badge, .button, .window-btn, .kind-chip, input, select { min-height:44px; min-width:44px; } .masthead-nav a { display:inline-flex; align-items:center; } }
     .newspaper-label { display:block; font:700 .68rem/1 Inter,sans-serif; letter-spacing:.18em; text-transform:uppercase; color:var(--cc); margin-bottom:6px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; }
     /* --- Lane2: mobile nav + overflow backstop + aria-current (2.3/2.4/2.5) --- */
@@ -74,7 +74,10 @@
       .masthead-nav a { white-space:normal; }
       .masthead-nav-wrap .inner { overflow:visible; }
     }
-    html, body { overflow-x:hidden; }
+    /* Lane 4 r3 (P1-A): the global `html, body { overflow-x:hidden }` backstop was
+       removed here. It made <html> a scroll container, which pins every
+       `position:sticky` descendant — the month datelines never travelled. Wide
+       content now scrolls inside its own `.table-scroll`/`.scroll-x` wrapper. */
     .masthead-nav a[aria-current="page"] { font-weight:700; box-shadow:0 2px 0 0 var(--cc); }
     .breadcrumb { border-bottom:1px solid var(--rule); }
     .breadcrumb .inner { max-width:1260px; margin:0 auto; padding:4px 20px; }
@@ -90,12 +93,14 @@
 #event-items .cal-time { font:500 .78rem/1 "DM Mono","Courier New",monospace; color:var(--cc); letter-spacing:.02em; white-space:nowrap; }
 /* --- lane cci-frontend: sticky month headers, kind chips, window buttons, ics help --- */
 #event-items .cal-dateline { position:sticky; top:0; z-index:5; }
-.kind-chip { display:inline-block; margin-bottom:4px; padding:2px 8px; border:1px solid var(--rule); border-left:3px solid var(--rule); font:600 .68rem/1.4 Inter,sans-serif; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-dim); background:var(--paper2); }
+.kind-chip { display:inline-block; cursor:pointer; border-radius:0; margin-bottom:4px; padding:2px 8px; border:1px solid var(--rule); border-left:3px solid var(--rule); font:600 .68rem/1.4 Inter,sans-serif; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-dim); background:var(--paper2); }
 .kind-chip--meeting { border-left-color:var(--cc); color:var(--rdark); background:var(--rtint); border-color:var(--rdark); }
 .kind-chip--community { border-left-color:var(--ink-dim); }
 .kind-chip--news { border-left-color:var(--ink); color:var(--ink); }
 .kind-chip--youtube { border-left-color:var(--sepia); color:var(--ink-dim); }
 .kind-chip--closure { border-left-color:var(--rule); color:var(--ink-faint); }
+.kind-chip:hover { border-color:var(--cc); color:var(--rdark); }
+.kind-chip[aria-pressed="true"] { background:var(--cc); border-color:var(--cc); color:#fff; }
 .window-btn { border:1px solid var(--rule); background:var(--card-bg); color:var(--ink); padding:6px 12px; font:600 .74rem/1 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; }
 .window-btn:hover { border-color:var(--cc); color:var(--rdark); }
 .window-btn[aria-pressed="true"] { background:var(--cc); border-color:var(--cc); color:#fff; }
@@ -107,8 +112,47 @@
 .ics-help-body ul { margin:0; padding-left:20px; }
 .ics-help-body li { margin:3px 0; }
 .ics-help-body code { font-family:"DM Mono","Courier New",monospace; font-size:.78rem; background:var(--paper2); padding:1px 4px; }
-@media (max-width:600px) { .window-btn { min-height:44px; } }
 #event-items .cal-entry h3 { font-size:1rem; margin-bottom:2px; }
 
 /* --- Lane B r2: WCAG 2.5.8 target-size — inline table links need 24x24px min. --- */
 .table-scroll td a { display:inline-block; min-height:24px; line-height:24px; }
+
+/* ===================================================================
+   Lane 4 r3 — rules re-split by consumption (R2 P0.2/P0.9/P1-A).
+   Everything below was authored in index.css, which only index.html
+   links, while the elements it styles are rendered by assets/site.js
+   (shared by all eight pages) or by events/gui/news/sources markup.
+   A rule a page uses must live in a stylesheet that page loads.
+   Appended as one block so the move stays rebase-friendly.
+   =================================================================== */
+.meta { font:.74rem/1.4 Inter,sans-serif; color:var(--ink-faint); }
+.banner strong { font-weight:600; }
+.banner.degraded .meta, .banner.degraded .item .meta { color:var(--ink-dim); }
+.banner.unavailable .meta { color:var(--ink); }
+.footer a { color:var(--ink-dim); }
+.pill.monitored { color:var(--ink); border-color:var(--ink-dim); }
+.pill.discovery-only { color:var(--ink-faint); border-color:var(--ink-faint); }
+.pill.reference-only { color:var(--ink-faint); }
+input,select,.button { border:1px solid var(--rule); background:var(--card-bg); color:var(--ink); padding:6px 10px; font:500 .8rem/1 Inter,sans-serif; }
+input:focus,select:focus,.button:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+.button { cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:3px; transition:background .15s,border-color .15s; }
+.button:hover { background:var(--panel-hover); border-color:var(--cc); color:var(--cc); }
+.button.secondary { background:transparent; color:var(--ink-dim); }
+.button[disabled] { opacity:.5; cursor:default; }
+.masthead-nav-wrap { overflow:visible; }
+
+/* Per-container horizontal scroll, replacing the global overflow-x backstop.
+   `.table-scroll` was index-only while gui.html and sources.html both emit
+   wrapped tables; `.scroll-x` is the general-purpose wrapper. */
+.table-scroll, .scroll-x { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:8px 0; }
+.table-scroll table { min-width:640px; }
+
+/* P0.9: `.items` is applied to <ol>, so the UA list reset has to be authored —
+   without it the calendar renders browser decimals at a 40px inline indent. */
+.items { list-style:none; margin:0; padding:0; }
+
+/* P1-A: the month dateline is a <li> sibling of the event <li>s. While
+   #event-items was `display:grid` every child was its own grid item, so a
+   sticky dateline had exactly its own height to travel in — zero movement.
+   Flow layout gives it the rest of the list to stick over. */
+#event-items.items { display:block; gap:0; margin-top:10px; border-top:3px solid var(--ink); }

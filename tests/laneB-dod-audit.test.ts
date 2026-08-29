@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFile } from "fs/promises";
+import { computeDeclaredValue, parseCssRules } from "../src/pages_css.ts";
 import { join } from "path";
 
 // Lane B r2 — Definition-of-done regression gate (browser-audited items):
@@ -10,7 +11,8 @@ import { join } from "path";
 //
 // Locked contracts:
 //  B2  axe-core zero critical/serious (structure: focusable scrollable regions)
-//  B3  no horizontal overflow (backstop: html,body overflow-x hidden)
+//  B3  no horizontal overflow (per-container .table-scroll/.scroll-x wrappers;
+//       the old html,body overflow-x backstop was removed in r3 — it pinned sticky)
 //  B4  first-load transfer < 150 KB excl. fonts (all 7 content pages lazily
 //      fetch data; index fetches only data/snapshot.json + geo view)
 //  B5  keyboard: skip link is the first tab stop with a focus rule
@@ -60,9 +62,28 @@ describe("lane B r2: definition-of-done regression gate", () => {
     }
   });
 
-  test("html,body overflow-x backstop remains in the shared stylesheet (no horizontal overflow)", async () => {
+  // Lane 4 r3 (P1-A): B3 is still "no horizontal overflow", but the global
+  // `html, body { overflow-x:hidden }` backstop is the wrong instrument for it.
+  // It makes the root a scroll container, which pins every position:sticky
+  // descendant — the calendar month datelines never travelled. The invariant is
+  // now stated as its two real halves: the root must not scroll, and every wide
+  // element must sit in its own scroll wrapper.
+  test("no root scroll container, and wide content scrolls in its own wrapper (no horizontal overflow)", async () => {
     const shared = await readFile("src/pages/static/assets/site.css", "utf8");
-    expect(shared).toContain("html, body { overflow-x:hidden; }");
+    const rules = parseCssRules(shared);
+    for (const root of ["html", "body"]) {
+      expect(computeDeclaredValue(rules, [{ tag: root }], "overflow-x")).toBeNull();
+    }
+    expect(computeDeclaredValue(rules, [{ tag: "div", classes: ["table-scroll"] }], "overflow-x")?.value).toBe("auto");
+    expect(computeDeclaredValue(rules, [{ tag: "div", classes: ["scroll-x"] }], "overflow-x")?.value).toBe("auto");
+    // Every <table> the pages emit must be inside one of those wrappers.
+    for (const file of ["index.html", "gui.html", "sources.html", "assets/site.js"]) {
+      const source = await readFile(join("src/pages/static", file), "utf8");
+      for (const index of [...source.matchAll(/<table[\s>]/g)].map(match => match.index ?? 0)) {
+        const preceding = source.slice(Math.max(0, index - 400), index);
+        expect(/class="(table-scroll|scroll-x)[^"]*"/.test(preceding)).toBe(true);
+      }
+    }
   });
 
   test("skip link is the first tab stop with a visible focus rule (keyboard traversal contract)", async () => {

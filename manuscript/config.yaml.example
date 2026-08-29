@@ -1,0 +1,74 @@
+# Fork template — copy to config.yaml and replace TODO-OWNER values.
+# Derived from this repository's own manuscript/config.yaml; structural
+# fields mirror the live config. See manuscript/AGENTS.md for the token protocol.
+
+# Manuscript configuration for the Crescent City Intelligence Platform.
+#
+# This project is rendered by the shared Research Project Template renderer.
+# The manuscript source remains in this repository; scripts/hydrate-manuscript.ts
+# writes the evidence-bound, run-specific copy to output/manuscript/.
+
+paper:
+  title: "Evidence-Bounded Civic Intelligence: The Quadruplicate Platform"
+  subtitle: "A provenance-preserving platform for municipal code, local sources, safety signals, and grounded summaries"
+  version: "2.5.1"
+  date: "2026-07-30"
+
+authors:
+  - name: "TODO-OWNER: author name"
+    affiliation: "TODO-OWNER: affiliation"
+    corresponding: true
+
+publication:
+  doi: ""
+  version_doi: ""
+  version_record: ""
+  year: "2026"
+  repository_url: "https://github.com/docxology/crescent-city-intel"
+  github_repository: "docxology/crescent-city-intel"
+  transmission_bookends:
+    enabled: false
+    max_prior_releases: 3
+    show_steganography: false
+
+keywords:
+  - "civic technology"
+  - "municipal code"
+  - "data provenance"
+  - "source health"
+  - "retrieval-augmented generation"
+  - "reproducible research software"
+  - "local government"
+
+metadata:
+  license: "MIT"
+  language: "en"
+
+manuscript_dir: "manuscript"
+
+prose:
+  target_grade_level_min: 12.0
+  target_grade_level_max: 18.0
+  long_sentence_threshold: 40
+  citation_density_min_per_1000: 3.0
+  require_h1_per_section: true
+  forbid_skipped_levels: true
+
+bibliography:
+  references_path: "manuscript/references.bib"
+  fail_on_missing: true
+  fail_on_unused: true
+
+report:
+  output_path: "output/manuscript-review.json"
+  include_per_file_table: true
+  include_outline: true
+  include_quality_flags: true
+
+render:
+  formats:
+    pdf: true
+    html: true
+    slides: false
+    docx: false
+    epub: false

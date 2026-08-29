@@ -5,6 +5,8 @@ import { tmpdir } from "os";
 import {
   MAX_EVENTS,
   MAX_SOURCE_LINKS,
+  MERGE_TOLERANCE_DAYS,
+  titlesMatch,
   buildEventsArtifact,
   classify,
   collectEvents,
@@ -33,6 +35,8 @@ interface TestCandidate {
   description: string;
   sourceName: string;
   fetchedAt: string | null;
+  extractionMethod: "markup" | "llm" | null;
+  confidence: number | null;
   sourceLinks?: string[];
 }
 
@@ -50,6 +54,8 @@ function candidate(overrides: Partial<TestCandidate> = {}): Parameters<typeof de
     description: "",
     sourceName: "Government meeting",
     fetchedAt: null,
+    extractionMethod: null,
+    confidence: null,
     ...overrides,
   };
   if (!built.sourceLinks) built.sourceLinks = [link];
@@ -120,6 +126,81 @@ describe("dedupeAndMerge", () => {
     ]);
     expect(merged.length).toBe(2);
   });
+
+  // ─── P0-G: a source/organizer discriminator ──────────────────────
+
+  test("two bodies meeting on the same day under the same title stay two events", () => {
+    const merged = dedupeAndMerge([
+      candidate({ title: "Regular Meeting", organizer: "City Council", sourceName: "City Council", link: "https://city.example/1" }),
+      candidate({ title: "Regular Meeting", organizer: "Harbor District", sourceName: "Harbor District", link: "https://harbor.example/1" }),
+    ]);
+    expect(merged.length).toBe(2);
+    // Neither may end up holding the other body's URL.
+    expect(merged[0]!.sourceLinks).toEqual(["https://city.example/1"]);
+    expect(merged[1]!.sourceLinks).toEqual(["https://harbor.example/1"]);
+  });
+
+  test("the same meeting read from two feeds merges, keeping both links", () => {
+    const merged = dedupeAndMerge([
+      candidate({
+        title: "City Council Regular Meeting", organizer: "City Council",
+        sourceName: "City Council", link: "https://city.example/agenda",
+        location: null, dateStart: "2026-09-10",
+      }),
+      candidate({
+        title: "City Council Regular Meeting", organizer: "County of Del Norte Community Events Calendar",
+        sourceName: "County of Del Norte Community Events Calendar",
+        link: "https://county.example/listing", location: "County Annex", dateStart: "2026-09-10",
+      }),
+    ]);
+    expect(merged.length).toBe(1);
+    expect(merged[0]!.sourceLinks).toEqual(["https://city.example/agenda", "https://county.example/listing"]);
+  });
+
+  test("a one-day disagreement between two feeds merges; the same feed's adjacent days do not", () => {
+    const crossFeed = dedupeAndMerge([
+      candidate({ title: "Harbor Commission Meeting", organizer: "Harbor District", sourceName: "Harbor District", dateStart: "2026-09-10", link: "https://a.example/1" }),
+      candidate({ title: "Harbor Commission Meeting", organizer: "Harbor District", sourceName: "Chamber Calendar", dateStart: "2026-09-11", link: "https://b.example/1" }),
+    ]);
+    expect(crossFeed.length).toBe(1);
+    expect(crossFeed[0]!.dateStart).toBe("2026-09-10");
+    expect(MERGE_TOLERANCE_DAYS).toBe(1);
+
+    const sameFeed = dedupeAndMerge([
+      candidate({ title: "Harbor Commission Meeting", organizer: "Harbor District", sourceName: "Harbor District", dateStart: "2026-09-10", link: "https://a.example/1" }),
+      candidate({ title: "Harbor Commission Meeting", organizer: "Harbor District", sourceName: "Harbor District", dateStart: "2026-09-11", link: "https://a.example/2" }),
+    ]);
+    expect(sameFeed.length).toBe(2);
+  });
+
+  test("a tolerance merge unions links but never borrows the other record's location", () => {
+    const merged = dedupeAndMerge([
+      candidate({ title: "Planning Commission Meeting", organizer: "Planning Commission", sourceName: "Planning Commission", dateStart: "2026-09-10", location: null, link: "https://a.example/1" }),
+      candidate({ title: "Planning Commission Meeting", organizer: "Planning Commission", sourceName: "Chamber Calendar", dateStart: "2026-09-11", location: "Elks Lodge", link: "https://b.example/1" }),
+    ]);
+    expect(merged.length).toBe(1);
+    expect(merged[0]!.sourceLinks.length).toBe(2);
+    // Only a probable identity — a borrowed location would invent a fact.
+    expect(merged[0]!.location).toBeNull();
+  });
+
+  test("a higher-confidence corroboration raises confidence with its own method", () => {
+    const merged = dedupeAndMerge([
+      candidate({ extractionMethod: "llm", confidence: 0.55, link: "https://a.example/1", sourceName: "Chamber Calendar" }),
+      candidate({ extractionMethod: "markup", confidence: 0.95, link: "https://b.example/1", sourceName: "City Council" }),
+    ]);
+    expect(merged.length).toBe(1);
+    expect(merged[0]!.confidence).toBe(0.95);
+    expect(merged[0]!.extractionMethod).toBe("markup");
+  });
+});
+
+describe("titlesMatch", () => {
+  test("identical titles match and a special meeting stays its own meeting", () => {
+    expect(titlesMatch("City Council Meeting", "city  council   meeting")).toBe(true);
+    expect(titlesMatch("City Council Meeting", "Special City Council Meeting")).toBe(false);
+    expect(titlesMatch("City Council Meeting", "Harbor Commission Meeting")).toBe(false);
+  });
 });
 
 describe("kindFor", () => {
@@ -141,7 +222,11 @@ describe("buildEventsArtifact", () => {
     expect(artifact.schemaVersion).toBe(EVENTS_SCHEMA);
     expect(artifact.count).toBe(events.length);
     expect(Array.isArray(artifact.provenance.boundaries) && artifact.provenance.boundaries.length > 0).toBe(true);
-    expect(artifact.provenance.deterministicFrom).toEqual(["output/gov_meetings", "output/news", "output/youtube"]);
+    // The discovery artifact is a fourth deterministic input; a provenance
+    // list that omits an input it actually reads is a false claim.
+    expect(artifact.provenance.deterministicFrom).toEqual([
+      "output/gov_meetings", "output/news", "output/youtube", "output/events/event_discovery.json",
+    ]);
     expect(artifact.llm.status).toBe("skipped");
   });
 });
@@ -193,9 +278,15 @@ describe("collectEvents against real fixture output trees", () => {
       expect(youtube!.dateStart).toBeNull();
       expect(youtube!.status).toBe("unknown");
 
-      // sorted ascending by date with nulls last
-      const datedPositions = events.filter(event => event.dateStart !== null).map(event => event.dateStart as string);
-      expect([...datedPositions].sort()).toEqual(datedPositions);
+      // Upcoming events lead, ascending; undated entries trail.
+      const today = new Date().toISOString().slice(0, 10);
+      const upcomingDates = events
+        .filter(event => event.dateStart !== null && event.dateStart >= today)
+        .map(event => event.dateStart as string);
+      expect([...upcomingDates].sort()).toEqual(upcomingDates);
+      const lastDated = events.findLastIndex(event => event.dateStart !== null);
+      const firstUndated = events.findIndex(event => event.dateStart === null);
+      if (firstUndated >= 0) expect(firstUndated).toBeGreaterThan(lastDated - 1);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -304,6 +395,44 @@ describe("buildEventsIcs", () => {
   });
 });
 
+describe('collectEvents > truncation never eats the future (P0-H)', () => {
+  test('a past pool larger than the cap is truncated, upcoming events are all kept', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'events-trunc-'));
+    try {
+      // 250 completed meetings (more than MAX_EVENTS on their own) plus 12
+      // genuinely upcoming ones. Sorting everything ascending and slicing used
+      // to keep 200 old meetings and drop every future one.
+      const past = Array.from({ length: 250 }, (_, i) => ({
+        title: `Past Meeting ${i}`,
+        link: `https://example.com/past-${i}`,
+        date: new Date(Date.now() - (i + 2) * 86_400_000).toISOString().slice(0, 10),
+        source: `Past Body ${i}`,
+      }));
+      const upcoming = Array.from({ length: 12 }, (_, i) => ({
+        title: `Future Meeting ${i}`,
+        link: `https://example.com/future-${i}`,
+        date: new Date(Date.now() + (i + 1) * 86_400_000).toISOString().slice(0, 10),
+        source: `Future Body ${i}`,
+      }));
+      await writeFixture(root, 'gov_meetings/gov_meetings-batch.json', { items: [...past, ...upcoming] });
+
+      const events = await collectEvents(root);
+      expect(events.length).toBe(MAX_EVENTS);
+      const kept = new Set(events.map(event => event.title));
+      for (const item of upcoming) expect(kept.has(item.title)).toBe(true);
+      // Upcoming events lead the artifact, ascending.
+      const leading = events.slice(0, upcoming.length).map(event => event.dateStart as string);
+      expect([...leading].sort()).toEqual(leading);
+      expect(events[0]!.status).toBe('scheduled');
+      // The past pool that survives is the most recent slice, newest first.
+      const pastDates = events.slice(upcoming.length).map(event => event.dateStart as string);
+      expect([...pastDates].sort().reverse()).toEqual(pastDates);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('collectEvents > discovery merge', () => {
   test('merges discovered calendar events and drops URL-less/undated discovery records', async () => {
     const base = await mkdtemp(join(tmpdir(), 'events-disc-'));
@@ -316,7 +445,7 @@ describe('collectEvents > discovery merge', () => {
     await Bun.write(join(base, 'events', 'event_discovery.json'), JSON.stringify({
       schemaVersion: 'crescent-city-events-discovery/v1',
       events: [
-        { title: 'Board of Supervisors', kind: 'government-meeting', dateStart: '2026-10-06', sourceUrl: 'https://example.com/bos', sourceName: 'County of Del Norte Community Events Calendar', confidence: 0.9 },
+        { title: 'Board of Supervisors', kind: 'government-meeting', dateStart: '2026-10-06', sourceUrl: 'https://example.com/bos', sourceName: 'County of Del Norte Community Events Calendar', extractionMethod: 'llm', confidence: 0.55 },
         { title: 'No URL Workshop', kind: 'community-listing', dateStart: '2026-10-07', sourceName: 'Library' },
         { title: 'Undated Fair', kind: 'community-listing', sourceUrl: 'https://example.com/fair', sourceName: 'Chamber' },
       ],
@@ -331,6 +460,11 @@ describe('collectEvents > discovery merge', () => {
     expect(bos.kind).toBe('government-meeting');
     expect(bos.dateStart).toBe('2026-10-06');
     expect(bos.sourceLinks).toContain('https://example.com/bos');
+    // P0-B round trip: the producer's provenance survives the merge boundary
+    // intact — an LLM-resolved record must never surface as an unqualified fact.
+    expect(bos.extractionMethod).toBe('llm');
+    expect(bos.confidence).toBe(0.55);
+    expect(bos.sourceName).toBe('County of Del Norte Community Events Calendar');
     await rm(base, { recursive: true, force: true });
   });
 });
@@ -342,17 +476,30 @@ describe('extractTimeNote — publish metadata vs event time', () => {
     expect(extractTimeNote('2026-09-10T17:30:00Z')).toBeNull();
     expect(extractTimeNote('2026-09-10 17:30:00')).toBeNull();
   });
-  test('extracts bare clock times with optional meridiem', () => {
+  test('rejects MM/DD/YYYY timestamps and any clock carrying seconds', () => {
+    expect(extractTimeNote('08/12/2026 16:45:19')).toBeNull();
+    expect(extractTimeNote('16:45:19')).toBeNull();
+    expect(extractTimeNote('5:30:00 PM')).toBeNull();
+  });
+  test('accepts only whole-string clock values, meridiem preferred', () => {
     expect(extractTimeNote('5:30 PM')).toBe('5:30 PM');
     expect(extractTimeNote('6:00pm')).toBe('6:00 PM');
+    expect(extractTimeNote('6:00 p.m.')).toBe('6:00 PM');
     expect(extractTimeNote('10:00')).toBe('10:00');
-    expect(extractTimeNote('Meets 9:00 AM upstairs')).toBe('9:00 AM');
+    expect(extractTimeNote('  18:00  ')).toBe('18:00');
+  });
+  test('a clock time embedded in prose is not a verified event time', () => {
+    // The sentence may be describing anything; only a value that IS a time is one.
+    expect(extractTimeNote('Meets 9:00 AM upstairs')).toBeNull();
+    expect(extractTimeNote('Doors at 6:00, program 7:00')).toBeNull();
+    expect(extractTimeNote('Posted 5:30 PM by staff')).toBeNull();
   });
   test('returns null for absent or junk input', () => {
     expect(extractTimeNote(null)).toBeNull();
     expect(extractTimeNote('')).toBeNull();
     expect(extractTimeNote('all day')).toBeNull();
     expect(extractTimeNote('25:99')).toBeNull();
+    expect(extractTimeNote('13:00 PM')).toBeNull();
   });
   test('structured discovery timeNote passes through collectEvents', async () => {
     const base = await mkdtemp(join(tmpdir(), 'events-time-'));

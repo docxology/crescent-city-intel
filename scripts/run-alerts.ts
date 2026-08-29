@@ -43,11 +43,11 @@ import { paths } from "../src/shared/paths.ts";
 import { writeJsonAtomic } from "../src/shared/source_health.ts";
 import { maybeSendSeverityWebhook } from "../src/alerts/notify.ts";
 import { runHealingCycle } from "../src/alerts/healer.ts";
-import { runDroughtMonitor, getLastDroughtError, USDM_API_URL } from "../src/alerts/usdm_drought.ts";
-import { runPSPSMonitor, getLastPspsError, PGE_PSPS_API_URL } from "../src/alerts/pge_psps.ts";
-import { runSmokeMonitor, getLastSmokeError, HRRR_SMOKE_API_URL } from "../src/alerts/hrrr_smoke.ts";
-import { runRoadClosureMonitor, getLastRoadsError, CALTRANS_API_D1_URL } from "../src/alerts/caltrans_roads.ts";
-import { runSchoolClosureMonitor, getLastSchoolsError, DUSD_ALERTS_URL } from "../src/alerts/dusd_schools.ts";
+import { runDroughtMonitor, getLastDroughtError } from "../src/alerts/usdm_drought.ts";
+import { runPSPSMonitor, getLastPspsError } from "../src/alerts/pge_psps.ts";
+import { runSmokeMonitor, getLastSmokeError } from "../src/alerts/hrrr_smoke.ts";
+import { runRoadClosureMonitor, getLastRoadsError } from "../src/alerts/caltrans_roads.ts";
+import { runSchoolClosureMonitor, getLastSchoolsError } from "../src/alerts/dusd_schools.ts";
 import { sendPushNotification } from "../src/notifications/push.ts";
 
 export { buildTidesInput, buildFishingInput };

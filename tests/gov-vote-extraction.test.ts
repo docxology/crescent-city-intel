@@ -76,20 +76,37 @@ describe("parseVotes", () => {
     expect(result!.passed).toBe(true);
   });
 
-  test("parses 'Approved X-Y' pattern", () => {
-    const result = parseVotes("Approved 5-0.");
-    expect(result).not.toBeNull();
-    expect(result!.yea).toBe(5);
-    expect(result!.nay).toBe(0);
-    expect(result!.passed).toBe(true);
+  // A verb next to two numbers is not evidence of a vote. "Minutes ... were
+  // approved 2026-08-12" and "Resolution 2026-015 approved 2026-3" both used to
+  // parse as tallies, so an X-Y reading now requires explicit motion context.
+  test("a bare 'Approved X-Y' with no motion context is not a vote", () => {
+    expect(parseVotes("Approved 5-0.")).toBeNull();
+    expect(parseVotes("Denied 3-2.")).toBeNull();
   });
 
-  test("parses 'Denied X-Y' pattern", () => {
-    const result = parseVotes("Denied 3-2.");
-    expect(result).not.toBeNull();
-    expect(result!.yea).toBe(3);
-    expect(result!.nay).toBe(2);
-    expect(result!.passed).toBe(false);
+  test("the same tallies inside motion context do parse", () => {
+    const approved = parseVotes("Motion approved 5-0.");
+    expect(approved).not.toBeNull();
+    expect(approved!.yea).toBe(5);
+    expect(approved!.nay).toBe(0);
+    expect(approved!.passed).toBe(true);
+
+    const denied = parseVotes("The motion was denied 3-2.");
+    expect(denied).not.toBeNull();
+    expect(denied!.yea).toBe(3);
+    expect(denied!.nay).toBe(2);
+    expect(denied!.passed).toBe(false);
+  });
+
+  test("year- and ordinance-shaped number pairs are never read as tallies", () => {
+    // A motion here really was approved, so an outcome may be recorded — but
+    // the pair after the verb is a date, and no tally may be invented from it.
+    const dateShaped = parseVotes("Motion approved 2026-08.");
+    expect(dateShaped?.yea ?? 0).toBe(0);
+    expect(dateShaped?.nay ?? 0).toBe(0);
+    // With no motion under discussion at all, there is nothing to record.
+    expect(parseVotes("Resolution 2026-015 approved 2026-3.")).toBeNull();
+    expect(parseVotes("Minutes of the August 12 meeting were approved 2026-08-12.")).toBeNull();
   });
 
   // ─── Simple tally without "Vote:" label ─────────────────────────
@@ -189,12 +206,12 @@ describe("parseVotes", () => {
     expect(result!.passed).toBe(true);
   });
 
-  test("handles 'passed X-Y' without 'Motion' prefix", () => {
-    const result = parseVotes("Passed 5-0.");
-    expect(result).not.toBeNull();
-    expect(result!.yea).toBe(5);
-    expect(result!.nay).toBe(0);
-    expect(result!.passed).toBe(true);
+  test("'Passed X-Y' with no motion context yields nothing rather than a guess", () => {
+    expect(parseVotes("Passed 5-0.")).toBeNull();
+    const inContext = parseVotes("The motion passed 5-0.");
+    expect(inContext).not.toBeNull();
+    expect(inContext!.yea).toBe(5);
+    expect(inContext!.nay).toBe(0);
   });
 
   test("handles multiple details without duplicates", () => {

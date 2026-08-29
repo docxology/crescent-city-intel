@@ -141,147 +141,221 @@ export interface VoteResult {
   yea: number;
   nay: number;
   abstain: number;
+  /** Members recorded as ABSENT — not the same as choosing to abstain. */
+  absent: number;
   passed: boolean;
+  /** True when `passed` was derived from the tally rather than stated by the text. */
+  inferred: boolean;
+  /** 0..1 confidence in the reading, keyed to which pattern matched. */
+  confidence: number;
   details: string[];
 }
 
+/** Confidence by evidence strength: a labelled tally beats a bare approval verb. */
+const VOTE_CONFIDENCE = {
+  labelledTally: 0.9,
+  motionTally: 0.8,
+  rollCall: 0.75,
+  bareTally: 0.7,
+  verbOnly: 0.4,
+} as const;
+
+/** Vote counts above this are not vote counts — they are years, ordinance ids, or dollars. */
+const MAX_PLAUSIBLE_VOTES = 50;
+
+/** A four-digit number joined to another by a dash is a year or ordinance id, never a tally. */
+const YEAR_LIKE_PAIR = /\d{4}\s*[-–]\s*\d/;
+
+/** Words that establish an actual motion is under discussion. */
+const MOTION_CONTEXT = /\b(motion|motions|moved|move|second|seconded)\b/i;
+
+/** Outcome verbs, split by which way they run. */
+const PASSING_VERBS = /^(passes|passed|carries|carried|adopted|approved)$/i;
+
+/** Trim a matched region down to a quotable excerpt for the audit trail. */
+function excerpt(text: string, match: RegExpMatchArray, span = 90): string {
+  const at = match.index ?? 0;
+  const start = Math.max(0, at - 20);
+  return text.slice(start, Math.min(text.length, start + span)).trim();
+}
+
 /**
- * Parse vote tallies from meeting minutes or agenda text.
+ * Parse a vote tally from meeting minutes or agenda text.
  *
  * Detects patterns such as:
  *   "Vote: 5 yea, 2 nay, 0 abstain"
- *   "Motion: ... passes 5-2"
- *   "Motion: ... fails 3-4"
+ *   "Motion passes 5-2" / "Motion fails 3-4"
  *   "Councilmember Smith: Yea, Councilmember Jones: Nay" (roll call)
  *   "5 AYES, 2 NOES, 0 ABSTENTIONS"
- *   "Approved 5-0" / "Denied 3-2"
  *
- * Returns a structured VoteResult when a vote pattern is recognisable,
- * or null when the text contains no parseable vote data. Never throws.
+ * Safety is the point of the shape below. A bare outcome verb next to two
+ * numbers is NOT a vote: "Minutes of the August 12 meeting were approved
+ * 2026-08-12" and "Ordinance 2026-14 adopted 2026-3" both used to parse as
+ * tallies. So an X-Y tally is only read inside explicit motion context, any
+ * year-shaped pair is rejected, and implausible counts are dropped.
+ *
+ * Returns a structured VoteResult when a vote is recognisable, or null when
+ * the text contains no parseable vote data. Never throws.
  */
 export function parseVotes(text: string): VoteResult | null {
   if (!text || typeof text !== 'string') return null;
 
   const cleaned = text.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return null;
+  const hasMotionContext = MOTION_CONTEXT.test(cleaned);
   const details: string[] = [];
   let yea: number | null = null;
   let nay: number | null = null;
   let abstain: number | null = null;
+  let absent: number | null = null;
   let passed: boolean | null = null;
-  const lower = cleaned.toLowerCase();
+  let confidence = 0;
 
-  // Pattern 1: "Vote: X yea, Y nay, Z abstain" (and variants)
-  //   e.g. "Vote: 5 yea, 2 nay, 0 abstain"
-  //   e.g. "5 AYES, 2 NOES, 0 ABSTENTIONS"
+  const plausible = (...counts: number[]) =>
+    counts.every(count => Number.isFinite(count) && count >= 0 && count <= MAX_PLAUSIBLE_VOTES);
+
+  // Pattern 1: "Vote: X yea, Y nay, Z abstain" (and "5 AYES, 2 NOES, 0 ABSTENTIONS").
+  // Abstain and absent are counted separately — a member who was not in the
+  // room did not choose to withhold a vote.
   const voteTallyMatch = cleaned.match(
-    /(\d+)\s+(yea|ayes?|yes|in\s+favor)\D+(\d+)\s+(nay|noes?|no|opposed|against)\D*(?:(\d+)\s+(abstain|abstentions?|absent))?/i
+    /(\d+)\s+(?:yea|ayes?|yes|in\s+favor)\D{0,20}?(\d+)\s+(?:nay|noes?|no|opposed|against)(?:\D{0,20}?(\d+)\s+(abstain(?:ed|ing)?|abstentions?|absent))?/i,
   );
   if (voteTallyMatch) {
-    yea = parseInt(voteTallyMatch[1], 10);
-    nay = parseInt(voteTallyMatch[3], 10);
-    abstain = voteTallyMatch[5] ? parseInt(voteTallyMatch[5], 10) : 0;
-    details.push(`Vote tally: ${yea}-${nay}-${abstain}`);
-  }
-
-  // Pattern 2: "Motion ... passes/fails/adopted/denied X-Y" or "Passed X-Y"
-  //   e.g. "Motion passes 5-2"
-  //   e.g. "Motion carries 5-0"
-  //   e.g. "Motion fails 3-4"
-  //   e.g. "Approved 5-0"
-  //   e.g. "Denied 3-2"
-  const motionMatch = cleaned.match(
-    /(?:motion\s+|\b)(passes|passed|carries|carried|adopted?|approved|fails?|failed|denied|rejected|defeated|lost)\b\s*(\d+)\s*[-–]\s*(\d+)/i
-  );
-  if (motionMatch) {
-    const verb = motionMatch[1].toLowerCase();
-    // passed verbs
-    if (/^(passes|passed|carries|carried|adopted|approved)$/i.test(verb)) {
-      passed = true;
-    } else {
-      passed = false;
+    const parsedYea = parseInt(voteTallyMatch[1], 10);
+    const parsedNay = parseInt(voteTallyMatch[2], 10);
+    const third = voteTallyMatch[3] ? parseInt(voteTallyMatch[3], 10) : 0;
+    if (plausible(parsedYea, parsedNay, third)) {
+      yea = parsedYea;
+      nay = parsedNay;
+      if (/absent/i.test(voteTallyMatch[4] ?? '')) {
+        absent = third;
+        abstain = 0;
+      } else {
+        abstain = third;
+        absent = 0;
+      }
+      confidence = VOTE_CONFIDENCE.labelledTally;
+      details.push(`Vote tally: ${yea}-${nay}-${abstain ?? 0}`);
+      details.push(`Source: ${excerpt(cleaned, voteTallyMatch)}`);
     }
-    // The first number is the winning side
-    const num1 = parseInt(motionMatch[2], 10);
-    const num2 = parseInt(motionMatch[3], 10);
-    // num1 is always the yea/for count, num2 is the nay/against count
-    // regardless of whether the motion passed or failed
-    yea = yea ?? num1;
-    nay = nay ?? num2;
-    abstain = abstain ?? 0;
-    details.push(`Motion ${verb}: ${num1}-${num2}`);
   }
 
-  // Pattern 3: Roll call — extract named votes
-  //   e.g. "Councilmember Smith: Yea, Councilmember Jones: Nay"
-  //   e.g. "Smith - Yea / Jones - Nay / Brown - Abstain"
-  const rollCallMatches = cleaned.matchAll(
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*[:–\-—]\s*(Yea|Aye|Yes|Nay|No|Abstain|Absent)/gi
-  );
-  let rollCallCount = 0;
-  for (const rc of rollCallMatches) {
-    const person = rc[1].trim();
-    const vote = rc[2].toLowerCase();
-    details.push(`${person}: ${rc[2]}`);
-    rollCallCount++;
-  }
-  if (rollCallCount > 0 && yea === null) {
-    // Count the roll call votes if we didn't already get a tally
-    // We re-collect here since we already consumed the iterator
-    const rcMatches = cleaned.matchAll(
-      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*[:–\-—]\s*(Yea|Aye|Yes|Nay|No|Abstain|Absent)/gi
+  // Pattern 2: "Motion passes 5-2" / "the motion to approve the lease carried 4-1".
+  // Explicit motion context is REQUIRED: a verb and two numbers on their own
+  // are far more often a date or an ordinance id than a vote.
+  if (hasMotionContext) {
+    const motionMatch = cleaned.match(
+      /\b(?:motion|motions|moved|move)\b[^.]{0,80}?\b(passes|passed|carries|carried|adopts?|adopted|approved|fails?|failed|denied|rejected|defeated|lost)\b\s*(\d+)\s*[-–]\s*(\d+)/i,
     );
-    let rcYea = 0, rcNay = 0, rcAbs = 0;
-    for (const rc of rcMatches) {
-      const vote = rc[2].toLowerCase();
-      if (/^(yea|aye|yes)$/i.test(vote)) rcYea++;
-      else if (/^(nay|no)$/i.test(vote)) rcNay++;
-      else if (/^(abstain|absent)$/i.test(vote)) rcAbs++;
+    if (motionMatch && !YEAR_LIKE_PAIR.test(motionMatch[0])) {
+      const forCount = parseInt(motionMatch[2], 10);
+      const againstCount = parseInt(motionMatch[3], 10);
+      if (plausible(forCount, againstCount)) {
+        const verb = motionMatch[1].toLowerCase();
+        passed = PASSING_VERBS.test(verb);
+        // The first number is the yea count and the second the nay count,
+        // whichever way the motion went.
+        yea = yea ?? forCount;
+        nay = nay ?? againstCount;
+        abstain = abstain ?? 0;
+        absent = absent ?? 0;
+        confidence = Math.max(confidence, VOTE_CONFIDENCE.motionTally);
+        details.push(`Motion ${verb}: ${forCount}-${againstCount}`);
+        details.push(`Source: ${excerpt(cleaned, motionMatch)}`);
+      }
     }
-    // Only use roll call counts if we have enough named entries (>= 2)
-    if (rcYea + rcNay + rcAbs >= 2) {
+  }
+
+  // Pattern 3: roll call — named votes. Case-SENSITIVE on the name so
+  // "Parking - No." (a agenda line, not a nay) cannot pose as a member, and
+  // gated on either an explicit roll-call/vote context or three-plus names,
+  // so a single Name-Word pair never becomes a tally.
+  const ROLL_CALL_RE = /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*[:–\-—]\s*(Yea|Aye|Yes|Nay|No|Abstain|Absent|YEA|AYE|YES|NAY|NO|ABSTAIN|ABSENT)\b/g;
+  const rollCall = [...cleaned.matchAll(ROLL_CALL_RE)];
+  const rollCallContext = /\broll\s*call\b|\bvot(?:e|ed|ing)\b/i.test(cleaned);
+  const rollCallUsable = rollCall.length >= 3 || (rollCall.length >= 2 && rollCallContext);
+  if (rollCallUsable) {
+    let rcYea = 0, rcNay = 0, rcAbstain = 0, rcAbsent = 0;
+    for (const rc of rollCall) {
+      const vote = rc[2].toLowerCase();
+      details.push(`${rc[1].trim()}: ${rc[2]}`);
+      if (/^(yea|aye|yes)$/.test(vote)) rcYea++;
+      else if (/^(nay|no)$/.test(vote)) rcNay++;
+      else if (vote === 'abstain') rcAbstain++;
+      else rcAbsent++;
+    }
+    if (yea === null) {
       yea = rcYea;
       nay = rcNay;
-      abstain = rcAbs;
+      abstain = rcAbstain;
+      absent = rcAbsent;
+      confidence = Math.max(confidence, VOTE_CONFIDENCE.rollCall);
     }
   }
 
-  // Pattern 4: "X yea, Y nay" without the word "Vote:" (common in agenda descriptions)
+  // Pattern 4: "4 yea, 1 nay" with no "Vote:" label (common in agenda prose).
   if (yea === null) {
-    const simpleTally = cleaned.match(
-      /(\d+)\s+(yea|aye)\D+(\d+)\s+(nay|no)\b/i
-    );
+    const simpleTally = cleaned.match(/(\d+)\s+(?:yea|aye)\D{0,20}?(\d+)\s+(?:nay|no)\b/i);
     if (simpleTally) {
-      yea = parseInt(simpleTally[1], 10);
-      nay = parseInt(simpleTally[3], 10);
-      abstain = abstain ?? 0;
-      details.push(`Tally: ${yea}-${nay}`);
+      const parsedYea = parseInt(simpleTally[1], 10);
+      const parsedNay = parseInt(simpleTally[2], 10);
+      if (plausible(parsedYea, parsedNay)) {
+        yea = parsedYea;
+        nay = parsedNay;
+        abstain = abstain ?? 0;
+        absent = absent ?? 0;
+        confidence = Math.max(confidence, VOTE_CONFIDENCE.bareTally);
+        details.push(`Tally: ${yea}-${nay}`);
+        details.push(`Source: ${excerpt(cleaned, simpleTally)}`);
+      }
     }
   }
 
-  // If we have numbers, determine passed
-  if (yea !== null && nay !== null) {
-    if (passed === null) {
-      passed = yea > nay;
+  // A stated outcome ("Motion carries.") beats an inferred one, even when the
+  // counts came from a separate tally sentence.
+  if (passed === null && hasMotionContext) {
+    const outcomeMatch = cleaned.match(
+      /\b(?:motion|motions)\b[^.]{0,40}?\b(passes|passed|carries|carried|adopted|approved|fails?|failed|denied|rejected|defeated|lost)\b/i,
+    );
+    if (outcomeMatch) {
+      passed = PASSING_VERBS.test(outcomeMatch[1].toLowerCase());
+      details.push(`Motion ${outcomeMatch[1].toLowerCase()}`);
     }
+  }
+
+  if (yea !== null && nay !== null) {
+    const inferred = passed === null;
     return {
       yea,
       nay,
       abstain: abstain ?? 0,
-      passed,
-      details: details.filter((d, i, a) => a.indexOf(d) === i), // dedupe
+      absent: absent ?? 0,
+      passed: inferred ? yea > nay : passed!,
+      inferred,
+      confidence: confidence || VOTE_CONFIDENCE.bareTally,
+      details: details.filter((detail, i, all) => all.indexOf(detail) === i),
     };
   }
 
-  // Pattern 5: "Approved/Denied/Passed/Failed" without numbers — mark as passed/failed but cannot count
-  const approvalMatch = cleaned.match(
-    /\b(unanimously\s+)?(approved|denied|rejected|defeated|passed|failed|adopted)\b/i
-  );
-  if (approvalMatch) {
-    const verb = approvalMatch[2].toLowerCase();
-    if (/^(approved|adopted|passed)$/i.test(verb)) {
-      return { yea: 0, nay: 0, abstain: 0, passed: true, details: [`Motion ${verb}`] };
-    } else if (/^(denied|rejected|defeated|failed)$/i.test(verb)) {
-      return { yea: 0, nay: 0, abstain: 0, passed: false, details: [`Motion ${verb}`] };
+  // Pattern 5: an outcome verb with no numbers at all. Only trustworthy inside
+  // explicit motion context — "the minutes were approved" is not a tally, and
+  // without this gate every such sentence became a 0-0 unanimous vote.
+  if (hasMotionContext) {
+    const approvalMatch = cleaned.match(
+      /\b(?:unanimously\s+)?(approved|denied|rejected|defeated|passed|failed|adopted)\b/i,
+    );
+    if (approvalMatch) {
+      const verb = approvalMatch[1].toLowerCase();
+      return {
+        yea: 0,
+        nay: 0,
+        abstain: 0,
+        absent: 0,
+        passed: PASSING_VERBS.test(verb),
+        inferred: false,
+        confidence: VOTE_CONFIDENCE.verbOnly,
+        details: [`Motion ${verb}`, `Source: ${excerpt(cleaned, approvalMatch)}`],
+      };
     }
   }
 
@@ -408,7 +482,10 @@ export async function fetchGovMeetings(url: string, sourceName: string): Promise
 /**
  * Save meeting items to a JSON file for historical tracking with change detection
  */
-export async function saveMeetingItems(items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean, vote?: VoteResult | null}>): Promise<void> {
+export async function saveMeetingItems(
+  items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean, vote?: VoteResult | null}>,
+  documentDrift: DocumentDrift[] = [],
+): Promise<void> {
   const fs = await import('fs/promises');
   const path = await import('path');
   
@@ -434,6 +511,10 @@ export async function saveMeetingItems(items: Array<{title: string, link: string
     changedItems: changedItems.length,
     unchangedItems: unchangedItems.length,
     itemsBySource: {} as Record<string, number>,
+    // Phase 4.2: agenda/minutes SHA-256 drift, reported alongside the items it
+    // describes rather than only in the source-health sidecar.
+    documentDrift,
+    changedDocuments: documentDrift.filter(drift => drift.changed).length,
     items: items
   };
   
@@ -453,23 +534,37 @@ export async function saveMeetingItems(items: Array<{title: string, link: string
   }
 }
 
-const MEETING_DOC_HASHES_PATH = join(process.cwd(), 'output', 'state', 'meeting-doc-hashes.json');
+export const MEETING_DOC_HASHES_PATH = join(process.cwd(), 'output', 'state', 'meeting-doc-hashes.json');
 
-/** Load the previously recorded agenda/minutes document hash map (empty when absent). */
-async function loadMeetingDocHashes(): Promise<Record<string, string>> {
+/**
+ * Load the previously recorded agenda/minutes hash map (empty when absent).
+ *
+ * The file is written as `{savedAt, hashes}`, so the map lives under `hashes`.
+ * Returning the whole envelope — which this used to do — handed
+ * `diffDocumentHashes` a `savedAt` key and NO document URLs, so every document
+ * came back `isNew` on every run and drift was never detectable. A bare legacy
+ * map (no envelope) is still accepted.
+ */
+export async function loadMeetingDocHashes(path = MEETING_DOC_HASHES_PATH): Promise<Record<string, string>> {
   try {
     const fs = await import('fs/promises');
-    const raw = await fs.readFile(MEETING_DOC_HASHES_PATH, 'utf-8');
+    const raw = await fs.readFile(path, 'utf-8');
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const hashes = (parsed as Record<string, unknown>).hashes;
+    if (hashes && typeof hashes === 'object' && !Array.isArray(hashes)) return hashes as Record<string, string>;
+    // Legacy bare-map file, from before the envelope was introduced.
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(([, value]) => typeof value === 'string'),
+    ) as Record<string, string>;
   } catch {
     return {};
   }
 }
 
 /** Atomically persist the current agenda/minutes document hash map. */
-async function saveMeetingDocHashes(hashes: Record<string, string>): Promise<void> {
-  await writeJsonAtomic(MEETING_DOC_HASHES_PATH, { savedAt: new Date().toISOString(), hashes });
+export async function saveMeetingDocHashes(hashes: Record<string, string>, path = MEETING_DOC_HASHES_PATH): Promise<void> {
+  await writeJsonAtomic(path, { savedAt: new Date().toISOString(), hashes });
 }
 
 /**
@@ -540,7 +635,10 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
       if (item.docHashes) Object.assign(current, item.docHashes);
     }
     documentDrift = diffDocumentHashes(previous, current);
-    await saveMeetingDocHashes(current);
+    // Merge forward rather than replace: a document that simply was not
+    // re-fetched this cycle (source down, PDF skipped) must keep its recorded
+    // hash, or the next run sees no previous hash and reports it as new.
+    await saveMeetingDocHashes({ ...previous, ...current });
     const changedDocs = documentDrift.filter(d => d.changed);
     if (changedDocs.length > 0) {
       logger.info(`Document hash drift detected for ${changedDocs.length} agenda/minutes document(s)`);
@@ -569,7 +667,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   
   // Save the results
   if (allItems.length > 0) {
-    await saveMeetingItems(allItems);
+    await saveMeetingItems(allItems, documentDrift);
     logger.info(`Government meeting monitoring complete: ${allItems.length} items found`);
     
     // Log summary

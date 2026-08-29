@@ -55,14 +55,17 @@ describe("computeAlertTypeTrends (per-type 30-day trend summary)", () => {
   });
 
   test("undated entries are excluded, never guessed into a bucket", () => {
-    const entries: Array<TimelineEntry | { timestamp: string; type: string }> = [
+    // The undated record must REACH computeAlertTypeTrends: filtering it out
+    // here would test the filter, not the exclusion the test claims to cover.
+    const entries = [
       entry("fishing", 5, now),
-      { timestamp: "not-a-date", type: "fishing" },
-    ].filter((e): e is TimelineEntry => (e as TimelineEntry).severity !== undefined || (e as { type: string }).type !== "fishing");
-    const trends = computeAlertTypeTrends(entries as TimelineEntry[], new Date(now));
+      { timestamp: "not-a-date", type: "fishing", severity: "WATCH", description: "undated", record: {} },
+    ] as TimelineEntry[];
+    const trends = computeAlertTypeTrends(entries, new Date(now));
     const fishing = trends.find(t => t.type === "fishing")!;
     expect(fishing.count30d).toBe(1);
     expect(fishing.eventTimestamps30d.length).toBe(1);
+    expect(fishing.eventTimestamps30d).not.toContain("not-a-date");
   });
 
   test("covers every alert type exactly once, in canonical order", () => {

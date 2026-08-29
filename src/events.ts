@@ -57,6 +57,15 @@ export interface StructuredEvent {
   sourceLinks: string[];
   sourceName: string;
   fetchedAt: string | null;
+  /**
+   * How the producing extractor obtained this record: `markup` for a
+   * deterministic parse, `llm` for model-assisted field resolution, null when
+   * the producer recorded none. Carried through unchanged — the merge
+   * boundary must never silently upgrade an LLM guess into a parsed fact.
+   */
+  extractionMethod: 'markup' | 'llm' | null;
+  /** The producer's own 0..1 fidelity score, or null when none was recorded. */
+  confidence: number | null;
 }
 
 export interface EventsArtifact {
@@ -72,7 +81,7 @@ export interface EventsArtifact {
     error?: string;
   };
   provenance: {
-    deterministicFrom: ['output/gov_meetings', 'output/news', 'output/youtube'];
+    deterministicFrom: ['output/gov_meetings', 'output/news', 'output/youtube', 'output/events/event_discovery.json'];
     summarizer: string | null;
     boundaries: string[];
   };
@@ -173,35 +182,74 @@ interface RawEventCandidate {
   description: string;
   sourceName: string;
   fetchedAt: string | null;
+  extractionMethod: 'markup' | 'llm' | null;
+  confidence: number | null;
 }
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/** The two clock shapes accepted as a real event time, matched whole-string. */
+const TIME_MERIDIEM_RE = /^(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?$/i;
+const TIME_24H_RE = /^(\d{1,2}):(\d{2})$/;
+
 /**
- * Extract a clean event time note from raw listing text. A full RFC-2822 or
- * ISO timestamp (news publish metadata) is NOT an event start time - it is
- * rejected outright so the calendar never presents a publish stamp as the
- * event time. Bare clock times ("5:30 PM", "18:00", "5:30") pass through.
+ * Publish-metadata shapes that are never an event start time: an RFC-2822
+ * stamp (weekday + day + month), an ISO date, an MM/DD/YYYY timestamp, and
+ * anything carrying seconds. Checked before the allowlist so a stamp can never
+ * reach the clock matchers by accident.
+ */
+const PUBLISH_STAMP_SHAPES = [
+  /\b(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+\d{1,2}\s+[a-z]{3}/i,
+  /\d{4}-\d{2}-\d{2}/,
+  /\d{1,2}\/\d{1,2}\/\d{4}/,
+  /\d{1,2}:\d{2}:\d{2}/,
+];
+
+/**
+ * Extract an event time note from a raw listing value.
+ *
+ * Allowlist, not denylist: the WHOLE trimmed string must be one of the two
+ * accepted clock shapes ("5:30 PM", "18:00"), with the meridiem form
+ * preferred. A clock time embedded in a sentence is not a verified event time,
+ * and a publish stamp is machine metadata — both return null rather than let
+ * the calendar present a guess as the event's start time.
  */
 export function extractTimeNote(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const text = raw.trim();
   if (!text) return null;
-  // Publish-metadata shapes: full RFC-2822 stamps and ISO datetimes carry a
-  // year/seconds/offset - none of that is a human event time.
-  if (/\b(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*,?\s+\d{1,2}\s+[a-z]{3}\s+\d{4}\b/i.test(text)) return null;
-  // Any leading full-date (ISO with T or space) is machine metadata, not a
-  // human-facing event time.
-  if (/\b\d{4}-\d{2}-\d{2}\b/.test(text)) return null;
-  const match = text.match(/\b(\d{1,2}):(\d{2})\s*(am|pm)?\b/i);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = match[2];
-  if (hour < 0 || hour > 23 || Number(minute) > 59) return null;
-  const meridiem = match[3] ? ` ${match[3].toUpperCase()}` : "";
-  return `${hour}:${minute}${meridiem}`;
+  for (const shape of PUBLISH_STAMP_SHAPES) if (shape.test(text)) return null;
+
+  const meridiem = text.match(TIME_MERIDIEM_RE);
+  if (meridiem) {
+    const hour = Number(meridiem[1]);
+    if (hour < 1 || hour > 12 || Number(meridiem[2]) > 59) return null;
+    return `${hour}:${meridiem[2]} ${meridiem[3].toUpperCase()}M`;
+  }
+  const bare = text.match(TIME_24H_RE);
+  if (bare) {
+    const hour = Number(bare[1]);
+    if (hour > 23 || Number(bare[2]) > 59) return null;
+    return `${hour}:${bare[2]}`;
+  }
+  return null;
+}
+
+/** Extraction methods a producer may declare; anything else is recorded as unknown. */
+const EXTRACTION_METHODS = new Set(['markup', 'llm']);
+
+/** Read a producer-recorded extraction method, or null when absent/unrecognized. */
+function extractionMethodOf(value: unknown): 'markup' | 'llm' | null {
+  const method = str(value).toLowerCase();
+  return EXTRACTION_METHODS.has(method) ? (method as 'markup' | 'llm') : null;
+}
+
+/** Read a producer-recorded 0..1 confidence, or null when absent/out of range. */
+function confidenceOf(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return value >= 0 && value <= 1 ? value : null;
 }
 
 /** Convert one raw item into a candidate, or null when it must be excluded. */
@@ -237,8 +285,14 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
     location: str(item.location) || null,
     organizer: str(item.organizer) || str(item.source) || str(item.channel) || null,
     description: content,
-    sourceName: str(item.source) || str(item.channel) || defaultSourceName,
+    // Discovery records name their originating calendar in `sourceName`; the
+    // monitor artifacts use `source`/`channel`. Reading `sourceName` first is
+    // what keeps a discovered listing labelled with the calendar it came from
+    // instead of falling through to the generic default.
+    sourceName: str(item.sourceName) || str(item.source) || str(item.channel) || defaultSourceName,
     fetchedAt: str(item.fetchedAt) || null,
+    extractionMethod: extractionMethodOf(item.extractionMethod),
+    confidence: confidenceOf(item.confidence),
   };
 }
 
@@ -250,35 +304,159 @@ function normalizedTitle(title: string): string {
   return title.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/** Stable merge key: normalized title + resolved start date. */
-export function dedupeKey(event: Pick<RawEventCandidate, 'title' | 'dateStart'>): string {
-  return `${normalizedTitle(event.title)}::${event.dateStart ?? 'no-date'}`;
+/**
+ * How far apart two feeds' copies of one meeting may sit before they stop
+ * being treated as the same meeting. Applied ONLY across different feeds,
+ * where a one-day gap is a timezone/publishing artifact; within a single feed,
+ * two adjacent days are two meetings.
+ */
+export const MERGE_TOLERANCE_DAYS = 1;
+
+/**
+ * A feed name is not an organizing body. "County of Del Norte Community Events
+ * Calendar" says where a listing was read, not who convened it, so it must
+ * never act as the discriminator between two bodies.
+ */
+const FEED_NAME_RE = /\b(calendars?|feeds?|rss|listings?|events?)\b/i;
+
+/**
+ * The organizing body behind a candidate, normalized. Empty when the record
+ * only names the feed it came from — an unknown body never blocks a merge, but
+ * two DIFFERENT known bodies always do.
+ */
+function bodyKey(event: Pick<RawEventCandidate, 'organizer'>): string {
+  const organizer = (event.organizer ?? '').trim();
+  if (!organizer || FEED_NAME_RE.test(organizer)) return '';
+  return normalizedTitle(organizer);
+}
+
+/** Two bodies may merge when they are the same, when one contains the other, or when one is unknown. */
+function organizersCompatible(a: string, b: string): boolean {
+  if (a === '' || b === '' || a === b) return true;
+  return a.includes(b) || b.includes(a);
+}
+
+/** Filler words that carry no identity and would inflate every title overlap. */
+const TITLE_STOPWORDS = new Set(['the', 'a', 'an', 'of', 'for', 'and', 'at', 'on', 'to']);
+
+function titleTokens(title: string): Set<string> {
+  return new Set(
+    normalizedTitle(title)
+      .replace(/[^a-z0-9\s]+/g, ' ')
+      .split(/\s+/)
+      .filter(token => token.length > 0 && !TITLE_STOPWORDS.has(token)),
+  );
+}
+
+/** Token-overlap (Jaccard) score above which two titles name the same meeting. */
+export const TITLE_MATCH_THRESHOLD = 0.8;
+
+/**
+ * Whether two titles name the same meeting: identical once normalized, or a
+ * token overlap at or above TITLE_MATCH_THRESHOLD. Deliberately strict —
+ * "City Council Meeting" vs "Special City Council Meeting" scores 0.75 and
+ * stays separate, because a special meeting is a different meeting.
+ */
+export function titlesMatch(a: string, b: string): boolean {
+  if (normalizedTitle(a) === normalizedTitle(b)) return true;
+  const left = titleTokens(a);
+  const right = titleTokens(b);
+  if (left.size === 0 || right.size === 0) return false;
+  let shared = 0;
+  for (const token of left) if (right.has(token)) shared += 1;
+  const union = left.size + right.size - shared;
+  return union > 0 && shared / union >= TITLE_MATCH_THRESHOLD;
+}
+
+const MS_PER_DAY = 86_400_000;
+
+function daysApart(a: string, b: string): number {
+  return Math.abs(Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / MS_PER_DAY;
 }
 
 /**
- * Merge candidates sharing a key: union of source links (deduped, capped at
- * MAX_SOURCE_LINKS), first non-null metadata wins. Order is preserved.
+ * Stable merge key: normalized title + resolved start date + organizing body.
+ * The body discriminator is what keeps a City Council meeting and a Harbor
+ * District meeting that share a title and a day from collapsing into one.
+ */
+export function dedupeKey(event: Pick<RawEventCandidate, 'title' | 'dateStart' | 'organizer'>): string {
+  return `${normalizedTitle(event.title)}::${event.dateStart ?? 'no-date'}::${bodyKey(event)}`;
+}
+
+/** An exact pair is the same title on the same day — a proven identity, not a probable one. */
+function isExactPair(a: RawEventCandidate, b: RawEventCandidate): boolean {
+  return a.dateStart === b.dateStart && normalizedTitle(a.title) === normalizedTitle(b.title);
+}
+
+/**
+ * Whether `candidate` describes the same meeting as `existing`. A same-day
+ * match needs only compatible bodies and matching titles; a one-day
+ * disagreement is tolerated only across different feeds.
+ */
+function canMerge(existing: RawEventCandidate, candidate: RawEventCandidate): boolean {
+  if (!organizersCompatible(bodyKey(existing), bodyKey(candidate))) return false;
+  if (!titlesMatch(existing.title, candidate.title)) return false;
+  if (existing.dateStart === candidate.dateStart) return true;
+  if (existing.sourceName === candidate.sourceName) return false;
+  if (existing.dateStart === null || candidate.dateStart === null) return false;
+  return daysApart(existing.dateStart, candidate.dateStart) <= MERGE_TOLERANCE_DAYS;
+}
+
+/**
+ * Fold `candidate` into `existing`. Source links always union (capped at
+ * MAX_SOURCE_LINKS). Scalar fields are copied across ONLY on an exact
+ * title+date pair: a tolerance match is a probable identity, and borrowing
+ * another record's location or time would invent a fact about this one.
+ */
+function mergeInto(existing: RawEventCandidate, candidate: RawEventCandidate): void {
+  const exact = isExactPair(existing, candidate);
+  for (const link of candidate.sourceLinks ?? []) {
+    if (!existing.sourceLinks.includes(link)) existing.sourceLinks.push(link);
+  }
+  if (existing.sourceLinks.length > MAX_SOURCE_LINKS) existing.sourceLinks = existing.sourceLinks.slice(0, MAX_SOURCE_LINKS);
+  if (existing.dateStart === null) existing.dateStart = candidate.dateStart;
+  // Provenance travels as a pair: a corroborating record only raises the
+  // recorded confidence together with the method that earned it.
+  if (candidate.confidence !== null && (existing.confidence === null || candidate.confidence > existing.confidence)) {
+    existing.confidence = candidate.confidence;
+    existing.extractionMethod = candidate.extractionMethod;
+  } else if (existing.extractionMethod === null) {
+    existing.extractionMethod = candidate.extractionMethod;
+  }
+  if (!exact) return;
+  if (!existing.location) existing.location = candidate.location;
+  if (!existing.organizer) existing.organizer = candidate.organizer;
+  if (!existing.description) existing.description = candidate.description;
+  if (!existing.timeNote) existing.timeNote = candidate.timeNote;
+  if (existing.fetchedAt === null) existing.fetchedAt = candidate.fetchedAt;
+}
+
+/**
+ * Collapse candidates that describe the same meeting. An exact key hit merges
+ * immediately; everything else is scanned against the events kept so far so a
+ * cross-feed copy can still merge under `canMerge`. Order is preserved, which
+ * means the first producer to report a meeting (government monitors run before
+ * discovery, news, and YouTube) owns its scalar fields.
  */
 export function dedupeAndMerge(candidates: RawEventCandidate[]): RawEventCandidate[] {
+  const merged: RawEventCandidate[] = [];
   const byKey = new Map<string, RawEventCandidate>();
-  const order: string[] = [];
   for (const candidate of candidates) {
-    const key = dedupeKey(candidate);
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, { ...candidate });
-      order.push(key);
+    const exact = byKey.get(dedupeKey(candidate));
+    if (exact) {
+      mergeInto(exact, candidate);
       continue;
     }
-    existing.sourceLinks.push(...(candidate.sourceLinks ?? []).filter(link => !existing.sourceLinks.includes(link)));
-    if (existing.sourceLinks.length > MAX_SOURCE_LINKS) existing.sourceLinks = existing.sourceLinks.slice(0, MAX_SOURCE_LINKS);
-    if (existing.dateStart === null) existing.dateStart = candidate.dateStart;
-    if (!existing.location) existing.location = candidate.location;
-    if (!existing.organizer) existing.organizer = candidate.organizer;
-    if (!existing.description) existing.description = candidate.description;
-    if (existing.fetchedAt === null) existing.fetchedAt = candidate.fetchedAt;
+    const near = merged.find(event => canMerge(event, candidate));
+    if (near) {
+      mergeInto(near, candidate);
+      continue;
+    }
+    const fresh: RawEventCandidate = { ...candidate, sourceLinks: [...(candidate.sourceLinks ?? [])] };
+    merged.push(fresh);
+    byKey.set(dedupeKey(fresh), fresh);
   }
-  return order.map(key => byKey.get(key)!);
+  return merged;
 }
 
 // ---------------------------------------------------------------------------
@@ -390,14 +568,29 @@ export async function collectEvents(outputDir = join(process.cwd(), 'output')): 
     status: classify(candidate.dateStart),
   }));
 
-  const sorted = withStatus.sort((a, b) => {
-    if (a.dateStart === null && b.dateStart === null) return a.title.localeCompare(b.title);
-    if (a.dateStart === null) return 1;
-    if (b.dateStart === null) return -1;
-    return a.dateStart.localeCompare(b.dateStart) || a.title.localeCompare(b.title);
-  });
+  // Truncation must never eat the future. The pool is partitioned first:
+  // upcoming events (ascending) are kept before anything else, the past pool
+  // (most recent first) fills whatever budget is left, and undated entries
+  // take the remainder. Sorting everything ascending and slicing at 200 —
+  // what this used to do — spent the budget on months-old completed meetings
+  // and dropped genuinely upcoming ones off the end.
+  const today = new Date().toISOString().slice(0, 10);
+  const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
+  const upcoming = withStatus
+    .filter(event => event.dateStart !== null && event.dateStart >= today)
+    .sort((a, b) => a.dateStart!.localeCompare(b.dateStart!) || byTitle(a, b));
+  const past = withStatus
+    .filter(event => event.dateStart !== null && event.dateStart < today)
+    .sort((a, b) => b.dateStart!.localeCompare(a.dateStart!) || byTitle(a, b));
+  const undated = withStatus.filter(event => event.dateStart === null).sort(byTitle);
 
-  return sorted.slice(0, MAX_EVENTS).map((candidate, index) => ({
+  const kept = upcoming.slice(0, MAX_EVENTS);
+  for (const pool of [past, undated]) {
+    if (kept.length >= MAX_EVENTS) break;
+    kept.push(...pool.slice(0, MAX_EVENTS - kept.length));
+  }
+
+  return kept.map((candidate, index) => ({
     id: `${slug(candidate.title) || 'event'}-${candidate.dateStart ?? 'undated'}-${String(index).padStart(3, '0')}`,
     title: candidate.title,
     kind: candidate.kind,
@@ -411,6 +604,8 @@ export async function collectEvents(outputDir = join(process.cwd(), 'output')): 
     sourceLinks: candidate.sourceLinks.slice(0, MAX_SOURCE_LINKS),
     sourceName: candidate.sourceName,
     fetchedAt: candidate.fetchedAt,
+    extractionMethod: candidate.extractionMethod,
+    confidence: candidate.confidence,
   }));
 }
 
@@ -508,12 +703,14 @@ export function buildEventsArtifact(generatedAt: string, events: StructuredEvent
       summarizedCount: 0,
     },
     provenance: {
-      deterministicFrom: ['output/gov_meetings', 'output/news', 'output/youtube'],
+      deterministicFrom: ['output/gov_meetings', 'output/news', 'output/youtube', 'output/events/event_discovery.json'],
       summarizer: null,
       boundaries: [
         'Dates are recorded only when present in source data; undated news stays out of the calendar.',
         'LLM summaries are advisory previews; verify against the linked sources.',
         'No live fetching happens here — artifacts come from prior monitor runs.',
+        'extractionMethod/confidence are the producing extractor\'s own provenance, carried through unchanged.',
+        'Upcoming events are listed first; when the cap binds it truncates the past, never the future.',
       ],
     },
     events,

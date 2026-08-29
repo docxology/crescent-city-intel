@@ -5,6 +5,7 @@ import {
   buildDiscoveryArtifact,
   discoverFromSource,
   icsDateToIso,
+  icsTimeNote,
   loadEventSources,
   parseHtmlListing,
   parseIcsEvents,
@@ -78,6 +79,27 @@ describe("ICS parsing", () => {
     expect(icsDateToIso("20261003")).toBe("2026-10-03");
     expect(icsDateToIso("20261012T140000Z")).toBe("2026-10-12");
     expect(icsDateToIso("TBD")).toBeNull();
+  });
+
+  test("a UTC dtstart is read in the calendar's own timezone, date and time together", () => {
+    // 2026-10-12T02:30Z is the evening of the 11th in Crescent City. Reporting
+    // the 12th at 02:30 would publish a meeting on the wrong day AND at a time
+    // nobody holds one.
+    expect(icsDateToIso("20261012T023000Z")).toBe("2026-10-11");
+    expect(icsTimeNote("20261012T023000Z")).toBe("19:30");
+    // Same instant, still consistent when the local day matches the UTC day.
+    expect(icsDateToIso("20261012T230000Z")).toBe("2026-10-12");
+    expect(icsTimeNote("20261012T230000Z")).toBe("16:00");
+  });
+
+  test("a floating/TZID dtstart is already local and is read as written", () => {
+    expect(icsDateToIso("20261012T140000")).toBe("2026-10-12");
+    expect(icsTimeNote("20261012T140000")).toBe("14:00");
+  });
+
+  test("a date-only dtstart carries no time", () => {
+    expect(icsTimeNote("20261003")).toBeNull();
+    expect(icsTimeNote("TBD")).toBeNull();
   });
 });
 

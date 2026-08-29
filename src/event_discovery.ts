@@ -21,7 +21,7 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import * as cheerio from "cheerio";
-import { classify, MAX_SOURCE_LINKS, parseEventDate } from "./events.js";
+import { classify, extractTimeNote as sanitizeTimeNote, MAX_SOURCE_LINKS, parseEventDate } from "./events.js";
 import { createLogger } from "./logger.js";
 
 const logger = createLogger("event-discovery");
@@ -192,18 +192,64 @@ export function parseIcsEvents(text: string): IcsVevent[] {
   return events;
 }
 
-/** Reduce an ICS DTSTART value to ISO yyyy-mm-dd, or null (never guesses). */
-export function icsDateToIso(value: string): string | null {
-  const bare = value.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (bare) return `${bare[1]}-${bare[2]}-${bare[3]}`;
-  const stamped = value.match(/^(\d{4})(\d{2})(\d{2})T/);
-  if (stamped) return `${stamped[1]}-${stamped[2]}-${stamped[3]}`;
-  return parseEventDate(value);
+/**
+ * The calendar this project publishes is a local one; a UTC DTSTART has to be
+ * read in Crescent City's own timezone or the date and the time disagree
+ * (20261012T023000Z is the 11th at 7:30 PM here, not the 12th at 2:30 AM).
+ */
+export const EVENT_TIME_ZONE = "America/Los_Angeles";
+
+const ZONED_PARTS = new Intl.DateTimeFormat("en-CA", {
+  timeZone: EVENT_TIME_ZONE,
+  year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", hour12: false,
+});
+
+/** Split an ICS DTSTART into its calendar parts, or null when it is not one. */
+function icsParts(value: string): { date: string; time: string | null; utc: boolean } | null {
+  const match = value.trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+  if (!match) return null;
+  return {
+    date: `${match[1]}-${match[2]}-${match[3]}`,
+    time: match[4] ? `${match[4]}:${match[5]}` : null,
+    utc: match[7] === "Z",
+  };
 }
 
-function extractTimeNote(icsValue: string): string | null {
-  const m = icsValue.match(/T(\d{2})(\d{2})/);
-  return m ? `${m[1]}:${m[2]}` : null;
+/** Render a UTC instant as its {date, time} in EVENT_TIME_ZONE. */
+function toLocalParts(date: string, time: string): { date: string; time: string } {
+  const instant = Date.parse(`${date}T${time}:00Z`);
+  if (!Number.isFinite(instant)) return { date, time };
+  const parts = new Map(ZONED_PARTS.formatToParts(new Date(instant)).map(part => [part.type, part.value]));
+  // hourCycle h23 still reports midnight as "24" in some ICU builds.
+  const hour = parts.get("hour") === "24" ? "00" : parts.get("hour")!;
+  return {
+    date: `${parts.get("year")}-${parts.get("month")}-${parts.get("day")}`,
+    time: `${hour}:${parts.get("minute")}`,
+  };
+}
+
+/**
+ * Reduce an ICS DTSTART value to ISO yyyy-mm-dd, or null (never guesses).
+ * A UTC (`...Z`) stamp is converted into EVENT_TIME_ZONE first, so the date
+ * always agrees with the time `icsTimeNote` reports for the same value.
+ */
+export function icsDateToIso(value: string): string | null {
+  const parts = icsParts(value);
+  if (!parts) return parseEventDate(value);
+  if (!parts.time || !parts.utc) return parts.date;
+  return toLocalParts(parts.date, parts.time).date;
+}
+
+/**
+ * The local clock time an ICS DTSTART names, or null for a date-only value.
+ * UTC stamps are converted into EVENT_TIME_ZONE; a value carrying a TZID
+ * parameter is already local and is read as written.
+ */
+export function icsTimeNote(icsValue: string): string | null {
+  const parts = icsParts(icsValue);
+  if (!parts?.time) return null;
+  return parts.utc ? toLocalParts(parts.date, parts.time).time : parts.time;
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +418,7 @@ export async function discoverFromSource(
         kind: /meeting|agenda|commission|council/i.test(vevent.summary) ? "government-meeting" : "community-listing",
         dateStart: icsDateToIso(vevent.dtstart),
         dateAllDay: !/T\d{2}/.test(vevent.dtstart),
-        timeNote: extractTimeNote(vevent.dtstart),
+        timeNote: icsTimeNote(vevent.dtstart),
         location: vevent.location ?? null,
         organizer: source.name,
         description: vevent.description ?? "",
@@ -397,7 +443,9 @@ export async function discoverFromSource(
           kind: "community-listing",
           dateStart,
           dateAllDay: true,
-          timeNote: /\d{1,2}:\d{2}/.test(item.pubDate ?? "") ? (item.pubDate as string) : null,
+          // Store the sanitized value, not the raw RFC-2822 pubDate: a publish
+          // stamp is not an event time, and the merge boundary would strip it anyway.
+          timeNote: sanitizeTimeNote(item.pubDate),
           location: null,
           organizer: source.name,
           description: item.description.replace(/<[^>]*>/g, "").trim(),
@@ -431,7 +479,7 @@ export async function discoverFromSource(
           kind: "community-listing",
           dateStart: markupDate,
           dateAllDay: true,
-          timeNote: /\d{1,2}:\d{2}/.test(row.dateRaw ?? "") ? (row.dateRaw as string) : null,
+          timeNote: sanitizeTimeNote(row.dateRaw),
           location: row.location,
           organizer: source.name,
           description: "",

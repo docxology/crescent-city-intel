@@ -14,6 +14,15 @@
 import type { TideReport } from "./noaa_tides.js";
 import type { FishingReport } from "./cdfw_fishing.js";
 import type { SourceHealth, SourceHealthStatus } from "../types.js";
+// Each monitor owns its endpoint constant. The spec table below references
+// them rather than restating the literals, so a URL can only be changed in one
+// place and the health record can never name an endpoint the monitor no longer
+// calls.
+import { USDM_API_URL } from "./usdm_drought.js";
+import { PGE_PSPS_API_URL } from "./pge_psps.js";
+import { HRRR_SMOKE_API_URL } from "./hrrr_smoke.js";
+import { CALTRANS_API_D1_URL } from "./caltrans_roads.js";
+import { DUSD_ALERTS_URL } from "./dusd_schools.js";
 
 /** A single monitor's run outcome + the metadata needed to classify it. */
 export interface AlertMonitorDefinition {
@@ -173,11 +182,11 @@ export type ExtendedMonitorSpec = readonly [
 ];
 
 export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
-  ["USDM Drought", 8, "readings", "https://droughtmonitor.unl.edu/data/json/USDM_west.json", "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
-  ["PG&E PSPS", 9, "events", "https://pge-psps-updates.us-east-1.linodeobjects.com/psps_events.json", "PG&E PSPS events JSON"],
-  ["HRRR Smoke", 10, "forecast", "https://airfire.org/data/smoke2/forecast/pm25.nc.json", "AirFire HRRR smoke PM2.5 forecast"],
-  ["Caltrans Roads", 11, "incidents", "https://quickmap.dot.ca.gov/api/v1/incidents?district=1&format=json&status=active", "Caltrans QuickMap District 1 incidents"],
-  ["DUSD Schools", 12, "items", "https://www.dnusd.org/news", "Del Norte USD announcements"],
+  ["USDM Drought", 8, "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
+  ["PG&E PSPS", 9, "events", PGE_PSPS_API_URL, "PG&E PSPS events JSON"],
+  ["HRRR Smoke", 10, "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
+  ["Caltrans Roads", 11, "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
+  ["DUSD Schools", 12, "items", DUSD_ALERTS_URL, "Del Norte USD announcements"],
 ];
 
 /**

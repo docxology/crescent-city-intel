@@ -50,9 +50,14 @@ jobs:
       - name: Generate canonical source registry
         run: bun run source-discovery
 
+      # The release gate decides whether this edition may publish, so its result
+      # has to matter. It ran with continue-on-error for as long as the suite
+      # needed a populated output/ tree that a fresh checkout does not have;
+      # with the corpus fence and the artifact-root seam in place the suite is
+      # hermetic and a clean clone passes it, so a failure here now stops the
+      # publish instead of being recorded as a warning nobody reads.
       - name: Run deterministic release gate
         run: bun run validate
-        continue-on-error: true
 
       # Community-calendar refresh (events.html + front-page calendar): merge
       # live government calendars into the structured events artifact, then

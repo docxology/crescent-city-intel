@@ -172,6 +172,65 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
   };
 }
 
+
+/**
+ * The five Phase-12 monitors' reports, mapped onto the severity inputs they
+ * feed. Until this existed the runner passed eight of the thirteen monitors
+ * into computeAlertSeverity and let the other five fall back to their
+ * "nothing happening, not available" defaults — so road closures, school
+ * closures, PSPS, smoke and drought were collected, published as their own
+ * artifacts, and then silently excluded from the composite level the front page
+ * presents as the county's alert state.
+ *
+ * `available` is the honest question "did this monitor produce a report in this
+ * run?", not "is anything wrong?" — an unavailable monitor must not read as calm.
+ */
+export function buildExtendedCompositeInput(reports: {
+  drought?: unknown;
+  psps?: unknown;
+  smoke?: unknown;
+  roads?: unknown;
+  schools?: unknown;
+}): Record<string, unknown> {
+  const drought = asRecord(reports.drought);
+  const psps = asRecord(reports.psps);
+  const smoke = asRecord(reports.smoke);
+  const roads = asRecord(reports.roads);
+  const schools = asRecord(reports.schools);
+  return {
+    drought: {
+      severity: (drought.compositeSeverity as string) ?? "NONE",
+      severeDroughtPercent: typeof drought.severeDroughtPercent === "number" ? drought.severeDroughtPercent : 0,
+      available: reports.drought != null,
+    },
+    psps: {
+      status: (psps.overallStatus as string) ?? "NONE",
+      eventCount: typeof psps.totalEvents === "number" ? psps.totalEvents : 0,
+      delNorteAffected: psps.delNorteAffected === true,
+      available: reports.psps != null,
+    },
+    smoke: {
+      peakLevel: (smoke.peakLevel as string) ?? "GOOD",
+      peakAqi: typeof smoke.peakAqi === "number" ? smoke.peakAqi : null,
+      maxPm25: typeof smoke.maxPm25 === "number" ? smoke.maxPm25 : null,
+      available: reports.smoke != null,
+    },
+    roads: {
+      severity: (roads.overallSeverity as string) ?? "NONE",
+      hasMajorClosure: roads.hasMajorClosure === true,
+      incidentCount: typeof roads.totalIncidents === "number" ? roads.totalIncidents : 0,
+      available: reports.roads != null,
+    },
+    schools: {
+      status: (schools.districtStatus as string) ?? "OPEN",
+      hasActiveClosure: schools.hasActiveClosure === true,
+      hasActiveDelay: schools.hasActiveDelay === true,
+      eventCount: typeof schools.totalEvents === "number" ? schools.totalEvents : 0,
+      available: reports.schools != null,
+    },
+  };
+}
+
 /** The five Phase-12 extended monitors, by stable index in the runner batch. */
 export type ExtendedMonitorSpec = readonly [
   source: string,

@@ -28,10 +28,11 @@ import { monitorFishing, type FishingReport } from "../src/alerts/cdfw_fishing.t
 import { computeAlertSeverity } from "../src/alerts/severity.ts";
 import {
   buildCompositeInput,
-  buildTidesInput,
-  buildFishingInput,
-  classifySourceHealth,
+  buildExtendedCompositeInput,
   buildExtendedMonitorDefinitions,
+  buildFishingInput,
+  buildTidesInput,
+  classifySourceHealth,
   type AlertMonitorDefinition,
 } from "../src/alerts/composite.ts";
 import { createLogger } from "../src/logger.ts";
@@ -135,6 +136,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       runNullableMonitor(12, "DUSD schools", runSchoolClosureMonitor, getLastSchoolsError),
     ]);
 
+    /** Resolve a monitor's settled value by its batch position's stable meaning. */
+    const settledValue = (index: number): unknown => {
+      const result = settledResults[index];
+      return result && result.status === "fulfilled" ? result.value : null;
+    };
     const [tidesResult, fishingResult] = settledResults.slice(6) as [
       PromiseSettledResult<TideReport | null>,
       PromiseSettledResult<FishingReport | null>,
@@ -145,7 +151,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       fishingResult.status === "fulfilled" ? fishingResult.value : null;
 
     // ─── Compute composite severity ───────────────────────────────────
-    logger.info("Computing 8-monitor composite alert severity...");
+    logger.info("Computing 13-monitor composite alert severity...");
 
     // Remove any prior snapshot when a feed failed this run.
     const currentTypes = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"];
@@ -172,6 +178,18 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     ]);
 
     const compositeInput = buildCompositeInput({ tsunami, earthquake, weather, airquality, wildfire, marine, tidesReport, fishingReport });
+    // The five Phase-12 monitors ran in this same batch; their reports are in
+    // memory. They used to stop here — computeAlertSeverity takes thirteen
+    // inputs and was handed eight, so drought, PSPS, smoke, road closures and
+    // school closures defaulted to "nothing happening" in the composite level
+    // the front page presents, however loudly their own artifacts said otherwise.
+    const extendedInput = buildExtendedCompositeInput({
+      drought: settledValue(8),
+      psps: settledValue(9),
+      smoke: settledValue(10),
+      roads: settledValue(11),
+      schools: settledValue(12),
+    });
 
     const severityReport = computeAlertSeverity(
       compositeInput.tsunami,
@@ -182,6 +200,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       compositeInput.airQuality,
       compositeInput.wildfire,
       compositeInput.marine,
+      extendedInput.drought as Parameters<typeof computeAlertSeverity>[8],
+      extendedInput.psps as Parameters<typeof computeAlertSeverity>[9],
+      extendedInput.smoke as Parameters<typeof computeAlertSeverity>[10],
+      extendedInput.roads as Parameters<typeof computeAlertSeverity>[11],
+      extendedInput.schools as Parameters<typeof computeAlertSeverity>[12],
     );
 
     logger.info(`Composite alert severity: ${severityReport.level} — ${severityReport.reason}`);

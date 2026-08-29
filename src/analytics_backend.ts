@@ -157,9 +157,21 @@ async function readHealthReports(checkedAt = new Date().toISOString()): Promise<
   return completeSourceHealth(reports.flatMap(report => Array.isArray(report?.sources) ? report.sources : []), checkedAt);
 }
 
-async function readSearchAnalytics(): Promise<{ totalQueries: number; totalBytes: string; topTerms: Array<{ term: string; count: number }> }> {
-  const logPath = join(process.cwd(), "output", "search-queries.jsonl");
-  if (!existsSync(logPath)) return { totalQueries: 0, totalBytes: "0", topTerms: [] };
+/**
+ * Read the query-log evidence behind the search metrics.
+ *
+ * `evidenceHash` is a content hash of the exact bytes these counts were derived
+ * from — it was called `totalBytes` while holding a sha256, which reads as a
+ * size and invites exactly the wrong conclusion when it changes. It belongs in
+ * the overview's inputFingerprint because the log IS an input to the reported
+ * numbers: two overviews computed from different query evidence are not the
+ * same overview, however similar their other inputs.
+ */
+async function readSearchAnalytics(): Promise<{ totalQueries: number; evidenceHash: string; topTerms: Array<{ term: string; count: number }> }> {
+  // Through the seam: the writer (the HTTP layer) resolves the same way, and a
+  // reader pinned to the real corpus would report evidence nobody wrote.
+  const logPath = paths.searchQueryLog;
+  if (!existsSync(logPath)) return { totalQueries: 0, evidenceHash: "0", topTerms: [] };
   try {
     // Snapshot the input at call time: one atomic byte read feeds both the
     // counters and the fingerprint, so a concurrent append can never split
@@ -183,10 +195,10 @@ async function readSearchAnalytics(): Promise<{ totalQueries: number; totalBytes
     }
     return {
       totalQueries: lines.length,
-      totalBytes: snapshotHash,
+      evidenceHash: snapshotHash,
       topTerms: [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 20).map(([term, count]) => ({ term, count })),
     };
-  } catch { return { totalQueries: 0, totalBytes: "0", topTerms: [] }; }
+  } catch { return { totalQueries: 0, evidenceHash: "0", topTerms: [] }; }
 }
 
 function itemDate(item: JsonRecord): number {
@@ -323,7 +335,7 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
     getCodeStats(),
     readHealthReports(generatedAt),
     Promise.resolve(buildAlertAnalytics()),
-    readJson<JsonRecord>(join(process.cwd(), "output", "alerts", "composite", "current.json")),
+    readJson<JsonRecord>(join(paths.output, "alerts", "composite", "current.json")),
     readJson<JsonRecord>(paths.curationReport),
     readJson<JsonRecord>(paths.pipelineRun),
     readJson<JsonRecord>(paths.latestReportMetadata),
@@ -375,7 +387,7 @@ export async function buildAnalyticsOverview(options: OverviewBuildOptions = {})
     pipeline: pipeline ? { status: pipeline.status } : null,
     reportPeriod: reportMetadata?.period ?? null,
     search,
-    searchLogSnapshot: search.totalBytes,
+    searchLogSnapshot: search.evidenceHash,
   };
   const inputFingerprint = await computeSha256(stableInput(evidence));
   const summary = deterministicSummary({ status, alertLevel, sourceSummary, curatedCount: curatedItems.length, recentCount: recent.length });

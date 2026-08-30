@@ -25,6 +25,16 @@ const logger = createLogger("caltrans_roads_alert");
 export const CALTRANS_API_URL = "https://quickmap.dot.ca.gov/api/v1/incidents?format=json&status=active";
 /** Alternative: Caltrans QuickMap API with District 1 filter. */
 export const CALTRANS_API_D1_URL = "https://quickmap.dot.ca.gov/api/v1/incidents?district=1&format=json&status=active";
+/**
+ * Official Caltrans Highway Conditions network (roads.dot.ca.gov) — the text
+ * system behind 1-800-427-7623. Verified live 2026-08-30: the QuickMap v1
+ * incident API now serves an SPA shell (HTTP 200 + HTML, no JSON), so this
+ * per-route text source is the PRIMARY fetch and the old JSON endpoints are
+ * retained only as fallback attempts.
+ */
+export const CALTRANS_ROADS_TEXT_URL = "https://roads.dot.ca.gov/?roadnumber=";
+const TEXT_ROUTES = ["101", "199", "169", "197", "299"]; // Del Norte routes on the highway-conditions text system
+
 /** QuickMap public web URL */
 export const CALTRANS_WEB_URL = "https://quickmap.dot.ca.gov";
 
@@ -149,7 +159,7 @@ function matchRoute(routeName: string): string | null {
 }
 
 /** Fetch road incidents from Caltrans QuickMap. */
-export async function fetchRoadIncidents(): Promise<RoadIncident[]> {
+export async function fetchRoadIncidentsLegacy(): Promise<RoadIncident[]> {
   // Try District 1 endpoint first, fall back to statewide
   let errors: string[] = [];
   const urls = [CALTRANS_API_D1_URL, CALTRANS_API_URL];
@@ -215,6 +225,98 @@ export async function fetchRoadIncidents(): Promise<RoadIncident[]> {
   }
 
   throw new Error("All QuickMap endpoints failed: " + errors.join("; "));
+}
+
+/**
+ * Text-condition fetcher for one route: the official Caltrans Highway
+ * Conditions network (the text system behind 1-800-427-7623). Verified live
+ * 2026-08-30. Returns the report text starting at "reported as of".
+ */
+export async function fetchRouteConditionsText(route: string): Promise<string> {
+  const response = await fetch(CALTRANS_ROADS_TEXT_URL + encodeURIComponent(route), {
+    headers: { Accept: "text/html" },
+    signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new Error("Caltrans highway-conditions returned " + response.status + " for route " + route);
+  }
+  const raw = await response.text();
+  const noScripts = raw.replace(/<script[\s\S]*?<\/script>/gi, " ");
+  const text = noScripts
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
+  const asOf = text.indexOf("reported as of");
+  if (asOf === -1) {
+    throw new Error("Caltrans highway-conditions response for route " + route + " had no condition report");
+  }
+  return text.slice(asOf);
+}
+
+/**
+ * Parse one route's condition text into incidents. Condition sentences carry
+ * their reporting county in parentheses - "(Del Norte Co)" - and severities
+ * reuse the shared classifyRoadSeverity word list.
+ */
+export function parseRouteConditionText(route: string, text: string): RoadIncident[] {
+  const incidents: RoadIncident[] = [];
+  const chunks = text.split(/\[[^\]]*AREA\]/i).slice(1);
+  const bodies = chunks.length > 0 ? chunks : [text];
+  for (const body of bodies) {
+    const sentences = body
+      .replace(/\s+/g, " ")
+      .split(/(?<=\))\s*-\s|(?<=\.)\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 20);
+    for (const sentence of sentences) {
+      if (!/del norte/i.test(sentence)) continue;
+      const countyMatch = sentence.match(/\(([^)]*Co\.?)\)/i);
+      const lower = sentence.toLowerCase();
+      const endMatch = text.match(/thru\s+\d{1,4}\s*hrs\s+on\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+      incidents.push({
+        id: "caltrans-text-" + route + "-" + sentence.slice(0, 48).replace(/\W+/g, "-").toLowerCase(),
+        route: "Route " + route,
+        location: countyMatch ? countyMatch[1].trim() : "Del Norte County",
+        county: countyMatch ? countyMatch[1].trim() : "Del Norte",
+        type: /closed/i.test(lower) ? "Closure" : /1-way|controlled traffic|construction/i.test(lower) ? "Construction" : "Advisory",
+        severity: classifyRoadSeverity("Text", sentence),
+        description: sentence,
+        startedAt: null,
+        estimatedEnd: endMatch ? endMatch[1] : null,
+        direction: null,
+        distanceKm: null,
+        isDelNorteRoute: true,
+      });
+    }
+  }
+  return incidents;
+}
+
+/**
+ * PRIMARY source: the per-route text system. The legacy QuickMap v1 JSON
+ * endpoints run only when every text fetch failed - they now serve an SPA
+ * shell (verified 2026-08-30) but are retained so a service restoration
+ * needs no code change.
+ */
+export async function fetchRoadIncidents(): Promise<RoadIncident[]> {
+  const results = await Promise.allSettled(
+    TEXT_ROUTES.map(async route => parseRouteConditionText(route, await fetchRouteConditionsText(route))),
+  );
+  const incidents: RoadIncident[] = [];
+  let failures = 0;
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      for (const inc of result.value) incidents.push(inc);
+    } else {
+      failures++;
+      logger.warn("Caltrans text fetch failed for one route", { error: String(result.reason) });
+    }
+  }
+  if (failures < TEXT_ROUTES.length) return incidents;
+  logger.warn("All Caltrans text routes failed; trying legacy QuickMap JSON");
+  return await fetchRoadIncidentsLegacy();
 }
 
 /** Main monitor entry point */

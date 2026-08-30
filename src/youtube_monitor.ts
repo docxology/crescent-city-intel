@@ -57,7 +57,9 @@ const YT_DLP_TIMEOUT_MS = Number(process.env.YT_DLP_TIMEOUT_MS ?? '15000');
  * that's why every caller distinguishes extraction_failed from unavailable
  * rather than collapsing both into "no new content."
  */
-const YT_DLP_EXTRACTOR_ARGS = 'youtube:player_client=android,web_safari';
+const YT_DLP_EXTRACTOR_ARGS = 'youtube:player_client=tv,web_safari,android';
+/** One retry per video: extraction is occasionally transient on CI runners. */
+const YT_DLP_ATTEMPTS = 2;
 
 export interface YouTubeVideoListing {
   id: string;
@@ -340,16 +342,26 @@ export async function extractTranscript(
   const outTemplate = join(outDir, `${video.id}.%(ext)s`);
   const vttPath = join(outDir, `${video.id}.en.vtt`);
 
-  const { exitCode, stderr } = await runYtDlp([
-    '--skip-download',
-    '--write-auto-sub',
-    '--sub-lang', 'en',
-    '--sub-format', 'vtt',
-    '--no-update',
-    '--extractor-args', YT_DLP_EXTRACTOR_ARGS,
-    '-o', outTemplate,
-    `https://www.youtube.com/watch?v=${video.id}`,
-  ]);
+  // Retry: extraction failures are occasionally transient (JS-challenge
+  // rotation, runner egress); the second attempt distinguishes flaky from real.
+  let exitCode = 1;
+  let stderr = '';
+  for (let attempt = 1; attempt <= YT_DLP_ATTEMPTS; attempt++) {
+    const run = await runYtDlp([
+      '--skip-download',
+      '--write-auto-sub',
+      '--sub-lang', 'en',
+      '--sub-format', 'vtt',
+      '--no-update',
+      '--extractor-args', YT_DLP_EXTRACTOR_ARGS,
+      '-o', outTemplate,
+      `https://www.youtube.com/watch?v=${video.id}`,
+    ]);
+    exitCode = run.exitCode;
+    stderr = run.stderr;
+    if (exitCode === 0) break;
+    logger.warn(`yt-dlp attempt ${attempt} failed for ${video.id}`, { exitCode });
+  }
 
   if (exitCode !== 0) {
     logger.error(`yt-dlp extraction failed for video ${video.id}`, { exitCode, stderr: stderr.slice(0, 500) });

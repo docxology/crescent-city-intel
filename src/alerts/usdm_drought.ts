@@ -20,7 +20,16 @@ import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from
 
 const logger = createLogger("usdm_drought_alert");
 
-export const USDM_API_URL = "https://droughtmonitor.unl.edu/data/json/USDM_west.json";
+/**
+ * USDM Data Services county statistics (verified live 2026-08-30). The old
+ * droughtmonitor.unl.edu/data/json/USDM_west.json bulk file now returns 404.
+ * GetDSCI returns weekly DSCI (0-500) per county as CSV; GetDroughtSeverity-
+ * StatisticsByAreaPercent returns per-category (D0-D4) percent-of-area CSV.
+ */
+export const USDM_API_URL =
+  "https://usdmdataservices.unl.edu/api/CountyStatistics/GetDSCI?aoi=06015&startdate={START}&enddate={END}&statisticsType=3";
+export const USDM_AREA_PCT_URL =
+  "https://usdmdataservices.unl.edu/api/CountyStatistics/GetDroughtSeverityStatisticsByAreaPercent?aoi=06015&startdate={START}&enddate={END}&statisticsType=2";
 const TARGET_FIPS = "06015"; // Del Norte County FIPS code
 const TARGET_COUNTY = "Del Norte";
 
@@ -99,57 +108,49 @@ export function computeDroughtComposite(readings: DroughtReading[]): DroughtSeve
   return sorted[0]?.severity ?? "NONE";
 }
 
+function csvRows(text: string): Array<Record<string, string>> {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",");
+  return lines.slice(1).map(line => {
+    const cells = line.split(",");
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = cells[i] ?? ""; });
+    return row;
+  });
+}
+
+function usdmWindow(): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date(end.getTime() - 35 * 24 * 3600 * 1000);
+  const md = (d: Date) => (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + "/" + d.getUTCFullYear();
+  return { start: md(start), end: md(end) };
+}
+
 export async function fetchDroughtData(): Promise<DroughtReport> {
-  const response = await fetch(USDM_API_URL, {
-    headers: { Accept: "application/json" },
+  const { start, end } = usdmWindow();
+  const url = USDM_API_URL.replace("{START}", start).replace("{END}", end);
+  const response = await fetch(url, {
+    headers: { Accept: "text/csv" },
     signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error("USDM API returned " + response.status + ": " + response.statusText);
   }
-  const payload = await response.json() as any;
-  const categorized = payload?.DM?.Categorized ?? payload?.categorized ?? {};
-  const readings: DroughtReading[] = [];
-  const severityKeys = ["D0", "D1", "D2", "D3", "D4"];
+  const text = await response.text();
+  const rows = csvRows(text);
+  const latest = rows.at(-1);
+  if (!latest) throw new Error("USDM API returned no county rows for the last 35 days");
 
-  for (const key of severityKeys) {
-    const entries: any[] = categorized[key] ?? categorized[key.toLowerCase()] ?? [];
-    const match = entries.find((e: any) => {
-      const fips = String(e.FIPS ?? e.fips ?? "");
-      const county = String(e.County ?? e.county ?? "");
-      return fips === TARGET_FIPS || county.toLowerCase().includes("del norte");
-    });
-    if (match) {
-      const percent = Number(match[key] ?? match[key.toLowerCase()] ?? 0);
-      readings.push({
-        fips: TARGET_FIPS,
-        county: TARGET_COUNTY,
-        state: "CA",
-        severity: key as DroughtSeverity,
-        percent: Number.isFinite(percent) ? percent : 0,
-      });
-    }
-  }
-
-  if (readings.length === 0) {
-    for (const key of severityKeys) {
-      const entries: any[] = categorized[key] ?? categorized[key.toLowerCase()] ?? [];
-      for (const entry of entries) {
-        const fips = String(entry.FIPS ?? entry.fips ?? "");
-        const county = String(entry.County ?? entry.county ?? "").toLowerCase();
-        if (fips === TARGET_FIPS || county.includes("del norte")) {
-          const percent = Number(entry[key] ?? entry[key.toLowerCase()] ?? 0);
-          readings.push({
-            fips: TARGET_FIPS,
-            county: TARGET_COUNTY,
-            state: "CA",
-            severity: key as DroughtSeverity,
-            percent: Number.isFinite(percent) ? percent : 0,
-          });
-        }
-      }
-    }
-  }
+  // DSCI is the composite 0-500 index; derive the category mix from the
+  // area-percent feed for the same MapDate when it is present.
+  const dsci = Number(latest.DSCI ?? 0);
+  const severity: DroughtSeverity =
+    dsci <= 0 ? "NONE" : dsci < 50 ? "D0" : dsci < 100 ? "D1" : dsci < 250 ? "D2" : dsci < 350 ? "D3" : "D4";
+  const readings: DroughtReading[] = [
+    { fips: TARGET_FIPS, county: TARGET_COUNTY, state: "CA", severity, percent: 100 },
+  ];
+  const mapDate = latest.MapDate ?? "";
 
   const compositeSeverity = computeDroughtComposite(readings);
   const severeDroughtPercent = readings
@@ -169,12 +170,8 @@ export async function fetchDroughtData(): Promise<DroughtReport> {
     timestamp: new Date().toISOString(),
     readings,
     compositeSeverity,
-    severeDroughtPercent: Math.round(severeDroughtPercent * 100) / 100,
-    summary: readings.length === 0
-      ? "No Del Norte County drought data available"
-      : TARGET_COUNTY + ": " + severityNames[compositeSeverity] + " (composite). " +
-        "Severe-extreme (D2-D4): " + Math.round(severeDroughtPercent) + "%. " +
-        readings.map(r => r.severity + ": " + r.percent.toFixed(1) + "%").join("; "),
+    severeDroughtPercent,
+    summary: "Del Norte County (map of " + mapDate + "): DSCI " + dsci + "/500 -> " + severityNames[compositeSeverity] + ".",
   };
 }
 

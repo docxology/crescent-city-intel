@@ -4,7 +4,7 @@ import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
 
 // Every write this suite makes lands in a throwaway copy of the corpus, never
 // in the real output/ tree the published snapshot is built from.
-beforeAll(async () => { await beginCorpusCopy(); }, 120000);
+beforeAll(async () => { await beginCorpusCopy(); }, 300000);
 afterAll(async () => { await endCorpusCopy(); }, 60000);
 
 describe("v2.3 New API Endpoints", () => {

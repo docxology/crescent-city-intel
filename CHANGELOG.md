@@ -10,6 +10,44 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Monitor source repairs — five stale/unavailable feeds re-verified (2026-08-30)
+
+#### Fixed
+
+- **Caltrans Roads** (`unavailable` -> live): the QuickMap v1 incident API now
+  serves an SPA shell (200 + HTML, no JSON). The monitor's primary fetch is now
+  the official Caltrans Highway Conditions text system (roads.dot.ca.gov, the
+  source behind 1-800-427-7623) per route (101/199/169/197/299), parsing
+  condition sentences with their "(Del Norte Co)" county markers and "thru"
+  end dates into the same incident shape; the legacy JSON path is retained as
+  a service-restoration fallback. Verified live: Route 101/199 one-way
+  traffic advisories parse with real end dates.
+- **USDM Drought** (`unavailable` -> live): the old
+  droughtmonitor.unl.edu/data/json bulk file 404s. Now reads the USDM Data
+  Services county feed (GetDSCI CSV, Del Norte FIPS 06015) with a 35-day
+  window; DSCI 0-500 maps to D0-D4 bands. Live check: DSCI 300 -> D3 Extreme.
+- **HRRR Smoke** (`unavailable` -> live): the AirFire smoke2/surface JSON
+  endpoints 404. Replaced with NOAA HMS daily smoke-plume shapefiles:
+  minimal in-process ZIP/shapefile reader extracts polygon bounding boxes and
+  the DBF Density attribute, counts plumes overlapping the Del Norte box,
+  and maps HMS density bands onto the existing PM2.5 report shape. Legacy
+  AirFire endpoints retained as fallback. Live check: 1 Light plume
+  overlapping, map of 2026-08-30.
+- **PG&E PSPS** (`unavailable` -> live): the linode events JSON now 404s and
+  the official pgealerts event page embeds only i18n template copy in static
+  HTML, so the monitor renders the page with the repo's existing Playwright
+  browser and classifies the settled text ("no active PSPS events" vs
+  announced events). Unrecognized state is an error, never a guess.
+- **YouTube STALE -> healthy pipeline**: extractor args updated to
+  `player_client=tv,web_safari,android` and each transcript now retries once
+  (extraction failures are transient on CI egress); pages.yml installs a
+  current yt-dlp before collection - the stale runner version caused the ten
+  extraction failures behind the STALE flag.
+
+Honesty invariants kept: an unrecognized page state is an error rather than
+a guessed level, empty feeds never manufacture urgency, and every report
+names its actual source.
+
 ### Local directory page — verified establishments with pull-down menus (2026-08-30)
 
 #### Added

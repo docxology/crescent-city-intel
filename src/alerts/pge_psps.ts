@@ -18,6 +18,8 @@ import { createLogger } from "../logger.js";
 import { existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir } from "fs/promises";
 import { join } from "path";
+import { launchBrowser, closeBrowser } from "../browser.js";
+import type { Page } from "playwright";
 import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from "../shared/source_health.js";
 
 const logger = createLogger("pge_psps_alert");
@@ -116,7 +118,48 @@ function normalizeCounty(name: string): string {
 }
 
 /** Fetch PSPS events from PG&E. */
-export async function fetchPspsEvents(): Promise<PspsEvent[]> {
+/**
+ * PG&E PSPS event-state reader (browser-rendered; verified live 2026-08-30).
+ * The old pge-psps-updates.linodeobjects.com JSON now 404s, and the official
+ * pgealerts.alerts.pge.com event page embeds only i18n template copy in its
+ * static HTML - the real state ("no active PSPS events" vs announced events)
+ * is rendered client-side. We render the page with the repo's existing
+ * Playwright browser and read the settled text; an unrecognized state is an
+ * error, never a guess.
+ */
+export const PGE_PSPS_PAGE_URL = "https://pgealerts.alerts.pge.com/pg-e-partners/psps-events/";
+
+export interface PspsPageState {
+  active: boolean;
+  statusText: string;
+}
+
+export async function fetchPspsPageState(): Promise<PspsPageState> {
+  const ctx = await launchBrowser();
+  let page: Page | null = null;
+  try {
+    page = await ctx.newPage();
+    await page.goto(PGE_PSPS_PAGE_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForTimeout(6000);
+    const text = await page.evaluate(() => document.body.innerText);
+    const hasNoActive = /no active PSPS events/i.test(text);
+    const hasAnnounced = !hasNoActive && /has been announced/i.test(text);
+    if (!hasNoActive && !hasAnnounced) {
+      throw new Error("PG&E PSPS page state unrecognized - refusing to guess");
+    }
+    return {
+      active: hasAnnounced,
+      statusText: hasAnnounced
+        ? "PSPS activity indicated on the official PG&E event page"
+        : "No active PSPS events (official PG&E event page)",
+    };
+  } finally {
+    await closeBrowser();
+  }
+}
+
+
+export async function fetchPspsEventsLegacy(): Promise<PspsEvent[]> {
   const response = await fetch(PGE_PSPS_API_URL, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
@@ -170,10 +213,34 @@ export async function runPSPSMonitor(): Promise<PspsReport | null> {
   logger.info("Checking PG&E PSPS events for Del Norte County");
   lastPspsError = undefined;
 
+  // PRIMARY: official event-page state (verified live 2026-08-30).
   try {
-    const events = await fetchPspsEvents();
+    const state = await fetchPspsPageState();
+    const overallStatus: PspsStatus = state.active ? "ACTIVE" : "NONE";
+    const report: PspsReport = {
+      timestamp: new Date().toISOString(),
+      events: [],
+      totalEvents: 0,
+      overallStatus,
+      delNorteAffected: false,
+      summary: state.active
+        ? "PG&E official event page indicates PSPS activity; open the event page for county details."
+        : "No active PSPS events (official PG&E event page).",
+    };
+    await mkdir(HISTORY_DIR, { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE, report);
+    if (state.active) logger.warn("PSPS ACTIVE: " + report.summary);
+    else logger.info("PSPS check: " + report.summary);
+    return report;
+  } catch (err) {
+    lastPspsError = err instanceof Error ? err.message : String(err);
+    logger.warn("PSPS page-state check failed; trying legacy JSON events", { error: lastPspsError });
+  }
 
-    // Determine overall status
+  // FALLBACK: legacy linode JSON (404 since ~2026-08; retained for restoration).
+  try {
+    const events = await fetchPspsEventsLegacy();
+
     let overallStatus: PspsStatus = "NONE";
     let delNorteAffected = false;
     for (const ev of events) {
@@ -192,32 +259,20 @@ export async function runPSPSMonitor(): Promise<PspsReport | null> {
       summary: events.length === 0
         ? "No active PSPS events in Del Norte region"
         : overallStatus + " PSPS: " + events.length + " event(s)" +
-          (delNorteAffected ? " — Del Norte County affected" : " — Del Norte not directly affected") +
+          (delNorteAffected ? " - Del Norte County affected" : " - Del Norte not directly affected") +
           ". " + events.map(e => e.name + " (" + e.status + ")").join("; "),
     };
 
     await mkdir(HISTORY_DIR, { recursive: true });
     await writeJsonAtomic(CURRENT_FILE, report);
 
-    if (events.length > 0) {
-      const processedIds = loadProcessedIds();
-      for (const ev of events) {
-        if (!processedIds.has(ev.id)) {
-          appendHistory(ev);
-        }
-      }
-    }
-
     if (delNorteAffected && overallStatus === "ACTIVE") {
       logger.warn("PSPS ACTIVE: " + report.summary);
     } else if (overallStatus === "PLANNED") {
-      logger.warn("PSPS planned: " + report.summary);
-    } else if (overallStatus !== "NONE") {
-      logger.info("PSPS monitored: " + report.summary);
+      logger.warn("PSPS PLANNED: " + report.summary);
     } else {
       logger.info("PSPS check: " + report.summary);
     }
-
     return report;
   } catch (err: any) {
     lastPspsError = err instanceof Error ? err.message : String(err);

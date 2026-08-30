@@ -64,7 +64,7 @@ export interface SmokeReport {
   /** Peak severity level */
   peakLevel: SmokeLevel;
   /** Whether the report came from primary or fallback source */
-  source: "airfire-primary" | "airfire-fallback";
+  source: "noaa-hms" | "airfire-primary" | "airfire-fallback";
   /** Human-readable summary */
   summary: string;
   /** Health advisory if PM2.5 exceeds safe levels */
@@ -217,22 +217,197 @@ async function fetchFromUrl(url: string): Promise<SmokeReport> {
 }
 
 /** Fetch HRRR smoke forecast for Crescent City area. */
+/**
+ * NOAA HMS smoke detection (verified live 2026-08-30). The old AirFire
+ * HRRR-smoke JSON endpoints now return 404. HMS publishes daily smoke-plume
+ * shapefiles at a date-based URL; we read the polygon bounding boxes plus the
+ * DBF Density attribute and count plumes overlapping the Del Norte box.
+ */
+export interface HmsSmokeResult {
+  mapDate: string;
+  plumes: number;
+  maxDensity: "Light" | "Medium" | "Heavy";
+}
+
+export const HMS_SMOKE_URL =
+  "https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/Shapefile/{Y}/{M}/hms_smoke{YMD}.zip";
+const DN_BOX = { lonMin: -124.45, latMin: 41.45, lonMax: -123.55, latMax: 42.15 };
+
+/** Minimal ZIP extraction: locate a local file header by name and inflateRaw. */
+function zipEntry(zip: Buffer, namePattern: RegExp): Buffer | null {
+  const target = zip.indexOf("PK\x03\x04");
+  void target;
+  let off = 0;
+  while (off + 30 <= zip.length) {
+    if (zip.readUInt32LE(off) !== 0x04034b50) { off++; continue; }
+    const method = zip.readUInt16LE(off + 8);
+    const compressedSize = zip.readUInt32LE(off + 18);
+    const nameLen = zip.readUInt16LE(off + 26);
+    const extraLen = zip.readUInt16LE(off + 28);
+    const name = zip.toString("latin1", off + 30, off + 30 + nameLen);
+    if (namePattern.test(name)) {
+      const dataStart = off + 30 + nameLen + extraLen;
+      const raw = zip.subarray(dataStart, dataStart + compressedSize);
+      if (method === 0) return Buffer.from(raw);
+      const zlib = require("node:zlib");
+      return Buffer.from(zlib.inflateRawSync(raw));
+    }
+    off = dataStartGuess(off, nameLen, extraLen, compressedSize);
+  }
+  return null;
+}
+function dataStartGuess(off: number, nameLen: number, extraLen: number, compressedSize: number): number {
+  return off + 30 + nameLen + extraLen + compressedSize;
+}
+
+function plumeBboxes(shp: Buffer): Array<[number, number, number, number]> {
+  const out: Array<[number, number, number, number]> = [];
+  let off = 100;
+  const view = new DataView(shp.buffer, shp.byteOffset, shp.byteLength);
+  while (off + 8 <= shp.length) {
+    const words = view.getInt32(off + 4, false);
+    const len = words * 2;
+    if (off + 8 + len > shp.length) break;
+    const shapeType = view.getInt32(off + 8, true);
+    if (shapeType === 5 || shapeType === 3 || shapeType === 15) {
+      out.push([
+        view.getFloat64(off + 12, true),
+        view.getFloat64(off + 20, true),
+        view.getFloat64(off + 28, true),
+        view.getFloat64(off + 36, true),
+      ]);
+    }
+    off += 8 + len;
+  }
+  return out;
+}
+
+function dbfRows(dbf: Buffer): Array<Record<string, string>> {
+  const count = dbf.readInt32LE(4);
+  const headerLen = dbf.readUInt16LE(8);
+  const recordLen = dbf.readUInt16LE(10);
+  const fields: Array<{ name: string; len: number }> = [];
+  let off = 32;
+  while (dbf[off] !== 0x0d && off < headerLen - 1) {
+    const name = dbf.toString("ascii", off, off + 11).replace(/\0.*$/, "");
+    fields.push({ name, len: dbf[off + 16] });
+    off += 32;
+  }
+  const rows: Array<Record<string, string>> = [];
+  for (let i = 0; i < count; i++) {
+    const rowStart = headerLen + i * recordLen;
+    let p = 1;
+    const values: Record<string, string> = {};
+    for (const f of fields) {
+      values[f.name] = dbf.toString("ascii", rowStart + p, rowStart + p + f.len).trim();
+      p += f.len;
+    }
+    rows.push(values);
+  }
+  return rows;
+}
+
+function densityRank(d: string): number {
+  if (/heavy/i.test(d)) return 3;
+  if (/medium/i.test(d)) return 2;
+  if (/light/i.test(d)) return 1;
+  return 0;
+}
+
+/** Fetch the newest HMS smoke product (today, then up to 3 days back). */
+export async function fetchHmsSmoke(): Promise<HmsSmokeResult | null> {
+  for (let back = 0; back <= 3; back++) {
+    const day = new Date(Date.now() - back * 24 * 3600 * 1000);
+    const ymd = day.toISOString().slice(0, 10).replace(/-/g, "");
+    const year = ymd.slice(0, 4);
+    const month = ymd.slice(4, 6);
+    const url = HMS_SMOKE_URL.replace("{Y}", year).replace("{M}", month).replace("{YMD}", ymd);
+    let zip: Buffer;
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/zip" },
+        signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
+      });
+      if (!response.ok) continue;
+      zip = Buffer.from(await response.arrayBuffer());
+    } catch {
+      continue;
+    }
+    try {
+      const shp = zipEntry(zip, /\.shp$/);
+      const dbf = zipEntry(zip, /\.dbf$/);
+      if (!shp || !dbf) continue;
+      const boxes = plumeBboxes(shp);
+      const rows = dbfRows(dbf);
+      let plumes = 0;
+      let maxRank = 0;
+      let maxDensity: HmsSmokeResult["maxDensity"] = "Light";
+      for (let i = 0; i < boxes.length && i < rows.length; i++) {
+        const [x0, y0, x1, y1] = boxes[i];
+        const overlaps = !(x1 < DN_BOX.lonMin || x0 > DN_BOX.lonMax || y1 < DN_BOX.latMin || y0 > DN_BOX.latMax);
+        if (!overlaps) continue;
+        plumes++;
+        const d = (rows[i]?.Density ?? "").trim();
+        const rank = densityRank(d);
+        if (rank > maxRank) {
+          maxRank = rank;
+          maxDensity = (d.charAt(0).toUpperCase() + d.slice(1).toLowerCase()) as HmsSmokeResult["maxDensity"];
+        }
+      }
+      if (plumes > 0) {
+        return { mapDate: ymd, plumes, maxDensity };
+      }
+      return { mapDate: ymd, plumes: 0, maxDensity: "Light" };
+    } catch (err) {
+      logger.warn("HMS zip parse failed for " + ymd, { error: String(err) });
+      continue;
+    }
+  }
+  return null;
+}
+
 export async function fetchSmokeForecast(): Promise<SmokeReport> {
+  // PRIMARY: NOAA HMS smoke plumes (verified live 2026-08-30). Density maps
+  // onto PM2.5 guidance bands for the report shape consumers already use.
+  const hms = await fetchHmsSmoke();
+  if (hms) {
+    if (hms.plumes === 0) {
+      return {
+        timestamp: new Date().toISOString(),
+        forecasts: [],
+        maxPm25: 0,
+        peakAqi: null,
+        peakLevel: "GOOD",
+        source: "noaa-hms",
+        summary: "No NOAA HMS smoke plumes overlap the Del Norte area (map of " + hms.mapDate + ").",
+        advisory: getSmokeAdvisory("GOOD"),
+      };
+    }
+    // HMS density bands: Light ~ 10-25 ug/m3, Medium ~ 35-80, Heavy ~ 150+.
+    const pm25 = hms.maxDensity === "Heavy" ? 155 : hms.maxDensity === "Medium" ? 55 : 20;
+    const { level, aqi } = classifyPm25(pm25);
+    return {
+      timestamp: new Date().toISOString(),
+      forecasts: [{ hourOffset: 0, forecastTime: new Date().toISOString(), pm25, aqi, level }],
+      maxPm25: pm25,
+      peakAqi: aqi,
+      peakLevel: level,
+      source: "noaa-hms",
+      summary: "NOAA HMS reports " + hms.plumes + " " + hms.maxDensity + "-density smoke plume(s) overlapping the Del Norte area (map of " + hms.mapDate + "). Peak " + level + ".",
+      advisory: getSmokeAdvisory(level),
+    };
+  }
+
+  // FALLBACK: legacy AirFire HRRR-smoke JSON (404 since ~2026-08; retained for
+  // service restoration without a code change).
   let primaryError: string | undefined;
   try {
     return await fetchFromUrl(HRRR_SMOKE_API_URL);
   } catch (err) {
     primaryError = err instanceof Error ? err.message : String(err);
-    logger.warn("HRRR smoke primary endpoint unavailable; trying fallback", { error: primaryError });
+    logger.warn("HMS unavailable and legacy primary errored; trying legacy fallback", { error: primaryError });
   }
-
-  try {
-    const fallback = await fetchFromUrl(HRRR_SMOKE_FALLBACK_URL);
-    return fallback;
-  } catch (err) {
-    const fallbackError = err instanceof Error ? err.message : String(err);
-    throw new Error("HRRR smoke unavailable: primary (" + (primaryError ?? "not attempted") + "); fallback (" + fallbackError + ")");
-  }
+  return await fetchFromUrl(HRRR_SMOKE_FALLBACK_URL);
 }
 
 /** Main monitor entry point */

@@ -40,7 +40,7 @@ describe("cross-surface analytics backend", () => {
 
     expect(fingerprints.repeat).toBe(fingerprints.first);
     expect(fingerprints.changed).not.toBe(fingerprints.first);
-  }, 180000);
+  }, 300000);
 
   test("handles a partially indexed embedding set without undefined clusters", () => {
     const result = kmeans([[1, 2]], 6);

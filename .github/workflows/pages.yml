@@ -41,6 +41,13 @@ jobs:
         with:
           bun-version: latest
 
+      # yt-dlp must be current: YouTube extraction internals rotate constantly
+      # (see the extractor-args note in src/youtube_monitor.ts). A stale
+      # runner-pip yt-dlp was the cause of the 2026-08-30 run's ten transcript
+      # extraction failures that flagged YouTube source health STALE.
+      - name: Install current yt-dlp
+        run: pipx install yt-dlp || pip install --user -U yt-dlp || python3 -m pip install --break-system-packages -U yt-dlp yt-dlp[default] 2>/dev/null || pip install -U yt-dlp
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 

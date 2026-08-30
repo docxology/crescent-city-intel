@@ -59,7 +59,7 @@ async function clearGeneratedOutput(): Promise<void> {
   await mkdir(paths.manuscriptOutput, { recursive: true });
   for (const file of await readdir(paths.manuscriptOutput)) {
     if (file.endsWith(".md") || file.endsWith(".bib") || file === "config.yaml" || file === "preamble.md") {
-      await unlink(join(paths.manuscriptOutput, file));
+      await unlink(join(paths.manuscriptOutput, file)).catch(() => {}); // concurrent hydrate may have already removed it
     }
   }
 }

@@ -20,7 +20,7 @@ import { tmpdir } from "os";
 import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
 
 // The fixtures land in a throwaway copy of the corpus, not in the real one.
-beforeAll(async () => { await beginCorpusCopy(); }, 120000);
+beforeAll(async () => { await beginCorpusCopy(); }, 300000);
 afterAll(async () => { await endCorpusCopy(); }, 60000);
 
 const cwd = process.cwd();

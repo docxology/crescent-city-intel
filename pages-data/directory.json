@@ -1,6 +1,6 @@
 {
   "schema": "crescent-city-directory/v1",
-  "note": "Hand-curated, source-verified seed for the Quadruplicate local directory. Every entry carries the URL its facts were verified against at collection time (2026-08-30); unverified fields are null. Re-verify before editing.",
+  "note": "Hand-curated, source-verified seed for the Quadruplicate local directory. Every entry carries the URL its facts were verified against at collection time (2026-08-30; restaurant addresses/phones enriched from visitdelnortecounty.com detail pages same day); unverified fields are null. Re-verify before editing.",
   "entries": [
     {
       "name": "City of Crescent City (City Hall & City Council)",
@@ -286,7 +286,7 @@
       "category": "Restaurants",
       "address": "575 US Hwy 101 S, Crescent City, CA 95531",
       "phone": "(707) 465-6028",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/good-harvest-cafe/",
       "description": "Long-standing cafe on the south 101 corridor serving seafood and American breakfast/lunch.",
       "source": "https://www.yelp.com/biz/good-harvest-cafe-crescent-city"
     },
@@ -331,7 +331,7 @@
       "category": "Restaurants",
       "address": "1270 Front St Ste C, Crescent City, CA 95531",
       "phone": "(707) 460-6611",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/kin-khao-thai-eatery/",
       "description": "Thai eatery near the waterfront.",
       "source": "https://visitdelnortecounty.com/eat/"
     },
@@ -340,7 +340,7 @@
       "category": "Restaurants",
       "address": "1215 Northcrest Drive, Crescent City, CA 95531",
       "phone": "(707) 460-1154",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/port-o-pints/",
       "description": "Award-winning craft brewery and food venue; live music hub. Second taproom at 201 Citizens Dock Rd.",
       "source": "https://visitdelnortecounty.com/eat/"
     },
@@ -349,7 +349,7 @@
       "category": "Restaurants",
       "address": "960 3rd St, Crescent City, CA 95531",
       "phone": "(707) 464-2909",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/enoteca/",
       "description": "Wine bar/restaurant in the downtown 3rd Street district.",
       "source": "https://visitdelnortecounty.com/eat/"
     },
@@ -358,7 +358,7 @@
       "category": "Restaurants",
       "address": "1461 Northcrest Drive, Crescent City, CA 95531",
       "phone": "(707) 464-2388",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/cazadores-mexican-restaurant/",
       "description": "Mexican restaurant on Northcrest Drive.",
       "source": "https://visitdelnortecounty.com/eat/"
     },
@@ -376,7 +376,7 @@
       "category": "Restaurants",
       "address": "297 US Highway 101 S, Crescent City, CA 95531",
       "phone": "(707) 465-6770",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/perlitas-mexican-restaurant/",
       "description": "Mexican restaurant on the south 101 corridor.",
       "source": "https://visitdelnortecounty.com/eat/"
     },
@@ -385,7 +385,7 @@
       "category": "Restaurants",
       "address": "1348 Front St, Crescent City, CA 95531",
       "phone": "(707) 464-8381",
-      "website": null,
+      "website": "https://visitdelnortecounty.com/restaurants/sea-front-baking-company/",
       "description": "Waterfront bakery on Front Street.",
       "source": "https://visitdelnortecounty.com/eat/"
     },

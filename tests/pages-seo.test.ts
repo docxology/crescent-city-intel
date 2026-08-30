@@ -143,9 +143,9 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
 });
 
 describe("standalone static pages", () => {
-  const STATIC_PAGE_FILES = ["gui.html", "news.html", "meetings.html", "events.html", "code.html", "sources.html"];
+  const STATIC_PAGE_FILES = ["gui.html", "news.html", "meetings.html", "events.html", "directory.html", "code.html", "sources.html"];
 
-  test("PAGES_STATIC_PAGES covers the six dedicated static pages and the sitemap lists them all", () => {
+  test("PAGES_STATIC_PAGES covers the seven dedicated static pages and the sitemap lists them all", () => {
     expect(PAGES_STATIC_PAGES.map(page => page.file)).toEqual(STATIC_PAGE_FILES);
     const sitemapXml = buildPagesSitemapXml();
     const locs = [...sitemapXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);

@@ -108,7 +108,7 @@ describe("lane1: payload split (Phase 1)", () => {
   }, 60000);
 
   test("no static page uses cache:\"no-store\" and code.html loads artifacts lazily", async () => {
-    const files = ["index.html", "404.html", "gui.html", "news.html", "meetings.html", "events.html", "code.html", "sources.html"];
+    const files = ["index.html", "404.html", "gui.html", "news.html", "meetings.html", "events.html", "directory.html", "code.html", "sources.html"];
     for (const file of files) {
       const html = await readFile(join(import.meta.dir, `../src/pages/static/${file}`), "utf8");
       expect(html).not.toContain('cache:"no-store"');

@@ -1,4 +1,4 @@
-# GUI Server — `src/gui/`
+# src/gui — local web GUI server (Bun.serve, port 3000)
 
 Lightweight Bun HTTP server serving the Crescent City Municipal Code viewer.
 

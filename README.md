@@ -482,7 +482,11 @@ not make an otherwise complete snapshot `degraded`, and it is never rendered
 as an unexplained calm state.
 
 The public artifact includes the municipal-code export when present, an
-API-shaped `data/geo-intel.json` contract with its tiles-free geo view, source
+API-shaped `data/geo-intel.json` contract with its tiles-free geo view, a
+verified local-establishments directory (`data/directory.json`, rendered on
+[directory.html](https://docxology.github.io/crescent-city-intel/directory.html)
+with pull-down menus over government, schools, healthcare, restaurants,
+churches, retail, services, finance, media, lodging, and attractions), source
 health, recent news and meeting items, alert snapshots, source-grounded
 curation, and the latest civic report. It excludes API keys, chat/request/
 search/RAG logs, Chroma data, and Triplicate article content. Triplicate
@@ -498,8 +502,10 @@ bun run pages:export -- --source output --seed pages-data --output .pages
 bun run pages:validate -- .pages
 ```
 
-`pages-data/` is the reviewed public seed for the municipal-code snapshot;
-refresh it after a verified scrape with `bun run pages:seed`.
+`pages-data/` is the reviewed public seed for the municipal-code snapshot and
+the verified directory (`directory.json` — every entry carries the URL its
+facts were checked against; unverified fields are null, never guessed).
+Refresh the code seed after a verified scrape with `bun run pages:seed`.
 
 See [the Pages module guide](docs/modules/pages.md) for deployment triggers,
 artifact boundaries, and local preview instructions.

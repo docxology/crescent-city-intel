@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Verified directory of Crescent City and Del Norte County local government, schools, healthcare, restaurants, churches, retail, services, lodging, and attractions.">
+  <title>Local directory — The Quadruplicate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="assets/SITE_CSS_PLACEHOLDER" rel="stylesheet">
+  <!--PAGES_JSONLD_WEBPAGE-->
+  <!--PAGES_JSONLD_BREADCRUMB-->
+  <!--PAGES_JSONLD_DATASET-->
+  <!--PAGES_HEAD_META-->
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="red-banner">
+    <a class="masthead-h1" href="./">The Quadruplicate</a>
+    <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
+  </header>
+  <div class="masthead-date-row">
+    <div class="inner"><p class="masthead-date"><span class="red-prefix">CRESCENT CITY, CA &mdash;</span> Community directory</p></div>
+  </div>
+  <div class="masthead-nav-wrap">
+    <div class="inner">
+      <nav class="masthead-nav" aria-label="Site pages"><a href="./">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="directory.html" aria-current="page">Directory</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
+    </div>
+  </div>
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <div class="inner"><ol><li><a href="./">Front page</a></li><li aria-current="page">Directory</li></ol></div>
+  </nav>
+  <main class="page" id="main">
+
+    <section id="page-directory">
+      <div class="section-head"><h2>Local directory &mdash; verified establishments</h2><span class="meta"><a href="data/directory.json">directory JSON</a>&nbsp;&middot;&nbsp;<a href="./#methods">Methods</a></span></div>
+      <p class="meta">Every listing was verified against a live public source at collection time; the source URL for each entry is linked on the card. Fields that could not be verified are left blank rather than guessed.</p>
+      <div class="controls">
+        <select id="directory-category" aria-label="Filter directory entries by category" aria-controls="directory-items">
+          <option value="all">All categories</option>
+          <option value="Government">Government</option>
+          <option value="Schools">Schools</option>
+          <option value="Healthcare">Healthcare</option>
+          <option value="Restaurants">Restaurants</option>
+          <option value="Churches">Churches</option>
+          <option value="Retail">Retail</option>
+          <option value="Services">Services</option>
+          <option value="Finance">Finance</option>
+          <option value="Media">Media</option>
+          <option value="Lodging">Lodging</option>
+          <option value="Attractions">Attractions</option>
+        </select>
+        <select id="directory-sort" aria-label="Sort directory entries">
+          <option value="name">Name (A&ndash;Z)</option>
+          <option value="category">Category, then name</option>
+        </select>
+        <input id="directory-filter" type="search" placeholder="Filter entries&hellip;" aria-label="Filter directory entries by text">
+        <span id="directory-count" class="meta" role="status"></span>
+      </div>
+      <div id="directory-items" class="items"></div>
+    </section>
+    <script>
+    const __bootPage = () => {
+    let allEntries = [];
+    function render() {
+      if (!allEntries.length) {
+        document.getElementById("directory-count").textContent = "";
+        document.getElementById("directory-items").innerHTML = empty("The directory artifact loaded but contained no entries. This is a data problem, not an empty directory.");
+        return;
+      }
+      const needle = document.getElementById("directory-filter").value.trim().toLowerCase();
+      const category = document.getElementById("directory-category").value;
+      const fields = ["name", "category", "address", "description"];
+      let entries = needle ? allEntries.filter(entry => matchesFields(entry, fields, needle)) : allEntries.slice();
+      const select = document.getElementById("directory-category");
+      if (select.value !== "all") entries = entries.filter(entry => entry.category === select.value);
+      if (document.getElementById("directory-sort").value === "name") entries = entries.slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+      document.getElementById("directory-count").textContent = `${entries.length} of ${allEntries.length} listing(s)`;
+      const shown = entries.slice(0, 120);
+      function card(entry) {
+        const lines = [];
+        if (entry.address) lines.push(`<span class="meta">${esc(entry.address)}</span>`);
+        if (entry.phone) lines.push(`<span class="meta">Tel: ${esc(entry.phone)}</span>`);
+        if (entry.description) lines.push(`<p>${esc(entry.description)}</p>`);
+        const links = [];
+        if (entry.website) links.push(`<a href="${href(entry.website)}" rel="noopener noreferrer">website</a>`);
+        links.push(`<a href="${href(entry.source)}" rel="noopener noreferrer">verified source</a>`);
+        return `<div class="item"><h3>${esc(entry.name)}</h3><p class="meta">${esc(entry.category)}</p>${lines.join("")}<p class="meta">${links.join(" &middot; ")}</p></div>`;
+      };
+      document.getElementById("directory-items").innerHTML = (entries.length ? shown.map(entry => card(entry)).join("") : empty("No directory entries matched the filter.")) + `<div class="meta">Showing ${esc(shown.length)} of ${esc(entries.length)} listings.</div>`;
+    }
+    document.getElementById("directory-category").addEventListener("change", render);
+    document.getElementById("directory-sort").addEventListener("change", render);
+    document.getElementById("directory-filter").addEventListener("input", debounce(render, 200));
+    document.getElementById("directory-items").innerHTML = empty("Loading the local directory\u2026");
+    load("data/directory.json").then(data => {
+      if (!data || !Array.isArray(data.entries)) throw new Error("unexpected directory artifact shape");
+      allEntries = data.entries;
+      const select = document.getElementById("directory-category");
+      for (const group of (data.categories ?? [])) {
+        const option = document.createElement("option");
+        option.value = group.category;
+        option.textContent = `${group.category} (${group.count})`;
+        select.appendChild(option);
+      }
+      render();
+    }).catch(() => { document.getElementById("directory-items").innerHTML = empty("The directory artifact could not be loaded or was not in the expected shape."); });
+    };
+    if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
+    </script>
+
+    <footer class="footer">
+      <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
+      <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
+    </footer>
+  </main>
+</body>
+</html>

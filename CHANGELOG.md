@@ -10,6 +10,29 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Local directory page — verified establishments with pull-down menus (2026-08-30)
+
+#### Added
+
+- **Directory page** (`directory.html`, seventh standalone Pages page): verified
+  local-establishments directory for Crescent City & Del Norte County —
+  government (17), retail (17), restaurants (15), churches (12), schools (11),
+  healthcare (7), lodging (6), services (6), attractions (5), media (2),
+  finance (1) — 99 source-cited entries with pull-down category menus (counts
+  injected from the artifact), sort control, and text filter.
+- **Directory artifact** (`data/directory.json`,
+  `crescent-city-directory/v1`): built by `src/directory.ts` from the reviewed
+  seed `pages-data/directory.json`. Every entry carries the URL its facts were
+  verified against; unverified fields are `null`, never guessed (the insights-
+  engine provenance rule). A present-but-invalid seed fails the export loudly;
+  a missing seed emits an explicit unavailable envelope so the page never 404s.
+- **Directory tests** (`tests/directory.test.ts`): artifact building, seed
+  guards (unknown category / missing source / non-URL source all fail loudly),
+  round-trip parsing, and a shipped-seed sweep that validates all entries
+  through the same builder the export uses.
+- Sitemap, canonical nav, breadcrumbs, head metadata, and per-page SEO now
+  cover `directory.html` via the shared `PAGES_STATIC_PAGES` manifest.
+
 ### Alert pipeline hardening — Phase-12 monitor wiring + public-surface honesty (2026-08-28)
 
 #### Added

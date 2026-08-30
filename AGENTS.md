@@ -262,3 +262,13 @@ Run `bun run validate` for the current pass/fail result.
 - Government meeting tracker uses the live EvoGov JSON endpoint at `crescentcity.org/meetings/get_list`; City Council and Planning Commission were healthy in the 2026-07-24 smoke run, while Harbor Commission has no matching records and is reported as `empty` source health.
 - NDBC buoy data may have gaps (stations go offline for maintenance)
 - AirNow API requires free API key
+
+
+## Fleet doc-pass note (2026-08-29)
+
+A documentation pass verified the worktree clean on `main` at `cf89048` and
+refreshed per-folder AGENTS.md/README.md coverage under `output/`, `src/`,
+`tests/`, `docs/`, `.github/`, and `pages-data/`. Ephemeral `.pages-*` /
+`.lanea-*` scratch trees, `node_modules/`, and `chroma_data/` are deliberately
+not per-folder documented (see lane root AGENTS.md). Docs-only changes; no
+code, no git operations.

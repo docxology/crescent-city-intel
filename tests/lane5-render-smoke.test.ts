@@ -20,7 +20,7 @@ import { chromium, type Browser, type ConsoleMessage, type Page } from "playwrig
 import { exportPagesSnapshot } from "../src/pages_snapshot.ts";
 
 const ORIGIN = "https://quadruplicate.test";
-const PAGES = ["index.html", "gui.html", "news.html", "meetings.html", "events.html", "code.html", "sources.html", "404.html"];
+const PAGES = ["index.html", "gui.html", "news.html", "meetings.html", "events.html", "directory.html", "code.html", "sources.html", "404.html"];
 const VIEWPORTS = [320, 375, 768, 1440];
 
 const CONTENT_TYPES: Record<string, string> = {

@@ -19,6 +19,17 @@ The refresh script refuses to copy data unless
 meetings, alerts, YouTube, Triplicate metadata, curation, and reports are
 collected separately by the Pages workflow and retain their own health states.
 
+## Directory seed (hand-curated)
+
+`directory.json` is the one hand-curated exception to the regenerate rule: the
+verified local-establishments directory (government, schools, healthcare,
+restaurants, churches, retail, services, finance, media, lodging, attractions)
+consumed by `src/directory.ts` and rendered on `directory.html`. Every entry
+carries the URL its facts were verified against; fields that could not be
+verified are `null`, never guessed. Edit it by hand, then run
+`bun test tests/directory.test.ts` — every entry must pass the same validation
+the export uses.
+
 The public Pages snapshot also carries the source registry and discovery report.
 Discovery-only sources are displayed as `not-checked` until a dedicated
 connector writes source health; the export never turns an unmonitored source

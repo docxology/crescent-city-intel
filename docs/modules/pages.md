@@ -22,6 +22,19 @@ example `cd .pages && python3 -m http.server 4173`, then open
 `http://localhost:4173/`. The exporter is atomic: it builds a temporary
 directory and replaces the exact destination only after all files are ready.
 
+## Local directory
+
+`data/directory.json` (`crescent-city-directory/v1`) is a source-cited
+directory of local establishments: government, schools, healthcare,
+restaurants, churches, retail, services, finance, media, lodging, and
+attractions. `directory.html` renders it with pull-down category menus
+(counts injected from the artifact), sort, and text filter. The reviewed
+seed is `pages-data/directory.json`; validation runs through
+`src/directory.ts` (`buildDirectoryArtifact`), and `tests/directory.test.ts`
+holds every seed entry to the same rules the export uses: a verified source
+URL per entry, unverified fields left `null`, and unknown categories or
+non-URL sources fail the export rather than shipping.
+
 ## Public artifact
 
 The export contains the dashboard, JSON snapshot, source-health artifact, the

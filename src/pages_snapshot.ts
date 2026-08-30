@@ -13,6 +13,7 @@ import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealt
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { runtimeMetadata } from "./shared/orchestration.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
+import { buildDirectoryArtifact, summarizeDirectory, type DirectoryArtifact } from "./directory.js";
 import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
 import { buildGeoIntel } from "./geo.js";
@@ -26,6 +27,7 @@ const TAGLINE = "Sea Something. Say Something.";
 const MUNICIPAL_CODE_URL = "https://ecode360.com/CR4919";
 const STATIC_DIR = join(import.meta.dir, "pages", "static");
 const MAX_ITEMS = 100;
+export const PAGES_DIRECTORY_ARTIFACT = "data/directory.json";
 export const PAGES_GEO_INTEL_ARTIFACT = "data/geo-intel.json";
 export const PAGES_EVENTS_ARTIFACT = "data/events.json";
 export const PAGES_EVENTS_ICS_ARTIFACT = "data/events.ics";
@@ -232,6 +234,7 @@ export interface PagesSnapshot {
     counts: { articlePageCount: number | null; sectionCount: number | null };
   };
   geoIntel: PagesGeoIntelSummary;
+  directory: { available: boolean; count: number; categoryCount: number };
   events: EventsArtifact;
   sourceHealth: SourceHealth[];
   news: Array<Record<string, unknown>>;
@@ -268,6 +271,7 @@ export interface PagesSnapshot {
     sourceDiscovery: string;
     analyticsOverview: string | null;
     geoIntel: string;
+    directory: string | null;
     events: string;
     /** Per-page artifacts (§1.2): each subpage fetches only what it renders. */
     news: string;
@@ -309,6 +313,7 @@ export interface PagesExportResult {
   files: string[];
   itemCounts: {
     sourceHealth: number;
+    directory: number;
     news: number;
     meetings: number;
     youtube: number;
@@ -346,6 +351,7 @@ export const PAGES_STATIC_PAGES: ReadonlyArray<{ file: string; title: string; na
   { file: "news.html", title: "Local news", navLabel: "News", datelineKicker: "Metro desk" },
   { file: "meetings.html", title: "Meetings", navLabel: "Meetings", datelineKicker: "Public record" },
   { file: "events.html", title: "Community calendar", navLabel: "Events", datelineKicker: "Community calendar" },
+  { file: "directory.html", title: "Local directory", navLabel: "Directory", datelineKicker: "Community directory" },
   { file: "code.html", title: "Municipal code", navLabel: "Municipal code", datelineKicker: "Municipal code" },
   { file: "sources.html", title: "Sources", navLabel: "Sources", datelineKicker: "Source registry" },
 ];
@@ -1401,6 +1407,16 @@ export function embedPagesMethodsCounts(indexHtml: string, counts: string): stri
   return indexHtml.replace(PAGES_METHODS_COUNTS_PLACEHOLDER, counts);
 }
 
+function directorySeedSafeBuild(raw: unknown, generatedAt: string): DirectoryArtifact | null {
+  if (raw === null || raw === undefined) return null;
+  try {
+    return buildDirectoryArtifact(generatedAt, raw);
+  } catch (error) {
+    // A malformed seed must not ship silently; fail the export with the reason.
+    throw new Error(`Pages directory seed is invalid: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function snapshotStatus(codeAvailable: boolean, pipelineRun: JsonRecord | null): PagesSnapshot["status"] {
   // Missing source checks are represented in healthSummary and sourceHealth;
   // they do not invalidate an otherwise complete static snapshot.
@@ -1455,6 +1471,12 @@ export async function buildPagesSnapshot(
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
   const geoIntel = await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
   const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
+  // Local-establishments directory: seed first (hand-curated, source-cited),
+  // then any prior edition artifact. A present-but-invalid seed fails loudly.
+  const directorySeedRaw = await readJson<unknown>(join(resolvedSeed, "directory.json"))
+    ?? await readJson<unknown>(join(resolvedOutput, "directory.json"));
+  const directory = directorySeedSafeBuild(directorySeedRaw, generatedAt);
+  const directorySummary = summarizeDirectory(directory);
   const persistedEvents = await readFirstJson<EventsArtifact>("events/events.json");
   const events: EventsArtifact =
     persistedEvents?.schemaVersion === "crescent-city-events/v1" && Array.isArray(persistedEvents.events)
@@ -1490,6 +1512,7 @@ export async function buildPagesSnapshot(
       },
     },
     geoIntel: geoIntelSummary,
+    directory: directorySummary,
     events,
     sourceHealth: health,
     news: dedupe(news, ["id", "link"]),
@@ -1516,6 +1539,7 @@ export async function buildPagesSnapshot(
       sourceRegistry: "data/source-registry.json",
       sourceDiscovery: "data/source-discovery.json",
       geoIntel: PAGES_GEO_INTEL_ARTIFACT,
+      directory: directory ? PAGES_DIRECTORY_ARTIFACT : null,
       events: PAGES_EVENTS_ARTIFACT,
       news: PAGES_NEWS_ARTIFACT,
       meetings: PAGES_MEETINGS_ARTIFACT,
@@ -1557,6 +1581,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const seedRoot = resolve(seedDir);
   const snapshot = await buildPagesSnapshot(sourceRoot, generatedAt, seedRoot);
   const geoIntel = await loadPagesGeoIntel(sourceRoot, seedRoot);
+  const directorySeedRaw = await readJson<unknown>(join(seedRoot, "directory.json"))
+    ?? await readJson<unknown>(join(sourceRoot, "directory.json"));
+  const directory = directorySeedSafeBuild(directorySeedRaw, generatedAt);
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
@@ -1688,12 +1715,28 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, "data/source-registry.json"), snapshot.sourceRegistry);
     await writeJson(join(temporary, "data/source-discovery.json"), snapshot.sourceDiscovery);
     await writeJson(join(temporary, PAGES_GEO_INTEL_ARTIFACT), geoIntel);
+    // The directory artifact is ALWAYS emitted: directory.html fetches it on
+    // load, and a missing file turned the whole page into one error state (the
+    // analytics lesson). When no verified seed exists this edition, an explicit
+    // unavailable envelope is the honest answer, and snapshot.files.directory
+    // stays null so nothing claims a directory that does not exist.
+    if (directory) {
+      await writeJson(join(temporary, PAGES_DIRECTORY_ARTIFACT), directory);
+    } else {
+      await writeJson(join(temporary, PAGES_DIRECTORY_ARTIFACT), {
+        schema: "crescent-city-directory-unavailable/v1",
+        generatedAt,
+        available: false,
+        reason: "No verified directory seed was available for this edition.",
+      });
+    }
     await writeJson(join(temporary, PAGES_EVENTS_ARTIFACT), snapshot.events);
     await writeFile(join(temporary, PAGES_EVENTS_ICS_ARTIFACT), buildEventsIcs(snapshot.events?.events ?? []), "utf8");
     // --- Per-page artifacts (§1.2): subpages fetch only the slice they render ---
     await writeJson(join(temporary, PAGES_NEWS_ARTIFACT), snapshot.news);
     await writeJson(join(temporary, PAGES_MEETINGS_ARTIFACT), snapshot.meetings);
     await writeJson(join(temporary, PAGES_ALERTS_ARTIFACT), snapshot.alerts);
+    files.push(PAGES_DIRECTORY_ARTIFACT);
     files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT, PAGES_NEWS_ARTIFACT, PAGES_MEETINGS_ARTIFACT, PAGES_ALERTS_ARTIFACT);
     // The analytics artifact is ALWAYS emitted, even when this edition has no
     // overview: gui.html fetches it on load, and a missing file made that fetch
@@ -1822,6 +1865,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       files,
       itemCounts: {
         sourceHealth: snapshot.sourceHealth.length,
+        directory: snapshot.directory.count,
         news: snapshot.news.length,
         meetings: snapshot.meetings.length,
         youtube: snapshot.youtube.length,

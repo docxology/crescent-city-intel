@@ -1,0 +1,897 @@
+{
+  "schema": "crescent-city-directory/v1",
+  "note": "Hand-curated, source-verified seed for the Quadruplicate local directory. Every entry carries the URL its facts were verified against at collection time (2026-08-30); unverified fields are null. Re-verify before editing.",
+  "entries": [
+    {
+      "name": "City of Crescent City (City Hall & City Council)",
+      "category": "Government",
+      "address": "377 J Street, Crescent City, CA 95531",
+      "phone": "707-464-7483",
+      "website": "https://www.crescentcity.org/",
+      "description": "City government for Crescent City; City Hall houses the council and most city departments.",
+      "source": "https://www.crescentcity.org/"
+    },
+    {
+      "name": "Del Norte County (County Administration / CAO)",
+      "category": "Government",
+      "address": "981 H Street, Suite 210, Crescent City, CA 95531",
+      "phone": "707-464-7214",
+      "website": "https://www.co.del-norte.ca.us/",
+      "description": "County Administrative Office, the administrative arm of the Board of Supervisors.",
+      "source": "https://www.co.del-norte.ca.us/departments/administration"
+    },
+    {
+      "name": "Del Norte County Board of Supervisors",
+      "category": "Government",
+      "address": "981 H Street, Room 100, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://www.co.del-norte.ca.us/departments/BoardOfSupervisors",
+      "description": "Five-member elected Board of Supervisors; meets 2nd and 4th Tuesdays at the Flynn Administrative Center.",
+      "source": "https://www.co.del-norte.ca.us/departments/BoardOfSupervisors/HowToAttendABoardMeeting"
+    },
+    {
+      "name": "Crescent City Harbor District",
+      "category": "Government",
+      "address": "101 Citizens Dock Road, Crescent City, CA 95531",
+      "phone": "707-464-6174",
+      "website": "https://www.ccharbor.com/",
+      "description": "Special district managing the harbor, marina, and commercial fishing facilities of Crescent City.",
+      "source": "https://www.ccharbor.com/contact-us"
+    },
+    {
+      "name": "Del Norte County Library District (Main Library - Crescent City Branch)",
+      "category": "Government",
+      "address": "190 Price Mall, Crescent City, CA 95531",
+      "phone": "707-464-9793",
+      "website": "https://delnortecountylibrary.org/",
+      "description": "Public library district serving Del Norte County, headquartered at the Crescent City branch.",
+      "source": "https://delnortecountylibrary.org/contact-us"
+    },
+    {
+      "name": "Pelican Bay State Prison",
+      "category": "Government",
+      "address": "5905 Lake Earl Drive, Crescent City, CA 95531",
+      "phone": "707-465-1000",
+      "website": "https://www.cdcr.ca.gov/facility-locator/pbsp/",
+      "description": "California Department of Corrections and Rehabilitation maximum-security state prison.",
+      "source": "https://www.cdcr.ca.gov/facility-locator/pbsp/"
+    },
+    {
+      "name": "Del Norte County Sheriff's Office",
+      "category": "Government",
+      "address": "650 Fifth Street, Crescent City, CA 95531",
+      "phone": "707-464-4191",
+      "website": "https://www.co.del-norte.ca.us/departments/sheriff",
+      "description": "County law-enforcement agency providing patrol, civil process, and correctional services.",
+      "source": "https://www.co.del-norte.ca.us/departments/sheriff"
+    },
+    {
+      "name": "Crescent City Police Department",
+      "category": "Government",
+      "address": "686 G St., Crescent City, CA 95531",
+      "phone": "707-464-2133",
+      "website": "https://www.crescentcity.org/departments/Police",
+      "description": "Municipal police department serving the City of Crescent City.",
+      "source": "https://www.crescentcity.org/departments/Police"
+    },
+    {
+      "name": "Del Norte County Office of Emergency Services",
+      "category": "Government",
+      "address": "981 H Street, Suite 240, Crescent City, CA 95531",
+      "phone": "707-464-7255",
+      "website": "https://www.co.del-norte.ca.us/departments/emergencyservices",
+      "description": "All-hazards emergency management, preparedness, and community alerting for Del Norte County.",
+      "source": "https://www.preparedelnorte.com/"
+    },
+    {
+      "name": "Del Norte County Superior Court",
+      "category": "Government",
+      "address": "450 H Street, Room 209, Crescent City, CA 95531",
+      "phone": "707-464-8115",
+      "website": "https://www.delnorte.courts.ca.gov/",
+      "description": "Trial court of the California judicial system for Del Norte County.",
+      "source": "https://www.delnorte.courts.ca.gov/general-information"
+    },
+    {
+      "name": "Crescent City Post Office (USPS)",
+      "category": "Government",
+      "address": "751 2nd St, Crescent City, CA 95531",
+      "phone": "1-800-275-8777 (1-800-ASK-USPS)",
+      "website": "https://tools.usps.com/locations/details/1359790",
+      "description": "USPS post office serving Crescent City (ZIP 95531).",
+      "source": "https://tools.usps.com/locations/details/1359790"
+    },
+    {
+      "name": "Del Norte County Unified School District (District Office)",
+      "category": "Schools",
+      "address": "301 W Washington Blvd, Crescent City, CA 95531",
+      "phone": "707-464-6141",
+      "website": "https://www.dnusd.org/",
+      "description": "Unified school district serving all of Del Norte County.",
+      "source": "https://www.dnusd.org/our-district/contact-us"
+    },
+    {
+      "name": "Del Norte High School",
+      "category": "Schools",
+      "address": "1301 El Dorado Street, Crescent City, CA 95531",
+      "phone": "707-464-0260",
+      "website": "https://www.dnusd.org/schools1",
+      "description": "Public high school (the Crescent City-area comprehensive high school) in DNUSD.",
+      "source": "https://www.dnusd.org/schools1"
+    },
+    {
+      "name": "Crescent Elk Middle School",
+      "category": "Schools",
+      "address": "994 G Street, Crescent City, CA 95531",
+      "phone": "707-464-0320",
+      "website": "https://www.dnusd.org/schools1",
+      "description": "Public middle school in Crescent City.",
+      "source": "https://www.dnusd.org/schools1"
+    },
+    {
+      "name": "Joe Hamilton Elementary School",
+      "category": "Schools",
+      "address": "1050 E Street, Crescent City, CA 95531",
+      "phone": "707-464-0330",
+      "website": "https://www.jhelementary.org",
+      "description": "Public K-5 elementary school in Crescent City.",
+      "source": "https://www.dnusd.org/schools1"
+    },
+    {
+      "name": "Mary Peacock Elementary School",
+      "category": "Schools",
+      "address": "1720 Arlington Drive, Crescent City, CA 95531",
+      "phone": "707-464-0301",
+      "website": "https://www.dnusd.org/schools1",
+      "description": "Public elementary school in Crescent City.",
+      "source": "https://www.dnusd.org/schools1"
+    },
+    {
+      "name": "Bess Maxwell Elementary School",
+      "category": "Schools",
+      "address": "1124 El Dorado, Crescent City, CA 95531",
+      "phone": "707-464-0310",
+      "website": "https://www.bmelementary.org/",
+      "description": "Public elementary school in Crescent City.",
+      "source": "https://www.dnusd.org/schools1"
+    },
+    {
+      "name": "Margaret Keating Elementary School",
+      "category": "Schools",
+      "address": "300 Minot Creek Road, Klamath, CA 95548",
+      "phone": "707-464-0340",
+      "website": "https://www.mkelementary.org/",
+      "description": "Public elementary school in Klamath (not Smith River); shares the Klamath campus with 'O Me-nok Learning Center.",
+      "source": "https://www.dnusd.org/schools1"
+    },
+    {
+      "name": "Redwood Elementary School",
+      "category": "Schools",
+      "address": "6900 Lake Earl Drive, Fort Dick, CA 95538",
+      "phone": "707-464-0360",
+      "website": "https://www.rwelementary.org/",
+      "description": "Public K-8 elementary school in the Fort Dick area.",
+      "source": "https://www.rwelementary.org/our-school/contact-us"
+    },
+    {
+      "name": "Smith River Elementary School",
+      "category": "Schools",
+      "address": "564 First Street, Smith River, CA 95567",
+      "phone": "707-464-0370",
+      "website": "https://www.srelementary.org/",
+      "description": "Public elementary school in Smith River.",
+      "source": "https://www.srelementary.org/our-school/contact-us"
+    },
+    {
+      "name": "Castle Rock Charter School",
+      "category": "Schools",
+      "address": "1260 Glenn Street, Crescent City, CA 95531",
+      "phone": "707-464-0390",
+      "website": "http://www.castlerockschool.org/",
+      "description": "K-12 charter school operated by the Del Norte County Office of Education.",
+      "source": "http://www.castlerockschool.org/our-school/contact-us"
+    },
+    {
+      "name": "College of the Redwoods - Del Norte Campus",
+      "category": "Schools",
+      "address": "883 W. Washington Blvd, Crescent City, CA 95531",
+      "phone": "707-465-2300",
+      "website": "https://www.redwoods.edu/delnorte/",
+      "description": "Community-college campus serving Del Norte County with degree and certificate programs.",
+      "source": "https://www.redwoods.edu/locations/"
+    },
+    {
+      "name": "Redwood Coast Transit Authority",
+      "category": "Government",
+      "address": "140 Williams Drive, Crescent City, CA 95531",
+      "phone": "707-308-7433",
+      "website": "https://redwoodcoasttransit.org/",
+      "description": "Public transit authority providing fixed-route and Dial-A-Ride service in Del Norte County.",
+      "source": "https://redwoodcoasttransit.org/contact-us/"
+    },
+    {
+      "name": "Crescent Fire Protection District / Crescent City Fire & Rescue",
+      "category": "Government",
+      "address": "255 W. Washington Blvd., Crescent City, CA 95531",
+      "phone": "707-464-2421",
+      "website": "https://cfpd.crescentcity.org/",
+      "description": "Volunteer fire district operating as Crescent City Fire & Rescue with the city fire department.",
+      "source": "https://cfpd.crescentcity.org/"
+    },
+    {
+      "name": "Fort Dick Fire Protection District",
+      "category": "Government",
+      "address": "6534 Kings Valley Rd., Fort Dick, CA 95538",
+      "phone": "707-487-8185",
+      "website": null,
+      "description": "Volunteer fire protection district serving the Fort Dick area.",
+      "source": "https://www.preparedelnorte.com/local-fire-departments"
+    },
+    {
+      "name": "Big Rock Community Services District",
+      "category": "Government",
+      "address": "PO Box 453, Crescent City, CA 95531",
+      "phone": "707-457-3380",
+      "website": "https://www.bigrockcsd.org/",
+      "description": "Community services district providing drinking water to Hiouchi and adjacent parklands.",
+      "source": "https://www.bigrockcsd.org/district-transparency"
+    },
+    {
+      "name": "Del Norte County Recreation Department",
+      "category": "Government",
+      "address": "1005 H Street, Crescent City, CA 95531",
+      "phone": "707-464-7237",
+      "website": "https://www.co.del-norte.ca.us/departments/recreation",
+      "description": "County department running youth and community recreation programs.",
+      "source": "https://www.co.del-norte.ca.us/departments/recreation"
+    },
+    {
+      "name": "Elk Valley Rancheria, California",
+      "category": "Government",
+      "address": "2332 Howland Hill Rd., Crescent City, CA 95531",
+      "phone": "707-465-2600",
+      "website": "https://elk-valley.com/",
+      "description": "Federally recognized tribal government; operates Tribal Education/Housing services but no tribally operated K-12 school.",
+      "source": "https://elk-valley.com/contact-elk-valley/"
+    },
+    {
+      "name": "SeaQuake Brewing",
+      "category": "Restaurants",
+      "address": "400 Front St, Crescent City, CA 95531",
+      "phone": "(707) 465-4444",
+      "website": "https://www.seaquakebrewing.com/location/seaquake-brewing/",
+      "description": "Brewpub/restaurant on the Front Street boardwalk; brick-oven pizza, burgers, locally caught fish, award-winning craft beer.",
+      "source": "https://www.seaquakebrewing.com/location/seaquake-brewing/"
+    },
+    {
+      "name": "Chart Room Restaurant",
+      "category": "Restaurants",
+      "address": "130 Anchor Way, Crescent City, CA 95531",
+      "phone": "(707) 464-5993",
+      "website": "https://www.ccharbor.com/chart-room-restaurant",
+      "description": "Harbor-district landmark known for fresh seafood and coastal views.",
+      "source": "https://www.ccharbor.com/chart-room-restaurant"
+    },
+    {
+      "name": "Fisherman's Restaurant & Lounge",
+      "category": "Restaurants",
+      "address": "700 US Hwy 101 S, Crescent City, CA 95531",
+      "phone": "(707) 465-3474",
+      "website": "https://www.fishermansrestaurant.info/",
+      "description": "Local seafood favorite serving Crescent City since 1997.",
+      "source": "https://www.fishermansrestaurant.info/"
+    },
+    {
+      "name": "Good Harvest Cafe",
+      "category": "Restaurants",
+      "address": "575 US Hwy 101 S, Crescent City, CA 95531",
+      "phone": "(707) 465-6028",
+      "website": null,
+      "description": "Long-standing cafe on the south 101 corridor serving seafood and American breakfast/lunch.",
+      "source": "https://www.yelp.com/biz/good-harvest-cafe-crescent-city"
+    },
+    {
+      "name": "Schmidt's House of Jambalaya",
+      "category": "Restaurants",
+      "address": "110 Anchor Way, Crescent City, CA 95531",
+      "phone": "(707) 465-1465",
+      "website": "https://jambalaya.house/",
+      "description": "Beach-side New Orleans-style bistro at the harbor: Cajun & Creole dishes, house jambalaya, local micro brews.",
+      "source": "https://jambalaya.house/"
+    },
+    {
+      "name": "Seaside Restaurant & Bar",
+      "category": "Restaurants",
+      "address": "100 A St, Crescent City, CA 95531",
+      "phone": "(707) 465-5400",
+      "website": "https://seasiderestaurantbar.com/",
+      "description": "Full-service restaurant and bar.",
+      "source": "https://seasiderestaurantbar.com/"
+    },
+    {
+      "name": "Marlo's Greek and Italian Restaurant",
+      "category": "Restaurants",
+      "address": "383 M St, Crescent City, CA 95531",
+      "phone": "(707) 465-8388",
+      "website": null,
+      "description": "Family Greek and Italian restaurant.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Curry King Indian Restaurant",
+      "category": "Restaurants",
+      "address": "1481 Northcrest Drive, Crescent City, CA 95531",
+      "phone": "(707) 460-1429",
+      "website": null,
+      "description": "Indian restaurant on the Northcrest commercial corridor.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Kin Khao Thai Eatery",
+      "category": "Restaurants",
+      "address": "1270 Front St Ste C, Crescent City, CA 95531",
+      "phone": "(707) 460-6611",
+      "website": null,
+      "description": "Thai eatery near the waterfront.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Port O' Pints Brewing Company",
+      "category": "Restaurants",
+      "address": "1215 Northcrest Drive, Crescent City, CA 95531",
+      "phone": "(707) 460-1154",
+      "website": null,
+      "description": "Award-winning craft brewery and food venue; live music hub. Second taproom at 201 Citizens Dock Rd.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Enoteca",
+      "category": "Restaurants",
+      "address": "960 3rd St, Crescent City, CA 95531",
+      "phone": "(707) 464-2909",
+      "website": null,
+      "description": "Wine bar/restaurant in the downtown 3rd Street district.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Cazadores Mexican Restaurant",
+      "category": "Restaurants",
+      "address": "1461 Northcrest Drive, Crescent City, CA 95531",
+      "phone": "(707) 464-2388",
+      "website": null,
+      "description": "Mexican restaurant on Northcrest Drive.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Hiouchi Cafe",
+      "category": "Restaurants",
+      "address": "2095 US Highway 199, Crescent City, CA 95531",
+      "phone": "(707) 458-3445",
+      "website": "https://hiouchicafe.com",
+      "description": "Cafe near the Smith River on Hwy 199; breakfast, lunch, Sunday brunch, open 7 days.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Perlita's Mexican Restaurant",
+      "category": "Restaurants",
+      "address": "297 US Highway 101 S, Crescent City, CA 95531",
+      "phone": "(707) 465-6770",
+      "website": null,
+      "description": "Mexican restaurant on the south 101 corridor.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "Sea Front Baking Company",
+      "category": "Restaurants",
+      "address": "1348 Front St, Crescent City, CA 95531",
+      "phone": "(707) 464-8381",
+      "website": null,
+      "description": "Waterfront bakery on Front Street.",
+      "source": "https://visitdelnortecounty.com/eat/"
+    },
+    {
+      "name": "St. Joseph Catholic Church",
+      "category": "Churches",
+      "address": "319 E St, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://sjccc.net/",
+      "description": "Roman Catholic parish in the Diocese of Santa Rosa; founded 1869.",
+      "source": "https://sjccc.net/"
+    },
+    {
+      "name": "St. Robert & St. Anne Mission (Catholic)",
+      "category": "Churches",
+      "address": "440 Third St, Crescent City, CA 95531",
+      "phone": null,
+      "website": null,
+      "description": "Roman Catholic mission church.",
+      "source": "https://www.unitedstateschurches.com/california/st-robert-st-anne-mission-crescent-city/279970"
+    },
+    {
+      "name": "First Baptist Church of Crescent City",
+      "category": "Churches",
+      "address": "1295 G St, Crescent City, CA 95531",
+      "phone": "(707) 464-4213",
+      "website": "http://www.fbccrescentcity.org/contact.html",
+      "description": "Southern Baptist congregation (SBC directory listed).",
+      "source": "https://churches.sbc.net/church/the-first-baptist-church-of-crescent-city/"
+    },
+    {
+      "name": "Crescent City United Methodist Church",
+      "category": "Churches",
+      "address": "664 H St, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://www.cc-umc.com/",
+      "description": "United Methodist congregation at the corner of 7th and H.",
+      "source": "https://www.cnumc.org/churchdetail/171074"
+    },
+    {
+      "name": "Grace Lutheran Church (LCMS)",
+      "category": "Churches",
+      "address": "188 E Cooper Ave, Crescent City, CA 95531",
+      "phone": "(707) 464-4712",
+      "website": "https://www.gracelutheranevangelical.com/",
+      "description": "Lutheran congregation listed in the LCMS locator.",
+      "source": "https://locator.lcms.org/church/C/212427"
+    },
+    {
+      "name": "Crescent City Seventh-day Adventist Church",
+      "category": "Churches",
+      "address": "1770 Northcrest Drive, Crescent City, CA 95531",
+      "phone": "(707) 464-2738",
+      "website": "https://crescentcityca.adventistchurch.org/",
+      "description": "SDA congregation; Sabbath School 9:15 a.m., worship 11:00 a.m. per Adventist directory.",
+      "source": "https://crescentcityca.adventistchurch.org/"
+    },
+    {
+      "name": "Cornerstone Assembly of God",
+      "category": "Churches",
+      "address": "1281 Douglas St, Crescent City, CA 95531",
+      "phone": "(707) 951-6839",
+      "website": "https://rebuildingfaith.com/",
+      "description": "Assemblies of God church led by Pastors Steve & Tabi.",
+      "source": "https://rebuildingfaith.com/"
+    },
+    {
+      "name": "St. Paul's Episcopal Church",
+      "category": "Churches",
+      "address": "220 E Macken Ave, Crescent City, CA 95531",
+      "phone": "(707) 464-2708",
+      "website": "https://stpaulscrescentcity.org/",
+      "description": "Lay-led Episcopal congregation; Sunday services at 10 a.m. per directory listing.",
+      "source": "https://www.worldanglican.com/united-states/crescent-city/the-episcopal-church/st-pauls-episcopal-church-crescent-city"
+    },
+    {
+      "name": "Crescent City Church of Christ",
+      "category": "Churches",
+      "address": "485 9th St, Crescent City, CA 95531",
+      "phone": "(707) 464-6312",
+      "website": "https://www.crescentcitychurchofchrist.org/",
+      "description": "Church of Christ congregation; Sunday worship 10:45 a.m. and 6:30 p.m. per its website. Address from public directory listing.",
+      "source": "https://www.crescentcitychurchofchrist.org/"
+    },
+    {
+      "name": "Crescent City Foursquare Church",
+      "category": "Churches",
+      "address": "144 Butte St, Crescent City, CA 95531",
+      "phone": "(707) 464-9501",
+      "website": "http://www.ccfoursquare.org/",
+      "description": "Foursquare congregation serving Del Norte County for 75+ years; chamber-member listing.",
+      "source": "https://visitdelnortecounty.com/chamber-listings/crescent-city-foursquare-church/"
+    },
+    {
+      "name": "Calvary Chapel of the Redwoods",
+      "category": "Churches",
+      "address": "625 2nd St, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://ccredwoods.com/",
+      "description": "Non-denominational Calvary Chapel Association church.",
+      "source": "https://ccredwoods.com/"
+    },
+    {
+      "name": "Crescent City All Tribes Foursquare Church",
+      "category": "Churches",
+      "address": "2022 Parkway Drive #14, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://www.facebook.com/alltribeschurch/",
+      "description": "All Tribes Foursquare congregation (GuideStar-registered nonprofit).",
+      "source": "https://www.guidestar.org/profile/94-2902817"
+    },
+    {
+      "name": "Safeway",
+      "category": "Retail",
+      "address": "475 M St, Crescent City, CA 95531",
+      "phone": "(707) 465-3353",
+      "website": "https://local.safeway.com/safeway/ca/crescent-city/475-m-st.html",
+      "description": "Full-service supermarket with pharmacy, bakery, deli, DriveUp & Go pickup/delivery.",
+      "source": "https://local.safeway.com/safeway/ca/crescent-city/475-m-st.html"
+    },
+    {
+      "name": "Walmart Supercenter (Store 1910)",
+      "category": "Retail",
+      "address": "900 E Washington Blvd, Crescent City, CA 95531",
+      "phone": "(707) 464-1198",
+      "website": "https://www.walmart.com/store/1910-crescent-city-ca",
+      "description": "Supercenter with groceries, general merchandise, and in-store pharmacy.",
+      "source": "https://www.walmart.com/store/1910-crescent-city-ca"
+    },
+    {
+      "name": "Wild Rivers Market",
+      "category": "Retail",
+      "address": "450 M St, Crescent City, CA 95531",
+      "phone": "(707) 464-1926",
+      "website": null,
+      "description": "Local grocery market downtown.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Grocery Outlet",
+      "category": "Retail",
+      "address": "1124 3rd St, Crescent City, CA 95531",
+      "phone": "(707) 464-3131",
+      "website": null,
+      "description": "Discount grocery store.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Crescent Ace Hardware",
+      "category": "Retail",
+      "address": "840 E Washington Blvd, Crescent City, CA 95531",
+      "phone": "(707) 465-5865",
+      "website": "https://www.acehardware.com/store-details/07464",
+      "description": "Locally owned Ace Hardware store.",
+      "source": "https://www.acehardware.com/store-details/07464"
+    },
+    {
+      "name": "Home Depot",
+      "category": "Retail",
+      "address": "520 US Highway 101 North, Crescent City, CA 95531",
+      "phone": "(707) 464-9463",
+      "website": null,
+      "description": "Home improvement and building supply retailer.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Big 5 Sporting Goods",
+      "category": "Retail",
+      "address": "1055 US-101 N, Crescent City, CA 95531",
+      "phone": "(707) 464-9334",
+      "website": null,
+      "description": "Sporting goods store.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Englund Marine & Industrial Supply",
+      "category": "Retail",
+      "address": "191 Citizens Dock Rd, Crescent City, CA 95531",
+      "phone": "(707) 464-3230",
+      "website": null,
+      "description": "Family-owned since 1944; fishing tackle, foul weather gear, marine electronics, rigging, crab pot rentals, fishing licenses. Open Mon-Sat.",
+      "source": "https://www.ccharbor.com/shopping"
+    },
+    {
+      "name": "CVS Pharmacy",
+      "category": "Retail",
+      "address": "657 US Highway 101 N, Crescent City, CA 95531",
+      "phone": "(707) 464-5429",
+      "website": "https://www.cvs.com/store-locator/crescent-city-ca-pharmacies/657-us-highway-101-n-crescent-city-ca-95531/storeid=10478",
+      "description": "Drugstore and pharmacy with photo services.",
+      "source": "https://www.cvs.com/store-locator/crescent-city-ca-pharmacies/657-us-highway-101-n-crescent-city-ca-95531/storeid=10478"
+    },
+    {
+      "name": "Rite Aid",
+      "category": "Retail",
+      "address": "575 M St, Crescent City, CA 95531",
+      "phone": "(707) 465-3981",
+      "website": "https://www.riteaid.com/locations/ca/crescent-city/575-m-street.html",
+      "description": "Drugstore and pharmacy.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Walgreens",
+      "category": "Retail",
+      "address": "787 L St, Crescent City, CA 95531",
+      "phone": "(707) 464-3857",
+      "website": null,
+      "description": "Drugstore/pharmacy on L Street.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Dollar Tree",
+      "category": "Retail",
+      "address": "921 Northcrest Drive, Crescent City, CA 95531",
+      "phone": "(707) 465-6489",
+      "website": null,
+      "description": "Discount variety store.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "St. Vincent De Paul Thrift Store",
+      "category": "Retail",
+      "address": "1440 Parkway Drive, Crescent City, CA 95531",
+      "phone": "(707) 464-1322",
+      "website": null,
+      "description": "Thrift store.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Our Daily Bread Ministries Thrift Store",
+      "category": "Retail",
+      "address": "1135 Harrold St, Crescent City, CA 95531",
+      "phone": "(707) 464-7771",
+      "website": null,
+      "description": "Ministry-run thrift store.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Crescent Christian Book Store",
+      "category": "Retail",
+      "address": "700 Northcrest Drive Ste C, Crescent City, CA 95531",
+      "phone": "(707) 464-6973",
+      "website": null,
+      "description": "Christian bookstore (Yelp listing; spelled 'Crescent Christion Book Store' there).",
+      "source": "https://www.yelp.com/biz/crescent-christion-book-store-crescent-city"
+    },
+    {
+      "name": "Del Norte Office Supply",
+      "category": "Retail",
+      "address": "240 I St, Crescent City, CA 95531",
+      "phone": "(707) 464-5680",
+      "website": null,
+      "description": "Office supplies retailer downtown.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Purple Cat Thrift Store (Wild Feline Rescue)",
+      "category": "Retail",
+      "address": "457 Vance Ave, Crescent City, CA 95531",
+      "phone": "(707) 464-7729",
+      "website": null,
+      "description": "Nonprofit thrift store benefiting wild feline rescue.",
+      "source": "https://visitdelnortecounty.com/see/shopping/"
+    },
+    {
+      "name": "Sutter Coast Hospital",
+      "category": "Healthcare",
+      "address": "800 East Washington Blvd, Crescent City, CA 95531",
+      "phone": "(707) 464-8511",
+      "website": "https://www.sutterhealth.org/find-location/facility/sutter-coast-hospital-1043246975",
+      "description": "Del Norte County's community hospital, part of Sutter Health; main hospital line and patient assistance.",
+      "source": "https://www.sutterhealth.org/find-location/facility/sutter-coast-hospital-1043246975"
+    },
+    {
+      "name": "Del Norte Community Health Center (Open Door Health)",
+      "category": "Healthcare",
+      "address": "550 E Washington Blvd, Suite 100, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://opendoorhealth.com/locations/del-norte-community-health-center/",
+      "description": "Open Door Health community clinic; also operates Open Door Teen Clinic (883 W Washington Blvd) and Del Norte Dental Van.",
+      "source": "https://hcai.ca.gov/facility/del-norte-community-health-center/"
+    },
+    {
+      "name": "Safeway Pharmacy #0954",
+      "category": "Healthcare",
+      "address": "475 M St, Crescent City, CA 95531",
+      "phone": "(707) 465-3663",
+      "website": "https://local.pharmacy.safeway.com/safeway/ca/crescent-city/475-m-st.html",
+      "description": "Retail pharmacy with prescription fills, refills, and immunizations.",
+      "source": "https://local.pharmacy.safeway.com/safeway/ca/crescent-city/475-m-st.html"
+    },
+    {
+      "name": "Walgreens",
+      "category": "Healthcare",
+      "address": "787 L St, Crescent City, CA 95531",
+      "phone": "(707) 464-3857",
+      "website": null,
+      "description": "Community retail pharmacy (Walgreen Co., NPI 1922256981).",
+      "source": "https://npino.com/pharmacy/1922256981-walgreen-co./"
+    },
+    {
+      "name": "Rite Aid Pharmacy #06040",
+      "category": "Healthcare",
+      "address": "575 M St, Crescent City, CA 95531",
+      "phone": "(707) 465-3981",
+      "website": "https://www.riteaid.com/locations/ca/crescent-city/575-m-street.html",
+      "description": "Chain drugstore with pharmacy, wellness products, and photo services.",
+      "source": "https://www.mapquest.com/us/california/rite-aid-12128853"
+    },
+    {
+      "name": "Crabtree Dental Center",
+      "category": "Healthcare",
+      "address": null,
+      "phone": "(707) 464-8393",
+      "website": "https://crabtreedentalcenter.com/",
+      "description": "Family dental practice in Crescent City offering full-range dental services.",
+      "source": "https://crabtreedentalcenter.com/"
+    },
+    {
+      "name": "James C. Standring, DDS",
+      "category": "Healthcare",
+      "address": "1470 Northcrest Dr, Crescent City, CA 95531",
+      "phone": "(707) 464-4223",
+      "website": "https://www.standring.net/",
+      "description": "Dental practice focused on personalized care in Crescent City.",
+      "source": "https://www.standring.net/"
+    },
+    {
+      "name": "Curly Redwood Lodge",
+      "category": "Lodging",
+      "address": "701 US Hwy 101 S, Crescent City, CA 95531",
+      "phone": "(707) 464-2137",
+      "website": "http://www.curlyredwoodlodge.com/",
+      "description": "Vintage 1957 lodge built from one curly redwood tree, across from the harbor and beaches.",
+      "source": "http://www.curlyredwoodlodge.com/"
+    },
+    {
+      "name": "Best Western Plus Northwoods Inn",
+      "category": "Lodging",
+      "address": "655 US Highway 101 S, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://www.bestwestern.com/en_US/book/hotel-details.05435.html",
+      "description": "Hotel across from Crescent City Harbor District, minutes from Redwood National Forest.",
+      "source": "https://www.bestwestern.com/en_US/book/hotel-details.05435.html"
+    },
+    {
+      "name": "Oceanfront Lodge (Redwood Oceanfront Resort)",
+      "category": "Lodging",
+      "address": "100 A St, Crescent City, CA 95531",
+      "phone": "(707) 465-5400",
+      "website": "https://oceanfrontlodge1.com/",
+      "description": "Oceanfront hotel with views of Battery Point Lighthouse; redwoods ~3 miles away.",
+      "source": "https://oceanfrontlodge1.com/"
+    },
+    {
+      "name": "Anchor Beach Inn",
+      "category": "Lodging",
+      "address": "880 Highway 101 South, Crescent City, CA 95531",
+      "phone": "(707) 464-2600",
+      "website": "https://www.anchorbeachinn.com/",
+      "description": "Beachfront hotel 0.1 miles from the beach, near Battery Point Lighthouse and Ocean World.",
+      "source": "https://www.anchorbeachinn.com/"
+    },
+    {
+      "name": "Light House Inn",
+      "category": "Lodging",
+      "address": "681 US Highway 101 South, Crescent City, CA 95531",
+      "phone": "(707) 464-3993",
+      "website": "https://lighthouse101.com/",
+      "description": "Hotel near South Beach with 24-hour front desk; positioned between the city's two lighthouses.",
+      "source": "https://lighthouse101.com/"
+    },
+    {
+      "name": "Super 8 by Wyndham Crescent City",
+      "category": "Lodging",
+      "address": "685 US Highway 101 S, Crescent City, CA 95531",
+      "phone": null,
+      "website": "https://www.wyndhamhotels.com/super-8/crescent-city-california/super-8-crescent-city/overview",
+      "description": "Pet-friendly motel on Highway 101, a short walk from the harbor.",
+      "source": "https://www.wyndhamhotels.com/super-8/crescent-city-california/super-8-crescent-city/overview"
+    },
+    {
+      "name": "The Del Norte Triplicate",
+      "category": "Media",
+      "address": "501 H St, Crescent City, CA 95531",
+      "phone": "(707) 464-2141",
+      "website": "https://www.triplicate.com",
+      "description": "Newspaper of record for Del Norte County, publishing since 1879 (Wednesdays and Saturdays).",
+      "source": "https://www.crescentcity.org/LocalMedia"
+    },
+    {
+      "name": "KFUG-FM 101.1",
+      "category": "Media",
+      "address": "Crescent City, CA",
+      "phone": "(707) 460-6100",
+      "website": null,
+      "description": "Community over-the-air and online radio station serving Crescent City.",
+      "source": "https://www.crescentcity.org/LocalMedia"
+    },
+    {
+      "name": "Coast Central Credit Union - Crescent City Branch",
+      "category": "Finance",
+      "address": "660 L St, Crescent City, CA 95531",
+      "phone": "(707) 464-2177",
+      "website": "https://www.coastccu.org/locations-atms/crescent-city/",
+      "description": "Member services branch of the Humboldt/Del Norte/Trinity counties credit union, with two drive-up ATMs.",
+      "source": "https://www.coastccu.org/locations-atms/crescent-city/"
+    },
+    {
+      "name": "Crescent City Fishing Charters (Steve Huber)",
+      "category": "Services",
+      "address": "Crescent City Harbor, slip D-30, Crescent City, CA",
+      "phone": null,
+      "website": "https://www.crescentcityfishing.com/",
+      "description": "Fishing charter service (27+ years) for rockfish, lingcod, halibut, albacore, and crab; catch filleted and bagged.",
+      "source": "https://www.crescentcityfishing.com/"
+    },
+    {
+      "name": "Stella's Adventures Fishing Charters",
+      "category": "Services",
+      "address": "Crescent City Harbor, Crescent City, CA",
+      "phone": "(707) 345-4990",
+      "website": "https://www.stellasadventures.com/",
+      "description": "Daily ocean fishing charters from Crescent City Harbor run by a retired commercial fisherman.",
+      "source": "https://www.stellasadventures.com/"
+    },
+    {
+      "name": "NAPA Auto Parts (MorJon Inc)",
+      "category": "Services",
+      "address": "137 E Washington Blvd, Crescent City, CA 95531",
+      "phone": null,
+      "website": null,
+      "description": "Auto parts and repair for cars, light trucks, motor homes, and heavy-duty trucks.",
+      "source": "https://www.mapquest.com/us/california/napa-auto-parts-284226168"
+    },
+    {
+      "name": "Coast Auto Center",
+      "category": "Services",
+      "address": "1312 Northcrest Drive, Crescent City, CA 95531",
+      "phone": null,
+      "website": null,
+      "description": "Auto service business listed by the Del Norte County visitor bureau.",
+      "source": "https://visitdelnortecounty.com/services/coast-auto-center/"
+    },
+    {
+      "name": "Ming Tree Real Estate",
+      "category": "Services",
+      "address": "1000 Northcrest Drive #1, Crescent City, CA 95531",
+      "phone": "(707) 464-9741",
+      "website": "https://mingtreerealestate.com",
+      "description": "Del Norte County real estate agency: homes, manufactured homes, land, multi-family, and commercial.",
+      "source": "https://mingtreerealestate.com"
+    },
+    {
+      "name": "RE/MAX Coastal Redwoods",
+      "category": "Services",
+      "address": null,
+      "phone": null,
+      "website": "https://coastalredwoods.california.remax.com",
+      "description": "RE/MAX brokerage serving Crescent City and Del Norte County.",
+      "source": "https://linkedin.com/company/re-max-coastal-redwoods"
+    },
+    {
+      "name": "Redwood National and State Parks - Visitor Centers",
+      "category": "Attractions",
+      "address": "Park HQ / Crescent City Information Center: 1111 2nd St, Crescent City, CA 95531; Hiouchi Visitor Center: Highway 199, 9 mi east of Crescent City",
+      "phone": null,
+      "website": "https://www.nps.gov/redw/planyourvisit/visitorcenters.htm",
+      "description": "Five visitor centers (Hiouchi, Jedediah Smith, Crescent City, Prairie Creek, Kuchel) offer orientation, trip planning, and park stores.",
+      "source": "https://www.nps.gov/redw/planyourvisit/visitorcenters.htm"
+    },
+    {
+      "name": "Battery Point Lighthouse & Museum",
+      "category": "Attractions",
+      "address": "235 Lighthouse Way, Crescent City, CA 95531",
+      "phone": "(707) 464-3089",
+      "website": "https://delnortehistory.org/battery-point-lighthouse/",
+      "description": "Active 1856 lighthouse on a tidal island with keeper-quarters museum tours, tide permitting; volunteer keepers.",
+      "source": "https://delnortehistory.org/battery-point-lighthouse/"
+    },
+    {
+      "name": "Ocean World",
+      "category": "Attractions",
+      "address": "304 Highway 101 South, Crescent City, CA 95531",
+      "phone": "(707) 464-4900",
+      "website": "https://oceanworldonline.com/",
+      "description": "Aquarium attraction with guided tours (9:15am-6:45pm) on the Crescent City waterfront.",
+      "source": "https://oceanworldonline.com/our_location/"
+    },
+    {
+      "name": "Trees of Mystery",
+      "category": "Attractions",
+      "address": "15500 US Hwy 101 N, Klamath, CA 95548",
+      "phone": "1-800-638-3389",
+      "website": "https://treesofmystery.net/",
+      "description": "Nature attraction in the heart of Redwood National and State Parks since 1946, home of the giant Paul Bunyan and Babe statues.",
+      "source": "https://treesofmystery.net/faqs/"
+    },
+    {
+      "name": "Jedediah Smith Redwoods State Park",
+      "category": "Attractions",
+      "address": "9 miles east of Crescent City on Highway 199, CA",
+      "phone": "(707) 445-6547",
+      "website": "https://www.parks.ca.gov/?page_id=413",
+      "description": "10,000-acre state park co-managed by NPS and CA State Parks within Redwood National and State Parks, a World Heritage Site.",
+      "source": "https://www.parks.ca.gov/?page_id=413"
+    }
+  ]
+}

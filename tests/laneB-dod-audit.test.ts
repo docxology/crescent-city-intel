@@ -19,7 +19,7 @@ import { join } from "path";
 //  B6  boot: every page script wraps in __bootPage so the deferred shared
 //      site.js executes before the page script runs (no ReferenceError)
 
-const PAGE_FILES = ["index.html", "gui.html", "news.html", "meetings.html", "events.html", "code.html", "sources.html", "404.html"];
+const PAGE_FILES = ["index.html", "gui.html", "news.html", "meetings.html", "events.html", "directory.html", "code.html", "sources.html", "404.html"];
 
 describe("lane B r2: definition-of-done regression gate", () => {
   test("every page script is wrapped in a __bootPage DOMContentLoaded-aware boot", async () => {

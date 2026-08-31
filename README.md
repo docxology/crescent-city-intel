@@ -325,7 +325,7 @@ can choose local news and source-grounded summaries, source freshness, the
 municipal code, safety alerts, analytics, civic reports, structured downloads,
 or official local source hubs before entering the deeper tools.
 
-**Sources**: Lost Coast Outpost · Humboldt County official news · KIEM-TV/NBC 3 via current Redwood News RSS/HTML fallbacks · Redwood Voice · North Coast Journal. The feed set is intentionally local- and civic-specific; broad regional wire coverage is excluded.
+**Sources**: Lost Coast Outpost · Del Norte Triplicate (RSS since the Cloudflare block lifted) · Humboldt County official news · KIEM-TV/NBC 3 via current Redwood News RSS/HTML fallbacks · Redwood Voice · North Coast Journal. The feed set is intentionally local- and civic-specific; broad regional wire coverage is excluded.
 
 **Filter keywords**: crescent city · del norte · tsunami · harbor · fishing · crabbing · pelican bay · evacuation · wildfire · zoning · ordinance...
 

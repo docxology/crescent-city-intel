@@ -13,7 +13,7 @@
  * and `scripts/validate.ts` fences the real corpus around the whole suite, so a
  * test that forgets to use them is caught rather than trusted.
  */
-import { cp, mkdtemp, rm } from "fs/promises";
+import { cp, mkdir, mkdtemp, readdir, rm, stat } from "fs/promises";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -59,12 +59,58 @@ export async function beginCorpusCopy(options: { seed?: boolean } = {}): Promise
   if (activeRoot) throw new Error("a corpus copy is already active for this test file");
   const root = await mkdtemp(join(tmpdir(), "cci-corpus-"));
   const source = join(process.cwd(), "output");
-  if (options.seed !== false && existsSync(source)) await cp(source, root, { recursive: true });
+  if (options.seed !== false && existsSync(source)) {
+    // Internal-SSD staging cache: the corpus lives on a slow external drive,
+    // and each suite re-copying 40+ MB from it under parallel IO blew the
+    // hook timeouts (2026-08-31). The cache is refreshed once per process
+    // when the source's newest mtime moves ahead of the cached snapshot.
+    if (!corpusCacheRoot) await ensureCorpusCache(source);
+    if (corpusCacheRoot) await cp(corpusCacheRoot, root, { recursive: true });
+    else await cp(source, root, { recursive: true });
+  }
   previousEnv = process.env.CC_OUTPUT_DIR;
   process.env.CC_OUTPUT_DIR = root;
   activeRoot = root;
   return root;
 }
+
+let corpusCacheRoot: string | null = null;
+let corpusCacheStamp = "";
+
+async function ensureCorpusCache(source: string): Promise<void> {
+  try {
+    // Stamp = newest mtime in the corpus tree (cheap-enough single walk).
+    let newest = 0;
+    const walk = async (dir: string): Promise<void> => {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) { await walk(full); continue; }
+        const st = await stat(full);
+        if (st.mtimeMs > newest) newest = st.mtimeMs;
+      }
+    };
+    await walk(source);
+    const stamp = String(Math.floor(newest));
+    const cacheBase = join(tmpdir(), "cci-corpus-cache");
+    const cacheDir = join(cacheBase, stamp);
+    if (existsSync(cacheDir)) {
+      corpusCacheRoot = cacheDir;
+      corpusCacheStamp = stamp;
+      return;
+    }
+    await mkdir(cacheBase, { recursive: true });
+    await cp(source, cacheDir, { recursive: true });
+    corpusCacheRoot = cacheDir;
+    corpusCacheStamp = stamp;
+    // Best-effort: drop stale stamps so the cache stays bounded.
+    for (const entry of await readdir(cacheBase)) {
+      if (entry !== stamp) await rm(join(cacheBase, entry), { recursive: true, force: true });
+    }
+  } catch {
+    corpusCacheRoot = null; // fall back to direct copy
+  }
+}
+
 
 export async function endCorpusCopy(): Promise<void> {
   if (!activeRoot) return;

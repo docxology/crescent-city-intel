@@ -26,6 +26,13 @@ const logger = createLogger('news_monitor');
 
 /** RSS feed URLs for local news sources covering the NorCal coast */
 export const NEWS_FEEDS: Record<string, string> = {
+  // Del Norte Triplicate: the 2025 Cloudflare block is gone and the site now
+  // publishes a full RSS feed (verified live 2026-08-30: 20 items with titles,
+  // links, pubDates, descriptions at https://www.triplicate.com/rss.xml).
+  // Stories currently date from 2025; the feed goes live the moment the
+  // newsroom publishes. Deep article content still flows through
+  // src/triplicate_monitor.ts under the reference-citation-only policy.
+  'Del Norte Triplicate': 'https://www.triplicate.com/rss.xml',
   'Lost Coast Outpost': 'https://lostcoastoutpost.com/feed',
   'Humboldt County official news': 'https://humboldtgov.org/RSSFeed.aspx?ModID=1&CID=All-newsflash.xml',
   // KIEM now publishes under the Redwood News brand on TownNews.

@@ -100,6 +100,7 @@ describe("NewsItem shape", () => {
 describe("configured news source boundary", () => {
   test("keeps the feed set local/civic-specific and excludes retired broad coverage", () => {
     expect(Object.keys(NEWS_FEEDS)).toEqual([
+      "Del Norte Triplicate",
       "Lost Coast Outpost",
       "Humboldt County official news",
       "KIEM-TV NBC Eureka",

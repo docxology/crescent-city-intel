@@ -47,7 +47,7 @@ export interface EventSourceRecord {
   type: SourceType;
   notes: string;
   /** Optional extraction strategy override. evogov-json reads an EvoGov calendar platform site through its public meetings/get_list JSON endpoint, using calendar ids discovered on the listing page itself. */
-  strategy?: "evogov-json";
+  strategy?: "evogov-json" | "triplicate-calendar";
   probe?: {
     status: "ok" | "error" | "redirects";
     httpStatus?: number;
@@ -404,6 +404,126 @@ export interface SourceResult {
 }
 
 /** Fetch + parse one source; degrades to an errored result instead of throwing. */
+/**
+ * Del Norte Triplicate community-calendar reader (verified live 2026-08-30).
+ *
+ * triplicate.com is a SvelteKit app. Its calendar ships structured data at
+ * `/calendar/__data.json` — a streamed devalue payload whose node array holds
+ * event records (title/description/location/organizer/start_date/end_date/
+ * start_time). 92 events, no Cloudflare block, no rendered-markup scraping:
+ * this is the site's own machine-readable data channel.
+ *
+ * Devalue format: object field values are INDICES into the same node array
+ * (strings/objects/lists are shared through them; numbers/nulls stay literal).
+ */
+export interface TriplicateCalendarEvent {
+  title: string;
+  description: string;
+  location: string | null;
+  organizer: string | null;
+  startDate: string;
+  endDate: string | null;
+  startTime: string | null;
+}
+
+/** Extract the concatenated JSON objects from a streamed SvelteKit response. */
+export function splitStreamedJson(raw: string): unknown[] {
+  const objects: unknown[] = [];
+  let position = 0;
+  while (position < raw.length) {
+    while (position < raw.length && "\n\r\t ".includes(raw[position])) position++;
+    if (position >= raw.length) break;
+    // Find the object extent by brace matching, honoring strings/escapes.
+    if (raw[position] !== "{") { position++; continue; }
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let i = position; i < raw.length; i++) {
+      const ch = raw[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === "{") depth++;
+      else if (ch === "}") {
+        depth--;
+        if (depth === 0) { end = i + 1; break; }
+      }
+    }
+    if (end === -1) break;
+    try {
+      objects.push(JSON.parse(raw.slice(position, end)));
+    } catch {
+      // A truncated trailing chunk is skipped; earlier objects remain valid.
+    }
+    position = end;
+  }
+  return objects;
+}
+
+/** Resolve a devalue payload: field values that are integers are node indices. */
+export function resolveDevalue(nodes: unknown[], value: unknown, depth = 0): unknown {
+  if (depth > 12) return value;
+  if (typeof value === "number") {
+    if (Number.isInteger(value) && value >= 0 && value < nodes.length) {
+      return resolveDevalue(nodes, nodes[value], depth + 1);
+    }
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(v => resolveDevalue(nodes, v, depth + 1));
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = resolveDevalue(nodes, v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** Parse a `/calendar/__data.json` response into calendar events. */
+export function parseTriplicateCalendar(raw: string): TriplicateCalendarEvent[] {
+  const objects = splitStreamedJson(raw);
+  // Aggregate across every streamed payload's node arrays (a chunked response
+  // may split one calendar across multiple devalue objects), deduping by
+  // title+date since pages can repeat records.
+  const events: TriplicateCalendarEvent[] = [];
+  const seen = new Set<string>();
+  for (const obj of objects) {
+    const candidate = (obj as { nodes?: Array<{ data?: unknown }> }).nodes;
+    if (!Array.isArray(candidate)) continue;
+    for (let i = candidate.length - 1; i >= 0; i--) {
+      const data = candidate[i]?.data;
+      if (!Array.isArray(data) || !data.some(v => v !== null && typeof v === "object" && "start_date" in (v as object))) continue;
+      for (const node of data as unknown[]) {
+        if (node === null || typeof node !== "object" || !("start_date" in node)) continue;
+        const resolved = resolveDevalue(data as unknown[], node) as Record<string, unknown>;
+        const title = typeof resolved.title === "string" ? resolved.title.trim() : "";
+        const startDate = typeof resolved.start_date === "string" ? resolved.start_date : "";
+        if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) continue;
+        const key = title + "|" + startDate;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        events.push({
+          title,
+          description: typeof resolved.description === "string" ? resolved.description : "",
+          location: typeof resolved.location === "string" && resolved.location.trim() ? resolved.location.trim() : null,
+          organizer: typeof resolved.organizer === "string" && resolved.organizer.trim() ? resolved.organizer.trim() : null,
+          startDate,
+          endDate: typeof resolved.end_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(resolved.end_date) ? resolved.end_date : null,
+          startTime: typeof resolved.start_time === "string" && /^\d{2}:\d{2}/.test(resolved.start_time) ? resolved.start_time.slice(0, 5) : null,
+        });
+      }
+    }
+  }
+  events.sort((a, b) => (a.startDate + a.title).localeCompare(b.startDate + b.title));
+  return events;
+}
+
 export async function discoverFromSource(
   source: EventSourceRecord,
   counters: DropCounters,
@@ -461,6 +581,43 @@ export async function discoverFromSource(
         return true;
       });
       return { status: "ok", httpStatus, events: dated.slice(0, MAX_EVENTS_PER_SOURCE) };
+    }
+
+    if (source.strategy === "triplicate-calendar") {
+      // The calendar feed URL is /calendar/__data.json; accept either the page
+      // URL or the data URL on the record and normalize to the data endpoint.
+      const dataUrl = source.url.endsWith("__data.json")
+        ? source.url
+        : source.url.replace(/\/?$/, "/__data.json");
+      let raw: string;
+      try {
+        const fetched = await fetchFeed(dataUrl);
+        raw = fetched.text;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.warn(`source "${source.name}" calendar data endpoint failed: ${message}`);
+        return { status: "error", error: message, events: [] };
+      }
+      const listings = parseTriplicateCalendar(raw);
+      const resolved: DiscoveredEvent[] = listings.map(listing => {
+        const isMeeting = /commission|council|board of|authority|committee/i.test(listing.title);
+        return {
+          title: listing.title,
+          kind: isMeeting ? "government-meeting" : "community-listing",
+          dateStart: listing.startDate,
+          dateAllDay: listing.startTime === null,
+          timeNote: listing.startTime,
+          location: listing.location,
+          organizer: listing.organizer ?? source.name,
+          description: listing.description.replace(/<[^>]*>/g, "").trim(),
+          sourceUrl: source.url,
+          sourceName: source.name,
+          sourceLinks: [source.url],
+          extractionMethod: "markup",
+          confidence: 0.9,
+        };
+      });
+      return { status: "ok", httpStatus, events: resolved.slice(0, MAX_EVENTS_PER_SOURCE) };
     }
 
     if (source.strategy === "evogov-json") {

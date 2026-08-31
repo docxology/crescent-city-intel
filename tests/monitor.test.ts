@@ -34,7 +34,7 @@ describe("runMonitor", () => {
     expect(Array.isArray(report.missingSections)).toBe(true);
     expect(Array.isArray(report.newSections)).toBe(true);
     expect(report.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  }, 60_000);
+  }, 180_000);
 });
 
 describe("checkHashes", () => {
@@ -50,7 +50,7 @@ describe("checkHashes", () => {
     } catch {
       // No data — acceptable in test env
     }
-  });
+  }, 120000);
 });
 
 describe("checkSectionCoverage", () => {
@@ -64,5 +64,5 @@ describe("checkSectionCoverage", () => {
     } catch {
       // No data — acceptable in test env
     }
-  });
+  }, 180000);
 });

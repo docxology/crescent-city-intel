@@ -229,15 +229,20 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "triplicate-home-reference", name: "Del Norte Triplicate", kind: "reference", authority: "journalistic", region: "Del Norte County",
-    canonicalUrl: "https://www.triplicate.com/", discoveredFrom: [DISCOVERY_CITATIONS.city], collectionMode: "playwright", automation: "reference-only", enabled: true,
-    configuredMonitor: "triplicate", referenceOnly: true, expectedCadence: "daily", provenance: "Playwright-rendered reference metadata; citations only.",
+    canonicalUrl: "https://www.triplicate.com/rss.xml", discoveredFrom: [DISCOVERY_CITATIONS.city], collectionMode: "rss", automation: "monitored", enabled: true,
+    configuredMonitor: "triplicate", expectedCadence: "daily", provenance: "Site RSS feed (triplicate.com/rss.xml) since the 2025 Cloudflare block lifted; deep article bodies via __data.json under the reference-citation-only policy.",
     notes: "Excluded from LLM curation, embeddings, training inputs, and public article-content export.",
   }),
   source({
     id: "triplicate-news-reference", name: "Del Norte Triplicate news section", kind: "reference", authority: "journalistic", region: "Del Norte County",
-    canonicalUrl: "https://www.triplicate.com/news/", discoveredFrom: ["https://www.triplicate.com/"], collectionMode: "playwright", automation: "reference-only", enabled: true,
-    configuredMonitor: "triplicate", referenceOnly: true, expectedCadence: "daily", provenance: "Playwright-rendered reference metadata; citations only.",
+    canonicalUrl: "https://www.triplicate.com/news/", discoveredFrom: ["https://www.triplicate.com/"], collectionMode: "rss", automation: "monitored", enabled: true,
+    configuredMonitor: "triplicate", expectedCadence: "daily", provenance: "Section articles flow through the site RSS feed and deep __data.json endpoints; citations only.",
     notes: "Excluded from LLM curation, embeddings, training inputs, and public article-content export.",
+  }),
+  source({
+    id: "triplicate-calendar", name: "Del Norte Triplicate community calendar", kind: "events", authority: "journalistic", region: "Del Norte County",
+    canonicalUrl: "https://www.triplicate.com/calendar/__data.json", discoveredFrom: ["https://www.triplicate.com/calendar"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "events:triplicate-calendar", expectedCadence: "daily", provenance: "SvelteKit structured calendar data (devalue __data.json); parsed deterministically, no LLM step.",
   }),
 ];
 

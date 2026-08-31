@@ -10,6 +10,36 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Triplicate integration — RSS news, structured calendar, deep article channel (2026-08-31)
+
+The 2025 Cloudflare block on triplicate.com has lifted, and the site is now a
+SvelteKit app that publishes machine-readable data. Verified live 2026-08-30
+and wired into the platform's existing pipelines:
+
+#### Added
+
+- **News**: `Del Norte Triplicate` added to `NEWS_FEEDS` over the site's own
+  full-text RSS feed (`/rss.xml`, 20 items with titles/links/dates). Stories
+  currently date from 2025; the pipeline ingests new items the moment the
+  newsroom publishes. Flows through the standard news path: dedup, source
+  health, curation eligibility, snapshot `news.html`.
+- **Events**: new `triplicate-calendar` discovery strategy reading the
+  SvelteKit structured data endpoint (`/calendar/__data.json`, devalue
+  format). Deterministic parser (`parseTriplicateCalendar`) resolves the
+  index-referenced node graph across streamed payloads, dedupes, and maps
+  civic-meeting titles to `government-meeting`. Live check: 92 events, 50
+  entering the bounded artifact alongside the six existing calendar sources.
+- **Deep content**: `fetchTriplicateArticleContent` reads each article's
+  `/news/{uuid}/__data.json` for headline, byline, release date, and body;
+  `monitorTriplicate` now enriches up to 5 new articles per run into
+  `output/triplicate/deep/`. The reference-citation-only usage policy is
+  unchanged and machine-tagged on every record.
+- Registry: the two Triplicate reference entries moved from
+  playwright/reference-only to rss/monitored, and a `triplicate-calendar`
+  source (new `events` SourceKind) registered.
+- Tests: `tests/triplicate-integration.test.ts` holds the devalue parser,
+  streamed-JSON walker, and deep-article resolution to real captured shapes.
+
 ### Monitor source repairs — five stale/unavailable feeds re-verified (2026-08-30)
 
 #### Fixed

@@ -325,6 +325,7 @@ export type SourceKind =
   | "harbor"
   | "transportation"
   | "environment"
+  | "events"
   | "reference";
 
 export type SourceAuthority = "official" | "public_agency" | "journalistic" | "reference";

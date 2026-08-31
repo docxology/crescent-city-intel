@@ -59,7 +59,7 @@ describe("metadata and machine-readable reporting routes", () => {
     const body = await response.json();
     expect(body.registry.length).toBeGreaterThan(30);
     expect(body.discovery.sourceCount).toBe(body.registry.length);
-    expect(body.registry.find((source: any) => source.id === "triplicate-news-reference").automation).toBe("reference-only");
+    expect(body.registry.find((source: any) => source.id === "triplicate-news-reference").automation).toBe("monitored");
   });
 
   test("GET /api/source-discovery returns a durable-shaped report without probing", async () => {

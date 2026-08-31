@@ -70,6 +70,18 @@
         "httpStatus": 200,
         "probedAt": "2026-08-26T00:00:00Z"
       }
+    },
+    {
+      "name": "Del Norte Triplicate Community Calendar",
+      "url": "https://www.triplicate.com/calendar/__data.json",
+      "type": "html",
+      "strategy": "triplicate-calendar",
+      "notes": "Triplicate's SvelteKit calendar ships structured event data at /calendar/__data.json (devalue format; verified live 2026-08-30: 92 events incl. civic meetings). Parsed deterministically via parseTriplicateCalendar \u2014 no rendered-markup scraping, no LLM step.",
+      "probe": {
+        "status": "ok",
+        "httpStatus": 200,
+        "probedAt": "2026-08-31T00:00:00Z"
+      }
     }
   ]
 }

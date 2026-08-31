@@ -256,6 +256,150 @@ async function fetchSection(
  * file. The payload carries the binding AI-usage policy so any consumer of the
  * file sees it without reading this module.
  */
+// ─── Deep content channel (verified live 2026-08-30) ─────────────────────────
+// The 2025 Cloudflare block is gone and the site is now a SvelteKit app that
+// ships machine-readable data: every article has /news/{uuid}/__data.json with
+// headline, released_at, byline, and body_html. The reference-citation-only
+// usage policy is unchanged: article bodies are stored for retrieval-with-
+// citation and are NEVER AI-training input.
+export const TRIPLICATE_RSS_URL = 'https://www.triplicate.com/rss.xml';
+
+export interface TriplicateDeepArticle {
+  uuid: string;
+  url: string;
+  section: string;
+  headline: string;
+  releasedAt: string | null;
+  byline: string | null;
+  bodyText: string;
+  fetchedAt: string;
+  usagePolicy: typeof TRIPLICATE_USAGE_POLICY;
+}
+
+/** Walk a streamed SvelteKit response (concatenated JSON objects). */
+export function splitStreamedJsonObjects(raw: string): Array<Record<string, unknown>> {
+  const objects: Array<Record<string, unknown>> = [];
+  let position = 0;
+  while (position < raw.length) {
+    while (position < raw.length && ' \n\r\t'.includes(raw[position])) position++;
+    if (position >= raw.length || raw[position] !== '{') break;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let i = position; i < raw.length; i++) {
+      const ch = raw[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) { end = i + 1; break; }
+      }
+    }
+    if (end === -1) break;
+    try {
+      const parsed = JSON.parse(raw.slice(position, end)) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        objects.push(parsed as Record<string, unknown>);
+      }
+    } catch { /* truncated trailing chunk: earlier objects stay valid */ }
+    position = end;
+  }
+  return objects;
+}
+
+/** Resolve devalue index-references in one payload's node array. */
+export function resolveDevalueArticle(nodes: unknown[], value: unknown, depth = 0): unknown {
+  if (depth > 12) return value;
+  if (typeof value === 'number') {
+    if (Number.isInteger(value) && value >= 0 && value < nodes.length) {
+      return resolveDevalueArticle(nodes, nodes[value], depth + 1);
+    }
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((v) => resolveDevalueArticle(nodes, v, depth + 1));
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, v] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = resolveDevalueArticle(nodes, v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+function articleNodeData(raw: string): unknown[] | null {
+  for (const obj of splitStreamedJsonObjects(raw)) {
+    const nodes = (obj as { nodes?: Array<{ data?: unknown }> }).nodes;
+    if (!Array.isArray(nodes)) continue;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const data = nodes[i]?.data;
+      if (Array.isArray(data) && data.some((v) => v !== null && typeof v === 'object' && 'headline' in (v as object))) {
+        return data as unknown[];
+      }
+    }
+  }
+  return null;
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Fetch one article's deep content through its __data.json endpoint. */
+export async function fetchTriplicateArticleContent(
+  articleUrl: string,
+  fetchText: (url: string) => Promise<string> = (u) => fetch(u, { headers: { Accept: 'application/json' } }).then((r) => {
+    if (!r.ok) throw new Error(`HTTP ${r.status} for ${u}`);
+    return r.text();
+  }),
+): Promise<TriplicateDeepArticle | null> {
+  const match = /\/([a-z-]+)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i.exec(articleUrl);
+  if (!match) return null;
+  const [, section, uuid] = match;
+  try {
+    // AI-USAGE: body text is stored as citation/retrieval input only.
+    const raw = await fetchText(`https://www.triplicate.com/${section}/${uuid}/__data.json`);
+    const nodes = articleNodeData(raw);
+    if (!nodes) return null;
+    for (const node of nodes) {
+      if (node === null || typeof node !== 'object' || !('headline' in node)) continue;
+      const resolved = resolveDevalueArticle(nodes, node) as Record<string, unknown>;
+      const headline = typeof resolved.headline === 'string' ? resolved.headline : '';
+      const bodyHtml = typeof resolved.body_html === 'string' ? resolved.body_html : '';
+      if (!headline || !bodyHtml) continue;
+      return {
+        uuid,
+        url: articleUrl,
+        section,
+        headline,
+        releasedAt: typeof resolved.released_at === 'string' ? resolved.released_at : null,
+        byline: [resolved.byline_given, resolved.byline_family].filter((v) => typeof v === 'string' && v).join(' ') || null,
+        bodyText: stripHtml(bodyHtml),
+        fetchedAt: new Date().toISOString(),
+        usagePolicy: TRIPLICATE_USAGE_POLICY,
+      };
+    }
+    return null;
+  } catch (error) {
+    logger.warn('Deep article fetch failed', { url: articleUrl, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
+}
+
 export async function saveTriplicateArticles(
   articles: TriplicateArticle[],
   outputDir: string = TRIPLICATE_OUTPUT_DIR,
@@ -290,6 +434,8 @@ export interface MonitorTriplicateOptions {
   outputDir?: string;
   /** Override the source-health artifact path (defaults to output/triplicate/source-health.json). */
   healthPath?: string;
+  /** Bounded deep-content enrichment (article bodies via __data.json). */
+  deep?: { limit?: number };
   /** Retry policy for section fetches. */
   retry?: { maxRetries?: number; baseDelayMs?: number };
 }

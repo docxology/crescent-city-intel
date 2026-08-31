@@ -56,7 +56,7 @@ describe("pages SEO discoverability", () => {
     expect(locs.some(loc => loc.includes("#"))).toBe(false);
   });
 
-  test("exportPagesSnapshot writes robots.txt and sitemap.xml into the artifact", async () => {
+  test("exportPagesSnapshot writes robots.txt and sitemap.xml into the artifact", async () => { // 120s: external-drive mkdtemp IO
     const root = await mkdtemp(join(process.cwd(), ".pages-seo-test-"));
     try {
       const destination = join(root, "pages");
@@ -71,7 +71,7 @@ describe("pages SEO discoverability", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 120000);
 
   test("buildPagesGeoIntel and geo embedding remain intact alongside SEO additions", () => {
     const geoIntel = buildPagesGeoIntel();
@@ -107,7 +107,7 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
     }
   });
 
-  test("counts are injected from the snapshot manifest at export time", async () => {
+  test("counts are injected from the snapshot manifest at export time", async () => { // 120s: external-drive temp IO
     const root = await mkdtemp(join(process.cwd(), ".pages-methods-test-"));
     try {
       const destination = join(root, "pages");
@@ -121,7 +121,7 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 120000);
 
   test("buildPagesMethodsCounts escapes angle brackets in injected values", () => {
     const snapshot = {
@@ -206,7 +206,7 @@ describe("standalone static pages", () => {
     }
   });
 
-  test("exportPagesSnapshot emits every standalone page into the artifact with no dead internal nav links", async () => {
+  test("exportPagesSnapshot emits every standalone page into the artifact with no dead internal nav links", async () => { // 120s: external-drive temp IO
     const root = await mkdtemp(join(process.cwd(), ".pages-static-test-"));
     try {
       const destination = join(root, "pages");
@@ -237,5 +237,5 @@ describe("standalone static pages", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 120000);
 });

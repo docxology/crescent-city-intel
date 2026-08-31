@@ -20,7 +20,10 @@ describe("source discovery registry", () => {
     expect(registry.length).toBeGreaterThan(30);
     expect(validateSourceRegistry(registry)).toEqual([]);
     expect(new Set(registry.map(source => source.id)).size).toBe(registry.length);
-    expect(registry.find(source => source.id === "triplicate-news-reference")?.automation).toBe("reference-only");
+    // Triplicate moved from playwright/reference-only to rss/monitored when
+    // the 2025 Cloudflare block lifted and the site shipped an RSS feed.
+    expect(registry.find(source => source.id === "triplicate-news-reference")?.automation).toBe("monitored");
+    expect(registry.find(source => source.id === "triplicate-calendar")?.collectionMode).toBe("api");
     expect(registry.find(source => source.id === "harbor-recordings")?.automation).toBe("discovery-only");
   });
 
@@ -42,7 +45,7 @@ describe("source discovery registry", () => {
     expect(report.sourceCount).toBe(registry.length);
     expect(report.sources.find(source => source.id === "news-lost-coast-outpost")?.operationalStatus).toBe("ok");
     expect(report.sources.find(source => source.id === "harbor-news")?.operationalStatus).toBe("not-checked");
-    expect(report.sources.find(source => source.id === "triplicate-home-reference")?.referenceOnly).toBe(true);
+    expect(report.sources.find(source => source.id === "triplicate-home-reference")?.referenceOnly).toBeFalsy(); // monitored now, not reference-only
     expect(report.coverageGaps.length).toBeGreaterThan(0);
   });
 

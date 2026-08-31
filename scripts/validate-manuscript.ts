@@ -7,7 +7,11 @@ import { MANUSCRIPT_VARIABLE_NAMES } from "../src/manuscript_variables.js";
 import { paths } from "../src/shared/paths.js";
 
 const root = process.cwd();
-const sourceDir = join(root, "manuscript");
+// Canonical source dir is docs/manuscript/ (2026-08-30 convention); top-level
+// manuscript/ remains a legacy fallback resolved docs-first.
+const sourceDir = existsSync(join(root, "docs", "manuscript"))
+  ? join(root, "docs", "manuscript")
+  : join(root, "manuscript");
 const hydrated = Bun.argv.includes("--hydrated");
 const errors: string[] = [];
 

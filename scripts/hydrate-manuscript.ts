@@ -9,7 +9,11 @@ import { paths } from "../src/shared/paths.js";
 import { writeJsonAtomic, writeTextAtomic } from "../src/shared/source_health.js";
 
 const root = process.cwd();
-const sourceDir = join(root, "manuscript");
+// Canonical source dir is docs/manuscript/ (2026-08-30 convention); top-level
+// manuscript/ remains a legacy fallback resolved docs-first.
+const sourceDir = existsSync(join(root, "docs", "manuscript"))
+  ? join(root, "docs", "manuscript")
+  : join(root, "manuscript");
 const allowDraft = Bun.argv.includes("--allow-draft");
 
 async function readOverview(): Promise<AnalyticsOverview> {

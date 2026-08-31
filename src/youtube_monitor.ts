@@ -518,14 +518,21 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
     await idempotency.save();
   }
 
+  // Health semantics: the LISTING is the source of truth for freshness (fresh
+  // video metadata = a healthy check). Transcript extraction failures are an
+  // enrichment gap, not staleness — the previously indexed transcripts remain
+  // valid and the failure count stays visible in the error field. Marking the
+  // source stale here was the 2026-08-31 defect: fresh listings were reported
+  // stale solely because YouTube JS-challenges the runner's transcript fetch.
+  const transcriptGap = extractionFailures > 0 || indexingFailures > 0;
   const health: SourceHealth = listing.health.status === 'unavailable'
     ? listing.health
-    : extractionFailures > 0 || indexingFailures > 0
-      ? sourceHealth('YouTube', 'stale', new Date().toISOString(), {
+    : transcriptGap
+      ? sourceHealth('YouTube', 'ok', new Date().toISOString(), {
         url: YOUTUBE_CHANNEL_URL,
         fetchedAt: listing.health.fetchedAt,
         itemCount: videos.length,
-        error: `${extractionFailures} transcript extraction failure(s), ${indexingFailures} indexing failure(s)`,
+        error: `${extractionFailures} transcript extraction failure(s), ${indexingFailures} indexing failure(s) (transcript enrichment gap; listing fresh, prior transcripts intact)`,
         provenance: 'yt-dlp listing plus transcript/index pipeline',
       })
       : listing.health;

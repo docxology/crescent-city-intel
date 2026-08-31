@@ -31,6 +31,12 @@ jobs:
       PAGES_DOMAIN: quadruplicate.org
       HEADLESS_BROWSER: "1"
       SCRAPE_TIMEOUT_MS: "180000"
+      # The 10s default fetch timeout is tighter than a cold-datacenter-TLS
+      # round trip to several state endpoints (roads.dot.ca.gov timed out on
+      # all five route fetches in the 2026-08-31 run while serving 200s in
+      # ~0.3s locally). 60s keeps the honest-unavailable semantics while not
+      # mistaking slow egress for a dead source.
+      SOURCE_FETCH_TIMEOUT_MS: "60000"
 
     steps:
       - name: Checkout repository

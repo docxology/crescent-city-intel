@@ -45,7 +45,7 @@ const YOUTUBE_OUTPUT_DIR = join(process.cwd(), 'output', 'youtube');
  * that lists output/youtube/*.json (e.g. curation.ts's gatherYouTubeItems)
  * from having to remember to filter this state file out. */
 const SEEN_VIDEOS_PATH = join(process.cwd(), 'output', 'state', 'youtube-seen-videos.json');
-const YT_DLP_TIMEOUT_MS = Number(process.env.YT_DLP_TIMEOUT_MS ?? '15000');
+const YT_DLP_TIMEOUT_MS = Number(process.env.YT_DLP_TIMEOUT_MS ?? '45000');
 
 /**
  * yt-dlp player-client extractor args required to avoid YouTube's current

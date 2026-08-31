@@ -535,20 +535,20 @@ export async function monitorTriplicate(
   }
 
   const health: SourceHealth = !anyFetchSucceeded && anyFetchFailed
-    ? sourceHealth('Del Norte Triplicate', 'unavailable', fetchedAt, {
+    ? sourceHealth('Del Norte Triplicate deep content', 'unavailable', fetchedAt, {
       url: Object.values(sections)[0],
       itemCount: 0,
       error: 'Every configured section failed to render',
       provenance: 'Playwright Cloudflare-bypass rendered pages',
     })
     : totalExtracted === 0
-      ? sourceHealth('Del Norte Triplicate', 'stale', fetchedAt, {
+      ? sourceHealth('Del Norte Triplicate deep content', 'stale', fetchedAt, {
         url: Object.values(sections)[0],
         itemCount: 0,
         error: 'Rendered pages yielded no article links; selectors or layout may have changed',
         provenance: 'Playwright Cloudflare-bypass rendered pages',
       })
-      : sourceHealth('Del Norte Triplicate', anyFetchFailed ? 'stale' : 'ok', fetchedAt, {
+      : sourceHealth('Del Norte Triplicate deep content', anyFetchFailed ? 'stale' : 'ok', fetchedAt, {
         url: Object.values(sections)[0],
         fetchedAt,
         itemCount: totalExtracted,

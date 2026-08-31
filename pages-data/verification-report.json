@@ -1,12 +1,12 @@
 {
-  "verifiedAt": "2026-07-24T23:19:29.777Z",
+  "verifiedAt": "2026-08-27T03:41:52.363Z",
   "municipality": "Crescent City, CA",
   "overallStatus": "pass",
   "totalArticles": 245,
   "passedArticles": 245,
   "failedArticles": 0,
-  "totalExpectedSections": 2194,
-  "totalFoundSections": 2194,
+  "totalExpectedSections": 2206,
+  "totalFoundSections": 2206,
   "missingSections": [],
   "results": [
     {
@@ -17,8 +17,8 @@
         "fileExists": true,
         "sha256Match": true,
         "sectionCountMatch": true,
-        "expectedSections": 7,
-        "foundSections": 7,
+        "expectedSections": 8,
+        "foundSections": 8,
         "allSectionsPresent": true,
         "missingSections": []
       }
@@ -1473,8 +1473,8 @@
         "fileExists": true,
         "sha256Match": true,
         "sectionCountMatch": true,
-        "expectedSections": 1,
-        "foundSections": 1,
+        "expectedSections": 6,
+        "foundSections": 6,
         "allSectionsPresent": true,
         "missingSections": []
       }
@@ -1543,8 +1543,8 @@
         "fileExists": true,
         "sha256Match": true,
         "sectionCountMatch": true,
-        "expectedSections": 9,
-        "foundSections": 9,
+        "expectedSections": 14,
+        "foundSections": 14,
         "allSectionsPresent": true,
         "missingSections": []
       }
@@ -3223,8 +3223,8 @@
         "fileExists": true,
         "sha256Match": true,
         "sectionCountMatch": true,
-        "expectedSections": 20,
-        "foundSections": 20,
+        "expectedSections": 21,
+        "foundSections": 21,
         "allSectionsPresent": true,
         "missingSections": []
       }
@@ -3439,5 +3439,10 @@
         "missingSections": []
       }
     }
-  ]
+  ],
+  "sample": {
+    "attempted": 5,
+    "passes": 4,
+    "mismatches": 1
+  }
 }

@@ -174,6 +174,32 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   markup. **Acceptance:** vote tables + PDF hash drift surfaced in the meeting report.
   **Reason:** needs live minutes/PDF structure to verify.
 
+### Fixed in the 2026-08-31 agent-ergonomics pass
+
+- ✅ **`bun run validate` restored (Major):** the pre-existing `manuscript/` →
+  `docs/manuscript/` migration left `scripts/validate-manuscript.ts` and
+  `scripts/hydrate-manuscript.ts` pointing at the deleted top-level tree, so
+  the release gate failed on `manuscript/ is missing`. Both scripts now
+  resolve `docs/manuscript/` first with the legacy path as fallback
+  (docs-first, matching the repo-wide manuscript convention). Verified:
+  `bun run manuscript:check` passes; full `bun run validate` re-run.
+- ✅ **Doc pass (Minor):** broken `docs/manuscript.md` link fixed; README gained
+  "Current Status" (executable truth) + "What To Do Next" sections; AGENTS.md
+  gained an Agent Orientation block; architecture tree now names all 13
+  monitors explicitly.
+
+### Minor (agent-ergonomics doc pass — 2026-08-31, completed)
+
+- ✅ **Broken manuscript link fixed** (`docs/manuscript.md:3`): pointed at the
+  deleted top-level `manuscript/` tree; now links to `docs/manuscript/`.
+- ✅ **Orientation ladder added**: README.md gained "Current Status" (executable
+  truth: `bun run validate`, `output/state/latest-pipeline-run.json`) and
+  "What To Do Next" (single pointer to TODO.md); AGENTS.md gained an
+  "Agent Orientation" block with the release-gate order and the bun-not-python
+  warning.
+- ✅ **AGENTS.md architecture tree clarified**: the 13-monitor intelligence
+  layer now names the 8 core + 5 extended monitors explicitly.
+
 ### Minor (deferred — owner decision / roadmap / frontend)
 
 - 🟢 **`.claude/` untracked** — pre-existing operator-owned file; decide whether to commit or
@@ -192,4 +218,4 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   extracted body text with graceful fallback. **Reason:** depends on the live CDFW page.
 
 ---
-_Last updated: 2026-08-28 (Phase-12 monitor wiring completion pass) · v2.6.0 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-08-31 (agent-ergonomics doc pass; see Minor section) · v2.6.0 · run `bun run validate` for current test and contract counts_

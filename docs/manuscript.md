@@ -1,10 +1,10 @@
 # Manuscript and template rendering
 
-The source-controlled paper is in [`manuscript/`](../manuscript/). It is a
+The source-controlled paper is in [`docs/manuscript/`](manuscript/). It is a
 software-and-artifact evaluation paper, not a claim of safety impact or legal
 sufficiency. The manuscript keeps implementation invariants, one-run
 observations, generated language, and public-delivery claims separate through
-`manuscript/claim_ledger.json`.
+`docs/manuscript/claim_ledger.json`.
 
 ## Source and hydration
 

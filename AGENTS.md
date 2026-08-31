@@ -1,5 +1,19 @@
 # AGENTS.md — The Quadruplicate
 
+## Agent Orientation (read this first)
+
+- **What is this?** A Bun/TypeScript civic-intelligence platform for Crescent
+  City, CA — see [README.md](README.md) for the full feature map.
+- **Current state:** run `bun run validate` (authoritative release gate) and
+  read `output/state/latest-pipeline-run.json`; never trust prose status.
+- **What to do next:** [TODO.md](TODO.md) is the single backlog file.
+- **Where conventions live:** insights-engine invariants and CSS conventions
+  are documented in the repo skill (`~/.hermes/skills/crescent-city-intel/`)
+  and in `docs/modules/`; the release-gate order is
+  `edit → bun run validate → bun run pages:export → bun run pages:validate →
+  commit (path-scoped) → push`.
+- **Watchdog is `bun`, not `uv`/`pytest`** — there is no Python runner here.
+
 ## Project Overview
 
 The most comprehensive local intelligence platform for Crescent City, CA.
@@ -30,8 +44,9 @@ ecode360.com/CR4919
  RAG+SSE    RAG       Cross-refs
         |
  [Intelligence Layer — 13 monitors]
-   NOAA Tsunami · USGS Earthquake · NWS Weather · NOAA Tides
+   8 core: NOAA Tsunami · USGS Earthquake · NWS Weather · NOAA Tides ·
    CDFW Fishing · EPA AirNow · CAL FIRE Wildfire · NDBC Marine
+   5 extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads · DUSD Closures
         |
  [Alert Analytics — unified timeline + per-type stats]
 ```

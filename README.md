@@ -38,6 +38,8 @@
 - [⚡ Commands Reference](#-commands-reference)
 - [⚙️ Configuration](#-configuration)
 - [📖 Documentation](#-documentation)
+- [🚦 Current Status](#-current-status)
+- [🧭 What To Do Next](#-what-to-do-next)
 - [⚠️ Known Limitations](#-known-limitations)
 
 ---
@@ -621,7 +623,7 @@ scripts/
   weekly-check.sh       # Shell entry point for weekly check
 tests/                  # deterministic zero-mock suite; run `bun run validate` for the current count
 docs/                   # Full module documentation suite
-manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
+docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
@@ -837,6 +839,35 @@ All settings support environment variable overrides:
 | 🚨 [Alerts](docs/modules/alerts.md) | All 13 monitors with availability-aware severity |
 | 🌐 [GitHub Pages](docs/modules/pages.md) | Static snapshot export and deployment |
 | 🔐 [API Middleware](docs/modules/api.md) | Sliding-window rate limiting, API key auth |
+
+---
+
+## 🚦 Current Status
+
+Status lives in generated artifacts, never in this README — run these to see the
+present state:
+
+| Question | Command / file |
+| :------- | :------------- |
+| Release gate (types + tests + contracts) | `bun run validate` |
+| Latest pipeline run | `output/state/latest-pipeline-run.json` |
+| Latest analytics | `output/state/analytics-overview.json` |
+| Source health | `bun run source-discovery` |
+| Manuscript state | [`docs/manuscript/MANUSCRIPT_STATUS.md`](docs/manuscript/MANUSCRIPT_STATUS.md) |
+| Changelog (unreleased work) | [CHANGELOG.md](CHANGELOG.md) |
+
+Verified in this repo as of 2026-08-31: `bun test tests/geo-intel.test.ts` →
+13 pass / 0 fail; the weekly-check run of 2026-08-31T05:15Z reports
+`status: ok`.
+
+---
+
+## 🧭 What To Do Next
+
+Next actions live in **[TODO.md](TODO.md)** — the single backlog file
+(priorities: 🔴 Major / 🟡 Medium / 🟢 Minor, plus Completed/Closed history).
+Agents should also read [AGENTS.md](AGENTS.md) for conventions and the
+release-gate pipeline before editing.
 
 ---
 

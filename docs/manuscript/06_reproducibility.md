@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-The source-controlled manuscript lives in manuscript/. Its run-specific
+The source-controlled manuscript lives in docs/manuscript/. Its run-specific
 numbers are hydrated from output/state/analytics-overview.json by
 scripts/hydrate-manuscript.ts. The hydrated copy is written to
 output/manuscript/ and is the input consumed by the shared template renderer.
@@ -39,7 +39,7 @@ project's documented wrapper when one is available:
 uv run python scripts/pipeline/stage_03_render.py --project working/crescent-city-intel
 ~~~
 
-The renderer expects a project root containing manuscript/, output/, and
+The renderer expects a project root containing docs/manuscript/, output/, and
 config.yaml. The Python compatibility adapter
 scripts/z_generate_manuscript_variables.py delegates hydration to Bun, so
 template-driven rendering can refresh the evidence-bound manuscript before

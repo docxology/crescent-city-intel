@@ -1,6 +1,6 @@
 # TODO — The Quadruplicate
 
-> Upcoming development backlog · v2.5.1 · validation counts are reported by `bun run validate`
+> Upcoming development backlog · v2.6.0 · validation counts are reported by `bun run validate`
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix) — reviewed 2026-08-04 (Round 3 completion pass)
 >

@@ -212,17 +212,28 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
 
     logger.info(`Composite alert severity: ${severityReport.level} — ${severityReport.reason}`);
 
-    const severityDir = join(process.cwd(), "output", "alerts", "composite");
-    await mkdir(severityDir, { recursive: true });
-    await writeJsonAtomic(join(severityDir, "current.json"), severityReport);
-
     // Optional high-severity webhook (ALERT_WEBHOOK_URL). Fire-and-forget; a
-    // webhook failure never fails the alert run.
+    // webhook failure never fails the alert run. The composite snapshot is
+    // persisted once, after the healing summary is attached below, so the
+    // artifact always carries the healer state.
     await maybeSendSeverityWebhook(severityReport);
 
     // ─── Self-healing cycle ─────────────────────────────────────────
     // Run the healing cycle after alerts complete. Never throws.
     const healingResult = await runHealingCycle();
+    // Attach the healing summary the severity contract advertises
+    // (AlertSeverityReport.healer was declared but never populated before)
+    // and re-persist the composite snapshot so the artifact carries it.
+    severityReport.healer = {
+      lastCycleRun: healingResult.cycleRun,
+      monitorsRetried: healingResult.monitorsRetried,
+      monitorsRecovered: healingResult.monitorsRecovered,
+      monitorsWithFailures: Object.values(healingResult.state.monitors)
+        .filter(entry => entry.consecutiveFailures > 0).length,
+    };
+    const severityDir = join(process.cwd(), "output", "alerts", "composite");
+    await mkdir(severityDir, { recursive: true });
+    await writeJsonAtomic(join(severityDir, "current.json"), severityReport);
     if (healingResult.monitorsRetried.length > 0) {
       logger.info("Healing cycle triggered retries for monitors", { retried: healingResult.monitorsRetried });
       // Also send a push notification for monitors being retried

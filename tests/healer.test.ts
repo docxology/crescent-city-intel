@@ -55,12 +55,12 @@ async function cleanState() {
 describe("Healer — getHealerState", () => {
   beforeEach(cleanState);
 
-  test("returns a fresh state with all 8 monitors when no state file exists", async () => {
+  test("returns a fresh state with all 13 monitors when no state file exists", async () => {
     const { getHealerState } = await importHealer();
     const state = await getHealerState();
     expect(state).toBeDefined();
     expect(state.lastCycleRun).toBeTruthy();
-    expect(Object.keys(state.monitors).length).toBe(8);
+    expect(Object.keys(state.monitors).length).toBe(13);
     // Verify all expected monitor keys
     const names = Object.keys(state.monitors).sort();
     expect(names).toContain("NOAA Tsunami");
@@ -71,6 +71,14 @@ describe("Healer — getHealerState", () => {
     expect(names).toContain("EPA AirNow");
     expect(names).toContain("CAL FIRE Wildfire");
     expect(names).toContain("NDBC Marine");
+    // Phase-12 extended monitors are tracked too (regression: the roster was
+    // hard-coded to the 8 core monitors, leaving the extended five invisible
+    // to healing).
+    expect(names).toContain("USDM Drought");
+    expect(names).toContain("PG&E PSPS");
+    expect(names).toContain("HRRR Smoke");
+    expect(names).toContain("Caltrans Roads");
+    expect(names).toContain("DUSD Schools");
   });
 
   test("all monitors start with zero consecutive failures", async () => {
@@ -88,7 +96,7 @@ describe("Healer — getHealerState", () => {
     const { getHealerState } = await importHealer();
     const state = await getHealerState();
     expect(state).toBeDefined();
-    expect(Object.keys(state.monitors).length).toBe(8);
+    expect(Object.keys(state.monitors).length).toBe(13);
   });
 });
 
@@ -217,6 +225,31 @@ describe("Healer — runHealingCycle", () => {
     // Backoff blocks, so retryCount stays at 1
     expect(fourth.state.monitors["CDFW Fishing"].retryCount).toBe(1);
     expect(fourth.monitorsRetried).toEqual([]);
+  });
+
+  test("extended monitor failures accumulate and trigger retries (13-monitor roster)", async () => {
+    const { runHealingCycle } = await importHealer();
+    const extendedFailing = { source: "Caltrans Roads", status: "unavailable" };
+    const coreOk = [
+      { source: "NOAA Tsunami", status: "ok" },
+      { source: "USGS Earthquake", status: "ok" },
+      { source: "NWS Weather", status: "ok" },
+      { source: "NOAA Tides", status: "ok" },
+      { source: "CDFW Fishing", status: "ok" },
+      { source: "EPA AirNow", status: "ok" },
+      { source: "CAL FIRE Wildfire", status: "ok" },
+      { source: "NDBC Marine", status: "ok" },
+    ];
+    for (let i = 0; i < 3; i++) {
+      await writeHealth([extendedFailing, ...coreOk]);
+      const result = await runHealingCycle();
+      if (i === 2) {
+        expect(result.monitorsRetried).toContain("Caltrans Roads");
+        expect(result.state.monitors["Caltrans Roads"].retryCount).toBe(1);
+      } else {
+        expect(result.monitorsRetried).toEqual([]);
+      }
+    }
   });
 
   test("never throws even on corrupt input", async () => {

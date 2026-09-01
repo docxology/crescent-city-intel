@@ -687,7 +687,7 @@ paths:
   /api/monitor/alerts:
     get:
       summary: Aggregated real-time hazard alert status
-      description: Returns latest status from all 8 monitors (tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine), including unavailable-source diagnostics.
+      description: Returns latest status from all 13 monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 5 extended: drought, PSPS, smoke, roads, schools), including unavailable-source diagnostics.
       operationId: getMonitorAlerts
       tags: [Monitoring, Alerts]
       responses:
@@ -1129,7 +1129,7 @@ paths:
   /api/alerts/timeline:
     get:
       summary: Unified alert event timeline
-      description: Aggregates all alert events across all 8 monitor types into a single chronological timeline with per-type statistics.
+      description: Aggregates all alert events across the monitor types into a single chronological timeline with per-type statistics.
       operationId: getAlertTimeline
       tags: [Alert Analytics]
       responses:
@@ -1385,7 +1385,7 @@ paths:
   /api/alerts/composite:
     get:
       summary: Composite 8-monitor alert severity
-      description: Aggregated severity assessment across all 8 alert monitors (tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine).
+      description: Aggregated severity assessment across all 13 alert monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 5 extended: drought, PSPS, smoke, roads, schools).
       operationId: getCompositeSeverity
       tags: [Alerts]
       responses:

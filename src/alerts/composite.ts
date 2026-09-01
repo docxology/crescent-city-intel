@@ -276,6 +276,30 @@ export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
 ];
 
 /**
+ * The 8 core alert-monitor source names, in MONITOR_KEYS position order.
+ * This is the canonical roster: the runner's health definitions and the
+ * healer's tracked-monitor set must both derive from (or agree with) this
+ * list, never re-declare a private copy of it.
+ */
+export const CORE_MONITOR_SOURCE_NAMES: readonly string[] = [
+  "NOAA Tsunami",      // tsunami
+  "USGS Earthquake",   // earthquake
+  "NWS Weather",       // weather
+  "EPA AirNow",        // airquality
+  "CAL FIRE Wildfire", // wildfire
+  "NDBC Marine",       // marine
+  "NOAA Tides",        // tides
+  "CDFW Fishing",      // fishing
+] as const;
+
+/** All 13 alert-monitor source names (core + extended), in MONITOR_KEYS order. */
+export const ALERT_MONITOR_SOURCE_NAMES: readonly string[] = [
+  ...CORE_MONITOR_SOURCE_NAMES.slice(0, 6), // tsunami..marine
+  ...CORE_MONITOR_SOURCE_NAMES.slice(6),    // tides, fishing
+  ...EXTENDED_MONITOR_SPECS.map(([source]) => source),
+];
+
+/**
  * Build the SourceHealth definitions for the extended (index >= 8) monitors
  * from the runner's settled results. Pure: takes the settled-result array and
  * returns definitions ready for classifySourceHealth. The itemCount derives

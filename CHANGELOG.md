@@ -10,6 +10,32 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Healer roster + composite healer provenance fix (2026-09-01)
+
+#### Fixed
+
+- **Self-healer now tracks all 13 monitors.** `src/alerts/healer.ts` kept a
+  private hard-coded roster of the 8 core monitors, so the five Phase-12
+  extended monitors (USDM Drought, PG&E PSPS, HRRR Smoke, Caltrans Roads,
+  DUSD Schools) never accumulated consecutive failures, never reached the
+  retry threshold, and were invisible to healing even though their health
+  records sit in the same `output/alerts/source-health.json`. The roster is
+  now the canonical `ALERT_MONITOR_SOURCE_NAMES` exported from
+  `src/alerts/composite.ts` (single source of truth; no third copy).
+- **`AlertSeverityReport.healer` is actually populated.** The severity
+  contract declared an optional healer summary "populated by run-alerts
+  orchestrator", but nothing populated it. `scripts/run-alerts.ts` now
+  attaches the healing-cycle result (lastCycleRun, monitorsRetried,
+  monitorsRecovered, monitorsWithFailures) and persists the composite
+  snapshot once, after attachment, so `output/alerts/composite/current.json`
+  carries the healer state the API and GUI already expose.
+
+#### Tests
+
+- `tests/healer.test.ts` updated to the 13-monitor roster + new regression:
+  an extended monitor's failures accumulate and trigger a retry.
+
+
 ### Triplicate integration — RSS news, structured calendar, deep article channel (2026-08-31)
 
 The 2025 Cloudflare block on triplicate.com has lifted, and the site is now a

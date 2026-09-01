@@ -13,6 +13,7 @@
  *   HEALER_RETRY_BACKOFF_CAP_MS     (default 4 * 60 * 60 * 1000 = 4 hours)
  */
 import { createLogger } from "../logger.js";
+import { ALERT_MONITOR_SOURCE_NAMES as MONITOR_SOURCE_NAMES } from "./composite.js";
 import { mkdir, readFile, writeFile, rename } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -31,17 +32,15 @@ function healerStatePath(): string {
   return join(healerOutputDir(), "state", "healer-state.json");
 }
 
-/** The 8 alert monitor source names (matching source-health.json keys). */
-const MONITOR_SOURCE_NAMES = [
-  "NOAA Tsunami",
-  "USGS Earthquake",
-  "NWS Weather",
-  "NOAA Tides",
-  "CDFW Fishing",
-  "EPA AirNow",
-  "CAL FIRE Wildfire",
-  "NDBC Marine",
-] as const;
+/**
+ * All 13 alert-monitor source names (matching source-health.json keys),
+ * imported from the canonical roster in composite.ts. This was previously a
+ * private hard-coded list of only the 8 core monitors, so the five Phase-12
+ * extended monitors (USDM Drought, PG&E PSPS, HRRR Smoke, Caltrans Roads,
+ * DUSD Schools) never accumulated failures, never reached the retry
+ * threshold, and were invisible to healing — even though their health
+ * records sit in the same source-health.json this module reads.
+ */
 
 /** Exponential backoff steps in ms: 5min, 15min, 1hr, 4hr */
 const BACKOFF_STEPS_MS = [
@@ -137,7 +136,7 @@ async function loadState(): Promise<HealerState> {
     if (!existsSync(healerStatePath())) return freshState(new Date().toISOString());
     const raw = await readFile(healerStatePath(), "utf-8");
     const parsed = JSON.parse(raw) as HealerState;
-    // Ensure all 8 monitors exist in the loaded state
+    // Ensure every tracked monitor (all 13) exists in the loaded state
     const now = new Date().toISOString();
     for (const source of MONITOR_SOURCE_NAMES) {
       if (!parsed.monitors[source]) {

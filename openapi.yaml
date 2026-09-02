@@ -1384,7 +1384,7 @@ paths:
 
   /api/alerts/composite:
     get:
-      summary: Composite 8-monitor alert severity
+      summary: Composite 13-monitor alert severity
       description: Aggregated severity assessment across all 13 alert monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 5 extended: drought, PSPS, smoke, roads, schools).
       operationId: getCompositeSeverity
       tags: [Alerts]

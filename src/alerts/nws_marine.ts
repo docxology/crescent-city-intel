@@ -164,7 +164,7 @@ export function parseForecastPeriods(body: string): MarineForecastPeriod[] {
   const periods: MarineForecastPeriod[] = [];
   // Period headers look like ".REST OF TODAY...S wind 5 to 10 kt. ..." and
   // wrap across lines until the next ".PERIOD" header.
-  const parts = body.split(/\n\.(?=[A-Z])/);
+  const parts = body.replace(/\s*\$\$\s*$/, "").split(/\n\.(?=[A-Z])/);
   for (const part of parts) {
     const trimmed = part.trim();
     if (!trimmed) continue;

@@ -27,7 +27,7 @@
 
 ### v2.0 — Comprehensive Intelligence Platform (2026-07)
 - 3 new alert monitors (EPA AirNow, CAL FIRE, NDBC Marine)
-- 13-monitor composite severity scoring
+- Composite severity scoring expanded from eight to thirteen monitors (fourteen as of 2026-09)
 - Structured query engine (legislative history, section diff, semantic similarity)
 - Legal citation parser (CA Code, U.S.C., case law, ordinance amendments)
 - Definition glossary builder
@@ -40,7 +40,7 @@
 - Renamed from `crescent-city` → `crescent-city-intel`
 
 ### v2.1 — Integration & Documentation (2026-07)
-- All 13 monitors wired end-to-end through orchestrators + CI
+- All monitors — thirteen at the time — wired end-to-end through orchestrators + CI
 - BM25 fuzzy fallback integrated into search response shape
 - 3 new domains integrated into monthly report
 - GUI alerts dashboard (alert composite panel)

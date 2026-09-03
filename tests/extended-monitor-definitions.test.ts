@@ -1,7 +1,7 @@
 /**
  * Tests for buildExtendedMonitorDefinitions - the pure builder that turns the
- * runner's settled results into typed SourceHealth definitions for the five
- * Phase-12 extended monitors.
+ * runner's settled results into typed SourceHealth definitions for the extended
+ * monitors (the five Phase-12 monitors plus the NWS marine forecast).
  *
  * Zero-mock policy: real arrays, real settled results, real edge shapes.
  * The url/provenance/spec triples are asserted against the live spec table so
@@ -19,18 +19,18 @@ function settled<T>(value: T, status: "fulfilled" | "rejected" = "fulfilled"): P
   return status === "fulfilled" ? { status, value } : { status, reason: new Error("boom") };
 }
 
-/** An all-rejected baseline, keyed by monitor (the 8 core + 5 extended). */
+/** An all-rejected baseline, keyed by monitor (the 8 core + 6 extended). */
 function baseline(): Record<MonitorKey, PromiseSettledResult<unknown>> {
   return Object.fromEntries(MONITOR_KEYS.map(key => [key, settled(null, "rejected")])) as Record<MonitorKey, PromiseSettledResult<unknown>>;
 }
 
 describe("EXTENDED_MONITOR_SPECS", () => {
-  test("covers exactly the five extended monitors, by key", () => {
+  test("covers exactly the six extended monitors, by key", () => {
     // Keys, not positions: a monitor's identity used to be where it sat in the
     // runner's array, restated by hand in five places across three files.
-    expect(EXTENDED_MONITOR_SPECS.map(spec => spec[1])).toEqual(["drought", "psps", "smoke", "roads", "schools"]);
+    expect(EXTENDED_MONITOR_SPECS.map(spec => spec[1])).toEqual(["drought", "psps", "smoke", "roads", "schools", "marinezone"]);
     expect(EXTENDED_MONITOR_SPECS.map(spec => spec[0])).toEqual([
-      "USDM Drought", "PG&E PSPS", "HRRR Smoke", "Caltrans Roads", "DUSD Schools",
+      "USDM Drought", "PG&E PSPS", "HRRR Smoke", "Caltrans Roads", "DUSD Schools", "NWS Marine Forecast",
     ]);
     for (const [, key] of EXTENDED_MONITOR_SPECS) expect(MONITOR_KEYS).toContain(key);
   });
@@ -46,7 +46,7 @@ describe("EXTENDED_MONITOR_SPECS", () => {
 describe("buildExtendedMonitorDefinitions", () => {
   test("a rejected result yields an unavailable-source definition with a null report", () => {
     const defs = buildExtendedMonitorDefinitions(baseline());
-    expect(defs.length).toBe(5);
+    expect(defs.length).toBe(6);
     for (const def of defs) {
       expect(def.report).toBeNull();
       expect(def.itemCount).toBe(0);
@@ -99,7 +99,7 @@ describe("monitor identity survives a change to the batch order", () => {
     results.roads = settled({ incidents: [{ id: 1 }, { id: 2 }, { id: 3 }] });
     results.schools = settled({ items: [{ id: "x" }] });
     const counts = Object.fromEntries(buildExtendedMonitorDefinitions(results).map(def => [def.key, def.itemCount]));
-    expect(counts).toEqual({ drought: 1, psps: 2, smoke: 1, roads: 3, schools: 1 });
+    expect(counts).toEqual({ drought: 1, psps: 2, smoke: 1, roads: 3, schools: 1, marinezone: 0 });
   });
 
   test("inserting a monitor cannot shift another monitor's data", () => {

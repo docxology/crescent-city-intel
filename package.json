@@ -28,6 +28,7 @@
     "alerts:airquality": "bun run src/alerts/epa_airnow.ts",
     "alerts:wildfire": "bun run src/alerts/calfire_wildfire.ts",
     "alerts:marine": "bun run src/alerts/ndbc_marine.ts",
+    "alerts:marinezone": "bun run src/alerts/nws_marine.ts",
     "alerts:all": "bun run scripts/run-alerts.ts",
     "weekly-check": "bun run scripts/weekly-check.ts",
     "cron-setup": "bash scripts/cron-setup.sh",

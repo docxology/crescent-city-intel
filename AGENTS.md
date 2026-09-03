@@ -19,9 +19,9 @@
 The most comprehensive local intelligence platform for Crescent City, CA.
 Built with TypeScript/Bun. Scrapes, verifies, exports, views, queries, and
 analyzes the Crescent City municipal code from ecode360.com, plus monitors
-13 real-time alert streams (8 core: tsunami, earthquake, weather, tides, fishing, air
-quality, wildfire, marine; 5 extended: USDM drought, PG&E PSPS, HRRR smoke, Caltrans
-roads, DUSD school closures) and provides RAG chat with streaming SSE.
+14 real-time alert streams (8 core: tsunami, earthquake, weather, tides, fishing, air
+quality, wildfire, marine; 6 extended: USDM drought, PG&E PSPS, HRRR smoke, Caltrans
+roads, DUSD school closures, NWS marine forecast) and provides RAG chat with streaming SSE.
 
 ## Architecture
 
@@ -43,10 +43,11 @@ ecode360.com/CR4919
  port 3000  + Chroma  Citations/Glossary
  RAG+SSE    RAG       Cross-refs
         |
- [Intelligence Layer — 13 monitors]
+[Intelligence Layer — 14 monitors]
    8 core: NOAA Tsunami · USGS Earthquake · NWS Weather · NOAA Tides ·
    CDFW Fishing · EPA AirNow · CAL FIRE Wildfire · NDBC Marine
-   5 extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads · DUSD Closures
+  6 extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads · DUSD Closures ·
+  NWS Marine Forecast (CWF PZZ450)
         |
  [Alert Analytics — unified timeline + per-type stats]
 ```
@@ -80,7 +81,7 @@ src/
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   alert_analytics.ts    # Unified alert timeline + per-type statistics
   alerts/
-    severity.ts         # Composite alert severity over all 13 monitor inputs
+    severity.ts         # Composite alert severity over all 14 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km)
@@ -89,6 +90,7 @@ src/
     epa_airnow.ts       # EPA AirNow air quality (PM2.5, ozone, PM10)
     calfire_wildfire.ts # CAL FIRE wildfire incident monitor
     ndbc_marine.ts      # NDBC buoy marine weather (wave, wind, temp)
+    nws_marine.ts       # NWS CWF coastal waters forecast (PZZ450)
   api/
     middleware.ts       # Sliding-window rate limiter + API key auth
   domains/
@@ -199,7 +201,7 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.6.0)
 - Per-type statistics (counts, severity distribution, frequency)
 
 ### Enhanced Composite Severity
-- 13-monitor composite (8 core + the 5 Phase-12 extended monitors)
+- 14-monitor composite (8 core + the 5 Phase-12 extended monitors + the NWS marine forecast)
 - Air quality, wildfire, and marine integrated into severity scoring
 - Priority-ordered severity levels: CALM → WATCH → WARNING → EMERGENCY
 
@@ -216,7 +218,7 @@ bun run index                # Index sections into ChromaDB
 bun run chat                 # Interactive RAG chat
 bun run query "question"     # Single RAG query
 bun run status               # Show index stats
-bun run alerts               # All 13 alert monitors concurrently (8 core + 5 extended)
+bun run alerts               # All 14 alert monitors concurrently (8 core + 6 extended)
 bun run alerts:tsunami       # Individual alert monitors
 bun run alerts:earthquake
 bun run alerts:weather
@@ -262,7 +264,7 @@ Run `bun run validate` for the current pass/fail result.
 - **Cloudflare bypass**: Non-headless Chromium with custom user agent
 - **Resume support**: Manifest tracks scraped articles
 - **SHA-256 verification**: Every page hashed at scrape time
-- **13-monitor composite severity**: priority-ordered aggregation over every monitor the runner collects
+- **14-monitor composite severity**: priority-ordered aggregation over every monitor the runner collects
 - **Persistent JSONL history**: All alert events logged for analytics
 - **Fuzzy search fallback**: Levenshtein correction when BM25 returns 0 results
 - **SSE streaming**: Word-by-word RAG answer delivery

@@ -33,7 +33,7 @@ function healerStatePath(): string {
 }
 
 /**
- * All 13 alert-monitor source names (matching source-health.json keys),
+ * All 14 alert-monitor source names (matching source-health.json keys),
  * imported from the canonical roster in composite.ts. This was previously a
  * private hard-coded list of only the 8 core monitors, so the five Phase-12
  * extended monitors (USDM Drought, PG&E PSPS, HRRR Smoke, Caltrans Roads,
@@ -136,7 +136,7 @@ async function loadState(): Promise<HealerState> {
     if (!existsSync(healerStatePath())) return freshState(new Date().toISOString());
     const raw = await readFile(healerStatePath(), "utf-8");
     const parsed = JSON.parse(raw) as HealerState;
-    // Ensure every tracked monitor (all 13) exists in the loaded state
+    // Ensure every tracked monitor (all 14) exists in the loaded state
     const now = new Date().toISOString();
     for (const source of MONITOR_SOURCE_NAMES) {
       if (!parsed.monitors[source]) {

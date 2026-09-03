@@ -8,7 +8,7 @@ Thin TypeScript orchestrators for the Crescent City pipeline. All business logic
 | :--- | :--- | :--- |
 | `weekly-check.ts` | `bun run weekly-check` | Full weekly health check (all monitors) |
 | `run-monitor.ts` | `bun run monitor` | Municipal code change detection |
-| `run-alerts.ts` | `bun run alerts` | All 13 alert monitors (8 core + 5 extended) plus availability-aware composite |
+| `run-alerts.ts` | `bun run alerts` | All 14 alert monitors (8 core + 6 extended) plus availability-aware composite |
 | `run-news.ts` | `bun run news` | RSS/Atom local news aggregation with source health |
 | `run-meetings.ts` | `bun run gov-meetings` | City meeting agenda scraper |
 | `run-youtube.ts` | `bun run youtube` | YouTube transcript extraction/indexing with retryable failures |

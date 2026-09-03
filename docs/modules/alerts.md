@@ -241,13 +241,13 @@ Fetches real-time marine observations from 3 NDBC buoy stations nearest to Cresc
 
 ## `src/alerts/severity.ts` — Composite alert severity
 
-Aggregates all 13 alert monitors (8 core + 5 extended: drought, PSPS, smoke, roads, schools) into a single composite severity level.
+Aggregates all 14 alert monitors (8 core + 6 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast) into a single composite severity level.
 
 ### Exports
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `computeAlertSeverity(...)` | `(13 monitor inputs) → AlertSeverityReport` | Composite severity assessment; an absent monitor is `available: false`, never a calm reading |
+| `computeAlertSeverity(...)` | `(14 monitor inputs) → AlertSeverityReport` | Composite severity assessment; an absent monitor is `available: false`, never a calm reading |
 
 ### Priority Order
 
@@ -312,7 +312,7 @@ a unified chronological timeline with per-type statistics.
 - **Persistent JSONL history**: All monitors append to `history.jsonl` for analytics
 - **In-process deduplication**: Module-level `Set<string>` tracks processed IDs
 - **import.meta.main**: Each file can be run directly via `bun run src/alerts/<file>.ts`
-- **Composite severity**: `run-alerts.ts` runs all 13 monitors and computes the composite from all 13 — the five Phase-12 monitors (drought, PSPS, smoke, roads, schools) feed it through `buildExtendedCompositeInput`
+- **Composite severity**: `run-alerts.ts` runs all 14 monitors and computes the composite from all 14 — the five Phase-12 monitors (drought, PSPS, smoke, roads, schools) plus the NWS marine forecast (CWF PZZ450) feed it through `buildExtendedCompositeInput`
 
 ## Running
 
@@ -325,10 +325,17 @@ bun run alerts:fishing      # CDFW fishing
 bun run alerts:airquality   # EPA AirNow (v2.0)
 bun run alerts:wildfire     # CAL FIRE wildfire (v2.0)
 bun run alerts:marine       # NDBC marine buoy (v2.0)
-bun run alerts              # all 13 concurrently + composite severity
+bun run alerts:marinezone  # NWS CWF marine forecast (PZZ450)
+bun run alerts              # all 14 concurrently + composite severity
 ```
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.
+
+Three layers count differently, by design: the runner / composite / health
+layer covers all 14 monitors; `alert_analytics` `ALERT_TYPES` covers the 8
+hazard-core families that keep `history.jsonl` in the analytics shape; and
+`src/alert_correlation.ts` scans 13 sources (every monitor except
+`marinezone`, which has no directional pair specs yet).
 
 ## Alert Analytics & History
 

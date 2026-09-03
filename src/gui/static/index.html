@@ -1274,6 +1274,17 @@
           <p style="color:var(--text-muted, #888);">Loading bounded alert history…</p>
         </div>
       </section>
+      <section class="alert-trends-shell" aria-labelledby="alert-correlations-title">
+        <div class="alert-trends-header">
+          <div>
+            <h3 id="alert-correlations-title">Cross-monitor correlations</h3>
+            <p>Evidence-based directional pairs — the effect must follow the cause inside the window. Lift compares observed pairs with a uniform-rate expectation; cadence-sensitive rows reflect monitor run frequency, not causation.</p>
+          </div>
+        </div>
+        <div id="alert-correlations-content" role="region" aria-label="Cross-monitor correlations" aria-live="polite" aria-busy="true">
+          <p style="color:var(--text-muted, #888);">Loading correlations…</p>
+        </div>
+      </section>
       <h3 style="margin:1.5rem 0 0.5rem 0;">📈 Alert Timeline</h3>
       <div id="alert-timeline-content">
         <p style="color:var(--text-muted, #888);">Loading...</p>
@@ -2390,7 +2401,44 @@
 
     document.getElementById('alert-trend-type').addEventListener('change', event => renderAlertTrends(event.target.value));
 
-    // ─── Alerts Dashboard (8 real-time monitors + timeline) ──────────
+    // ─── Cross-monitor correlations ──────────────────────────────────
+    async function loadAlertCorrelations() {
+      const root = document.getElementById('alert-correlations-content');
+      if (!root) return;
+      root.setAttribute('aria-busy', 'true');
+      try {
+        const data = await apiFetch('/api/alerts/correlation').then(r => r.json());
+        const pairs = Array.isArray(data.pairs) ? data.pairs : [];
+        if (pairs.length === 0) {
+          root.innerHTML = '<p style="color:var(--text-muted, #888);">No correlation pairs configured.</p>';
+        } else {
+          const rows = pairs.map(p => {
+            const observed = `${p.observedPairs} pair${p.observedPairs === 1 ? '' : 's'}`;
+            const lift = p.lift === null ? '–' : `${p.lift}× uniform-rate expectation`;
+            const lag = p.medianLagMinutes === null ? '–' : `${p.medianLagMinutes} min median lag`;
+            const cadence = p.cadenceSensitive ? ' · <span style="color:#b45309">cadence-sensitive</span>' : '';
+            const sample = p.samples && p.samples[0]
+              ? `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.15rem;">e.g. ${escapeHtml(p.samples[0].aDescription)} then ${escapeHtml(p.samples[0].bDescription)} (${p.samples[0].lagMinutes} min)</div>`
+              : '';
+            return `<div style="padding:0.5rem; border:1px solid var(--border, #333); border-radius:6px; background:var(--bg-primary, #111); margin-bottom:0.4rem;">
+<strong style="font-size:0.85rem;">${escapeHtml(p.typeA)} → ${escapeHtml(p.typeB)}</strong> <span style="color:var(--text-muted, #888); font-size:0.75rem;">window ${p.windowMinutes} min</span>
+<div style="font-size:0.8rem;">${observed} · ${lift} · ${lag}${cadence}</div>
+${sample}
+</div>`;
+          }).join('');
+          const notes = Array.isArray(data.notes) && data.notes.length
+            ? `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.4rem;">${data.notes.map(n => escapeHtml(n)).join(' ')}</div>`
+            : '';
+          root.innerHTML = rows + notes;
+        }
+      } catch (err) {
+        root.innerHTML = '<p style="color:#b45309;">Correlations unavailable: ' + escapeHtml(String(err && err.message || err)) + '</p>';
+      } finally {
+        root.setAttribute('aria-busy', 'false');
+      }
+    }
+
+    // ─── Alerts Dashboard (14 real-time monitors + timeline) ─────────
     document.getElementById('alerts-toggle').addEventListener('click', () => {
       const panel = document.getElementById('alerts-panel');
       const wasOpen = panel.style.display !== 'none';
@@ -2403,6 +2451,7 @@
           loadAlertsDashboard();
           loadAlertTrends();
           loadAlertTimeline();
+          loadAlertCorrelations();
         }
       }
     });

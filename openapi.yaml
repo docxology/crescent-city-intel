@@ -687,7 +687,7 @@ paths:
   /api/monitor/alerts:
     get:
       summary: Aggregated real-time hazard alert status
-      description: Returns latest status from all 13 monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 5 extended: drought, PSPS, smoke, roads, schools), including unavailable-source diagnostics.
+      description: Returns latest status from all 14 monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 6 extended: drought, PSPS, smoke, roads, schools, marine forecast), including unavailable-source diagnostics.
       operationId: getMonitorAlerts
       tags: [Monitoring, Alerts]
       responses:
@@ -1384,8 +1384,8 @@ paths:
 
   /api/alerts/composite:
     get:
-      summary: Composite 13-monitor alert severity
-      description: Aggregated severity assessment across all 13 alert monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 5 extended: drought, PSPS, smoke, roads, schools).
+      summary: Composite 14-monitor alert severity
+      description: Aggregated severity assessment across all 14 alert monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 6 extended: drought, PSPS, smoke, roads, schools, marine forecast).
       operationId: getCompositeSeverity
       tags: [Alerts]
       responses:

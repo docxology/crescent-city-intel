@@ -67,6 +67,7 @@
 - ✅ Alert heatmap + per-type frequency trends (GUI `alert-trends-shell`)
 - ✅ Drought, PSPS/power-outage, red-flag monitors; Docker Compose; coverage gate; route-spec CI validation
 - ✅ Meeting-minutes → municipal-code BM25 cross-references (`src/agenda_crossref.ts`)
+- ✅ NWS Coastal Waters Forecast monitor (CWF PZZ450 — the live product renumbered the zone the roadmap called PZZ455)
 
 ### Open
 
@@ -79,7 +80,7 @@
 
 - Alert: correlation detection across monitors (co-occurrence of hazard events)
 - RAG: adaptive topK, query expansion
-- Marine: PacFIN landing data, AIS vessel tracking, marine weather forecasts
+- Marine: PacFIN landing data, AIS vessel tracking
 
 #### Long-term (Major)
 

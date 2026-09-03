@@ -77,9 +77,9 @@ Severity thresholds:
 | Long-period swell ≥15 s | WATCH |
 | Normal conditions | CALM |
 
-## Composite 8-Monitor Severity (`src/alerts/severity.ts`)
+## Composite 14-Monitor Severity (`src/alerts/severity.ts`)
 
-Aggregates all 13 alert monitors (8 core + 5 extended: drought, PSPS, smoke, roads, schools) into a single composite severity level.
+Aggregates all 14 alert monitors (8 core + 6 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast) into a single composite severity level.
 
 **Priority order**: EMERGENCY > WARNING > WATCH > CALM
 **API endpoint**: `GET /api/alerts/composite`

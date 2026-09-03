@@ -1,6 +1,6 @@
 # Start Here — The Quadruplicate
 
-Complete setup guide to get the scraper, web viewer, RAG chat, and 13 alert monitors running.
+Complete setup guide to get the scraper, web viewer, RAG chat, and 14 alert monitors running.
 
 ## Prerequisites
 

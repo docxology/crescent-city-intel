@@ -38,7 +38,7 @@ output/
 bun run alerts:tsunami
 bun run alerts:earthquake
 bun run alerts:weather
-bun run alerts             # all 13 monitors concurrently + composite severity
+bun run alerts             # all 14 monitors concurrently + composite severity
 ```
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.

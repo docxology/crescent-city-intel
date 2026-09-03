@@ -1,10 +1,11 @@
 /**
  * The composite alert level must hear every monitor that ran.
  *
- * `computeAlertSeverity` takes thirteen monitor inputs. The runner passed
- * eight, and the remaining five — drought, PSPS, smoke, road closures, school
- * closures — fell back to their "nothing happening, not available" defaults. So
- * the county-level alert state published on the front page could read CLEAR
+ * `computeAlertSeverity` takes fourteen monitor inputs. Originally it took
+ * thirteen: the runner passed eight, and the remaining five — drought, PSPS,
+ * smoke, road closures, school closures — fell back to their "nothing happening,
+ * not available" defaults. So the county-level alert state published on the
+ * front page could read CLEAR
  * while the road monitor's own artifact recorded a full US-101 closure and the
  * school monitor recorded a district closure.
  *
@@ -38,6 +39,7 @@ function severityWith(reports: Parameters<typeof buildExtendedCompositeInput>[0]
     extended.smoke as Parameters<typeof computeAlertSeverity>[10],
     extended.roads as Parameters<typeof computeAlertSeverity>[11],
     extended.schools as Parameters<typeof computeAlertSeverity>[12],
+    extended.marinezone as Parameters<typeof computeAlertSeverity>[13],
   );
 }
 

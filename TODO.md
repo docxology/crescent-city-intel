@@ -148,6 +148,29 @@ TypeScript + OpenAPI route-contract + generated-Pages checks green.
 Only genuinely-impossible-here items remain (external live data, a browser runtime, or an
 owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
 
+### Closed in the 2026-09-03 comprehensive-continuation pass
+
+- ✅ **Alert correlation detection (roadmap Medium).** `src/alert_correlation.ts`
+  evaluates four evidence-based directional pairs over every monitor history
+  with observed/expected lift, median lag, and a cadence-sensitivity flag;
+  `/api/alerts/correlation` keeps its legacy shape and gains the structured
+  report; the GUI alerts overlay renders it. Tests: `tests/alert-correlation.test.ts`.
+- ✅ **Ordinance chronology/lineage (roadmap Long-term, data layer).**
+  `src/ordinance_chronology.ts` + `GET /api/ordinance/chronology` build
+  per-section amendment trails and the city-wide ordinance timeline from the
+  scraped history lines. Tests: `tests/ordinance-chronology.test.ts`.
+  (Visualization remains GUI work.)
+- ✅ **Marine weather forecasts (roadmap Medium) — the 14th monitor.**
+  `src/alerts/nws_marine.ts` reads the KEKA Coastal Waters Forecast text
+  product (zone PZZ450 — the live CWF renumbered the zone the roadmap called
+  PZZ455) and feeds the composite severity, healer roster, and source health.
+  Tests: `tests/nws-marine.test.ts`; count reconciliation 13 -> 14 across the
+  docs and OpenAPI.
+- ✅ **RAG adaptive topK + query expansion (roadmap Medium) and definition
+  conflict detection (roadmap Long-term) — verified already implemented**
+  (`adaptiveTopK`/`expandQuery` in `src/llm/rag.ts`, `/api/definitions/conflicts`
+  route) with existing test coverage; roadmap marked accordingly.
+
 ### Medium (deferred — live-data / browser / frontend)
 
 - ✅ ~~**Alert heatmap / monthly trend charts (frontend).**~~ **Closed 2026-09-03:** the

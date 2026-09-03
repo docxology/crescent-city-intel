@@ -204,7 +204,7 @@ run_gui() {
 # ─── Monitoring ───────────────────────────────────────────────────────────────
 run_monitor_menu() {
   print_banner
-  echo -e "${BOLD}  📡 Monitoring & Alerts (13 monitors)${RESET}\n"
+  echo -e "${BOLD}  📡 Monitoring & Alerts (14 monitors)${RESET}\n"
   echo -e "  ${BOLD}[1]${RESET}  🔍 Code change detection"
   echo -e "  ${BOLD}[2]${RESET}  📰 News RSS/Atom (configured sources + source health)"
   echo -e "  ${BOLD}[3]${RESET}  🏛️  Government meetings (City Council, Planning, Harbor Commission)"

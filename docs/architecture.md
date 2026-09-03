@@ -5,7 +5,7 @@
 The Crescent City Intelligence Platform is a complete pipeline for scraping,
 verifying, exporting, viewing, querying, monitoring, alerting, and analyzing
 the Crescent City, CA municipal code from [ecode360.com](https://ecode360.com/CR4919).
-It includes 13 real-time alert monitors (8 core + 5 extended), 12 civic intelligence domains,
+It includes 14 real-time alert monitors (8 core + 6 extended), 12 civic intelligence domains,
 structured query capabilities, legal citation parsing, fuzzy search,
 streaming RAG, and a comprehensive analytics dashboard.
 
@@ -39,7 +39,7 @@ The static public surface is built separately by `pages_snapshot.ts` from a
 bounded allowlist of generated artifacts. It is deployed by GitHub Actions and
 does not connect to the local GUI API, Ollama, or ChromaDB.
 
-Real-Time Intelligence Layer (13 monitors: 8 core + 5 extended):
+Real-Time Intelligence Layer (14 monitors: 8 core + 6 extended):
 ┌──────────────────────────────────────┐
 │ Alerts                                │
 │  noaa_tsunami.ts    NOAA CAP          │
@@ -50,7 +50,8 @@ Real-Time Intelligence Layer (13 monitors: 8 core + 5 extended):
 │  epa_airnow.ts      EPA AQI (v2.0)    │
 │  calfire_wildfire.ts CAL FIRE (v2.0)  │
 │  ndbc_marine.ts     NDBC buoys (v2.0) │
-│  severity.ts       13-monitor composite│
+│  nws_marine.ts     NWS CWF (PZZ450)   │
+│  severity.ts       14-monitor composite│
 └──────────────────────────────────────┘
 
 Structured Query + Legal Analysis (v2.0):

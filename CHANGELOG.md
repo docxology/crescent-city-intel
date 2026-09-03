@@ -10,6 +10,49 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Cross-monitor correlations, ordinance chronology, 14th monitor (2026-09-03)
+
+#### Added
+
+- **Alert correlation engine** (`src/alert_correlation.ts`): directional,
+  evidence-based pair hypotheses over every monitor history — M6+ earthquake
+  then tsunami alert within 60 minutes, significant wildfire then unhealthy
+  AQI within 6 hours, severe coastal weather then elevated marine conditions
+  within 24 hours, D2+ drought then wildfire activity within 30 days. Reports
+  observed vs. uniform-rate-expected pair counts (lift), median lag, and a
+  cadence-sensitivity flag so monitor run frequency cannot masquerade as a
+  finding. Replaces the two hardcoded inline patterns the
+  `/api/alerts/correlation` route carried since v2.0 (legacy response shape
+  preserved; structured `pairs[]`/`sourcesScanned[]`/`notes[]` added).
+- **Ordinance chronology & lineage** (`src/ordinance_chronology.ts` +
+  `GET /api/ordinance/chronology?limit=&guid=`): per-section amendment trails
+  (oldest first) and a city-wide ordinance timeline (each ordinance with every
+  section it touched, newest action first), built from the municipal-code
+  history lines via `extractOrdinanceAmendments`. Output bounds are recorded
+  in `truncated`, never silent.
+- **NWS Coastal Waters Forecast monitor** (`src/alerts/nws_marine.ts`) — the
+  14th alert monitor, covering the FORECAST side Crescent City's nearshore
+  waters (the NDBC buoy monitor covers observations). Reads the official KEKA
+  CWF text product via api.weather.gov; classifies period levels (small-craft
+  advisory >= 21 kt, gale >= 34 kt, storm/hurricane force) and persists
+  `output/alerts/marinezone/`. Wired into the runner batch, composite severity
+  (`monitors.marinezone`), healer roster, and source health. Zone note: the
+  roadmap said PZZ455; the live 2026-09 CWF renumbered the zones — Crescent
+  City's nearshore waters are PZZ450, and the zone title is read from the
+  product text so future renumbering degrades visibly.
+- **GUI correlation panel**: the alerts overlay renders the structured pair
+  report (observed/expected lift, median lag, cadence flags) under the trend
+  heatmap.
+- `bun run alerts:marinezone` for the individual monitor.
+
+#### Verified
+
+- Monitor count reconciliation 13 -> 14 across README/AGENTS/docs/openapi/
+  run.sh/scripts; historical CHANGELOG and milestone records left as they were.
+- `bunx tsc --noEmit -p tsconfig.json` clean; 181 tests across the 12 touched
+  test files pass (correlation 10, chronology 7, marine forecast 12, plus the
+  composite/healer/runner/trends neighbors).
+
 ### Monthly report meeting depth: votes, document drift, code cross-refs (2026-09-03)
 
 #### Added

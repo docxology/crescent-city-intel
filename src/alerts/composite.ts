@@ -23,6 +23,7 @@ import { PGE_PSPS_API_URL } from "./pge_psps.js";
 import { HRRR_SMOKE_API_URL } from "./hrrr_smoke.js";
 import { CALTRANS_API_D1_URL } from "./caltrans_roads.js";
 import { DUSD_ALERTS_URL } from "./dusd_schools.js";
+import { NWS_CWF_LIST_URL } from "./nws_marine.js";
 
 /** A single monitor's run outcome + the metadata needed to classify it. */
 /**
@@ -36,7 +37,7 @@ import { DUSD_ALERTS_URL } from "./dusd_schools.js";
  * The key is the contract now; the order is just how they are launched.
  */
 export const MONITOR_KEYS = [
-  "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine",
+  "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
   "tides", "fishing", "drought", "psps", "smoke", "roads", "schools",
 ] as const;
 
@@ -48,7 +49,7 @@ export type MonitorKey = typeof MONITOR_KEYS[number];
  * report. Membership is by key, not by position in the runner's batch.
  */
 export const NULL_ON_FAILURE_MONITORS = new Set<MonitorKey>([
-  "airquality", "wildfire", "marine", "tides", "fishing",
+  "airquality", "wildfire", "marine", "marinezone", "tides", "fishing",
   "drought", "psps", "smoke", "roads", "schools",
 ]);
 
@@ -218,12 +219,14 @@ export function buildExtendedCompositeInput(reports: {
   smoke?: unknown;
   roads?: unknown;
   schools?: unknown;
+  marinezone?: unknown;
 }): Record<string, unknown> {
   const drought = asRecord(reports.drought);
   const psps = asRecord(reports.psps);
   const smoke = asRecord(reports.smoke);
   const roads = asRecord(reports.roads);
   const schools = asRecord(reports.schools);
+  const marinezone = asRecord(reports.marinezone);
   return {
     drought: {
       severity: (drought.compositeSeverity as string) ?? "NONE",
@@ -255,10 +258,15 @@ export function buildExtendedCompositeInput(reports: {
       eventCount: typeof schools.totalEvents === "number" ? schools.totalEvents : 0,
       available: reports.schools != null,
     },
+    marinezone: {
+      worstLevel: (marinezone.worstLevel as string) ?? "CALM",
+      peakWindKt: typeof marinezone.peakWindKt === "number" ? marinezone.peakWindKt : null,
+      available: reports.marinezone != null,
+    },
   };
 }
 
-/** The five Phase-12 extended monitors, by stable index in the runner batch. */
+/** The extended monitors (five Phase-12 + the NWS marine forecast), by stable key. */
 export type ExtendedMonitorSpec = readonly [
   source: string,
   key: MonitorKey,
@@ -273,6 +281,7 @@ export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
   ["HRRR Smoke", "smoke", "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
   ["Caltrans Roads", "roads", "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
   ["DUSD Schools", "schools", "items", DUSD_ALERTS_URL, "Del Norte USD announcements"],
+  ["NWS Marine Forecast", "marinezone", "periods", NWS_CWF_LIST_URL, "NWS Coastal Waters Forecast text product (KEKA CWF, zone PZZ450)"],
 ];
 
 /**
@@ -292,7 +301,7 @@ export const CORE_MONITOR_SOURCE_NAMES: readonly string[] = [
   "CDFW Fishing",      // fishing
 ] as const;
 
-/** All 13 alert-monitor source names (core + extended), in MONITOR_KEYS order. */
+/** All 14 alert-monitor source names (8 core + 6 extended), in MONITOR_KEYS order. */
 export const ALERT_MONITOR_SOURCE_NAMES: readonly string[] = [
   ...CORE_MONITOR_SOURCE_NAMES.slice(0, 6), // tsunami..marine
   ...CORE_MONITOR_SOURCE_NAMES.slice(6),    // tides, fishing

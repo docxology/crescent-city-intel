@@ -55,12 +55,12 @@ async function cleanState() {
 describe("Healer — getHealerState", () => {
   beforeEach(cleanState);
 
-  test("returns a fresh state with all 13 monitors when no state file exists", async () => {
+  test("returns a fresh state with all 14 monitors when no state file exists", async () => {
     const { getHealerState } = await importHealer();
     const state = await getHealerState();
     expect(state).toBeDefined();
     expect(state.lastCycleRun).toBeTruthy();
-    expect(Object.keys(state.monitors).length).toBe(13);
+    expect(Object.keys(state.monitors).length).toBe(14);
     // Verify all expected monitor keys
     const names = Object.keys(state.monitors).sort();
     expect(names).toContain("NOAA Tsunami");
@@ -79,6 +79,7 @@ describe("Healer — getHealerState", () => {
     expect(names).toContain("HRRR Smoke");
     expect(names).toContain("Caltrans Roads");
     expect(names).toContain("DUSD Schools");
+    expect(names).toContain("NWS Marine Forecast");
   });
 
   test("all monitors start with zero consecutive failures", async () => {
@@ -96,7 +97,7 @@ describe("Healer — getHealerState", () => {
     const { getHealerState } = await importHealer();
     const state = await getHealerState();
     expect(state).toBeDefined();
-    expect(Object.keys(state.monitors).length).toBe(13);
+    expect(Object.keys(state.monitors).length).toBe(14);
   });
 });
 
@@ -227,7 +228,7 @@ describe("Healer — runHealingCycle", () => {
     expect(fourth.monitorsRetried).toEqual([]);
   });
 
-  test("extended monitor failures accumulate and trigger retries (13-monitor roster)", async () => {
+  test("extended monitor failures accumulate and trigger retries (14-monitor roster)", async () => {
     const { runHealingCycle } = await importHealer();
     const extendedFailing = { source: "Caltrans Roads", status: "unavailable" };
     const coreOk = [

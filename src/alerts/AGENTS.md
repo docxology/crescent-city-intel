@@ -28,7 +28,8 @@ severity scoring system and unified alert analytics timeline.
 | `epa_airnow.ts` | `runAirQualityMonitor()` | `output/alerts/airquality/` | EPA AirNow API (requires `AIRNOW_API_KEY`) |
 | `calfire_wildfire.ts` | `runWildfireMonitor()` | `output/alerts/wildfire/` | CAL FIRE incident API |
 | `ndbc_marine.ts` | `runMarineMonitor()` | `output/alerts/marine/` | NDBC buoy realtime data |
-| `severity.ts` | `computeAlertSeverity()` | (computed) | Aggregates all 13 monitors (8 core + 5 extended) |
+| `nws_marine.ts` | `runMarineZoneMonitor()` | `output/alerts/marinezone/` | NWS CWF text product (KEKA), zone PZZ450 |
+| `severity.ts` | `computeAlertSeverity()` | (computed) | Aggregates all 14 monitors (8 core + 6 extended) |
 | `composite.ts` | `buildCompositeInput()`, `classifySourceHealth()`, `isFreshReport()` | (computed) | Pure composite-input shaping + source-health classification for `scripts/run-alerts.ts` |
 | `notify.ts` | `maybeSendSeverityWebhook()` | (webhook) | Optional `ALERT_WEBHOOK_URL` POST on composite WARNING/EMERGENCY (fire-and-forget) |
 
@@ -38,7 +39,7 @@ severity scoring system and unified alert analytics timeline.
 - **Persistent JSONL history**: all monitors append to `history.jsonl` for alert analytics.
 - **Crescent City relevance filter**: each module filters alerts by `areaDesc` keyword matching and/or bounding-box / point-in-polygon geometry checks.
 - **Severity categorization**: NWS categorizes alerts into `advisory`, `watch`, `warning`; USGS uses magnitude + tsunami flag; AQI uses 6-level classification; wildfire uses evac orders + fire size; marine uses wave/wind thresholds.
-- **Composite severity**: `severity.ts` aggregates all 13 monitors (8 core + 5 Phase-12 extended) into CALM → EMERGENCY; `composite.ts` shapes the per-monitor inputs + classifies source health so the runner stays thin.
+- **Composite severity**: `severity.ts` aggregates all 14 monitors (8 core + 6 extended) into CALM → EMERGENCY; `composite.ts` shapes the per-monitor inputs + classifies source health so the runner stays thin.
 - **High-severity webhook**: `notify.ts` fires `ALERT_WEBHOOK_URL` when the composite reaches WARNING/EMERGENCY (bounded by `ALERT_WEBHOOK_TIMEOUT_MS`); fire-and-forget so a failure never fails an alert run.
 - **GeoJSON output**: USGS saves both raw properties and a `Feature` GeoJSON object for GIS tooling.
 
@@ -53,5 +54,5 @@ bun run alerts:fishing      # cdfw_fishing.ts
 bun run alerts:airquality   # epa_airnow.ts (v2.0)
 bun run alerts:wildfire     # calfire_wildfire.ts (v2.0)
 bun run alerts:marine       # ndbc_marine.ts (v2.0)
-bun run alerts              # all 13 concurrently + composite severity (scripts/run-alerts.ts)
-```
+bun run alerts:marinezone  # nws_marine.ts (CWF PZZ450)
+bun run alerts              # all 14 concurrently + composite severity (scripts/run-alerts.ts)

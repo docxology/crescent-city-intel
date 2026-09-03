@@ -1,7 +1,7 @@
 /**
  * Composite alert severity scoring for Crescent City.
  *
- * Aggregates input from all 13 alert monitors and returns a single
+ * Aggregates input from all 14 alert monitors and returns a single
  * standardised composite status: CALM | WATCH | WARNING | EMERGENCY.
  *
  * Rules (applied in priority order):
@@ -11,8 +11,8 @@
  *               wildfire evac orders, or active PSPS event in Del Norte
  *   WATCH     — Earthquake M4-6 within 200 km, NWS watch/advisory,
  *               CDFW fishing closure, tidal level >= 6.0 ft MLLW (at/above the typical max high tide),
- *               elevated seas, D3+ drought, air quality AQI > 100, road closure,
- *               school closure, or HRRR smoke UNHEALTHY+
+ *               elevated seas, gale/hazardous-seas marine forecast, D3+ drought, air quality AQI > 100,
+ *               road closure, school closure, or HRRR smoke UNHEALTHY+
  *   CALM      — no active alerts meeting above thresholds
  *
  * Designed to be called by GET /api/monitor/alerts and the GUI dashboard.
@@ -51,6 +51,7 @@ export interface AlertSeverityReport {
     smoke: MonitorStatus;
     roads: MonitorStatus;
     schools: MonitorStatus;
+    marinezone: MonitorStatus;
   };
 }
 
@@ -593,7 +594,48 @@ const SEVERITY_ORDER: Record<AlertSeverity, number> = {
 };
 
 /**
- * Compute composite alert severity from all 13 monitor inputs.
+ * Marine zone forecast input (NWS CWF PZZ450, src/alerts/nws_marine.ts).
+ */
+export interface MarineZoneInput {
+  /** Worst CWF period level: CALM | WATCH | ADVISORY | WARNING | EMERGENCY */
+  worstLevel: string;
+  /** Highest forecast wind across periods (kt). */
+  peakWindKt: number | null;
+  available: boolean;
+}
+
+/**
+ * Assess the NWS Coastal Waters Forecast for the Crescent City nearshore zone.
+ * The monitor's own level mapping (gale >= 34 kt, small-craft >= 21 kt) is
+ * authoritative; this assessment guards the unavailable state and normalizes
+ * unknown levels to a visible WATCH rather than a fake CALM.
+ */
+function assessMarineZone(input: MarineZoneInput): MonitorStatus {
+  if (!input.available) {
+    return {
+      level: "CALM",
+      summary: "Marine forecast unavailable",
+      count: 0,
+      availability: "unavailable",
+    };
+  }
+  const level = input.worstLevel;
+  const wind = input.peakWindKt !== null ? `peak wind ${input.peakWindKt} kt` : "peak wind unknown";
+  if (level === "EMERGENCY" || level === "WARNING") {
+    return { level: "WARNING", summary: `\u{1f534} Marine forecast ${level} (${wind})`, count: 1 };
+  }
+  if (level === "ADVISORY" || level === "WATCH") {
+    return { level: "WATCH", summary: `\u{1f7e1} Marine forecast ${level} (${wind})`, count: 1 };
+  }
+  if (level === "CALM") {
+    return { level: "CALM", summary: `Marine forecast calm (${wind})`, count: 0 };
+  }
+  // Unknown level string: visible WATCH, never a fabricated CALM.
+  return { level: "WATCH", summary: `Marine forecast level "${level}" unrecognized — treat as elevated`, count: 1 };
+}
+
+/**
+ * Compute composite alert severity from all 14 monitor inputs.
  *
  * @returns AlertSeverityReport with composite level and per-monitor breakdown.
  */
@@ -611,6 +653,7 @@ export function computeAlertSeverity(
   smoke: SmokeInput = { peakLevel: "GOOD", peakAqi: null, maxPm25: null, available: false },
   roads: RoadClosureInput = { severity: "NONE", hasMajorClosure: false, incidentCount: 0, available: false },
   schools: SchoolClosureInput = { status: "OPEN", hasActiveClosure: false, hasActiveDelay: false, eventCount: 0, available: false },
+  marinezone: MarineZoneInput = { worstLevel: "CALM", peakWindKt: null, available: false },
 ): AlertSeverityReport {
   const monitors = {
     tsunami: assessTsunami(tsunami),
@@ -626,6 +669,7 @@ export function computeAlertSeverity(
     smoke: assessSmoke(smoke),
     roads: assessRoads(roads),
     schools: assessSchools(schools),
+    marinezone: assessMarineZone(marinezone),
   };
 
   // Find the highest severity across all monitors

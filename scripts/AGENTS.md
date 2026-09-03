@@ -17,9 +17,9 @@ Every script is runnable directly via `bun run <script-name>`.
 
 | Script | npm alias | What it orchestrates |
 | :--- | :--- | :--- |
-| `weekly-check.ts` | `bun run weekly-check` | Full weekly health check: monitor + all 13 alerts (8 core + 5 extended) + news + meetings + analytics |
+| `weekly-check.ts` | `bun run weekly-check` | Full weekly health check: monitor + all 14 alerts (8 core + 6 extended) + news + meetings + analytics |
 | `run-monitor.ts` | `bun run monitor` | Municipal code change detection (`src/monitor.ts`) |
-| `run-alerts.ts` | `bun run alerts` / `bun run alerts:all` | All 13 alert monitors concurrently (8 core + 5 extended) + composite severity computation |
+| `run-alerts.ts` | `bun run alerts` / `bun run alerts:all` | All 14 alert monitors concurrently (8 core + 6 extended) + composite severity computation |
 | `run-news.ts` | `bun run news` | RSS news aggregation (`src/news_monitor.ts`) |
 | `run-source-discovery.ts` | `bun run source-discovery [-- --check]` | Canonical source registry and optional bounded reachability probes (`src/source_registry.ts`) |
 | `run-meetings.ts` | `bun run gov-meetings` | Government meeting scraper (`src/gov_meeting_monitor.ts`) |
@@ -44,8 +44,8 @@ Every script is runnable directly via `bun run <script-name>`.
 
 ## v2.0 Changes
 
-- `run-alerts.ts` now runs all 13 monitors (8 core + 5 Phase-12 extended) and computes composite 13-monitor severity, persisting to `output/alerts/composite/current.json`
-- `weekly-check.ts` now runs all 13 alert monitors + alert analytics in its weekly cycle
+- `run-alerts.ts` now runs all 14 monitors (8 core + 6 extended, including the NWS marine forecast) and computes composite 14-monitor severity, persisting to `output/alerts/composite/current.json`
+- `weekly-check.ts` now runs all 14 alert monitors + alert analytics in its weekly cycle
 
 ## Adding New Scripts
 

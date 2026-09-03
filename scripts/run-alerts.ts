@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * scripts/run-alerts.ts — Thin orchestrator: run all 8 alert monitors.
+ * scripts/run-alerts.ts — Thin orchestrator: run all 14 alert monitors.
  *
  * Imports and calls the alert monitoring functions from src/alerts/*, then
  * delegates ALL composite-input shaping and source-health classification to
@@ -38,6 +38,7 @@ import {
   type AlertMonitorDefinition,
   type MonitorKey,
 } from "../src/alerts/composite.ts";
+import { runMarineZoneMonitor, getLastMarineZoneError } from "../src/alerts/nws_marine.ts";
 import { createLogger } from "../src/logger.ts";
 import { readFile, mkdir, unlink, open, stat } from "fs/promises";
 import { existsSync } from "fs";
@@ -99,7 +100,7 @@ if (import.meta.main) {
 export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
   const releaseLock = await acquireAlertsLock();
   try {
-    logger.info("=== Running All 13 Alert Monitors ===");
+    logger.info("=== Running All 14 Alert Monitors ===");
 
     const monitorErrors = new Map<MonitorKey, string>();
     function runNullableMonitor<T>(
@@ -129,6 +130,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       { key: "airquality", run: () => runNullableMonitor("airquality", "EPA air quality", runAirQualityMonitor, getLastAirQualityError) },
       { key: "wildfire", run: () => runNullableMonitor("wildfire", "CAL FIRE wildfire", runWildfireMonitor, getLastWildfireError) },
       { key: "marine", run: () => runNullableMonitor("marine", "NDBC marine", runMarineMonitor, () => undefined) },
+      { key: "marinezone", run: () => runNullableMonitor("marinezone", "NWS marine forecast", runMarineZoneMonitor, getLastMarineZoneError) },
       { key: "tides", run: () => monitorTides().catch((err) => { logger.error("NOAA tides monitor failed", { error: err.message }); return null; }) },
       { key: "fishing", run: () => monitorFishing().catch((err) => { logger.error("CDFW fishing monitor failed", { error: err.message }); return null; }) },
       // Phase-12 extended monitors: same graceful-degradation contract —
@@ -150,11 +152,10 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       const result = resultsByKey[key];
       return result && result.status === "fulfilled" ? result.value : null;
     };
-    const tidesReport = settledValue("tides") as TideReport | null;
     const fishingReport = settledValue("fishing") as FishingReport | null;
 
     // ─── Compute composite severity ───────────────────────────────────
-    logger.info("Computing 13-monitor composite alert severity...");
+    logger.info("Computing 14-monitor composite alert severity...");
 
     // Remove any prior snapshot when a feed failed this run.
     const currentTypes: MonitorKey[] = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"];
@@ -181,17 +182,18 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     ]);
 
     const compositeInput = buildCompositeInput({ tsunami, earthquake, weather, airquality, wildfire, marine, tidesReport, fishingReport });
-    // The five Phase-12 monitors ran in this same batch; their reports are in
-    // memory. They used to stop here — computeAlertSeverity takes thirteen
-    // inputs and was handed eight, so drought, PSPS, smoke, road closures and
-    // school closures defaulted to "nothing happening" in the composite level
-    // the front page presents, however loudly their own artifacts said otherwise.
+    // The extended monitors ran in this same batch; their reports are in
+    // memory. They used to stop here — computeAlertSeverity takes fourteen
+    // inputs and was handed eight, so the extended monitors defaulted to
+    // "nothing happening" in the composite level the front page presents,
+    // however loudly their own artifacts said otherwise.
     const extendedInput = buildExtendedCompositeInput({
       drought: settledValue("drought"),
       psps: settledValue("psps"),
       smoke: settledValue("smoke"),
       roads: settledValue("roads"),
       schools: settledValue("schools"),
+      marinezone: settledValue("marinezone"),
     });
 
     const severityReport = computeAlertSeverity(
@@ -208,6 +210,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       extendedInput.smoke as Parameters<typeof computeAlertSeverity>[10],
       extendedInput.roads as Parameters<typeof computeAlertSeverity>[11],
       extendedInput.schools as Parameters<typeof computeAlertSeverity>[12],
+      extendedInput.marinezone as Parameters<typeof computeAlertSeverity>[13],
     );
 
     logger.info(`Composite alert severity: ${severityReport.level} — ${severityReport.reason}`);
@@ -264,7 +267,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
 
     await writeJsonAtomic(paths.alertsHealth, { checkedAt, sources: alertSources });
 
-    logger.info("=== All 13 Alert Monitors Complete ===");
+    logger.info("=== All 14 Alert Monitors Complete ===");
     return alertSources;
   } finally {
     await releaseLock();

@@ -52,24 +52,41 @@
 
 ## Future Direction
 
-### Short-term (Minor)
-- GUI: fuzzy search suggestions, section compare view, glossary overlay
-- Docs: update architecture diagram, API reference, configuration, setup
-- Tests: NDBC parser, route handler, CAL FIRE API mock
-- Performance: gzip compression, virtual scroll, search debounce
+> Status audit 2026-09-03 against the implemented tree — several "future"
+> items from earlier drafts shipped since; they are marked ✅ so the open
+> set stays honest.
 
-### Medium-term
-- RAG: adaptive topK, query expansion, reranking, conversation history
-- Monitoring: agenda item extraction, vote record parsing, change diff reports
-- Alert: correlation detection, heatmap, frequency trends
+### Shipped since the last roadmap audit (previously listed here)
+
+- ✅ Fuzzy search suggestions in the GUI (debounced `/api/fuzzy` on empty results)
+- ✅ Section compare view + glossary tabs (intel tabs)
+- ✅ gzip compression (`tests/gui-compress.test.ts`), search-input debounce
+- ✅ NDBC parser tests (`tests/ndbc-parser.test.ts`)
+- ✅ Semantic search via ChromaDB embeddings with BM25 fallback, RAG reranking, conversation history
+- ✅ Meeting agenda-item extraction, vote-record parsing, agenda/minutes SHA-256 drift reports
+- ✅ Alert heatmap + per-type frequency trends (GUI `alert-trends-shell`)
+- ✅ Drought, PSPS/power-outage, red-flag monitors; Docker Compose; coverage gate; route-spec CI validation
+- ✅ Meeting-minutes → municipal-code BM25 cross-references (`src/agenda_crossref.ts`)
+
+### Open
+
+#### Short-term (Minor)
+
+- Docs: keep architecture diagram and API reference in sync with each release
+- Performance: virtual scroll for very long section lists
+
+#### Medium-term
+
+- Alert: correlation detection across monitors (co-occurrence of hazard events)
+- RAG: adaptive topK, query expansion
 - Marine: PacFIN landing data, AIS vessel tracking, marine weather forecasts
-- Infrastructure: Docker Compose, coverage gate, route-spec CI validation
 
-### Long-term (Major)
-- Semantic search via ChromaDB embeddings
+#### Long-term (Major)
+
 - Section dependency graph (network visualization)
-- Ordinance timeline visualization
-- New monitors: USCG broadcasts, red flag warnings, drought, power outages
-- Multi-model LLM selection
-- Incremental indexing
-- Definition conflict detection
+- Ordinance timeline visualization; ordinance chronology/lineage
+- New monitors: USCG broadcasts, PZZ455, permits/dredging/fuel
+- Multi-model LLM selection UI (provider selection exists; per-request model picker does not)
+- Incremental indexing; definition conflict detection
+- GUI: readability trend/heatmap panels, word-frequency and section-longevity views, AQ widget,
+  wildfire map, annotation overlays, structured-query pages (scoped in `docs/`)

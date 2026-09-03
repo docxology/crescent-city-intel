@@ -5,7 +5,7 @@
  * Auto-generates output/reports/monthly-YYYY-MM.md summarizing:
  *   - Municipal code stats (sections, words, readability)
  *   - Alert events for the month (earthquake, weather, tsunami)
- *   - Meeting monitor activity
+ *   - Meeting monitor activity (parsed vote tallies + agenda/minutes SHA-256 drift)
  *   - News highlights (top keywords)
  *   - Domain coverage summary
  *
@@ -24,6 +24,9 @@ import { paths } from './shared/paths.js';
 import { completeSourceHealth, isIsoTimestamp, summarizeSourceHealth, writeJsonAtomic, writeTextAtomic } from './shared/source_health.js';
 import { buildSourceDiscoveryReport, getSourceRegistry } from './source_registry.js';
 import { isActiveNewsSource } from './news_monitor.js';
+import type { DocumentDrift } from './minutes_extraction.js';
+import { crossReferenceAgendaTopics } from './agenda_crossref.js';
+import type { AgendaCodeRef } from './agenda_crossref.js';
 import { chatWithProvider } from './llm/provider.js';
 import { llmConfig } from './llm/config.js';
 import type { MonthlyReportMetadata, SourceHealth } from './types.js';
@@ -111,6 +114,186 @@ function readBatchItems(dir: string, month: string, include: (item: any) => bool
 
 /** Format a magnitude as M4.2 */
 const fmtMag = (m: number) => `M${m.toFixed(1)}`;
+// ─── Meeting votes + agenda/minutes document drift (TODO Phase 4.2) ──
+
+/** Runtime shape guard for untrusted JSON: object (not array) or null. */
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+/** Max vote rows rendered in one report (the count line always shows the true total). */
+const MEETING_VOTE_ROW_LIMIT = 12;
+/** Max drift bullets rendered in one report. */
+const MEETING_DRIFT_ROW_LIMIT = 10;
+
+/** One flattened, deduplicated vote row ready for the report table. */
+export interface MeetingVoteRow {
+  link: string;
+  date: string;
+  title: string;
+  source: string;
+  yea: number;
+  nay: number;
+  abstain: number;
+  absent: number;
+  passed: boolean;
+  /** True when `passed` was derived from the tally rather than stated by the minutes. */
+  inferred: boolean;
+}
+
+/**
+ * Flatten item-level votes (`vote`) and per-motion vote tables (`voteTable`,
+ * extracted from minutes text by minutes_extraction.ts) into report rows.
+ * The same item appears in every batch file of the month, so rows are
+ * deduplicated by (link, tally); rows without a finite yea/nay pair are
+ * dropped rather than rendered as zeros. Never throws.
+ */
+export function buildMeetingVoteRows(meetingItems: unknown[]): MeetingVoteRow[] {
+  const rows: MeetingVoteRow[] = [];
+  const seen = new Set<string>();
+  const push = (item: Record<string, unknown> | null, vote: unknown): void => {
+    const tally = asRecord(vote);
+    if (!item || !tally) return;
+    const yea = Number(tally.yea);
+    const nay = Number(tally.nay);
+    if (!Number.isFinite(yea) || !Number.isFinite(nay)) return;
+    const abstain = Number(tally.abstain);
+    const absent = Number(tally.absent);
+    const link = typeof item.link === 'string' ? item.link : '';
+    const date = typeof item.date === 'string' ? item.date : '';
+    const rawTitle = typeof item.title === 'string' ? item.title : '';
+    const source = typeof item.source === 'string' ? item.source : '';
+    const row: MeetingVoteRow = {
+      link,
+      date,
+      title: rawTitle || 'Untitled',
+      source,
+      yea,
+      nay,
+      abstain: Number.isFinite(abstain) ? abstain : 0,
+      absent: Number.isFinite(absent) ? absent : 0,
+      passed: tally.passed === true,
+      inferred: tally.inferred === true,
+    };
+    const key = `${row.link}|${row.yea}-${row.nay}-${row.abstain}-${row.absent}-${row.passed ? 1 : 0}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(row);
+  };
+  for (const item of meetingItems ?? []) {
+    const record = asRecord(item);
+    if (!record) continue;
+    push(record, record.vote);
+    if (Array.isArray(record.voteTable)) for (const vote of record.voteTable) push(record, vote);
+  }
+  return rows;
+}
+
+function normalizeDrift(d: unknown): DocumentDrift | null {
+  const record = asRecord(d);
+  if (!record) return null;
+  const url = record.url;
+  const currentHash = record.currentHash;
+  if (typeof url !== 'string' || !url || typeof currentHash !== 'string' || !currentHash) return null;
+  const previousHash = record.previousHash;
+  return {
+    url,
+    changed: record.changed === true,
+    isNew: record.isNew === true,
+    previousHash: typeof previousHash === 'string' ? previousHash : null,
+    currentHash,
+  };
+}
+
+/**
+ * Collect agenda/minutes SHA-256 drift for the report month. Batch files in
+ * `govMeetingsDir` record drift at change time (union over the whole month);
+ * the health artifact holds only the latest run, so a change that happened
+ * mid-month is visible even after newer runs overwrite the health artifact.
+ * Deduplicated by (url, previous hash, current hash). Never throws.
+ */
+export function collectDocumentDrift(govMeetingsDir: string, month: string, healthDrift: unknown): DocumentDrift[] {
+  const drift: DocumentDrift[] = [];
+  const seen = new Set<string>();
+  const push = (d: unknown): void => {
+    const normalized = normalizeDrift(d);
+    if (!normalized) return;
+    const key = `${normalized.url}|${normalized.previousHash ?? ''}|${normalized.currentHash}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    drift.push(normalized);
+  };
+  if (existsSync(govMeetingsDir)) {
+    for (const file of readdirSync(govMeetingsDir).filter(f => f.endsWith('.json'))) {
+      const batch = asRecord(readJson(join(govMeetingsDir, file)));
+      if (!batch) continue;
+      const fetchedAt = batch.fetchedAt;
+      if (typeof fetchedAt !== 'string' || !isIsoTimestamp(fetchedAt) || !fetchedAt.startsWith(month)) continue;
+      if (Array.isArray(batch.documentDrift)) for (const d of batch.documentDrift) push(d);
+    }
+  }
+  if (Array.isArray(healthDrift)) for (const d of healthDrift) push(d);
+  return drift;
+}
+
+function mdCell(text: string): string {
+  return text.replace(/\|/g, '/');
+}
+
+/**
+ * Render the meeting-votes, document-drift, and agenda→code cross-reference
+ * subsections of the monthly report. Pure: returns the markdown lines, caller
+ * owns ordering/blank lines.
+ */
+export function renderMeetingVotesSection(rows: MeetingVoteRow[], drift: DocumentDrift[], refs: AgendaCodeRef[] = []): string[] {
+  const lines: string[] = [];
+  lines.push('### 🏛️ Recorded votes');
+  lines.push('');
+  if (rows.length === 0) {
+    lines.push('_No parseable vote tallies were recorded in this month\'s meeting items._');
+  } else {
+    const passed = rows.filter(r => r.passed).length;
+    lines.push(`**${rows.length} vote record${rows.length === 1 ? '' : 's'}** · ${passed} passed · ${rows.length - passed} failed. Extracted from agenda/minutes text by the vote parser — verify against the linked minutes before relying on a tally.`);
+    lines.push('');
+    lines.push('| Date | Meeting | Yea | Nay | Abstain | Absent | Result |');
+    lines.push('|---|---|---|---|---|---|---|');
+    for (const row of rows.slice(0, MEETING_VOTE_ROW_LIMIT)) {
+      const title = row.link ? `[${mdCell(row.title)}](${row.link})` : mdCell(row.title);
+      lines.push(`| ${mdCell(row.date) || '–'} | ${title} | ${row.yea} | ${row.nay} | ${row.abstain} | ${row.absent} | ${row.passed ? 'Passed' : 'Failed'}${row.inferred ? ' (inferred)' : ''} |`);
+    }
+    if (rows.length > MEETING_VOTE_ROW_LIMIT) lines.push(`_... and ${rows.length - MEETING_VOTE_ROW_LIMIT} more_`);
+  }
+  lines.push('');
+  lines.push('### 📄 Agenda/minutes document drift');
+  lines.push('');
+  if (drift.length === 0) {
+    lines.push('_No agenda/minutes documents were added or changed this month (or drift tracking was unavailable)._');
+  } else {
+    const changed = drift.filter(d => d.changed).length;
+    lines.push(`**${drift.length} document event${drift.length === 1 ? '' : 's'}** · ${changed} changed · ${drift.length - changed} new. SHA-256 over the fetched document text; a changed hash means the source document moved.`);
+    lines.push('');
+    for (const d of drift.slice(0, MEETING_DRIFT_ROW_LIMIT)) {
+      lines.push(`- ${d.changed ? '🔄 Changed' : '🆕 New'}: ${mdCell(d.url)} — ${d.previousHash ? d.previousHash.slice(0, 12) : '–'} → ${d.currentHash.slice(0, 12)}`);
+    }
+    if (drift.length > MEETING_DRIFT_ROW_LIMIT) lines.push(`_... and ${drift.length - MEETING_DRIFT_ROW_LIMIT} more_`);
+  }
+  lines.push('');
+  lines.push('### 📎 Agenda topics → municipal code');
+  lines.push('');
+  if (refs.length === 0) {
+    lines.push('_No agenda items were cross-referenced to code sections this month._');
+  } else {
+    const topics = new Set(refs.map(r => r.topic));
+    lines.push(`**${refs.length} association${refs.length === 1 ? '' : 's'}** across ${topics.size} agenda topic${topics.size === 1 ? '' : 's'}, via the BM25 index over the scraped municipal code. Topical matches only — not legal advice.`);
+    lines.push('');
+    for (const ref of refs.slice(0, MEETING_DRIFT_ROW_LIMIT)) {
+      const topic = ref.agendaUrl ? `[${mdCell(ref.topic)}](${ref.agendaUrl})` : mdCell(ref.topic);
+      lines.push(`- ${topic} → ${mdCell(ref.sectionNumber)} ${mdCell(ref.sectionTitle)} — ${mdCell(ref.articleTitle)}`);
+    }
+    if (refs.length > MEETING_DRIFT_ROW_LIMIT) lines.push(`_... and ${refs.length - MEETING_DRIFT_ROW_LIMIT} more_`);
+  }
+  return lines;
+}
 
 // ─── Executive digest (LLM connective prose over data-derived metrics) ──
 
@@ -449,6 +632,18 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
     if (unavailableMeetings.length) lines.push(`- **Meeting sources unavailable**: ${unavailableMeetings.join(', ')}`);
   }
   lines.push('');
+  const meetingVoteRows = buildMeetingVoteRows(meetingItems);
+  const meetingDrift = collectDocumentDrift(paths.govMeetings, month, meetingHealth?.documentDrift);
+  let agendaCodeRefs: AgendaCodeRef[] = [];
+  try {
+    agendaCodeRefs = await crossReferenceAgendaTopics(
+      meetingItems.flatMap(item => (Array.isArray(item?.agendaItems) ? item.agendaItems : [])),
+    );
+  } catch (error: unknown) {
+    warnings.push(`Agenda cross-reference failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  lines.push(...renderMeetingVotesSection(meetingVoteRows, meetingDrift, agendaCodeRefs));
+  lines.push('');
 
   // ── Section 4: Intelligence Domain Coverage ────────────────────
   lines.push('## 🧠 Intelligence Domain Coverage');
@@ -520,6 +715,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
     curatedItems: curatedItems.length,
     discoveredSources: Number(sourceDiscovery.sourceCount ?? 0),
     monitoredSources: Number(sourceDiscovery.monitoredCount ?? 0),
+    meetingVotes: meetingVoteRows.length,
   }, monthLabel);
   if (digest) {
     lines.push('');
@@ -556,6 +752,9 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
       newsItems: newsCount,
       meetingItems: meetingItems.length,
       curatedItems: curatedItems.length,
+      meetingVoteRecords: meetingVoteRows.length,
+      changedMeetingDocuments: meetingDrift.filter(d => d.changed).length,
+      agendaCodeRefs: agendaCodeRefs.length,
       discoveredSources: Number(sourceDiscovery.sourceCount ?? 0),
       monitoredSources: Number(sourceDiscovery.monitoredCount ?? 0),
       discoveryOnlySources: Number(sourceDiscovery.discoveryOnlyCount ?? 0),

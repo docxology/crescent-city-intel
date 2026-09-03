@@ -86,3 +86,5 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `domains/coverage.ts` | Domain coverage % with prefix matching | `computeDomainCoverage()` |
 | `geo.ts` | Transferable municipality geo-intel contract (Crescent default civic + hazard) | `buildGeoIntel()`, `buildMunicipalityContract()`, `hazardRelevantDomains()`, `CRESCENT_CITY_ANCHOR` |
 | `geo_view.ts` | Tiles-free map-ready Crescent City feature view (Del Norte bounds polygon + anchor + hazard-domain points + section refs) from the geo-intel contract | `buildGeoView()` |
+| `minutes_extraction.ts` | No (pure extraction + hash-drift builders; bounded fetch) | `tests/minutes-depth.test.ts`, `tests/gov-vote-extraction.test.ts` |
+| `agenda_crossref.ts` | Yes (BM25 index over the local scraped corpus) | `tests/agenda-crossref.test.ts` |

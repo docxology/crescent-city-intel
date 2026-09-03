@@ -191,6 +191,22 @@ persists per-source health. The live EvoGov endpoint currently returns City
 Council and Planning Commission records; Harbor Commission is retained as an
 explicit `empty` source until a real agenda feed is found.
 
+### Meeting-minutes depth (Phase 4.2)
+
+`src/minutes_extraction.ts` extracts every parseable vote tally from minutes
+text (`extractVotes`), hashes each fetched agenda/minutes document for change
+detection (`computeDocumentHashes` + `diffDocumentHashes`), and bounded-fetches
+document text only when the Content-Type is verifiably textual. Drift is
+persisted to `output/state/meeting-doc-hashes.json` (merge-forward, so a
+document that was not re-fetched keeps its recorded hash), reported per batch
+(`documentDrift` on `output/gov_meetings/*.json`), and surfaced in the
+meetings source-health artifact. `src/agenda_crossref.ts` associates agenda
+link-item titles with municipal-code sections through the real BM25 index
+(`crossReferenceAgendaTopics`). All three surfaces render in the monthly
+report's meeting subsections and are covered by
+`tests/minutes-depth.test.ts`, `tests/gov-vote-extraction.test.ts`, and
+`tests/agenda-crossref.test.ts`.
+
 ---
 
 ## YouTube meeting transcripts
@@ -244,7 +260,11 @@ matching, validates timestamps, and emits both
 `output/reports/monthly-YYYY-MM.json`. The JSON companion contains period
 boundaries, numeric metrics, warnings, artifact paths, and a typed aggregate
 source-health summary. Malformed records are excluded and reported as
-warnings; they never become fabricated activity.
+warnings; they never become fabricated activity. The report's meeting
+subsection (rendered by `renderMeetingVotesSection` from pure builders
+`buildMeetingVoteRows` / `collectDocumentDrift`) surfaces recorded vote
+tallies, agenda/minutes SHA-256 drift, and agenda-topic → code-section
+cross-references, with explicit empty states when a month has none.
 
 `bun run weekly-check` writes `output/state/latest-pipeline-run.json` with a
 stable run ID, runtime/commit metadata, every stage's status/duration/error,

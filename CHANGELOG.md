@@ -10,6 +10,46 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Monthly report meeting depth: votes, document drift, code cross-refs (2026-09-03)
+
+#### Added
+
+- **Recorded votes in the monthly report.** `buildMeetingVoteRows` flattens
+  item-level votes (`vote`) and per-motion vote tables (`voteTable`, extracted
+  from minutes text) into deduplicated table rows; `renderMeetingVotesSection`
+  renders them with pass/fail, inferred-tally markers, and explicit empty
+  states. Exposed as `meetingVoteRecords` in the report metadata metrics.
+- **Agenda/minutes SHA-256 drift surfaced in the report.**
+  `collectDocumentDrift` unions the month's batch-level `documentDrift`
+  records with the latest-run drift in the meetings health artifact (deduped
+  by URL + hash pair), so a mid-month document change stays visible after
+  newer runs overwrite the health artifact. Exposed as
+  `changedMeetingDocuments` in the metrics.
+- **Agenda topics → municipal code (`src/agenda_crossref.ts`).**
+  `crossReferenceAgendaTopics` searches the real BM25 index over the scraped
+  corpus for each distinct agenda link-item title (HTML entities decoded,
+  `.pdf` suffixes stripped, work bounded to 12 topics × top-3 sections) and
+  the report renders the associations with an explicit "topical matches only"
+  caveat. Exposed as `agendaCodeRefs` in the metrics.
+
+#### Tests
+
+- `tests/monthly-report-votes.test.ts` (8): flattening/dedup rules, drift
+  collection from batch files + health artifact with month filtering,
+  renderer table/empty-state/cap behavior.
+- `tests/agenda-crossref.test.ts` (3): real BM25 associations over the real
+  local corpus, unusable-topic guards, entity/suffix normalization.
+
+#### Verified
+
+- All 13 alert monitors ran live 2026-09-03; the five Phase-12 extended
+  monitors parsed real response shapes (USDM DSCI 300/500 Extreme Drought,
+  PG&E PSPS none, NOAA HMS 1 light plume, Caltrans 2 Del Norte incidents,
+  DUSD no closures) and the 13-monitor composite reported WARNING (tides
+  7.06 ft MLLW). GUI browser smoke re-confirmed the alert trend/heatmap
+  rendering (`alertTrend=14d heatmap=8x14`).
+
+
 ### Healer roster + composite healer provenance fix (2026-09-01)
 
 #### Fixed

@@ -4,7 +4,7 @@
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix) — reviewed 2026-08-04 (Round 3 completion pass)
 >
-> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-08-24 (geo-intel completion pass)
+> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-09-03 (meeting-depth + doc-reconciliation pass)
 
 ---
 
@@ -150,17 +150,22 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
 
 ### Medium (deferred — live-data / browser / frontend)
 
-- 🟡 **Alert heatmap / monthly trend charts (frontend).** Backend data exists
-  (`/api/alerts/{type}/history`, `/api/alerts/timeline`, `getAlertsByType`); the map + trend
-  widgets are SPA/Chart.js work. **Acceptance:** a dashboard tab rendering per-type trends from
-  those endpoints. **Reason:** frontend, unverifiable without a browser here.
+- ✅ ~~**Alert heatmap / monthly trend charts (frontend).**~~ **Closed 2026-09-03:** the
+  Alerts overlay's `alert-trends-shell` renders per-type 14-day trend bars plus an
+  all-monitors heatmap from `/api/alerts/{type}/history` + `/api/alerts/timeline`, with a
+  monitor picker, state legend, and bounded-history dedup note. Covered by
+  `tests/alert-trends.test.ts` + `tests/alert-trends-30d.test.ts`; the browser smoke
+  (`bun run test:browser`) asserts `alertTrend=14d heatmap=8x14` against the live GUI.
 - ✅ ~~**New external-source monitors: drought (USDM), PG&E PSPS, HRRR smoke forecast, Caltrans
   road closures, DUSD school closures (Phase 12).**~~ **Closed 2026-08-28:** the five modules
   existed since v2.6.0 but were orphaned (no runner wiring, no tests, no docs). Now wired into
   `scripts/run-alerts.ts` (13-monitor allSettled batch, graceful degradation, typed
   SourceHealth), covered offline by `tests/phase12-monitors.test.ts` (20 tests over the pure
-  classifiers), and documented. Residual: per-feed response-shape validation still requires a
-  live-feed observation window in production.
+  classifiers), and documented. Residual: per-feed response-shape validation still benefits
+  from sustained observation; a live observation pass on 2026-09-03 parsed real response
+  shapes from all five extended feeds (USDM DSCI 300/500 Extreme Drought, PG&E PSPS none,
+  NOAA HMS 1 light plume, Caltrans 2 Del Norte incidents, DUSD no closures) and the
+  13-monitor composite reported WARNING (tides 7.06 ft MLLW).
 - ✅ ~~**Hard coverage floor (Phase 11.1).**~~ **Closed 2026-08-28.** Measured baseline:
   73.5% lines / 64.9% branches across the deterministic suite (measured twice, stable). A 60%
   line floor is now enforced as a hard step in `scripts/validate.ts` — it parses the coverage
@@ -168,11 +173,16 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   the gate implements the check itself). Conservative so the by-design-uncovered live-network
   monitor family cannot flip it; raise as coverage grows, never lower. a full in-suite `tests/browser.test.ts` (timeout/dead-page/
   retry unit tests) is optional given the smoke script covers the live path.
-- 🟡 **Deeper meeting minutes/vote extraction (Phase 4.2, part 2).** Link-item extraction is
-  done; parsing yea/nay/abstain from minutes text, SHA-256 change detection on agenda/minutes
-  PDFs, and BM25 cross-ref of agenda items to code sections depend on the live EvoGov PDF/HTML
-  markup. **Acceptance:** vote tables + PDF hash drift surfaced in the meeting report.
-  **Reason:** needs live minutes/PDF structure to verify.
+- ✅ ~~**Deeper meeting minutes/vote extraction (Phase 4.2, part 2).**~~ **Closed 2026-09-03.**
+  Vote tallies parse from minutes text (`parseVotes` + `extractVotes`), every fetched
+  agenda/minutes document is SHA-256 hashed with merge-forward drift detection
+  (`computeDocumentHashes`/`diffDocumentHashes`, persisted to
+  `output/state/meeting-doc-hashes.json`), and agenda link-item titles are cross-referenced
+  to municipal-code sections through the real BM25 index (`src/agenda_crossref.ts`). All
+  three surfaces render in the monthly report (votes table, drift list, topic → section
+  associations) with explicit empty states. Tests: `tests/gov-vote-extraction.test.ts`,
+  `tests/minutes-depth.test.ts`, `tests/monthly-report-votes.test.ts`,
+  `tests/agenda-crossref.test.ts`.
 
 ### Fixed in the 2026-08-31 agent-ergonomics pass
 
@@ -212,10 +222,13 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   Phase 13 ordinance chronology/lineage/dep-graph; Phase 14 docs/modules dashboard and
   structured-query pages). **Reason:** frontend/SPA or new external-source features needing
   live data or browser verification; each is documented in `docs/` where scoped.
-- 🟢 **Fishing bulletin full-text fetch** (`src/alerts/cdfw_fishing.ts`). `content` remains
-  a title-derived stub (only counts are consumed); fetching bulletin bodies requires
-  per-link fetches against the live CDFW page. **Acceptance:** bulletin `content` carries the
-  extracted body text with graceful fallback. **Reason:** depends on the live CDFW page.
+- ✅ ~~**Fishing bulletin full-text fetch** (`src/alerts/cdfw_fishing.ts`).~~
+  **Closed 2026-09-03 (implemented earlier, doc-lag reconciled):** `fetchBulletinBody`
+  bounded-fetches each bulletin page and `extractBulletinBody` pulls the article body with a
+  join-all-`<p>` fallback; results land in `FishingBulletin.fullContent` with graceful
+  degradation to the title-derived `content` on any failure. Live run 2026-09-03 found 0
+  relevant bulletins (honest `empty`); tests in `tests/cdfw-crab-fulltext.test.ts` cover the
+  extraction chain and failure fallbacks.
 
 ---
-_Last updated: 2026-08-31 (agent-ergonomics doc pass; see Minor section) · v2.6.0 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-09-03 (meeting-depth + doc-reconciliation pass) · v2.6.0 · run `bun run validate` for current test and contract counts_

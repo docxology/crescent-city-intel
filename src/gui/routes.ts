@@ -1438,50 +1438,18 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
-  // GET /api/alerts/correlation — detect correlated alert sequences
+  // GET /api/alerts/correlation — cross-monitor co-occurrence analysis.
+  //
+  // The pairing logic lives in src/alert_correlation.ts (pure, tested). The
+  // route keeps the legacy response shape ({totalCorrelations, correlations})
+  // alongside the structured per-pair report, so existing consumers only gain
+  // fields. Dynamic import matches this file's lazy-load idiom: the GUI server
+  // must not pull every monitor module at boot.
   if (path === "/api/alerts/correlation") {
     try {
-      const { buildAlertAnalytics } = await import("../alert_analytics.js");
-      const report = buildAlertAnalytics();
-      const correlations: Array<{ type: string; description: string; events: any[] }> = [];
-
-      // Detect earthquake → tsunami sequences (within 1 hour)
-      const earthquakes = report.timeline.filter(e => e.type === "earthquake" && (e.severity === "WARNING" || e.severity === "EMERGENCY"));
-      const tsunamis = report.timeline.filter(e => e.type === "tsunami");
-      for (const eq of earthquakes) {
-        const eqTime = new Date(eq.timestamp).getTime();
-        for (const ts of tsunamis) {
-          const tsTime = new Date(ts.timestamp).getTime();
-          const diffMin = (tsTime - eqTime) / (1000 * 60);
-          if (diffMin > 0 && diffMin < 60) {
-            correlations.push({
-              type: "earthquake-tsunami",
-              description: `Earthquake "${eq.description}" followed by tsunami alert ${diffMin.toFixed(0)} min later`,
-              events: [eq, ts],
-            });
-          }
-        }
-      }
-
-      // Detect wildfire → air quality sequences (within 6 hours)
-      const wildfires = report.timeline.filter(e => e.type === "wildfire" && e.severity !== "CALM");
-      const aqSpikes = report.timeline.filter(e => e.type === "airquality" && (e.severity === "WARNING" || e.severity === "EMERGENCY"));
-      for (const wf of wildfires) {
-        const wfTime = new Date(wf.timestamp).getTime();
-        for (const aq of aqSpikes) {
-          const aqTime = new Date(aq.timestamp).getTime();
-          const diffHr = (aqTime - wfTime) / (1000 * 60 * 60);
-          if (diffHr > 0 && diffHr < 6) {
-            correlations.push({
-              type: "wildfire-airquality",
-              description: `Wildfire "${wf.description}" followed by AQI spike ${diffHr.toFixed(1)} hr later`,
-              events: [wf, aq],
-            });
-          }
-        }
-      }
-
-      return json({ totalCorrelations: correlations.length, correlations });
+      const { buildAlertCorrelations } = await import("../alert_correlation.js");
+      const report = buildAlertCorrelations();
+      return json(report);
     } catch (err: any) {
       return json({ error: `Correlation failed: ${publicApiDetail(err.message)}` }, 500);
     }
@@ -1524,6 +1492,26 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ totalGaps: gaps.length, gaps });
     } catch (err: any) {
       return json({ error: `Ordinal check failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/ordinance/chronology?limit=&guid= — ordinance chronology + lineage
+  //
+  // Per-section amendment trails plus the city-wide ordinance timeline built
+  // from section history lines (src/ordinance_chronology.ts, pure + tested).
+  // ?guid= narrows to one section; ?limit= bounds each list (records the bound
+  // in `truncated` rather than hiding it). Dynamic import: lazy-load idiom.
+  if (path === "/api/ordinance/chronology") {
+    try {
+      const { buildOrdinanceChronology } = await import("../ordinance_chronology.js");
+      const sections = await loadAllSections();
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(200, Math.max(1, parseInt(limitParam, 10) || 50)) : 50;
+      const guidFilter = url.searchParams.get("guid") ?? undefined;
+      const report = buildOrdinanceChronology(sections, { limit, guidFilter });
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Ordinance chronology failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 

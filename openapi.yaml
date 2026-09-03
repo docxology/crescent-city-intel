@@ -1550,14 +1550,131 @@ paths:
 
   /api/alerts/correlation:
     get:
-      summary: Detect correlated alert sequences
+      summary: Cross-monitor alert co-occurrence analysis
+      description: >-
+        Evaluates evidence-based directional pair hypotheses (e.g. M6+
+        earthquake then tsunami alert within 60 minutes; wildfire report then
+        unhealthy AQI spike within 6 hours) over every monitor history.
+        Reports observed vs. uniform-rate-expected pair counts (lift), median
+        lag, and a cadence-sensitivity flag so monitor run frequency cannot
+        masquerade as a finding. Deterministic; no LLM.
       responses:
-        '200': { description: Correlated alert events, content: { application/json: { schema: { type: object } } } }
+        '200':
+          description: >-
+            Legacy shape preserved (totalCorrelations, correlations[]) plus the
+            structured per-pair report (pairs[], sourcesScanned[], notes[]).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  totalEventsScanned: { type: integer }
+                  analyzedSpan:
+                    type: object
+                    nullable: true
+                    properties:
+                      start: { type: string }
+                      end: { type: string }
+                  totalCorrelations: { type: integer }
+                  correlations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type: { type: string }
+                        description: { type: string }
+                        events: { type: array, items: { type: object } }
+                  pairs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        typeA: { type: string }
+                        typeB: { type: string }
+                        windowMinutes: { type: integer }
+                        eventsA: { type: integer }
+                        eventsB: { type: integer }
+                        observedPairs: { type: integer }
+                        expectedPairs: { type: number }
+                        lift: { type: number, nullable: true }
+                        medianLagMinutes: { type: number, nullable: true }
+                        cadenceSensitive: { type: boolean }
+                  sourcesScanned:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source: { type: string }
+                        events: { type: integer }
+                        hasHistory: { type: boolean }
+                  notes: { type: array, items: { type: string } }
   /api/ordinal-check:
     get:
       summary: Detect municipal code numbering gaps
       responses:
         '200': { description: Ordinal gap report, content: { application/json: { schema: { type: object } } } }
+  /api/ordinance/chronology:
+    get:
+      summary: Ordinance chronology and legislative lineage
+      description: >-
+        Builds per-section amendment trails (oldest first) and a city-wide
+        ordinance timeline (each ordinance with every section it touched,
+        newest action first) from the municipal-code history lines. Pure and
+        deterministic; output bounded by ?limit= with `truncated` recording
+        the bound. ?guid= narrows per-section output to one section.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: guid
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Chronology report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  truncated: { type: boolean }
+                  summary:
+                    type: object
+                    properties:
+                      sectionsScanned: { type: integer }
+                      sectionsWithOrdinanceHistory: { type: integer }
+                      totalAmendments: { type: integer }
+                      distinctOrdinances: { type: integer }
+                      earliestYear: { type: integer, nullable: true }
+                      latestYear: { type: integer, nullable: true }
+                  cityTimeline:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ordinance: { type: string }
+                        year: { type: integer, nullable: true }
+                        actions: { type: array, items: { type: string } }
+                        sectionNumbers: { type: array, items: { type: string } }
+                        sectionCount: { type: integer }
+                  sectionChronologies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        guid: { type: string }
+                        sectionNumber: { type: string }
+                        articleTitle: { type: string }
+                        amendments: { type: array, items: { type: object } }
+                        firstYear: { type: integer, nullable: true }
+                        lastYear: { type: integer, nullable: true }
   /api/definitions/conflicts:
     get:
       summary: Detect conflicting glossary definitions

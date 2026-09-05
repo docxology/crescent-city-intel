@@ -10,6 +10,11 @@
  *      page's authenticated fetch.
  *   4. The Alerts panel renders its bounded trend + heatmap from the real
  *      timeline/history APIs with accessible source-state labels.
+ *   5. The corpus-intelligence panels (section graph, word frequency,
+ *      longevity, ordinance timeline) and the civic insight brief each render
+ *      real content from their own endpoint, with no page errors. These have
+ *      string contracts in `bun test`; only a real browser proves the loader
+ *      actually runs and the markup it builds is valid.
  *
  * Run with: bun run test:browser
  * Exits non-zero on failure (CI-gatable). Requires a Playwright browser; the
@@ -93,9 +98,11 @@ async function main() {
     const page = await browser.newPage();
     const pageErrors: string[] = [];
     const alertRequests: string[] = [];
+    const apiRequests: string[] = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     page.on("request", request => {
       const url = new URL(request.url());
+      apiRequests.push(url.pathname);
       if (url.pathname.startsWith("/api/alerts/")) alertRequests.push(`${url.pathname}${url.search}`);
     });
     await page.goto(`${BASE}/`, { waitUntil: "networkidle", timeout: 20_000 });
@@ -172,11 +179,83 @@ async function main() {
         markFail(`alert view did not request ${type} history`);
       }
     }
+    // ─── Corpus-intelligence panels ────────────────────────────────
+    //
+    // Each tab has a loader that fires once on first open. Waiting for the
+    // panel's "Loading…" placeholder to be replaced is what proves the loader
+    // ran and produced markup; asserting the request went out proves the
+    // numbers came from the endpoint rather than from anything in the page.
+    async function openPanel(overlayId: string, overlayToggle: string, tab: string, contentId: string, expectedRoute: string): Promise<string> {
+      // The overlay buttons are toggles: clicking one that is already open
+      // closes it, and an open overlay covers the header, so a real pointer
+      // click on a DIFFERENT overlay's button is intercepted. Dispatch the
+      // toggle programmatically — the handler is what is under test here, not
+      // the header's hit area, which the alert panel above already exercises.
+      const alreadyOpen = await page.evaluate((id: string) => Boolean(document.getElementById(id)?.classList.contains("open")), overlayId);
+      if (!alreadyOpen) {
+        await page.evaluate((selector: string) => {
+          (document.querySelector(selector) as HTMLElement | null)?.click();
+        }, overlayToggle);
+      }
+      await page.locator(`#${overlayId} .intel-tab[data-tab="${tab}"]`).first().click();
+      try {
+        await page.waitForFunction(
+          (id: string) => {
+            const element = document.getElementById(id);
+            return Boolean(element) && !/Loading|Building|Counting|Reading/.test(element!.textContent ?? "");
+          },
+          contentId,
+          { timeout: 30_000 },
+        );
+      } catch {
+        markFail(`${tab} panel never finished loading`);
+        return "";
+      }
+      if (!apiRequests.some(path => path === expectedRoute)) markFail(`${tab} panel did not request ${expectedRoute}`);
+      const text = await page.locator(`#${contentId}`).innerText();
+      if (!text.trim()) markFail(`${tab} panel rendered empty`);
+      return text;
+    }
+
+    const graphText = await openPanel("analytics-overlay", "#analytics-toggle", "graph", "graph-content", "/api/sections/graph");
+    for (const label of ["Sections", "Citation edges", "Resolution rate", "Components"]) {
+      if (!graphText.includes(label)) markFail(`section graph panel is missing the "${label}" metric`);
+    }
+    const lexiconText = await openPanel("analytics-overlay", "#analytics-toggle", "lexicon", "lexicon-content", "/api/lexicon/frequency");
+    for (const label of ["Indexed tokens", "Distinct terms", "Most frequent terms", "Most distinctive terms"]) {
+      if (!lexiconText.includes(label)) markFail(`word-frequency panel is missing "${label}"`);
+    }
+    const longevityText = await openPanel("analytics-overlay", "#analytics-toggle", "longevity", "longevity-content", "/api/sections/longevity");
+    for (const label of ["Dated sections", "Median age", "Activity by decade", "Oldest enactments"]) {
+      if (!longevityText.includes(label)) markFail(`longevity panel is missing "${label}"`);
+    }
+    const chronologyText = await openPanel("analytics-overlay", "#analytics-toggle", "chronology", "chronology-content", "/api/ordinance/chronology");
+    for (const label of ["Distinct ordinances", "Ordinances per decade", "City-wide lineage"]) {
+      if (!chronologyText.includes(label)) markFail(`ordinance timeline panel is missing "${label}"`);
+    }
+    const insightsText = await openPanel("feeds-overlay", "#feeds-toggle", "insights", "insights-content", "/api/insights");
+    if (!/window|domain|movement|Domain/i.test(insightsText)) markFail("civic insight panel rendered no brief content");
+
+    // The chat model picker must populate from /api/llm/models on first open,
+    // or stay at exactly one honest "Default model" entry when the provider is
+    // unreachable — never an empty or half-built select.
+    await page.evaluate(() => (document.getElementById("chat-toggle") as HTMLElement | null)?.click());
+    await page.waitForTimeout(1500);
+    const modelPicker = await page.evaluate(() => {
+      const select = document.getElementById("chat-model") as HTMLSelectElement | null;
+      return { present: Boolean(select), options: select ? select.options.length : 0, first: select?.options[0]?.value ?? null };
+    });
+    if (!modelPicker.present) markFail("chat model picker is absent");
+    if (modelPicker.options < 1) markFail("chat model picker rendered no options");
+    if (modelPicker.first !== "") markFail("chat model picker's first option is not the server default");
+    const modelsRequested = apiRequests.some(path => path === "/api/llm/models");
+    console.log(`[browser-smoke] modelPicker options=${modelPicker.options} discovered=${modelsRequested}`);
+
     if (pageErrors.length > 0) markFail(`page error(s): ${pageErrors.join(" | ")}`);
     console.log(`[browser-smoke] alertTrend=${alertView.trendColumns}d heatmap=${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)} states=${[...new Set(alertView.rowStates)].join(",")}`);
 
     console.log(`[browser-smoke] header=${headerCount} keyInjected=${Boolean(injectedKey)} tocStatus=${tocResult.status}`);
-    if (!failed) console.log("[browser-smoke] PASS: page rendered, key injected, api authenticated, alert trend/heatmap accessible");
+    if (!failed) console.log("[browser-smoke] PASS: page rendered, key injected, api authenticated, alert trend/heatmap accessible, corpus-intelligence panels and insight brief live");
   } catch (error) {
     markFail(error instanceof Error ? error.message : String(error));
   } finally {

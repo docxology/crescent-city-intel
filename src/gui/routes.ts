@@ -5,6 +5,7 @@ import { search, logSearchQuery, getIndexedCount, type PagedSearchResult } from 
 import { createLogger } from "../logger.js";
 import { llmConfig } from "../llm/config.js";
 import { paths } from "../shared/paths.js";
+import { normalizeSectionNumber } from "../utils.js";
 import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, summarizeSourceHealth } from "../shared/source_health.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
 import { buildAnalyticsOverview, readAnalyticsOverview } from "../analytics_backend.js";
@@ -77,6 +78,15 @@ async function resetProviderBudget(): Promise<void> {
  * TTL costs nothing in freshness.
  */
 const HEALTH_TRENDS_TTL_MS = 60_000;
+
+/**
+ * Cap on GET /api/llm/models. Ollama lists what is installed locally (a
+ * handful); OpenRouter lists its whole public catalogue (several hundred). The
+ * cap keeps an external catalogue from setting this endpoint's payload size,
+ * and the response reports `totalAvailable` + `truncated` so the bound is
+ * visible rather than silent.
+ */
+const MODEL_LIST_LIMIT = 200;
 
 let healthTrendsCache: { computedAt: number; value: import("../alert_analytics.js").AlertTypeTrendSummary[] } | null = null;
 
@@ -215,14 +225,14 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
       if (titleParam) {
         filtered = filtered.filter(s => {
-          const num = s.number.replace(/§\s*/, "").trim();
+          const num = normalizeSectionNumber(s.number);
           return num.startsWith(titleParam + ".") || num.startsWith(titleParam + " ");
         });
       }
 
       if (chapterParam) {
         filtered = filtered.filter(s => {
-          const num = s.number.replace(/§\s*/, "").trim();
+          const num = normalizeSectionNumber(s.number);
           // Match e.g. "8.04." — title.chapter prefix
           const prefix = titleParam ? `${titleParam}.${chapterParam}` : chapterParam;
           return num.startsWith(prefix + ".") || num.startsWith(prefix + " ");
@@ -1542,6 +1552,144 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ totalConflicts: conflicts.length, conflicts });
     } catch (err: any) {
       return json({ error: `Conflict detection failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/sections/graph?limit=&title=&guid=&depth= — section dependency graph
+  //
+  // The citation network between municipal-code sections (src/section_graph.ts,
+  // pure + tested). Whole-corpus by default; ?title= scopes to one title and
+  // ?guid= returns the ego network around one section out to ?depth= hops.
+  // Dynamic import: lazy-load idiom, the graph is only built when asked for.
+  if (path === "/api/sections/graph") {
+    try {
+      const { buildSectionGraph } = await import("../section_graph.js");
+      const sections = await loadAllSections();
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(1000, Math.max(1, parseInt(limitParam, 10) || 200)) : 200;
+      const depthParam = url.searchParams.get("depth");
+      const depth = depthParam !== null ? Math.min(3, Math.max(1, parseInt(depthParam, 10) || 1)) : 1;
+      const titleFilter = url.searchParams.get("title") ?? undefined;
+      const focusGuid = url.searchParams.get("guid") ?? undefined;
+      const report = buildSectionGraph(sections, { limit, depth, titleFilter, focusGuid });
+      return json(report);
+    } catch (err: any) {
+      // An unknown focus guid is a client error, not a server fault.
+      if (/^Unknown section guid:/.test(String(err?.message ?? ""))) {
+        return json({ error: "Unknown section guid" }, 400);
+      }
+      return json({ error: `Section graph failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/sections/longevity?limit=&title=&asOfYear= — how old and how settled
+  //
+  // Per-section enactment/amendment ages plus the decade histogram
+  // (src/section_longevity.ts, pure + tested). `asOfYear` is accepted so a
+  // caller can reproduce a report rather than silently re-dating it.
+  if (path === "/api/sections/longevity") {
+    try {
+      const { buildSectionLongevity } = await import("../section_longevity.js");
+      const sections = await loadAllSections();
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(500, Math.max(1, parseInt(limitParam, 10) || 25)) : 25;
+      const asOfParam = url.searchParams.get("asOfYear");
+      const parsedAsOf = asOfParam !== null ? parseInt(asOfParam, 10) : NaN;
+      const asOfYear = Number.isInteger(parsedAsOf) && parsedAsOf >= 1800 && parsedAsOf <= 2200 ? parsedAsOf : undefined;
+      const titleFilter = url.searchParams.get("title") ?? undefined;
+      const report = buildSectionLongevity(sections, { limit, asOfYear, titleFilter });
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Section longevity failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/lexicon/frequency?limit=&title=&minLength=&minDf= — word-frequency profile
+  //
+  // Raw term frequency and tf-idf salience over the same tokenisation the BM25
+  // index uses (src/word_frequency.ts, pure + tested), so a term shown here is
+  // a term search would have matched.
+  if (path === "/api/lexicon/frequency") {
+    try {
+      const { buildWordFrequency } = await import("../word_frequency.js");
+      const sections = await loadAllSections();
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(500, Math.max(1, parseInt(limitParam, 10) || 100)) : 100;
+      const minLengthParam = url.searchParams.get("minLength");
+      const minLength = minLengthParam !== null ? Math.min(12, Math.max(1, parseInt(minLengthParam, 10) || 3)) : 3;
+      const minDfParam = url.searchParams.get("minDf");
+      const minDocumentFrequency = minDfParam !== null ? Math.max(1, parseInt(minDfParam, 10) || 1) : 1;
+      const titleFilter = url.searchParams.get("title") ?? undefined;
+      const report = buildWordFrequency(sections, { limit, minLength, minDocumentFrequency, titleFilter });
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Word frequency failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/insights?window=&rebuild= — civic insight brief
+  //
+  // Surfaces the cross-artifact trend engine (src/insights.ts) that until now
+  // only reached disk via `bun run scripts/run-insights.ts`. The persisted
+  // report is served when present; ?rebuild=1 recomputes from the artifacts on
+  // this host. LLM polish is never triggered from a GET — the served narrative
+  // is the deterministic template unless a CLI run already polished it.
+  if (path === "/api/insights") {
+    try {
+      const { readCivicInsights, buildInsightReport } = await import("../insights.js");
+      const rebuild = url.searchParams.get("rebuild") === "1";
+      const windowParam = url.searchParams.get("window");
+      const parsedWindow = windowParam !== null ? parseInt(windowParam, 10) : NaN;
+      const windowDays = Number.isInteger(parsedWindow) && parsedWindow > 0 ? Math.min(365, parsedWindow) : undefined;
+      if (!rebuild && windowDays === undefined) {
+        const persisted = await readCivicInsights();
+        if (persisted) return json({ ...persisted, source: "persisted" });
+      }
+      const report = await buildInsightReport({ windowDays, polish: false });
+      return json({ ...report, source: "computed" });
+    } catch (err: any) {
+      return json({ error: `Civic insights failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/llm/models — models the configured chat provider can serve
+  //
+  // The per-request `model` override on /api/chat has existed for some time
+  // with no way to discover a valid value; this is that discovery surface.
+  // Degrades to the configured default rather than failing when the provider
+  // is unreachable — a picker with one honest entry beats a broken picker.
+  if (path === "/api/llm/models") {
+    try {
+      const { configuredChatProvider, configuredChatModel } = await import("../llm/provider.js");
+      const provider = configuredChatProvider();
+      const configured = configuredChatModel();
+      let models: string[] = [];
+      let status: "ok" | "unavailable" = "ok";
+      try {
+        const module = provider === "openrouter" ? await import("../llm/openrouter.js") : await import("../llm/ollama.js");
+        models = await module.listModels();
+      } catch {
+        status = "unavailable";
+      }
+      if (models.length === 0) status = "unavailable";
+      const unique = [...new Set([configured, ...models])].filter(Boolean).sort((a, b) => a.localeCompare(b, "en"));
+      // OpenRouter lists several hundred models. Cap the response so an
+      // external catalogue cannot decide this endpoint's payload size, and say
+      // so rather than trimming silently. The configured model is inserted
+      // first above and survives the sort, so it can never be cut.
+      const bounded = unique.slice(0, MODEL_LIST_LIMIT);
+      if (!bounded.includes(configured) && configured) bounded[bounded.length - 1] = configured;
+      return json({
+        provider,
+        configured,
+        status,
+        count: bounded.length,
+        totalAvailable: unique.length,
+        truncated: unique.length > bounded.length,
+        models: bounded,
+      });
+    } catch (err: any) {
+      return json({ error: `Model listing failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 

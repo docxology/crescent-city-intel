@@ -52,9 +52,10 @@
 
 ## Future Direction
 
-> Status audit 2026-09-03 against the implemented tree — several "future"
-> items from earlier drafts shipped since; they are marked ✅ so the open
-> set stays honest.
+> Status audit 2026-09-05 against the implemented tree. Earlier drafts listed
+> items under "Open" that had already shipped; those are marked ✅ below so the
+> open set stays honest, and the audit is re-run whenever this section is
+> touched rather than trusted from the last edit.
 
 ### Shipped since the last roadmap audit (previously listed here)
 
@@ -68,6 +69,29 @@
 - ✅ Drought, PSPS/power-outage, red-flag monitors; Docker Compose; coverage gate; route-spec CI validation
 - ✅ Meeting-minutes → municipal-code BM25 cross-references (`src/agenda_crossref.ts`)
 - ✅ NWS Coastal Waters Forecast monitor (CWF PZZ450 — the live product renumbered the zone the roadmap called PZZ455)
+- ✅ **Alert correlation detection across monitors** (`src/alert_correlation.ts`,
+  `GET /api/alerts/correlation`) — the 2026-09-03 pass shipped it; this section
+  still listed it as Medium-term open until the 2026-09-05 audit.
+- ✅ **RAG adaptive topK and query expansion** (`adaptiveTopK` / `expandQuery` in
+  `src/llm/rag.ts`) — likewise shipped, likewise still listed as open.
+- ✅ **Definition conflict detection** (`GET /api/definitions/conflicts`).
+- ✅ **Ordinance chronology / lineage** — data layer in
+  `src/ordinance_chronology.ts`; the visualization it was waiting on shipped
+  2026-09-05 (Code Analytics → 🏛️ Ordinance Timeline).
+- ✅ **Section dependency graph** (`src/section_graph.ts`,
+  `GET /api/sections/graph`) with a deterministic radial ego-network drawing in
+  the GUI. A whole-corpus radial plot is deliberately not drawn: at this node
+  count it would show shape without meaning.
+- ✅ **Word-frequency and section-longevity views** (`src/word_frequency.ts`,
+  `src/section_longevity.ts`, `GET /api/lexicon/frequency`,
+  `GET /api/sections/longevity`) with GUI panels.
+- ✅ **Multi-model LLM selection UI** — `/api/chat` had accepted a per-request
+  `model` override for some time with no way to discover a valid value;
+  `GET /api/llm/models` is that discovery surface and the chat panel now
+  carries a picker wired to both the streaming and fallback paths.
+- ✅ **Civic insights reached a consumer** — `src/insights.ts` computed a
+  cross-artifact trend brief that only ever reached disk via a CLI script;
+  `GET /api/insights` and the News & Feeds → 🔮 Civic Insights panel surface it.
 
 ### Open
 
@@ -78,16 +102,13 @@
 
 #### Medium-term
 
-- Alert: correlation detection across monitors (co-occurrence of hazard events)
-- RAG: adaptive topK, query expansion
 - Marine: PacFIN landing data, AIS vessel tracking
+- Readability trend/heatmap panels (needs a readability *history*, not the
+  current single snapshot — the storage decision comes first)
 
 #### Long-term (Major)
 
-- Section dependency graph (network visualization)
-- Ordinance timeline visualization; ordinance chronology/lineage
-- New monitors: USCG broadcasts, PZZ455, permits/dredging/fuel
-- Multi-model LLM selection UI (provider selection exists; per-request model picker does not)
-- Incremental indexing; definition conflict detection
-- GUI: readability trend/heatmap panels, word-frequency and section-longevity views, AQ widget,
-  wildfire map, annotation overlays, structured-query pages (scoped in `docs/`)
+- New monitors: USCG broadcasts, permits/dredging/fuel
+- Incremental indexing (re-embed only changed articles)
+- GUI: AQ widget, wildfire map, annotation overlays, structured-query pages
+  (scoped in `docs/`)

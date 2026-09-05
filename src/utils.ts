@@ -149,6 +149,28 @@ export function csvEscape(val: string): string {
   return val;
 }
 
+// ─── Section numbers ─────────────────────────────────────────────
+
+/**
+ * Strip the section marker from a stored section number.
+ *
+ * Scraped sections carry their number WITH the marker — `FlatSection.number`
+ * is `"§ 8.04.010"`, not `"8.04.010"` — while every citation extracted from
+ * prose, every `?title=` filter, and every user-typed lookup is bare. Comparing
+ * the two forms directly is silently always-false, which is not a hypothetical:
+ * `resolveSectionNumber` and `validateAllCrossReferences` compared them
+ * directly and reported a corpus-wide cross-reference resolution rate of 0%
+ * (0 of 170) until 2026-09-05, when normalising both sides resolved 118.
+ *
+ * `gui/search.ts` and `domains/coverage.ts` had each inlined their own copy of
+ * this strip, which is why their prefix matching worked and the resolver's did
+ * not. One definition, used by all of them, is what keeps the next comparison
+ * from picking the wrong form.
+ */
+export function normalizeSectionNumber(sectionNumber: string): string {
+  return sectionNumber.replace(/§\s*/g, "").trim();
+}
+
 // ─── Filesystem ──────────────────────────────────────────────────
 
 /** Sanitize a string for use as a filename (replaces non-alphanumeric, max 80 chars) */

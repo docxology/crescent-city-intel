@@ -14,6 +14,7 @@ import { loadAllSections } from "../shared/data.js";
 import { paths } from "../shared/paths.js";
 import { writeFile, mkdir } from "fs/promises";
 import { dirname, join } from "path";
+import { normalizeSectionNumber } from "../utils.js";
 
 const logger = createLogger("domain-coverage");
 
@@ -49,7 +50,7 @@ export async function computeDomainCoverage(options: { outPath?: string | null }
 
   // Build a fast lookup: normalized section numbers
   const sectionNumbers = new Set(
-    sections.map(s => s.number.replace(/§\s*/, "").trim().toLowerCase())
+    sections.map(s => normalizeSectionNumber(s.number).toLowerCase())
   );
 
   const globalCovered = new Set<string>();
@@ -74,7 +75,7 @@ export async function computeDomainCoverage(options: { outPath?: string | null }
 
     for (const topic of domain.topics) {
       for (const src of topic.sources) {
-        const num = src.sectionNumber.replace(/§\s*/, "").trim().toLowerCase();
+        const num = normalizeSectionNumber(src.sectionNumber).toLowerCase();
         refs.add(num);
       }
     }

@@ -13,6 +13,7 @@ import type { FlatSection } from "./types.js";
 import { loadAllSections } from "./shared/data.js";
 import { loadSection } from "./shared/data.js";
 import { createLogger } from "./logger.js";
+import { normalizeSectionNumber } from "./utils.js";
 
 const log = createLogger("structured_queries");
 
@@ -288,6 +289,11 @@ export interface CrossReference {
  * are different chapters. This mirrors the boundary-anchored prefix logic
  * used in domains/coverage.ts and gui/search.ts.
  *
+ * Both sides are normalised through `normalizeSectionNumber` first: stored
+ * section numbers carry the marker ("§ 8.04.010") and citations do not, so a
+ * raw comparison is always false. That was a live defect — corpus-wide
+ * resolution read 0 of 170 — not a theoretical one.
+ *
  * Pure and side-effect free — exported separately so it can be tested
  * directly against literal section-number data without touching disk.
  */
@@ -295,9 +301,61 @@ export function resolveSectionNumber<T extends { number: string }>(
   sectionNumber: string,
   sections: readonly T[]
 ): T | undefined {
-  const exact = sections.find(s => s.number === sectionNumber);
+  const target = normalizeSectionNumber(sectionNumber);
+  if (!target) return undefined;
+  const exact = sections.find(s => normalizeSectionNumber(s.number) === target);
   if (exact) return exact;
-  return sections.find(s => s.number.startsWith(sectionNumber + "."));
+  return sections.find(s => normalizeSectionNumber(s.number).startsWith(target + "."));
+}
+
+/**
+ * Precomputed form of the same resolution rule, for callers that resolve MANY
+ * citations against ONE corpus.
+ *
+ * `resolveSectionNumber` is two linear scans per citation. That is right for a
+ * single lookup and quadratic for a corpus-wide sweep: the section graph
+ * resolves every citation in every section, so the linear form costs
+ * O(sections x citations). Building this index once makes each lookup O(1).
+ *
+ * The index reproduces the linear rule exactly rather than approximating it:
+ * `exact` keeps the FIRST section with a given number, and `prefix` maps every
+ * dot-boundary prefix of a section number to the FIRST section carrying it —
+ * which is precisely what `Array.find` returns for
+ * `startsWith(sectionNumber + ".")`. `tests/section-graph.test.ts` asserts the
+ * two agree across the real corpus, so an edit to one that diverges from the
+ * other fails the gate.
+ */
+export interface SectionNumberIndex<T> {
+  exact: Map<string, T>;
+  prefix: Map<string, T>;
+}
+
+export function buildSectionNumberIndex<T extends { number: string }>(sections: readonly T[]): SectionNumberIndex<T> {
+  const exact = new Map<string, T>();
+  const prefix = new Map<string, T>();
+  for (const section of sections) {
+    const number = normalizeSectionNumber(section.number);
+    if (!number) continue;
+    if (!exact.has(number)) exact.set(number, section);
+    const parts = number.split(".");
+    // Proper prefixes only: "8.04" for "8.04.010", never "8.04.010" itself,
+    // which the exact map already owns.
+    for (let i = 1; i < parts.length; i++) {
+      const candidate = parts.slice(0, i).join(".");
+      if (!prefix.has(candidate)) prefix.set(candidate, section);
+    }
+  }
+  return { exact, prefix };
+}
+
+/** O(1) counterpart to `resolveSectionNumber`, using a prebuilt index. */
+export function resolveSectionNumberIndexed<T>(
+  sectionNumber: string,
+  index: SectionNumberIndex<T>,
+): T | undefined {
+  const target = normalizeSectionNumber(sectionNumber);
+  if (!target) return undefined;
+  return index.exact.get(target) ?? index.prefix.get(target);
 }
 
 /**
@@ -366,10 +424,10 @@ export interface CrossRefValidationResult {
 export async function validateAllCrossReferences(): Promise<CrossRefValidationResult> {
   try {
     const sections = await loadAllSections();
-    const sectionNumbers = new Set(sections.map(s => s.number));
+    const sectionNumbers = new Set(sections.map(s => normalizeSectionNumber(s.number)));
     const prefixMap = new Map<string, string>(); // prefix → full number
     for (const s of sections) {
-      const parts = s.number.split(".");
+      const parts = normalizeSectionNumber(s.number).split(".");
       for (let i = 1; i <= parts.length; i++) {
         const prefix = parts.slice(0, i).join(".");
         if (!prefixMap.has(prefix)) prefixMap.set(prefix, s.number);

@@ -1680,6 +1680,287 @@ paths:
       summary: Detect conflicting glossary definitions
       responses:
         '200': { description: Definition conflict report, content: { application/json: { schema: { type: object } } } }
+  /api/sections/graph:
+    get:
+      summary: Section dependency graph (citation network)
+      description: >-
+        The directed graph of internal section-to-section citations. Nodes are
+        sections, edges are distinct resolved citations (repeat citations raise
+        `weight`, never edge count), and self-references are counted but never
+        edged. The summary reports degree, density, weakly connected
+        components, reciprocal pairs, and dangling citations. ?title= scopes to
+        one title; ?guid= returns the undirected ego network around one section
+        out to ?depth= hops. Pure and deterministic; output bounded by ?limit=
+        with `truncated` recording the bound.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 200 }
+        - name: title
+          in: query
+          required: false
+          description: Restrict to sections under one title, e.g. `17`.
+          schema: { type: string }
+        - name: guid
+          in: query
+          required: false
+          description: Build the ego network around this section instead of the whole graph.
+          schema: { type: string }
+        - name: depth
+          in: query
+          required: false
+          description: Ego-network radius in undirected hops; ignored without `guid`.
+          schema: { type: integer, minimum: 1, maximum: 3, default: 1 }
+      responses:
+        '200':
+          description: Section graph report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  truncated: { type: boolean }
+                  focus:
+                    type: object
+                    nullable: true
+                    properties:
+                      guid: { type: string }
+                      number: { type: string }
+                      depth: { type: integer }
+                      neighborhoodSize: { type: integer }
+                  summary:
+                    type: object
+                    properties:
+                      nodes: { type: integer }
+                      edges: { type: integer }
+                      selfReferences: { type: integer }
+                      citations: { type: integer }
+                      unresolvedCitations: { type: integer }
+                      distinctUnresolvedTargets: { type: integer }
+                      resolutionRate: { type: number }
+                      density: { type: number }
+                      isolatedNodes: { type: integer }
+                      reciprocalPairs: { type: integer }
+                      components: { type: integer }
+                      largestComponentSize: { type: integer }
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        guid: { type: string }
+                        number: { type: string }
+                        title: { type: string }
+                        articleNumber: { type: string }
+                        inDegree: { type: integer }
+                        outDegree: { type: integer }
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        fromGuid: { type: string }
+                        fromNumber: { type: string }
+                        toGuid: { type: string }
+                        toNumber: { type: string }
+                        citation: { type: string }
+                        viaPrefix: { type: boolean }
+                        weight: { type: integer }
+                  hubs: { type: array, items: { type: object } }
+                  authorities: { type: array, items: { type: object } }
+                  isolated: { type: array, items: { type: object } }
+                  unresolved: { type: array, items: { type: object } }
+        '400':
+          description: Unknown section guid
+          content: { application/json: { schema: { type: object, properties: { error: { type: string } } } } }
+  /api/sections/longevity:
+    get:
+      summary: Section longevity and amendment-age profile
+      description: >-
+        How old the law is and how settled it is, derived from legislative
+        history lines: per-section enactment year, last amendment year, elapsed
+        years, and an amendment rate, aggregated into medians, a dormancy
+        count, and a decade histogram. Sections with no parseable year are
+        reported as `unknown` and excluded from every statistic rather than
+        silently dated. `asOfYear` makes the report reproducible.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 500, default: 25 }
+        - name: title
+          in: query
+          required: false
+          schema: { type: string }
+        - name: asOfYear
+          in: query
+          required: false
+          description: Year the elapsed-time figures are measured against; defaults to the current year.
+          schema: { type: integer, minimum: 1800, maximum: 2200 }
+      responses:
+        '200':
+          description: Section longevity report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  asOfYear: { type: integer }
+                  titleFilter: { type: string, nullable: true }
+                  truncated: { type: boolean }
+                  summary:
+                    type: object
+                    properties:
+                      sectionsScanned: { type: integer }
+                      withHistory: { type: integer }
+                      withoutHistory: { type: integer }
+                      neverAmended: { type: integer }
+                      oldestYear: { type: integer, nullable: true }
+                      newestYear: { type: integer, nullable: true }
+                      medianAgeYears: { type: number, nullable: true }
+                      medianYearsSinceLastAmendment: { type: number, nullable: true }
+                      dormantOver20Years: { type: integer }
+                  oldest: { type: array, items: { type: object } }
+                  mostAmended: { type: array, items: { type: object } }
+                  stalest: { type: array, items: { type: object } }
+                  recentlyAmended: { type: array, items: { type: object } }
+                  byDecade:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        decade: { type: integer }
+                        enacted: { type: integer }
+                        lastTouched: { type: integer }
+  /api/lexicon/frequency:
+    get:
+      summary: Corpus word-frequency and distinctiveness profile
+      description: >-
+        Stop-word-filtered term frequencies over the municipal code, using the
+        same tokenisation, stemmer, and stop list as the BM25 search index, so
+        a term reported here is a term search would have matched. Returns both
+        the raw-frequency ranking and a tf-idf `salience` ranking in which
+        boilerplate appearing in every section scores zero.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - name: title
+          in: query
+          required: false
+          schema: { type: string }
+        - name: minLength
+          in: query
+          required: false
+          description: Drop tokens shorter than this before indexing.
+          schema: { type: integer, minimum: 1, maximum: 12, default: 3 }
+        - name: minDf
+          in: query
+          required: false
+          description: Drop terms appearing in fewer than this many sections.
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200':
+          description: Word-frequency report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  titleFilter: { type: string, nullable: true }
+                  truncated: { type: boolean }
+                  summary:
+                    type: object
+                    properties:
+                      sectionsScanned: { type: integer }
+                      totalTokens: { type: integer }
+                      distinctTerms: { type: integer }
+                      hapaxCount: { type: integer }
+                      typeTokenRatio: { type: number }
+                      meanTokensPerSection: { type: number }
+                  topByFrequency:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        term: { type: string }
+                        surface: { type: string }
+                        count: { type: integer }
+                        documentFrequency: { type: integer }
+                        documentFrequencyRatio: { type: number }
+                        salience: { type: number }
+                  topBySalience: { type: array, items: { type: object } }
+  /api/insights:
+    get:
+      summary: Civic insight brief (cross-artifact domain trends)
+      description: >-
+        The cross-artifact trend engine over every dated intelligence artifact
+        on this host — direction, momentum, evidence sources, and coverage
+        gaps per civic domain. Serves the persisted report by default
+        (`source: persisted`); `rebuild=1` or a `window` override recomputes
+        (`source: computed`). LLM narrative polish is never triggered from this
+        endpoint — the served narrative is the deterministic template unless a
+        CLI run already polished it.
+      parameters:
+        - name: rebuild
+          in: query
+          required: false
+          description: Set to `1` to recompute rather than serve the persisted report.
+          schema: { type: string, enum: ['1'] }
+        - name: window
+          in: query
+          required: false
+          description: Trend window in days; supplying it forces a recompute.
+          schema: { type: integer, minimum: 1, maximum: 365, default: 30 }
+      responses:
+        '200':
+          description: Civic insight report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  windowDays: { type: integer }
+                  source: { type: string, enum: [persisted, computed] }
+                  narrative: { type: object }
+                  provenance: { type: object }
+                  trends: { type: array, items: { type: object } }
+                  top: { type: array, items: { type: object } }
+                  coverageGaps: { type: array, items: { type: object } }
+  /api/llm/models:
+    get:
+      summary: Models the configured chat provider can serve
+      description: >-
+        Discovery surface for the per-request `model` override accepted by
+        /api/chat. Lists the models reachable from the configured provider,
+        always including the configured default. When the provider is
+        unreachable the endpoint degrades to that single honest entry with
+        `status: unavailable` rather than failing.
+      responses:
+        '200':
+          description: Available chat models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider: { type: string, enum: [ollama, openrouter] }
+                  configured: { type: string }
+                  status: { type: string, enum: [ok, unavailable] }
+                  count: { type: integer, description: Models returned, capped at 200. }
+                  totalAvailable: { type: integer, description: Distinct models the provider offered before the cap. }
+                  truncated: { type: boolean }
+                  models: { type: array, items: { type: string }, maxItems: 200 }
   /api/openapi.yaml:
     get:
       summary: Retrieve the implemented OpenAPI contract

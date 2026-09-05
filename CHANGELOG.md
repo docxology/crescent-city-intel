@@ -10,6 +10,127 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Corpus intelligence: dependency graph, lexicon, longevity, and two orphaned engines surfaced (2026-09-05)
+
+#### Added
+
+- **`normalizeSectionNumber`** (`src/utils.ts`) — the single definition of the
+  section-marker strip, and a `buildSectionNumberIndex` /
+  `resolveSectionNumberIndexed` pair in `src/structured_queries.ts` giving O(1)
+  citation resolution for corpus-wide sweeps (the linear resolver is two array
+  scans per citation). A test asserts the indexed and linear resolvers agree,
+  including on duplicate section numbers, so the fast path cannot drift from
+  the rule it accelerates.
+- **Section dependency graph** (`src/section_graph.ts` +
+  `GET /api/sections/graph?limit=&title=&guid=&depth=`) — closes the Long-term
+  roadmap item "Section dependency graph (network visualization)". Turns the
+  `§ X.XX.XXX` citations in section prose into a directed graph with degree,
+  density, weakly connected components (union-find), reciprocal pairs,
+  isolated sections, hubs, authorities, and dangling citations. The citation
+  grammar and the dot-boundary resolution rule are imported from
+  `structured_queries.resolveSectionNumber` rather than re-derived, so the
+  graph cannot drift from the per-section cross-reference view. An edge is a
+  *distinct* resolved pair — repeat citations raise `weight`, never degree —
+  and a self-reference is counted but never edged. `?guid=` returns the
+  undirected ego network out to `?depth=` hops; an unknown guid is a 400, not
+  a 500. Tests: `tests/section-graph.test.ts`.
+- **Word-frequency profile** (`src/word_frequency.ts` +
+  `GET /api/lexicon/frequency?limit=&title=&minLength=&minDf=`) — closes the
+  roadmap's "word-frequency views". Reuses the BM25 index's own stop list,
+  stemmer, and stemmer exceptions, so a term reported here is a term search
+  would have matched, and reports the most common surface form per stem.
+  Returns both a raw-count ranking and a tf·idf `salience` ranking in which
+  boilerplate present in every section scores exactly zero.
+  Tests: `tests/word-frequency.test.ts`.
+- **Section longevity profile** (`src/section_longevity.ts` +
+  `GET /api/sections/longevity?limit=&title=&asOfYear=`) — closes the
+  roadmap's "section-longevity views". Per-section enactment year, last
+  amendment, elapsed years, and churn per decade, aggregated into medians, a
+  dormancy count, and a **contiguous** decade histogram so a chart cannot
+  compress an empty stretch of legislative history. A section whose history
+  line carries no parseable year is `status: "unknown"` — never dated to
+  today — and is excluded from every statistic while being counted in
+  `withoutHistory`. `asOfYear` makes the report reproducible instead of
+  drifting with the wall clock. Tests: `tests/section-longevity.test.ts`.
+- **`GET /api/insights?rebuild=1&window=`** — `src/insights.ts` had computed a
+  cross-artifact civic trend brief since round 2 and only ever reached disk via
+  `bun run scripts/run-insights.ts`; no API route and no UI consumed it. The
+  route serves the persisted report by default (`source: "persisted"`) and
+  recomputes on demand (`source: "computed"`). A GET never triggers LLM
+  narrative polish, so the served narrative is the deterministic template
+  unless a CLI run already polished it.
+- **`GET /api/llm/models`** — closes the Long-term roadmap item "Multi-model
+  LLM selection UI". `/api/chat` and `/api/chat/stream` have accepted a
+  per-request `model` override for some time with no way to discover a valid
+  value. The route lists what the configured provider can serve, always
+  including the configured default, and degrades to that single honest entry
+  with `status: "unavailable"` rather than erroring when the provider is
+  unreachable.
+- **Five GUI panels**, all reading their numbers from the modules above rather
+  than recomputing anything in the browser: Code Analytics gains 🕸️ Section
+  Graph (with a deterministic radial ego-network SVG — no library, no physics,
+  drawn only for an ego network because a whole-corpus radial plot would show
+  shape without meaning), 🔤 Word Frequency, ⏳ Longevity, and 🏛️ Ordinance
+  Timeline (the visualization `src/ordinance_chronology.ts` had been waiting
+  on since 2026-09-03); News & Feeds gains 🔮 Civic Insights.
+- **Chat model picker** in the GUI chat panel, populated lazily from
+  `/api/llm/models` on first open and wired into both the streaming and the
+  non-streaming request paths. The default sends no `model` field at all
+  rather than an empty string.
+
+- **Real-browser coverage for all of it** — `scripts/browser-smoke.ts`
+  (`bun run test:browser`) now opens each new panel in headless Chromium, waits
+  for its loading placeholder to be replaced, asserts the panel's own metric
+  labels rendered, asserts the request to the backing endpoint went out, and
+  fails on any page error. String contracts prove markup exists; only this
+  proves the loader runs.
+
+#### Fixed
+
+- **Cross-reference resolution was reporting a flat 0% on the real corpus
+  (Major).** `GET /api/cross-refs/validate` returned `resolvedCount: 0` of 170
+  references — a 0.0 resolution rate — and `GET /api/citations/{guid}` returned
+  `resolved: false, guid: null` for every citation in the code. Cause: the
+  scraper stores a section's number **with** the marker (`FlatSection.number`
+  is `"§ 8.04.010"`), while every citation extracted from prose is bare
+  (`"8.04.010"`), so `resolveSectionNumber`'s `s.number === sectionNumber` and
+  `s.number.startsWith(sectionNumber + ".")` — and the parallel comparison in
+  `validateAllCrossReferences` — could never match. `gui/search.ts` and
+  `domains/coverage.ts` had each inlined their own `§`-strip, which is why
+  their prefix matching worked and the resolver's silently did not; the defect
+  survived a 1300-test suite because every fixture was written in the bare
+  form, where both sides agree.
+  Now: one exported `normalizeSectionNumber` in `src/utils.ts`, applied to both
+  sides of every comparison, and used by `structured_queries`, `gui/search.ts`,
+  `domains/coverage.ts`, `gui/routes.ts`, `gui/analytics.ts`,
+  `ordinance_chronology.ts`, and the three new corpus-intelligence modules — so
+  there is one definition of the strip rather than five inline copies and two
+  omissions. **Measured on the live corpus: 0 of 170 → 121 of 170 resolved
+  (0.0% → 71.2%)**; the section graph goes from 0 edges to 115, with a largest
+  connected component of 114 sections. Regression tests deliberately use
+  marker-carrying fixtures (`tests/section-number-normalization.test.ts`),
+  because a bare-form fixture passes either way.
+- **Title filters were the same defect.** `?title=17` on the new
+  graph/lexicon/longevity routes compared a bare filter against marked numbers
+  and matched nothing; it now scopes correctly (867 sections under title 17).
+  The route test that only asserted "scoped <= all" passed while the filter
+  returned zero, and now asserts the filter is non-empty and strictly narrower.
+- **AGENTS.md architecture tree was 34 modules short of the code.** The tree
+  omitted whole families — the five Phase-12 monitors, the alert healer and
+  composite, the OpenRouter client, `insights.ts`, `alert_correlation.ts`,
+  `ordinance_chronology.ts`, `agenda_crossref.ts`, `minutes_extraction.ts`,
+  and more. `tests/doc-inventory.test.ts` only ever checked documentation →
+  code ("every module the docs list exists"), so absence was invisible to the
+  gate. The tree is now complete, and a second assertion checks code →
+  documentation: any `src/**/*.ts` missing from the tree fails the gate. The
+  new check is written generically — "no src module is absent", not a list of
+  the modules that were absent once.
+- **Roadmap drift** (`docs/roadmap.md`): the "Open" section still listed alert
+  correlation detection, RAG adaptive topK / query expansion, definition
+  conflict detection, and ordinance chronology as future work after they had
+  shipped. Audited against the implemented tree and moved to the shipped list
+  with the module and route that implements each.
+
 ### Cross-monitor correlations, ordinance chronology, 14th monitor (2026-09-03)
 
 #### Added

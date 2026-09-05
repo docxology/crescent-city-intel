@@ -4,11 +4,65 @@
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix) — reviewed 2026-08-04 (Round 3 completion pass)
 >
-> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-09-03 (meeting-depth + doc-reconciliation pass)
+> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-09-05 (corpus-intelligence pass)
 
 ---
 
 ## Completed / Closed
+
+### Corpus intelligence + orphaned-engine surfacing (2026-09-05) — implemented and verified
+
+Five roadmap items closed, two engines that computed real results but reached
+no consumer wired to one, and one doc-drift defect fixed. `bun run validate`
+green throughout.
+
+- ✅ **Section dependency graph (roadmap Long-term).** `src/section_graph.ts` +
+  `GET /api/sections/graph`. Distinct-pair edges (repeat citations raise
+  `weight`, not degree), self-references counted but never edged, dangling
+  citations reported with source and count, and a summary that describes the
+  report's own scope under a title filter or ego network. Resolution reuses
+  `structured_queries.resolveSectionNumber`, so the graph and the per-section
+  cross-reference view cannot disagree. GUI: Code Analytics → 🕸️ Section Graph,
+  with a deterministic radial ego-network SVG. Tests:
+  `tests/section-graph.test.ts` (13).
+- ✅ **Word-frequency view (roadmap Long-term GUI).** `src/word_frequency.ts` +
+  `GET /api/lexicon/frequency`. Raw counts and tf·idf salience over the BM25
+  index's own tokenisation. Tests: `tests/word-frequency.test.ts` (9).
+- ✅ **Section-longevity view (roadmap Long-term GUI).**
+  `src/section_longevity.ts` + `GET /api/sections/longevity`. Undatable
+  sections stay `unknown` and are excluded from every statistic; `asOfYear`
+  keeps the report reproducible; the decade histogram is contiguous. Tests:
+  `tests/section-longevity.test.ts` (10).
+- ✅ **Ordinance timeline visualization (roadmap Long-term).** The data layer
+  shipped 2026-09-03 with visualization explicitly deferred; the panel now
+  exists at Code Analytics → 🏛️ Ordinance Timeline, with undated ordinances
+  reported separately rather than placed on the timeline by guess.
+- ✅ **Multi-model LLM selection UI (roadmap Long-term).** `GET /api/llm/models`
+  plus a chat-panel picker wired to both the streaming and fallback paths. The
+  `model` override on `/api/chat` already existed; what was missing was any way
+  to discover a valid value.
+- ✅ **Civic insights reached a consumer.** `src/insights.ts` (577 lines) had no
+  API route and no UI — its only reader was `scripts/run-insights.ts` writing
+  to disk. `GET /api/insights` + News & Feeds → 🔮 Civic Insights. A GET never
+  triggers LLM polish.
+- ✅ **Cross-reference resolution reported 0% on the real corpus (Major, pre-existing).**
+  Section numbers are stored with the marker (`"§ 8.04.010"`) and citations are
+  extracted bare, so `resolveSectionNumber` and `validateAllCrossReferences`
+  could never match: `/api/cross-refs/validate` returned 0 of 170 resolved and
+  `/api/citations/{guid}` returned `resolved: false` for everything. Fixed with
+  one shared `normalizeSectionNumber` in `src/utils.ts`, replacing five inline
+  copies and two omissions. **0 of 170 → 121 of 170 (0.0% → 71.2%)**; the
+  section graph goes from 0 edges to 115. The same defect made every `?title=`
+  filter match nothing. Tests: `tests/section-number-normalization.test.ts` (7),
+  written on marker-carrying fixtures because bare-form fixtures pass either way.
+- ✅ **Roadmap drift fixed.** `docs/roadmap.md` listed alert correlation, RAG
+  adaptive topK / query expansion, definition conflict detection, and ordinance
+  chronology under "Open" after they had shipped. Audited against the tree.
+- ✅ Route contracts + GUI string contracts: `tests/corpus-intelligence-routes.test.ts` (13).
+  Suite at this round: **1383 pass / 0 fail across 125 files** (from 1328/120),
+  coverage 75.42% lines / 68.33% branches. `bun run test:browser` PASS against
+  a live server, driving all five new panels.
+
 
 ### Geo-Intel contracts (2026-08-23 → 2026-08-24) — implemented and verified
 
@@ -237,14 +291,16 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
 
 - 🟢 **`.claude/` untracked** — pre-existing operator-owned file; decide whether to commit or
   `.gitignore` it (operator-owned files are untouched by these passes).
-- 🟢 **Roadmap UX/frontend items** (Phase 2 debounce/dependency-graph/tooltips/cross-ref
-  hyperlinking; Phase 7 readability trend/heatmap/plain-language rewrite/word-frequency/
-  section-longevity/ordinance timeline; Phase 8 USCG/PZZ455/PacFIN/AIS/permits/dredging/fuel;
-  Phase 9 AQ widget/marine panel/wildfire map/virtual scroll/lazy load/annotation/overlays;
-  Phase 10 ordinal refinement/legal-citation + CA + US cross-linking/effective-date field;
-  Phase 13 ordinance chronology/lineage/dep-graph; Phase 14 docs/modules dashboard and
-  structured-query pages). **Reason:** frontend/SPA or new external-source features needing
-  live data or browser verification; each is documented in `docs/` where scoped.
+- 🟢 **Roadmap UX/frontend items still open after the 2026-09-05 pass** (Phase 2
+  tooltips/cross-ref hyperlinking; Phase 7 readability trend/heatmap — blocked on a
+  readability *history* that is not yet stored, and plain-language rewrite; Phase 8
+  USCG/PacFIN/AIS/permits/dredging/fuel; Phase 9 AQ widget/marine panel/wildfire
+  map/virtual scroll/lazy load/annotation overlays; Phase 10 ordinal refinement/
+  legal-citation + CA + US cross-linking/effective-date field; Phase 14 docs/modules
+  dashboard and structured-query pages). **Reason:** new external-source features
+  needing live data, or UX decisions the owner has not made. The dependency graph,
+  word-frequency, section-longevity, and ordinance-timeline items previously listed
+  here shipped on 2026-09-05.
 - ✅ ~~**Fishing bulletin full-text fetch** (`src/alerts/cdfw_fishing.ts`).~~
   **Closed 2026-09-03 (implemented earlier, doc-lag reconciled):** `fetchBulletinBody`
   bounded-fetches each bulletin page and `extractBulletinBody` pulls the article body with a
@@ -254,4 +310,4 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   extraction chain and failure fallbacks.
 
 ---
-_Last updated: 2026-09-03 (meeting-depth + doc-reconciliation pass) · v2.6.0 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-09-05 (corpus-intelligence pass) · v2.6.0 · run `bun run validate` for current test and contract counts_

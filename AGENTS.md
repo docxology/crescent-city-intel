@@ -79,7 +79,21 @@ src/
   monthly_report.ts     # Monthly civic health report generator
   structured_queries.ts # Legislative history, section compare, semantic similarity
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
+  ordinance_chronology.ts # Per-section amendment trails + city-wide ordinance lineage
+  section_graph.ts      # Section dependency graph (citation network, degree, components)
+  section_longevity.ts  # Section age, dormancy, churn, decade histogram
+  word_frequency.ts     # Corpus term frequency + tf-idf salience (search-index tokenisation)
+  minutes_extraction.ts # Meeting-minutes depth: vote tallies + document hashing
+  agenda_crossref.ts    # Agenda items -> municipal-code sections via the BM25 index
+  insights.ts           # Cross-artifact civic trend brief (domains x time windows)
+  directory.ts          # Provenance-checked civic directory builder
+  events.ts             # Community event aggregation and normalization
+  event_discovery.ts    # Bounded discovery probes for new event sources
+  analytics_backend.ts  # Analytics overview envelope (deterministic + LLM provenance)
+  scraper_utils.ts      # Shared scraping helpers (bounded fetch, retry, parsing)
+  manuscript_variables.ts # Manuscript evidence variables from real artifacts
   alert_analytics.ts    # Unified alert timeline + per-type statistics
+  alert_correlation.ts  # Directional cross-monitor co-occurrence with lift and lag
   alerts/
     severity.ts         # Composite alert severity over all 14 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
@@ -91,10 +105,21 @@ src/
     calfire_wildfire.ts # CAL FIRE wildfire incident monitor
     ndbc_marine.ts      # NDBC buoy marine weather (wave, wind, temp)
     nws_marine.ts       # NWS CWF coastal waters forecast (PZZ450)
+    usdm_drought.ts     # US Drought Monitor DSCI for Del Norte
+    pge_psps.ts         # PG&E public safety power shutoff monitor
+    hrrr_smoke.ts       # NOAA HMS / HRRR smoke plume monitor
+    caltrans_roads.ts   # Caltrans road closure and incident monitor
+    dusd_schools.ts     # Del Norte USD school closure monitor
+    composite.ts        # Freshness-gated composite availability across monitors
+    healer.ts           # Per-monitor staleness detection and re-run roster
+    notify.ts           # ALERT_WEBHOOK_URL fire-and-forget severity webhook
   api/
     middleware.ts       # Sliding-window rate limiter + API key auth
   domains/
     coverage.ts         # Domain coverage % with prefix matching
+    scholarly_context.ts # Scholarly/reference context per civic domain
+  notifications/
+    push.ts             # Push notification delivery
   shared/
     paths.ts            # Centralized output path constants
     source_health.ts     # Typed source-health contract and atomic artifact writes
@@ -103,13 +128,19 @@ src/
     porter_stem.ts      # Zero-dep Porter stemmer for BM25
     readability.ts      # Flesch-Kincaid + Gunning Fog scoring
     fuzzy.ts            # Levenshtein fuzzy matching + typo correction
+    idempotency.ts      # Durable idempotency store for repeated runs
+    output_fence.ts     # Output-corpus fence: proves the suite mutates nothing
   pages_snapshot.ts       # Bounded public GitHub Pages snapshot exporter
+  pages_scan.ts           # Pages artifact scanner (links, assets, SEO surface)
+  pages_css.ts            # Generated Pages stylesheet builder
   pages/static/            # Static dashboard and 404 fallback for Pages
   gui/
     server.ts           # Bun.serve() HTTP server (port 3000)
     routes.ts           # API route handlers (see openapi.yaml for the contract)
     search.ts           # In-memory BM25 full-text search
+    semantic_search.ts  # Chroma vector search with BM25 fallback
     analytics.ts        # PCA, K-Means, word loadings
+    alert_trends.ts     # Per-type trend bars + all-monitor heatmap builder
     static/index.html   # Single-page app (no framework)
   llm/
     config.ts           # LLM configuration
@@ -119,6 +150,11 @@ src/
     embeddings.ts       # Chunking + indexing pipeline
     rag.ts              # RAG pipeline (embed → retrieve → generate)
     streaming_rag.ts     # Provider-native SSE streaming RAG
+    openrouter.ts       # OpenRouter chat/stream client with a per-run request cap
+    structured.ts       # Schema-constrained structured generation
+    dedupe.ts           # Near-duplicate suppression for generated text
+    usage.ts            # Token/request usage accounting
+    validate.ts         # Generated-output validation guards
     index.ts            # CLI entry point
 scripts/
   weekly-check.ts       # Weekly health check orchestrator
@@ -135,6 +171,13 @@ scripts/
   validate.ts           # Authoritative deterministic release gate
   run-coverage.ts       # Domain coverage orchestrator
   run-readability.ts    # Readability scoring orchestrator
+  run-insights.ts       # Civic insight brief runner (also served at /api/insights)
+  run-analytics.ts      # Analytics overview runner
+  run-source-discovery.ts # Source registry discovery probe runner
+  browser-smoke.ts      # Real-Chromium smoke test against the running GUI
+  lifeos-bridge.ts      # LocalIntelligence digest writer for the Pulse LOCAL tab
+  hydrate-manuscript.ts # Inject real evidence values into the manuscript
+  validate-manuscript.ts # Manuscript source and hydrated-output contract
   cron-setup.sh         # macOS Launchd / Linux cron installer
 tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite

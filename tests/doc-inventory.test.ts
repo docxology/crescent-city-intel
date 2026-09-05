@@ -105,4 +105,28 @@ describe("documented inventories match the code", () => {
     const missing = [...listed].filter(name => !sources.has(name));
     expect(`documented modules that do not exist: ${JSON.stringify(missing)}`).toBe("documented modules that do not exist: []");
   });
+
+  test("every module under src/ appears in the AGENTS.md architecture tree", () => {
+    // The check above runs documentation -> code. It cannot catch the drift that
+    // actually happened: 34 of 87 src modules had accumulated with no entry in
+    // the tree at all, including whole families (the five Phase-12 monitors, the
+    // alert healer, the OpenRouter client). AGENTS.md claims to be the
+    // architecture map an agent reads first, so an unlisted module is a claim
+    // that it does not exist.
+    //
+    // Deliberately generic: the assertion is "no src module is absent", not a
+    // list of the modules that were absent once — a guard naming its own past
+    // violations catches nothing new.
+    const listed = new Set([...read("AGENTS.md").matchAll(/^\s*([a-z_0-9]+\.ts)\s+#/gm)].map(match => match[1]!));
+    const sources: string[] = [];
+    const walk = (directory: string): void => {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (entry.isDirectory()) walk(join(directory, entry.name));
+        else if (entry.name.endsWith(".ts")) sources.push(entry.name);
+      }
+    };
+    walk(join(root, "src"));
+    const undocumented = [...new Set(sources)].filter(name => !listed.has(name)).sort();
+    expect(`src modules absent from the AGENTS.md tree: ${JSON.stringify(undocumented)}`).toBe("src modules absent from the AGENTS.md tree: []");
+  });
 });

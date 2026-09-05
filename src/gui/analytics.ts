@@ -8,13 +8,14 @@ import { readFile } from "fs/promises";
 import { getOrCreateCollection, isChromaRunning, getStats } from "../llm/chroma.js";
 import { flattenToc } from "../utils.js";
 import { loadToc } from "../shared/data.js";
+import { normalizeSectionNumber } from "../utils.js";
 
 // ─── Title extraction ────────────────────────────────────────────
 
 /** Extract the Title number from a section's article title (e.g., "GENERAL PROVISIONS" → "Title 1") */
 function inferTitle(articleTitle: string, sectionNumber: string): string {
     // Section numbers like § 17.63.070 → Title 17
-    const secMatch = sectionNumber.replace(/§\s*/, "").match(/^(\d+)\./);
+    const secMatch = normalizeSectionNumber(sectionNumber).match(/^(\d+)\./);
     if (secMatch) return `Title ${parseInt(secMatch[1], 10)}`;
 
     // Fallback: try article title keywords

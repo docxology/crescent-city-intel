@@ -385,3 +385,60 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | Export | Description |
 | :--- | :--- |
 | `getRateLimitStats()` | `{trackedIps, peakUsage, blocked}` for `/api/health` |
+
+---
+
+## Corpus intelligence
+
+Three pure builders over the scraped code, each with a bounded, deterministic
+report. Full modelling notes in `docs/modules/corpus-intelligence.md`.
+
+**From `src/utils.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `normalizeSectionNumber(sectionNumber)` | Strip the `§` marker and trim. Stored numbers carry it (`"§ 8.04.010"`), citations and `?title=` filters do not — every comparison must normalise **both** sides, or it is silently always-false |
+
+**From `src/structured_queries.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `buildSectionNumberIndex(sections)` | Precomputed `{exact, prefix}` maps reproducing `resolveSectionNumber`'s first-match rule, for callers resolving many citations against one corpus |
+| `resolveSectionNumberIndexed(number, index)` | O(1) counterpart to `resolveSectionNumber`; a test asserts the two agree |
+| `SectionNumberIndex<T>` | `{exact: Map<string, T>; prefix: Map<string, T>}` |
+
+**From `src/section_graph.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `buildSectionGraph(sections, opts?)` | Directed citation graph: nodes, edges, degree, density, weakly connected components, reciprocal pairs, dangling citations. `opts.focusGuid` returns the undirected ego network out to `opts.depth` hops (throws `Unknown section guid: …` for a guid not in scope) |
+| `SECTION_GRAPH_SCHEMA` | `"crescent-city-section-graph/v1"` |
+| `GraphNode` / `GraphEdge` | `{guid, number, title, articleNumber, inDegree, outDegree}` / `{fromGuid, fromNumber, toGuid, toNumber, citation, viaPrefix, weight}` |
+| `SectionGraphReport` | `{schemaVersion, generatedAt, summary, hubs, authorities, isolated, unresolved, nodes, edges, focus, truncated}` |
+
+**From `src/word_frequency.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `buildWordFrequency(sections, opts?)` | Term frequency + tf·idf salience using the BM25 index's stop list, stemmer, and exceptions; reports the most common surface form per stem |
+| `WORD_FREQUENCY_SCHEMA` | `"crescent-city-word-frequency/v1"` |
+| `TermFrequency` | `{term, surface, count, documentFrequency, documentFrequencyRatio, salience}` |
+
+**From `src/section_longevity.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `buildSectionLongevity(sections, opts?)` | Per-section age, dormancy, and churn from history lines, plus medians and a contiguous decade histogram. `opts.asOfYear` makes the report reproducible; undatable sections are `status: "unknown"` and excluded from every statistic |
+| `SECTION_LONGEVITY_SCHEMA` | `"crescent-city-section-longevity/v1"` |
+| `SectionLongevity` | `{guid, number, title, enactedYear, lastAmendedYear, amendmentCount, ageYears, yearsSinceLastAmendment, churnPerDecade, status}` |
+| `DecadeBucket` | `{decade, enacted, lastTouched}` |
+
+### Routes added alongside them
+
+| Route | Description |
+| :--- | :--- |
+| `GET /api/sections/graph?limit=&title=&guid=&depth=` | Section dependency graph; 400 on an unknown `guid` |
+| `GET /api/lexicon/frequency?limit=&title=&minLength=&minDf=` | Word-frequency and salience profile |
+| `GET /api/sections/longevity?limit=&title=&asOfYear=` | Longevity profile; out-of-range `asOfYear` falls back to the current year |
+| `GET /api/insights?rebuild=1&window=` | Civic insight brief from `src/insights.ts`; serves the persisted report by default (`source: "persisted"`), recomputes on `rebuild=1` or a `window` override (`source: "computed"`). Never triggers LLM narrative polish |
+| `GET /api/llm/models` | Models the configured chat provider can serve, always including the configured default; `status: "unavailable"` when the provider cannot be reached, rather than an error |

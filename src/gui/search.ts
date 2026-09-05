@@ -20,6 +20,7 @@ import { createLogger } from "../logger.js";
 import { stem } from "../shared/porter_stem.js";
 import { paths } from "../shared/paths.js";
 import { fuzzyCorrect } from "../shared/fuzzy.js";
+import { normalizeSectionNumber } from "../utils.js";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
 
 const logger = createLogger("search");
@@ -364,7 +365,7 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
     const lowerQuery = rawQuery.toLowerCase();
     const scored: Array<{ idx: number; score: number }> = [];
     for (let i = 0; i < sections.length; i++) {
-      const num = sections[i].number.replace(/§\s*/, "").trim().toLowerCase();
+      const num = normalizeSectionNumber(sections[i].number).toLowerCase();
       if (num.includes(lowerQuery) || num.startsWith(lowerQuery)) {
         scored.push({ idx: i, score: 20 });
       }
@@ -406,25 +407,25 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
     // Title filter (e.g., "8" matches sections like "§ 8.04.010")
     if (titleFilter) {
-      const num = section.number.replace(/§\s*/, "").trim();
+      const num = normalizeSectionNumber(section.number);
       if (!num.startsWith(titleFilter + ".") && !num.startsWith(titleFilter + " ")) continue;
     }
 
     // Type filter: 'article' = whole-article sections, 'section' = individual sections
     if (typeFilter === "article") {
       // "Article-level" sections are those where number has at most 2 segments (e.g., "8.04")
-      const num = section.number.replace(/§\s*/, "").trim();
+      const num = normalizeSectionNumber(section.number);
       const segments = num.split(".").length;
       if (segments > 2) continue;
     } else if (typeFilter === "section") {
       // Individual sections have 3+ segments (e.g., "8.04.010")
-      const num = section.number.replace(/§\s*/, "").trim();
+      const num = normalizeSectionNumber(section.number);
       const segments = num.split(".").length;
       if (segments < 3) continue;
     }
 
     // Heavy boost for section number prefix match
-    const numberClean = section.number.replace(/§\s*/, "").trim().toLowerCase();
+    const numberClean = normalizeSectionNumber(section.number).toLowerCase();
     let score = bm25Score(terms, i, bodyLengths[i] ?? 0);
 
     if (numberClean.startsWith(rawQuery.toLowerCase())) score += 20;

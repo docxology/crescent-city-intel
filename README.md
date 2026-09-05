@@ -531,6 +531,10 @@ artifact boundaries, and local preview instructions.
 
 ## 📂 Project Structure
 
+An orientation map, not an inventory. The exhaustive tree — every module under
+`src/`, gated so it cannot drift — lives in
+[AGENTS.md](AGENTS.md#directory-structure).
+
 ```text
   src/
   types.ts              # All TypeScript interfaces (TocNode, FlatSection, ScrapeManifest…)
@@ -556,6 +560,11 @@ artifact boundaries, and local preview instructions.
   analytics_backend.ts  # Cross-surface analytics envelope (GUI, pipeline, Pages)
   alert_analytics.ts    # Unified alert timeline across all 14 monitors + per-type statistics
   structured_queries.ts # Legislative history, section compare, semantic similarity
+  section_graph.ts      # Section dependency graph (citation network)
+  section_longevity.ts  # Section age, dormancy, churn
+  word_frequency.ts     # Corpus term frequency + tf-idf salience
+  ordinance_chronology.ts # Ordinance lineage and per-section amendment trails
+  insights.ts           # Cross-artifact civic trend brief
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   manuscript_variables.ts # Durable manuscript variable extraction from analytics
   alerts/
@@ -766,6 +775,12 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/domains/coverage` | GET | Domain coverage % report |
 | `/api/domains/search?q=...` | GET | Search across domains |
 | `/api/readability` | GET | Flesch-Kincaid scores (all sections) |
+| `/api/sections/graph?title=&guid=&depth=` | GET | Section dependency graph — degree, density, components, hubs, authorities, dangling citations; `guid` returns an ego network |
+| `/api/sections/longevity?title=&asOfYear=` | GET | Section age, dormancy, churn, and a contiguous decade histogram |
+| `/api/lexicon/frequency?title=&minLength=&minDf=` | GET | Corpus term frequency and tf-idf salience |
+| `/api/ordinance/chronology?guid=` | GET | Ordinance lineage and per-section amendment trails |
+| `/api/insights?rebuild=1&window=` | GET | Cross-artifact civic trend brief |
+| `/api/llm/models` | GET | Models the configured chat provider can serve |
 | `/api/analytics/overview` | GET | Canonical cross-surface signal, metrics, warnings, source boundaries, and optional LLM executive summary |
 | `/api/analytics/stats` | GET | Word counts, length extremes |
 | `/api/analytics/embeddings` | GET | PCA projection (requires ChromaDB) |

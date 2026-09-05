@@ -14,6 +14,7 @@
  * Deterministic, offline, LLM-free. Bounded output via `limit`.
  */
 import { extractOrdinanceAmendments } from "./legal_parser.js";
+import { normalizeSectionNumber } from "./utils.js";
 
 export const ORDINANCE_CHRONOLOGY_SCHEMA = "crescent-city-ordinance-chronology/v1" as const;
 
@@ -56,7 +57,7 @@ export interface OrdinanceChronologyReport {
 
 /** Number of a section like "8.04.010" -> "8.04"; tolerates odd shapes. */
 function titlePrefix(sectionNumber: string): string {
-  const parts = sectionNumber.replace(/§\s*/g, "").trim().split(".");
+  const parts = normalizeSectionNumber(sectionNumber).split(".");
   return parts.slice(0, 2).join(".");
 }
 

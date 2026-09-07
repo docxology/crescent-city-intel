@@ -1,35 +1,37 @@
 # Scripts
 
-Thin TypeScript orchestrators for the Crescent City pipeline. All business logic lives in `src/`.
+Thin TypeScript orchestrators for the Crescent City pipeline. Every script does
+arg parsing, path bootstrap, logging, and a single delegated call; all business
+logic lives in `src/` (importable and tested).
 
 ## Quick Reference
 
-| Script | Command | Description |
-| :--- | :--- | :--- |
-| `weekly-check.ts` | `bun run weekly-check` | Full weekly health check (all monitors) |
-| `run-monitor.ts` | `bun run monitor` | Municipal code change detection |
-| `run-alerts.ts` | `bun run alerts` | All 14 alert monitors (8 core + 6 extended) plus availability-aware composite |
-| `run-news.ts` | `bun run news` | RSS/Atom local news aggregation with source health |
-| `run-meetings.ts` | `bun run gov-meetings` | City meeting agenda scraper |
-| `run-youtube.ts` | `bun run youtube` | YouTube transcript extraction/indexing with retryable failures |
-| `run-curation.ts` | `bun run curate` | Provider-aware grounded curation with provenance |
-| `run-analytics.ts` | `bun run analytics` | Durable cross-surface metrics and optional LLM executive summary |
-| `validate-manuscript.ts` | `bun run manuscript:check` | IMRAD, citations, labels, claim ledger, and token contract |
-| `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Resolve source manuscript tokens from the analytics overview |
-| `z_generate_manuscript_variables.py` | template renderer hook | Delegate template hydration to the Bun implementation |
-| `run-source-discovery.ts` | `bun run source-discovery [-- --check]` | Canonical source inventory, fingerprint, and optional bounded probes |
-| `run-coverage.ts` | `bun run coverage` | Domain coverage % across the current manifest |
-| `run-readability.ts` | `bun run readability` | Flesch-Kincaid + Gunning Fog scoring |
-| `export-pages.ts` | `bun run pages:export` | Build a bounded static GitHub Pages snapshot |
-| `refresh-pages-data.ts` | `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
-| `validate-pages.ts` | `bun run pages:validate` | Validate the static snapshot and publication boundaries |
-| `validate.ts` | `bun run validate` | Strict TypeScript, deterministic tests, and output checks |
-| `repair-output.ts` | `bun run repair-output` | Quarantine malformed history and migrate legacy runtime envelopes |
-| `browser-smoke.ts` | `bun run test:browser` | Playwright/Chromium smoke test of the running GUI |
-| `cron-setup.sh` | `bun run cron-setup` | macOS Launchd / Linux cron installer |
-| `lifeos-bridge.ts` | `bun run lifeos:bridge` | Write the LifeOS/Pulse LocalIntelligence digest from platform outputs |
-| `lifeos-daily.sh` | `bun run lifeos:daily` | Refresh news/meetings/alerts then write the LifeOS digest |
-| `weekly-check.sh` | _(legacy)_ | Bash predecessor to `weekly-check.ts`, kept for reference |
+| Script | Purpose | Delegates to | Command |
+| :--- | :--- | :--- | :--- |
+| `weekly-check.ts` | Full weekly health check (all monitors) | `src/monitor.ts`, `scripts/run-alerts.ts`, `src/events.ts`, `src/news_monitor.ts`, `src/gov_meeting_monitor.ts`, `src/youtube_monitor.ts`, `src/triplicate_monitor.ts`, `src/curation.ts`, `src/source_registry.ts`, `src/monthly_report.ts`, `src/analytics_backend.ts`, `src/shared/orchestration.ts` | `bun run weekly-check` |
+| `run-monitor.ts` | Municipal code change detection | `src/monitor.ts` | `bun run monitor` |
+| `run-alerts.ts` | All 14 alert monitors (8 core + 6 extended) plus availability-aware composite | `src/alerts/*` | `bun run alerts` / `bun run alerts:all` |
+| `run-news.ts` | RSS/Atom local news aggregation with source health | `src/news_monitor.ts` | `bun run news` |
+| `run-meetings.ts` | City meeting agenda scraper | `src/gov_meeting_monitor.ts` | `bun run gov-meetings` |
+| `run-youtube.ts` | YouTube transcript extraction/indexing with retryable failures | `src/youtube_monitor.ts` | `bun run youtube` |
+| `run-curation.ts` | Provider-aware grounded curation with provenance | `src/curation.ts` | `bun run curate` |
+| `run-analytics.ts` | Durable cross-surface metrics and optional LLM executive summary | `src/analytics_backend.ts` | `bun run analytics` |
+| `run-insights.ts` | Cross-artifact civic trend brief → `output/state/civic-insights.json` | `src/insights.ts` | `bun run insights` |
+| `run-coverage.ts` | Domain coverage % across the current manifest | `src/domains/coverage.ts` | `bun run coverage` |
+| `run-readability.ts` | Flesch-Kincaid + Gunning Fog scoring | `src/shared/readability.ts`, `src/shared/data.ts` | `bun run readability` |
+| `run-source-discovery.ts` | Canonical source inventory, fingerprint, and optional bounded probes | `src/source_registry.ts` | `bun run source-discovery [-- --check]` |
+| `validate-manuscript.ts` | IMRAD, citations, labels, claim ledger, and token contract | `src/manuscript_variables.ts` | `bun run manuscript:check` |
+| `hydrate-manuscript.ts` | Resolve source manuscript tokens from the analytics overview | `src/manuscript_variables.ts`, `src/analytics_backend.ts` | `bun run manuscript:hydrate` |
+| `z_generate_manuscript_variables.py` | Template renderer hook | `scripts/hydrate-manuscript.ts` (via Bun) | (template renderer) |
+| `export-pages.ts` | Build a bounded static GitHub Pages snapshot | `src/pages_snapshot.ts` | `bun run pages:export` |
+| `refresh-pages-data.ts` | Refresh the tracked verified municipal-code seed | `src/pages_seed.ts` | `bun run pages:seed` |
+| `validate-pages.ts` | Validate the static snapshot and publication boundaries | `src/pages_validation.ts` | `bun run pages:validate` |
+| `validate.ts` | Strict TypeScript, deterministic tests, and output checks | `src/release_gate.ts` | `bun run validate` |
+| `repair-output.ts` | Quarantine malformed history and migrate legacy runtime envelopes | `src/shared/orchestration.ts`, `src/shared/source_health.ts` | `bun run repair-output` |
+| `browser-smoke.ts` | Playwright/Chromium smoke test of the running GUI | `src/browser_smoke.ts` | `bun run test:browser` |
+| `lifeos-bridge.ts` | Write the LifeOS/Pulse LocalIntelligence digest from platform outputs | `src/lifeos_bridge.ts` | `bun run lifeos:bridge` |
+| `lifeos-daily.sh` | Refresh news/meetings/alerts then write the LifeOS digest; non-zero exit if any step fails | `scripts/run-news.ts`, `scripts/run-meetings.ts`, `scripts/run-alerts.ts`, `scripts/lifeos-bridge.ts` | `bun run lifeos:daily` |
+| `cron-setup.sh` | macOS Launchd / Linux cron installer | — (shell installer) | `bun run cron-setup` |
 
 ## Data Flow
 

@@ -1,5 +1,5 @@
 /**
- * Tests for the LifeOS/Pulse bridge (scripts/lifeos-bridge.ts) — builds the
+ * Tests for the LifeOS/Pulse bridge (src/lifeos_bridge.ts) — builds the
  * LocalIntelligence digest from repo-shaped outputs and writes both latest.json
  * paths the Pulse module reads. Zero-mock: real files in a temp fixture dir.
  */
@@ -7,7 +7,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { buildDigest, writeDigest, loadLatestJson } from "../scripts/lifeos-bridge.ts";
+import { buildDigest, writeDigest, loadLatestJson } from "../src/lifeos_bridge.ts";
 
 const tmp = join(tmpdir(), `lifeos-bridge-test-${Date.now()}`);
 const out = join(tmp, "output");

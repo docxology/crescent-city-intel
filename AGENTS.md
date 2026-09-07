@@ -88,12 +88,14 @@ src/
   insights.ts           # Cross-artifact civic trend brief (domains x time windows)
   directory.ts          # Provenance-checked civic directory builder
   events.ts             # Community event aggregation and normalization
+  lifeos_bridge.ts      # LifeOS/Pulse LocalIntelligence digest logic (Pulse LOCAL tab)
   event_discovery.ts    # Bounded discovery probes for new event sources
   analytics_backend.ts  # Analytics overview envelope (deterministic + LLM provenance)
   scraper_utils.ts      # Shared scraping helpers (bounded fetch, retry, parsing)
   manuscript_variables.ts # Manuscript evidence variables from real artifacts
   alert_analytics.ts    # Unified alert timeline + per-type statistics
   alert_correlation.ts  # Directional cross-monitor co-occurrence with lift and lag
+  release_gate.ts       # Deterministic release-gate checks (driven by scripts/validate.ts)
   alerts/
     severity.ts         # Composite alert severity over all 14 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
@@ -133,6 +135,9 @@ src/
   pages_snapshot.ts       # Bounded public GitHub Pages snapshot exporter
   pages_scan.ts           # Pages artifact scanner (links, assets, SEO surface)
   pages_css.ts            # Generated Pages stylesheet builder
+  pages_validation.ts     # Generated Pages artifact validator (release-gate checks for the snapshot)
+  pages_seed.ts           # Verified municipal-code seed refresh for Pages
+  browser_smoke.ts        # Real-browser GUI smoke flow (driven by scripts/browser-smoke.ts)
   pages/static/            # Static dashboard and 404 fallback for Pages
   gui/
     server.ts           # Bun.serve() HTTP server (port 3000)
@@ -279,6 +284,7 @@ bun run weekly-check         # Full health check + summary
 bun run readability          # Flesch-Kincaid scoring
 bun run coverage             # Domain coverage analysis
 bun run report               # Monthly civic health report
+bun run insights             # Civic insight brief (also served at /api/insights)
 bun test                     # Run the deterministic suite
 bun run validate             # Run the authoritative release gate
 ```

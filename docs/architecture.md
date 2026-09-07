@@ -224,7 +224,6 @@ scripts/
   run-curation.ts       # LLM curation pipeline script
   export-pages.ts       # Static Pages exporter
   validate-pages.ts     # Static Pages artifact validator
-  weekly-check.sh       # Legacy bash wrapper (kept for reference)
 tests/                  # Deterministic suite discovered by Bun (run bun run validate)
   *.test.ts             # Module, route, provider, feed, alert, and integration tests
 docs/                   # This documentation

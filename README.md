@@ -565,6 +565,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   word_frequency.ts     # Corpus term frequency + tf-idf salience
   ordinance_chronology.ts # Ordinance lineage and per-section amendment trails
   insights.ts           # Cross-artifact civic trend brief
+  lifeos_bridge.ts      # LifeOS/Pulse LocalIntelligence digest builder (Pulse LOCAL tab)
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   manuscript_variables.ts # Durable manuscript variable extraction from analytics
   alerts/
@@ -607,6 +608,10 @@ An orientation map, not an inventory. The exhaustive tree — every module under
     streaming_rag.ts    # SSE streaming RAG (provider-native Server-Sent Events)
     index.ts            # CLI entry point (index, chat, query, status, preflight)
   pages_snapshot.ts     # Bounded public GitHub Pages static snapshot exporter
+  pages_validation.ts   # Generated Pages artifact validator (release-gate checks)
+  pages_seed.ts         # Verified municipal-code seed refresh
+  browser_smoke.ts      # Real-browser GUI smoke flow (driven by scripts/browser-smoke.ts)
+  release_gate.ts       # Deterministic release-gate checks (driven by scripts/validate.ts)
   pages/static/         # Static dashboard and 404 fallback for Pages
 scripts/
   weekly-check.ts       # Weekly health check orchestrator (all monitors + composite)
@@ -619,6 +624,7 @@ scripts/
   run-analytics.ts      # Analytics overview runner
   run-coverage.ts       # Domain coverage analysis orchestrator
   run-readability.ts    # Readability scoring orchestrator
+  run-insights.ts       # Civic insight brief runner (also served at /api/insights)
   run-source-discovery.ts # Source registry + bounded probe runner
   export-pages.ts       # Build the bounded .pages public snapshot
   refresh-pages-data.ts # Refresh the verified tracked municipal-code seed
@@ -629,7 +635,6 @@ scripts/
   repair-output.ts      # Historical output repair/quarantine utility
   z_generate_manuscript_variables.py # Python manuscript-variable generation for template render
   cron-setup.sh         # macOS Launchd / Linux cron installer
-  weekly-check.sh       # Shell entry point for weekly check
 tests/                  # deterministic zero-mock suite; run `bun run validate` for the current count
 docs/                   # Full module documentation suite
 docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
@@ -746,6 +751,7 @@ bun test tests/search.test.ts   # single file
 | `bun run readability` | Flesch-Kincaid scoring → `output/readability.json` |
 | `bun run coverage` | Domain coverage % → `output/domain-coverage.json` |
 | `bun run analytics` | Shared deterministic overview → `output/state/analytics-overview.json` with optional LLM executive summary |
+| `bun run insights` | Cross-artifact civic trend brief → `output/state/civic-insights.json` (also `GET /api/insights`) |
 | `bun run manuscript:check` | Validate IMRAD structure, citations, labels, claim ledger, and source tokens |
 | `bun run manuscript:hydrate` | Resolve manuscript tokens from the canonical analytics overview |
 | `bun test` | Run the deterministic test suite |

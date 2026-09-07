@@ -836,7 +836,7 @@ export function foldIcsLine(line: string): string[] {
   return [parts[0]!, ...parts.slice(1).map(part => ` ${part}`)];
 }
 
-async function main(argv: string[]): Promise<void> {
+export async function refreshEvents(argv: string[]): Promise<void> {
   const wantsLlm = argv.includes('--llm');
   const limitIndex = argv.indexOf('--limit');
   const limit = limitIndex >= 0 ? Number(argv[limitIndex + 1]) : 200;
@@ -878,5 +878,5 @@ async function main(argv: string[]): Promise<void> {
 }
 
 if (import.meta.main) {
-  await main(Bun.argv.slice(2));
+  await refreshEvents(Bun.argv.slice(2));
 }

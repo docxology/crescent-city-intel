@@ -17,6 +17,7 @@
  *   0 2 * * 0 cd /path/to/crescent-city-intel && bun run weekly-check >> output/weekly-check.log 2>&1
  */
 import { runMonitor } from "../src/monitor.ts";
+import { refreshEvents } from "../src/events.ts";
 import { runAllAlertMonitors } from "./run-alerts.ts";
 import { monitorNews } from "../src/news_monitor.ts";
 import { monitorGovMeetings } from "../src/gov_meeting_monitor.ts";
@@ -230,12 +231,7 @@ steps.push(sourceDiscoveryExecution.report);
 // snapshot's events slice is regenerated on every weekly cycle, not stale.
 const eventsArtifactPath = join(paths.output ?? "output", "events", "events.json");
 const eventsExecution = await executePipelineStep("community-calendar-events", async () => {
-  const proc = Bun.spawnSync(["bun", "run", "src/events.ts"], {
-    cwd: join(import.meta.dir, ".."),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (proc.exitCode !== 0) throw new Error(`events refresh exited ${proc.exitCode}: ${proc.stderr.toString().slice(0, 300)}`);
+  await refreshEvents([]);
   // The step's success is what the run produced, not that the process returned.
   // `classify: () => "ok"` and `itemCount: () => 1` reported a green stage with
   // one item even when the refresh wrote no calendar at all, so the artifact it
@@ -257,7 +253,6 @@ const eventsExecution = await executePipelineStep("community-calendar-events", a
   ]);
   const inputItems = inputCounts.reduce((total, count) => total + count, 0);
   return {
-    exited: proc.exitCode,
     artifactRead: events !== null,
     eventCount: events ? events.length : 0,
     inputItems,

@@ -35,6 +35,7 @@
     "coverage": "bun run scripts/run-coverage.ts",
     "readability": "bun run scripts/run-readability.ts",
     "report": "bun run src/monthly_report.ts",
+    "insights": "bun run scripts/run-insights.ts",
     "analytics": "bun run scripts/run-analytics.ts",
     "manuscript:check": "bun run scripts/validate-manuscript.ts",
     "manuscript:hydrate": "bun run scripts/hydrate-manuscript.ts",

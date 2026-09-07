@@ -54,6 +54,11 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `gui/*` | Partial | `tests/routes.test.ts`, `tests/routes.integration.test.ts`, `tests/search.test.ts`, `tests/search_enhancements.test.ts`, `tests/analytics.test.ts` |
 | `llm/*` | Yes (Ollama/OpenRouter/ChromaDB) | `tests/llm-config.test.ts`, `tests/llm-openrouter.test.ts`, `tests/embeddings.test.ts` |
 | `shared/*` | Yes (filesystem) | `tests/shared-paths.test.ts`, `tests/shared-data.test.ts`, `tests/fuzzy.test.ts`, `tests/readability-gunning-fog.test.ts`, `tests/idempotency.test.ts` |
+| `lifeos_bridge.ts` | No (filesystem; writes the Pulse LOCAL digest) | `tests/lifeos-bridge.test.ts` |
+| `pages_validation.ts` | No (offline Pages artifact validator) | exercised via `bun run pages:validate` and lane fixture tests |
+| `pages_seed.ts` | No (filesystem seed refresh) | No (invoked via `bun run pages:seed`) |
+| `release_gate.ts` | Yes (filesystem; spawns tsc/tests/git) | No (the gate itself) |
+| `browser_smoke.ts` | Yes (Playwright + GUI server) | No (requires browser) |
 
 ## Testing Strategy
 

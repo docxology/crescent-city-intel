@@ -6,7 +6,7 @@
     "types": ["bun-types"],
     "strict": true,
     "allowImportingTsExtensions": true,
-    "esModuleInterop": true,
+    "noEmit": true,
     "outDir": "dist",
     "rootDir": ".",
     "declaration": true,

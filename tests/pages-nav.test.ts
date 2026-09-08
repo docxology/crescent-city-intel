@@ -112,12 +112,13 @@ describe("pages nav drift guard (authored == generated)", () => {
     expect(alerts).toBeGreaterThan(obs);
   });
 
-  test("standalone pages and the 404 page are in nav sync with the builder except for anchors the exporter canonically replaces", async () => {
-    // The export replaces authored navs via embedPagesNav, so a page whose
-    // authored section anchors lag PAGES_SECTION_NAV by an exporter-added
-    // entry is not a drift. Any OTHER difference (renamed label, missing page
-    // link, wrong root variant, extra anchor) still fails the earlier page-link
-    // and anchor-canonicality tests. This test reports the known lag.
+  test("standalone pages and the 404 page are in strict nav sync with the builder", async () => {
+    // The export replaces authored navs via embedPagesNav, so authored navs
+    // that lag PAGES_SECTION_NAV canonicalize silently at export. Since the
+    // 2026-09-08 Observations refresh every authored nav carries the full
+    // canonical anchor set — zero lag is permitted, and any OTHER difference
+    // (renamed label, missing page link, wrong root variant, extra anchor)
+    // fails here at the source instead of at export.
     const lagging: string[] = [];
     for (const file of ["404.html", ...PAGES_STATIC_PAGES.map(page => page.file)]) {
       const authored = await readFile(join(STATIC_DIR, file), "utf8");
@@ -128,11 +129,7 @@ describe("pages nav drift guard (authored == generated)", () => {
         }
       }
     }
-    // Allowed lag: only the observations anchor on the pages whose authored
-    // navs were left untouched (the exporter canonicalizes them). Anything
-    // else must be fixed at the source.
-    const allowed = new Set(lagging.filter(entry => entry.endsWith(":Observations")));
-    expect(lagging.filter(entry => !allowed.has(entry))).toEqual([]);
+    expect(lagging).toEqual([]);
   });
 });
 

@@ -185,3 +185,42 @@ code { overflow-wrap:anywhere; }
 .observation-monitors { display:flex; flex-wrap:wrap; gap:6px; }
 .observation-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--rule); background:var(--card-bg); padding:4px 8px; font:.74rem/1.2 Inter,sans-serif; color:var(--ink-dim); max-width:100%; overflow-wrap:anywhere; }
 .observation-freshness { margin-top:2px; }
+
+/* ===================================================================
+   Night edition — dark theme (html[data-theme="dark"]).
+   html-prefixed selector (0,1,1) outranks any :root token re-declaration
+   (0,1,0) in page stylesheets loaded after site.css (404.css re-roots).
+   The pre-paint snippet in each page <head> sets data-theme before first
+   paint from localStorage("cc-theme"), falling back to the OS preference.
+   Palette-only: the same --cc/--rdark/--rtint family and neutrals, no new
+   bright hue variables.
+   =================================================================== */
+html { scroll-behavior: smooth; }
+.section[id], section[id] { scroll-margin-top: 12px; }
+h1, h2, h3 { text-wrap: balance; }
+.item p, .faq-item p, .errata .lede { text-wrap: pretty; }
+.meta, .card .value, td, .cal-time, .observation-freshness { font-variant-numeric: tabular-nums; }
+html[data-theme="dark"] { color-scheme: dark; --ink:#e6e1d7; --ink-dim:#b8b2a6; --ink-faint:#8b857c; --paper:#14120f; --paper2:#1c1916; --card-bg:#1a1714; --cc:#d43838; --rdark:#e08076; --rtint:rgba(196,30,30,.16); --sepia:#a09486; --rule:#4a443e; --rule-light:#35302b; --rule-thin:#2a2622; --panel:rgba(24,21,18,.96); --panel-hover:rgba(40,36,32,.92); }
+html[data-theme="dark"] body { background:var(--paper); color:var(--ink); }
+html[data-theme="dark"] a { text-decoration-color:var(--rule); }
+html[data-theme="dark"] ::selection { background:rgba(196,30,30,.35); color:#fff; }
+html[data-theme="dark"] img { filter:none; }
+html[data-theme="dark"] body::before { background:repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(255,255,255,.009) 0 1px, transparent 1px 4px); }
+html[data-theme="dark"] input, html[data-theme="dark"] select { border-color:var(--rule); }
+.theme-toggle { display:inline-flex; align-items:center; gap:5px; margin-left:auto; padding:4px 10px; border:1px solid var(--rule); background:transparent; color:var(--ink-dim); font:600 .68rem/1 Inter,sans-serif; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; transition:color .15s,border-color .15s; white-space:nowrap; }
+.theme-toggle:hover { color:var(--cc); border-color:var(--cc); }
+.theme-toggle .theme-glyph { font-size:.78rem; line-height:1; }
+.masthead-date-row .inner { gap:10px; }
+.footer-meta { margin-top:6px; font:.72rem/1.5 Inter,sans-serif; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); }
+.footer-meta a { color:var(--ink-faint); text-decoration:none; border-bottom:1px solid var(--rule-thin); }
+.footer-meta a:hover { color:var(--cc); border-color:var(--cc); }
+/* Composite-severity accents for the observations board and alert banners.
+   Class names come from the producer's lower-cased composite level. */
+.banner.watch { border-left-color:var(--sepia); }
+.banner.warning { border-left-color:var(--cc); background:var(--rtint); }
+.banner.emergency { border-left-color:var(--rdark); background:var(--rtint); box-shadow:inset 3px 0 0 var(--cc); }
+.banner.calm { border-left-color:var(--rule-light); }
+.observation-live { display:inline-flex; align-items:center; gap:6px; font:.72rem/1.4 Inter,sans-serif; letter-spacing:.04em; color:var(--ink-faint); }
+.observation-live .live-dot { width:7px; height:7px; border-radius:50%; background:var(--cc); box-shadow:0 0 0 3px var(--rtint); }
+.show-more-row { display:flex; justify-content:center; margin:10px 0; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }

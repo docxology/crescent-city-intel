@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script data-cc-theme-prepaint>/* Pre-paint theme: localStorage choice, else OS preference (night edition). */(()=>{try{const s=localStorage.getItem("cc-theme");document.documentElement.dataset.theme=(s==="dark"||s==="light")?s:(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}catch(e){}})();</script>
   <meta name="description" content="The Quadruplicate — a provenance-preserving newspaper-style public snapshot of local government, safety monitors, and source-grounded reporting.">
   <title>The Quadruplicate — Public Intelligence Snapshot</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -158,6 +159,7 @@
   <div class="masthead-date-row">
     <div class="inner">
       <p class="masthead-date" id="masthead-date"><span class="red-prefix">CRESCENT CITY, CA &mdash;</span> Provenance-preserving public snapshot</p>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span class="theme-glyph" aria-hidden="true">☾</span> <span class="theme-toggle-label">Night</span></button>
     </div>
   </div>
   <div class="masthead-nav-wrap">
@@ -322,7 +324,7 @@
       <ol id="event-items" class="items"></ol>
     </section>
     <section id="alerts" class="section">
-      <div class="section-head"><span class="newspaper-label">Alert Log</span><h2>Safety bulletin</h2><span class="meta">13-monitor alert board</span></div>
+      <div class="section-head"><span class="newspaper-label">Alert Log</span><h2>Safety bulletin</h2><span class="meta">15-monitor alert board</span></div>
       <div id="alert-summary"></div>
       <div id="alert-items" class="items"></div>
     </section>
@@ -342,6 +344,7 @@
       <div id="report-content"></div>
     </section>
     <footer class="footer">
+      <div class="footer-meta"><a href="feed.xml">RSS feed</a> &middot; <a href="sitemap.xml">Sitemap</a> &middot; <a href="data/snapshot.json">Snapshot JSON</a> &middot; <a href="data/geo-observations.json">Observations JSON</a></div>
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
       <div>Excludes chat history, RAG logs, Chroma data, credentials, and Triplicate content.</div>
       <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
@@ -568,6 +571,58 @@
     start();
   };
   if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
+  </script>
+  <script>
+/* Live observations refresher (night-edition pass). The board above is
+   rendered at export time from the exact published envelope; this module
+   re-checks the artifact in the background and re-renders it when the
+   producer has published a newer envelope. On any failure the export-time
+   render stays put — it remains the honest edition truth — so failures are
+   silent. The exporter's data-observations-state contract is preserved. */
+(() => {
+  const REFRESH_MS = 600000;
+  const relative = iso => {
+    const then = Date.parse(String(iso || ""));
+    if (!Number.isFinite(then)) return String(iso || "not recorded");
+    const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+    if (seconds < 90) return seconds + "s ago";
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 90) return minutes + " min ago";
+    const hours = Math.round(minutes / 60);
+    if (hours < 36) return hours + " h ago";
+    return new Date(then).toLocaleString();
+  };
+  const renderBoard = envelope => {
+    const composite = envelope.composite;
+    const compositeHtml = composite
+      ? '<div class="banner ' + esc(String(composite.level || "").toLowerCase()) + '"><strong>' + esc(composite.level || "UNKNOWN") + "</strong> — " + esc(composite.reason || "Composite assessment recorded") + (composite.assessedAt ? '<div class="meta">Assessed ' + esc(composite.assessedAt) + (composite.hasUnavailableMonitors ? " · one or more monitors unavailable" : "") + "</div>" : "") + "</div>"
+      : '<div class="banner unavailable"><strong>No composite assessment</strong> — no composite alert snapshot was available when observations were built.</div>';
+    const monitors = Array.isArray(envelope.monitors) ? envelope.monitors : [];
+    const chipsHtml = monitors.length
+      ? '<div class="observation-monitors" aria-label="Per-monitor operational states">' + monitors.map(monitor => '<span class="observation-chip"><span class="status ' + esc(monitor.status) + '">' + esc(String(monitor.status).toUpperCase()) + "</span> " + esc(monitor.label) + "</span>").join("") + "</div>"
+      : '<div class="meta">No monitor observations were recorded.</div>';
+    const freshness = envelope.freshness || {};
+    return '<div class="observation-board" data-observations-state="published">' + compositeHtml + chipsHtml + '<p class="meta observation-freshness">Contract generated ' + esc(freshness.contractGeneratedAt ?? "not recorded") + " · observations generated " + esc(envelope.generatedAt) + '</p><p class="observation-live"><span class="live-dot" aria-hidden="true"></span>Live check · updated ' + esc(relative(envelope.generatedAt)) + " · re-checks every 10 min</p></div>";
+  };
+  let lastGeneratedAt = null;
+  const check = async () => {
+    if (document.hidden) return;
+    try {
+      const envelope = await load("data/geo-observations.json");
+      if (!envelope || !envelope.generatedAt || envelope.generatedAt === lastGeneratedAt) return;
+      const board = document.querySelector(".observation-board");
+      if (!board) return;
+      lastGeneratedAt = envelope.generatedAt;
+      board.outerHTML = renderBoard(envelope);
+    } catch (error) { /* silent: the export-time board remains authoritative */ }
+  };
+  const startLive = () => {
+    setInterval(check, REFRESH_MS);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
+    check();
+  };
+  if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", startLive); } else { startLive(); }
+})();
   </script>
 </body>
 </html>

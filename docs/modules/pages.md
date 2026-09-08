@@ -147,6 +147,22 @@ snapshot is discoverable and attributable without any client-side code:
   namespace covering the canonical root plus the major anchor sections
   (`#analytics`, `#code`, `#events`, `#geo`, `#news`, `#meetings`, `#curated`).
 
+## Reader experience (night edition, 2026-09-08)
+
+The shared surface (`assets/site.css` + `assets/site.js`, content-hashed at
+export) carries a site-wide dark/night theme: `html[data-theme="dark"]`
+token overrides in site.css (the `html`-prefixed selector outranks the
+`:root` re-declarations in `404.css`), a pre-paint `<head>` snippet on every
+page (localStorage `cc-theme`, else `prefers-color-scheme`), and a
+Night/Light toggle in the masthead date row wired by `initThemeToggle()`.
+The homepage `#observations` board re-checks `data/geo-observations.json`
+every 10 minutes while visible and re-renders the composite banner, monitor
+chips, and a relative "Live check" line when the producer publishes a newer
+envelope — the export-time render remains the fallback truth, and the
+`data-observations-state` export contract is untouched. News and Meetings
+ desks page through the full list with a "Show 30 more" control instead of
+silently capping at 30 records.
+
 ## Methods & Provenance and FAQ sections
 
 The index carries two reader-facing trust surfaces, both owned by the Pages

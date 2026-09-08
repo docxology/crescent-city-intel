@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script data-cc-theme-prepaint>/* Pre-paint theme: localStorage choice, else OS preference (night edition). */(()=>{try{const s=localStorage.getItem("cc-theme");document.documentElement.dataset.theme=(s==="dark"||s==="light")?s:(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}catch(e){}})();</script>
   <meta name="description" content="A read-only console over the published Crescent City civic intelligence snapshot: analytics overview, alert and event timelines.">
   <title>Civic intelligence console — The Quadruplicate</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,7 +23,7 @@
     <p class="masthead-sub">Civic intelligence &middot; source-grounded reporting &middot; public safety monitoring &middot; municipal code</p>
   </header>
   <div class="masthead-date-row">
-    <div class="inner"><p class="masthead-date"><span class="red-prefix">CRESCENT CITY, CA &mdash;</span> Public read-only console</p></div>
+    <div class="inner"><p class="masthead-date"><span class="red-prefix">CRESCENT CITY, CA &mdash;</span> Public read-only console</p><button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span class="theme-glyph" aria-hidden="true">☾</span> <span class="theme-toggle-label">Night</span></button></div>
   </div>
   <div class="masthead-nav-wrap">
     <div class="inner">
@@ -132,6 +133,7 @@
     </script>
 
     <footer class="footer">
+      <div class="footer-meta"><a href="feed.xml">RSS feed</a> &middot; <a href="sitemap.xml">Sitemap</a> &middot; <a href="data/snapshot.json">Snapshot JSON</a> &middot; <a href="data/geo-observations.json">Observations JSON</a></div>
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
       <div class="contact-line">CrescentCity@tuta.com &mdash; <em>Sea Something. Say Something.</em></div>
     </footer>

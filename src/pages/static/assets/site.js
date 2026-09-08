@@ -350,3 +350,40 @@ function searchIndexMatches(index, needle, cap = SEARCH_CAP) {
   }
   return scored.sort((a, b) => b.score - a.score).slice(0, cap * 4).map(item => item.match);
 }
+
+// §7 night edition — dark/light theme with explicit-choice persistence.
+// The pre-paint snippet in each page <head> sets data-theme before first
+// paint (localStorage "cc-theme", else the OS preference). This initializer
+// syncs the toggle button, persists explicit choices, and follows OS changes
+// while the reader has not made an explicit choice. Every storage/media API
+// access is guarded: private-mode browsers keep the session-local toggle.
+function initThemeToggle() {
+  const button = document.getElementById("theme-toggle");
+  const root = document.documentElement;
+  if (!button || !root) return;
+  const apply = theme => {
+    root.dataset.theme = theme === "dark" ? "dark" : "light";
+    const dark = root.dataset.theme === "dark";
+    button.setAttribute("aria-pressed", String(dark));
+    button.setAttribute("title", dark ? "Switch to the light edition" : "Switch to the night edition");
+    const glyph = button.querySelector(".theme-glyph");
+    if (glyph) glyph.textContent = dark ? "☀" : "☾";
+    const label = button.querySelector(".theme-toggle-label");
+    if (label) label.textContent = dark ? "Light" : "Night";
+  };
+  apply(root.dataset.theme);
+  button.addEventListener("click", () => {
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    try { localStorage.setItem("cc-theme", next); } catch (error) { /* session-local */ }
+    apply(next);
+  });
+  const media = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+  if (media && typeof media.addEventListener === "function") {
+    media.addEventListener("change", event => {
+      let stored = null;
+      try { stored = localStorage.getItem("cc-theme"); } catch (error) { /* session-local */ }
+      if (!stored) apply(event.matches ? "dark" : "light");
+    });
+  }
+}
+if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", initThemeToggle); } else { initThemeToggle(); }

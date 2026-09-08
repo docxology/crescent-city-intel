@@ -10,6 +10,37 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Night edition — site-wide dark theme, live observations, and reading UX (2026-09-08)
+
+- **Dark/night theme with persistence** — `html[data-theme="dark"]` token set
+  in `assets/site.css` (the `html`-prefixed selector outranks the `:root`
+  re-declarations in `404.css`), a pre-paint snippet in every page `<head>`
+  (localStorage `cc-theme`, else OS preference), and a Night/Light toggle in
+  the masthead date row on all nine pages (`assets/site.js`
+  `initThemeToggle`, OS-preference follow-up while no explicit choice is
+  stored). The red masthead and newspaper identity stay in both editions.
+- **Live observations board** — the homepage `#observations` board keeps its
+  export-time render (the honest edition truth) and now re-checks
+  `data/geo-observations.json` in the background (10-minute interval,
+  visibility-guarded), re-rendering composite banner, 15 monitor chips, and a
+  relative "Live check · updated … ago" line when the producer publishes a
+  newer envelope. Failures are silent; the exporter's
+  `data-observations-state` contract is preserved.
+- **Show-more pagination** — the News and Meetings desks no longer silently
+  cap at 30 records: a "Show 30 more" button pages through the full filtered
+  list.
+- **Footer data links on every page** — RSS feed, sitemap, snapshot JSON, and
+  observations JSON (root-absolute on the 404 page per the SEO href
+  contract).
+- **Reading polish** — smooth in-page scrolling with anchored-section
+  `scroll-margin`, balanced headings, `text-wrap: pretty` body copy,
+  tabular numerals on dates/metrics, and composite-severity banner accents
+  (`calm`/`watch`/`warning`/`emergency`) driven by the existing palette
+  tokens.
+- **Copy fix** — the Safety bulletin meta line said "13-monitor alert board";
+  it is a 15-monitor board since the USCG Broadcast Notice to Mariners
+  monitor landed.
+
 ### Geo-observations, readability history, USCG broadcasts, and a modular GUI (2026-09-08)
 
 #### Added

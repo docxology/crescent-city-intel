@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script data-cc-theme-prepaint>/* Pre-paint theme: localStorage choice, else OS preference (night edition). */(()=>{try{const s=localStorage.getItem("cc-theme");document.documentElement.dataset.theme=(s==="dark"||s==="light")?s:(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}catch(e){}})();</script>
   <meta name="robots" content="noindex">
   <meta name="description" content="The Quadruplicate — Stop Press. The requested page was not found in the current public snapshot.">
   <title>The Quadruplicate — Stop Press</title>
@@ -28,6 +29,7 @@
   <div class="masthead-date-row">
     <div class="inner">
       <p class="masthead-date" id="masthead-date"><span class="red-prefix">STOP PRESS &mdash;</span> page not found</p>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false"><span class="theme-glyph" aria-hidden="true">☾</span> <span class="theme-toggle-label">Night</span></button>
     </div>
   </div>
   <div class="masthead-nav-wrap">
@@ -60,6 +62,7 @@
       <a class="return-link" href="/">Return to the latest edition</a>
     </div>
     <footer class="footer">
+      <div class="footer-meta"><a href="/feed.xml">RSS feed</a> &middot; <a href="/sitemap.xml">Sitemap</a> &middot; <a href="/data/snapshot.json">Snapshot JSON</a> &middot; <a href="/data/geo-observations.json">Observations JSON</a></div>
       <div>Source: <a href="https://github.com/docxology/crescent-city-intel">docxology/crescent-city-intel</a> &middot; Code: <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a></div>
       <div>Public snapshot &middot; no live service &middot; no credentials &middot; no chat history</div>
     </footer>

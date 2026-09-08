@@ -10,6 +10,81 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Geo-observations, readability history, USCG broadcasts, and a modular GUI (2026-09-08)
+
+#### Added
+
+- **Live hazard-observation envelope** (`src/geo_observations.ts` +
+  `scripts/run-geo-observations.ts`, `bun run geo:observations`) — the
+  `crescent-city-geo-observations/v1` machine-readable companion to the frozen
+  `crescent-city-geo-intel/v1` contract: composite severity snapshot,
+  per-monitor availability, a hazard-tag summary projected from the contract's
+  hazard-relevant domain subset, and the upstream contract's freshness. Built
+  for GEO-INFER consumers (BAYES/ACT/RISK); absent artifacts surface as honest
+  empty states (`composite: null`, `monitors: []`), never a fabricated CALM.
+  The runner writes `pages-data/geo-observations.json` +
+  `output/geo-observations.json`; `GET /api/geo-observations` builds the same
+  envelope per request. Docs: `docs/modules/geo-observations.md`.
+- **Geo contract drift guard** (`scripts/check-geo-sync.ts`,
+  `bun run geo:sync-check`) — a deterministic two-stage check: rebuild the
+  contract with the pure builder and compare the stable fields against
+  `pages-data/geo-intel.json` (exit 1 on drift), then sha256-compare the
+  GEO-INFER-BAYES bundled copy (loud `BUNDLED COPY DRIFT` warning, exit 0, so
+  CI decides policy). Its first run proved the guard earns its keep: the
+  committed seed
+  (2026-08-24) was genuinely stale against the current `src/domains.ts`
+  surface — 4 hazard-relevant domains in the seed vs 6 rebuilt. The seed was
+  regenerated with `bun run geo:intel`, the GEO-INFER-BAYES bundled copy was
+  refreshed to byte-identical, and the 43 BAYES/ACT/RISK consumer tests pass
+  on the refreshed data.
+- **Bounded readability run history** (`src/readability_history.ts`) — one
+  JSONL entry per scoring run at `output/readability/history.jsonl`
+  (10,000-line cap, tail-trimmed), appended by `scripts/run-readability.ts`,
+  plus the pure `buildReadabilityTrend` (latest/previous/delta + daily
+  buckets). Served paginated at `GET /api/readability/history?limit=&offset=`
+  with `total` and `trend` always describing the FULL history, never the page.
+  Docs: `docs/modules/readability.md`.
+- **USCG Broadcast Notice to Mariners monitor** (`src/alerts/uscg_broadcasts.ts`)
+  — the 15th monitor: reads the USCG NAVCEN District 11 BNM listing (no API
+  key), filters for North Coast relevance, and persists to
+  `output/alerts/uscg/`. Wired into the `run-alerts` batch, the composite
+  severity inputs (15th positional input, ADVISORY → WATCH), the healer
+  roster, `EXPECTED_SOURCE_HEALTH`, `ALERT_TYPES`, the alert-trends source
+  map, and the GUI trend roster. The monitor count is 15 (8 core + 7 extended)
+  everywhere. Tests: `tests/uscg-broadcasts.test.ts` (19).
+- **GUI modularization + navigation layer** — `src/gui/static/index.html`
+  shrank 4140 → 381 lines: CSS moved to `assets/gui.css`, JS to
+  `assets/modules/{00-nav…140-fuzzy-keys}.js` + `assets/virtual-list.js`
+  (plain scripts, load order preserved, implicit window globals unchanged).
+  New navigation layer: hash deep-links `#<section>` and `#<section>/<tab>`,
+  a header "Go to" jump select (7 groups / 28 options), Alt+ArrowLeft/Right
+  tab cycling, and aria-current management. Virtual scrolling covers search
+  results (>24 items) and the glossary table (>40 rows). Two new panels, both
+  with defensive empty states: the Readability tab → run-history trend, the
+  Hazard Geo tab → live hazard observations.
+
+#### Changed
+
+- **Two new routes registered** in `src/gui/routes.ts` + `openapi.yaml`
+  (`GET /api/geo-observations`, `GET /api/readability/history`); the OpenAPI
+  `info.version` moved to 2.7.0 with `package.json` bumped to match (the
+  release gate checks the pair).
+- **Pages gains a live-observations section** — `data/geo-observations.json`
+  is always emitted (64 KiB budget, fail-closed schema validation, seed
+  fallback; an explicit `crescent-city-geo-observations-unavailable/v1`
+  envelope when nothing was published, so the dashboard's fetch never 404s).
+  The Pages `index.html` gained the `#observations` section with the composite
+  banner, monitor chips, and freshness line; `PAGES_SECTION_NAV` gained
+  Observations; the JSON-LD dataset catalog grew 7 → 8. `tests/pages-nav.test.ts`
+  pins the authored nav/breadcrumb against the generated canonical nav so the
+  two cannot drift.
+
+#### Tests
+
+- `tests/geo-observations.test.ts` (20), `tests/readability-history.test.ts` (11),
+  `tests/uscg-broadcasts.test.ts` (19), `tests/geo-readability-routes.test.ts` (13),
+  `tests/pages-nav.test.ts` (14).
+
 ### Corpus intelligence: dependency graph, lexicon, longevity, and two orphaned engines surfaced (2026-09-05)
 
 #### Added

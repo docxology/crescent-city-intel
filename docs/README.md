@@ -25,8 +25,10 @@ queries, legal analysis, and civic intelligence domains.
 | [Logger](modules/logger.md) | Structured logging with levels, timestamps, module tags |
 | [Domains](modules/domains.md) | 12 civic intelligence domains with code cross-references |
 | [Monitoring](modules/monitoring.md) | Code change detection, news, and government meeting monitors |
-| [Alerts](modules/alerts.md) | 14 real-time alert monitors + composite severity + alert analytics |
+| [Alerts](modules/alerts.md) | 15 real-time alert monitors + composite severity + alert analytics |
 | [Geo-Intel](modules/geo-intel.md) | Transferable municipality geo-intel contract + tiles-free map-ready feature view |
+| [Geo-Observations](modules/geo-observations.md) | Live hazard-observation envelope for GEO-INFER + the geo contract drift guard |
+| [Readability](modules/readability.md) | Flesch-Kincaid scoring, bounded run history, and trend analytics |
 | [v2 Intelligence](modules/v2-intelligence.md) | New v2.0 modules: structured queries, legal parser, fuzzy, streaming, analytics |
 | [API Middleware](modules/api.md) | Rate limiting, API key authentication, request logging |
 
@@ -36,7 +38,7 @@ queries, legal analysis, and civic intelligence domains.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.6.0)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.7.0)
 
 ## Updating Docs
 

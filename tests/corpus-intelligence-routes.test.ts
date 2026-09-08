@@ -141,14 +141,43 @@ describe("GET /api/llm/models", () => {
 });
 
 /**
- * GUI string contracts for the panels that surface these routes. The local GUI
- * is a no-build single file, so a string contract is the only deterministic
- * assertion available offline; the live path is covered by
- * `bun run test:browser`.
+ * GUI string contracts for the panels that surface these routes. The local
+ * GUI is a no-build app whose markup lives in index.html and whose JS lives
+ * in assets/modules/*.js (v2.7.0 asset split), so string contracts are the
+ * only deterministic assertions available offline; the live path is covered
+ * by `bun run test:browser`. Every marker is asserted against the union of
+ * the markup shell and the extracted modules.
  */
 describe("GUI corpus-intelligence panels", () => {
+  const GUI_MARKUP = "src/gui/static/index.html";
+  const MODULES = [
+    "10-core.js",
+    "20-section-tools.js",
+    "30-search.js",
+    "40-overlays.js",
+    "50-chat.js",
+    "60-alerts.js",
+    "70-analytics.js",
+    "80-sources.js",
+    "90-intel-panels.js",
+    "100-overlay-tabs.js",
+    "110-feeds.js",
+    "120-domains-geo.js",
+    "130-readability.js",
+    "140-fuzzy-keys.js",
+  ];
+
+  async function guiSource(): Promise<string> {
+    const parts = [await Bun.file(GUI_MARKUP).text()];
+    for (const name of MODULES) {
+      parts.push(await Bun.file(`src/gui/static/assets/modules/${name}`).text());
+    }
+    return parts.join("\n");
+  }
+
   test("the analytics overlay exposes graph, lexicon, and longevity panels", async () => {
-    const html = await Bun.file("src/gui/static/index.html").text();
+    const html = await Bun.file(GUI_MARKUP).text();
+    const source = await guiSource();
     for (const marker of [
       'data-tab="graph"',
       'data-tab="lexicon"',
@@ -170,26 +199,32 @@ describe("GUI corpus-intelligence panels", () => {
       "ordinanceTimeline",
       "/api/ordinance/chronology?",
     ]) {
+      expect(source).toContain(marker);
+    }
+    // The markup shell must still declare the panels and tabs themselves.
+    for (const marker of ['id="intel-graph"', 'id="intel-lexicon"', 'id="intel-longevity"', 'id="intel-chronology"']) {
       expect(html).toContain(marker);
     }
   });
 
   test("the feeds overlay exposes the civic insight brief", async () => {
-    const html = await Bun.file("src/gui/static/index.html").text();
+    const html = await Bun.file(GUI_MARKUP).text();
+    const source = await guiSource();
     expect(html).toContain('data-tab="insights"');
     expect(html).toContain('id="intel-insights"');
-    expect(html).toContain("loadInsightsPanel");
-    expect(html).toContain("/api/insights");
+    expect(source).toContain("loadInsightsPanel");
+    expect(source).toContain("/api/insights");
   });
 
   test("chat carries a model picker wired to both the streaming and fallback paths", async () => {
-    const html = await Bun.file("src/gui/static/index.html").text();
+    const html = await Bun.file(GUI_MARKUP).text();
+    const source = await guiSource();
     expect(html).toContain('id="chat-model"');
-    expect(html).toContain("loadChatModels");
-    expect(html).toContain("/api/llm/models");
-    expect(html).toContain("chatRequestBody(msg)");
-    expect(html).toContain("chatSelectedModel()");
+    expect(source).toContain("loadChatModels");
+    expect(source).toContain("/api/llm/models");
+    expect(source).toContain("chatRequestBody(msg)");
+    expect(source).toContain("chatSelectedModel()");
     // The default must send no `model` field at all, not an empty string.
-    expect(html).toContain("if (model) body.model = model;");
+    expect(source).toContain("if (model) body.model = model;");
   });
 });

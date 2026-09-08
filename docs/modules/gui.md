@@ -163,7 +163,21 @@ heatmap, source-state rows, and accessible cell labels.
 
 ## `src/gui/static/index.html` — Frontend
 
-Single-file SPA with no build step.
+No-build SPA. Since v2.7.0 the markup shell lives in `index.html` and the
+styles and scripts are extracted into versioned plain assets under
+`src/gui/static/assets/` (loaded by classic `<script src>` / `<link>` tags,
+preserving the original single-script execution order and every implicit
+window global).
+
+### Asset layout (v2.7.0)
+
+| Path | Role |
+| :--- | :--- |
+| `index.html` | Markup shell: `<head>` with the `__CC_API_KEY__` bootstrap + CDN tags + `<link rel="stylesheet" href="assets/gui.css">`; the body markup for every panel/overlay; trailing `<script src>` tags in load order. No inline `<style>` and no large inline `<script>` (the key bootstrap excepted). |
+| `assets/gui.css` | The former inline `<style>` block, relocated verbatim. |
+| `assets/virtual-list.js` | Windowed list renderer (`createVirtualList`): fixed row height, overscan 5, spacer divs/rows, ResizeObserver. Applied to the search-results dropdown (sets > `SEARCH_VIRTUAL_THRESHOLD` = 24) and the glossary table (rows > `GLOSSARY_VIRTUAL_THRESHOLD` = 40). Per-item markup is byte-identical to the legacy templates. |
+| `assets/modules/00-nav.js` | Navigation layer (loaded first): hash deep-links (`#<section>` / `#<section>/<tab>`), a header "Go to…" `<select>` (`#nav-jump`), and `Alt+ArrowRight`/`Alt+ArrowLeft` tab cycling within the visible overlay. Purely additive — invokes existing toggle/tab click handlers, never overrides them. |
+| `assets/modules/10-core.js` … `140-fuzzy-keys.js` | The former inline `<script>` block, split by concern and relocated verbatim. Globals stay implicit (no IIFE, no namespace). `100-overlay-tabs.js` loads after `130-readability.js` because its `TAB_LOADERS` map eagerly references loader functions declared in later modules (function declarations are not hoisted across files the way they were in the single inline script). |
 
 ### Navigation (redesigned 2026-07-24)
 
@@ -226,3 +240,22 @@ bun test tests/alert-trends.test.ts
   `buildChatMessages`).
 - A top-of-page `#error-banner` (`showErrorBanner`) surfaces genuine network failures from
   `apiFetch`; per-route inline errors are preserved.
+
+### Wave-2 panel wiring (v2.7.0)
+
+Two panels carry additive fetch wiring for the endpoints that went live in
+v2.7.0. Both render defensively: any missing/malformed field yields the graceful empty
+state, never a throw.
+
+- **📈 Readability → "History trend" sub-block** (`#readability-history-content`):
+  `GET /api/readability/history?limit=60` → `{ total, count, offset, limit,
+  entries[], trend: { buckets: [{ windowStart, windowEnd, avgEase, runs }],
+  latest, delta } }`. Renders a per-run ease/fog delta list plus a 30-day
+  average-ease SVG line. Empty state: "No readability history recorded yet —
+  run `bun run readability`".
+- **🗺️ Hazard Geo → "Live hazard observations" sub-block**
+  (`#geo-observations-content`): `GET /api/geo-observations` → the
+  `crescent-city-geo-observations/v1` envelope (`schema`, `anchor`,
+  `composite`, `monitors[]`, `hazardSummary[]`, `freshness`). Renders a
+  composite-level badge plus per-monitor status chips. Empty state: "Live
+  hazard observations unavailable (route not live yet)."

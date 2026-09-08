@@ -1,7 +1,6 @@
 /**
  * Composite alert severity scoring for Crescent City.
- *
- * Aggregates input from all 14 alert monitors and returns a single
+ * Aggregates input from all 15 alert monitors and returns a single
  * standardised composite status: CALM | WATCH | WARNING | EMERGENCY.
  *
  * Rules (applied in priority order):
@@ -12,7 +11,8 @@
  *   WATCH     — Earthquake M4-6 within 200 km, NWS watch/advisory,
  *               CDFW fishing closure, tidal level >= 6.0 ft MLLW (at/above the typical max high tide),
  *               elevated seas, gale/hazardous-seas marine forecast, D3+ drought, air quality AQI > 100,
- *               road closure, school closure, or HRRR smoke UNHEALTHY+
+ *               road closure, school closure, HRRR smoke UNHEALTHY+, or a USCG
+ *               Broadcast Notice to Mariners advisory (worst broadcast level ADVISORY)
  *   CALM      — no active alerts meeting above thresholds
  *
  * Designed to be called by GET /api/monitor/alerts and the GUI dashboard.
@@ -52,6 +52,7 @@ export interface AlertSeverityReport {
     roads: MonitorStatus;
     schools: MonitorStatus;
     marinezone: MonitorStatus;
+    uscg: MonitorStatus;
   };
 }
 
@@ -635,7 +636,50 @@ function assessMarineZone(input: MarineZoneInput): MonitorStatus {
 }
 
 /**
- * Compute composite alert severity from all 14 monitor inputs.
+ * USCG Broadcast Notice to Mariners input (src/alerts/uscg_broadcasts.ts).
+ * The monitor's two-level scale (classifyUscgBroadcast) is authoritative:
+ * hazard/closure/ATON traffic → ADVISORY, housekeeping → CALM.
+ */
+export interface UscgBroadcastInput {
+  /** Worst classified broadcast level across relevant BNMs: CALM | ADVISORY. */
+  worstLevel: string;
+  /** Broadcasts scanned in the run window. */
+  totalBroadcasts: number;
+  /** North-coast-relevant broadcasts behind the worst level. */
+  relevantCount: number;
+  available: boolean;
+}
+
+/**
+ * Assess the USCG Broadcast Notice to Mariners monitor. BNM traffic is
+ * informational, so its worst ADVISORY broadcast maps onto the composite's
+ * advisory-class WATCH exactly like the other advisory-class inputs (NWS
+ * advisories, marinezone ADVISORY); unknown levels surface as a visible WATCH
+ * rather than a fabricated CALM.
+ */
+function assessUscg(input: UscgBroadcastInput): MonitorStatus {
+  if (!input.available) {
+    return {
+      level: "CALM",
+      summary: "USCG broadcast data unavailable",
+      count: 0,
+      availability: "unavailable",
+    };
+  }
+  const level = input.worstLevel;
+  const scope = input.totalBroadcasts > 0 ? `${input.totalBroadcasts} broadcast(s) scanned` : "no broadcasts scanned";
+  if (level === "ADVISORY") {
+    return { level: "WATCH", summary: `\u{1f7e1} USCG broadcast advisory (${input.relevantCount} relevant, ${scope})`, count: input.relevantCount };
+  }
+  if (level === "CALM") {
+    return { level: "CALM", summary: `No active USCG broadcasts (${scope})`, count: 0 };
+  }
+  // Unknown level string: visible WATCH, never a fabricated CALM.
+  return { level: "WATCH", summary: `USCG broadcast level "${level}" unrecognized — treat as elevated`, count: input.relevantCount };
+}
+
+/**
+ * Compute composite alert severity from all 15 monitor inputs.
  *
  * @returns AlertSeverityReport with composite level and per-monitor breakdown.
  */
@@ -654,6 +698,7 @@ export function computeAlertSeverity(
   roads: RoadClosureInput = { severity: "NONE", hasMajorClosure: false, incidentCount: 0, available: false },
   schools: SchoolClosureInput = { status: "OPEN", hasActiveClosure: false, hasActiveDelay: false, eventCount: 0, available: false },
   marinezone: MarineZoneInput = { worstLevel: "CALM", peakWindKt: null, available: false },
+  uscg: UscgBroadcastInput = { worstLevel: "CALM", totalBroadcasts: 0, relevantCount: 0, available: false },
 ): AlertSeverityReport {
   const monitors = {
     tsunami: assessTsunami(tsunami),
@@ -670,6 +715,7 @@ export function computeAlertSeverity(
     roads: assessRoads(roads),
     schools: assessSchools(schools),
     marinezone: assessMarineZone(marinezone),
+    uscg: assessUscg(uscg),
   };
 
   // Find the highest severity across all monitors

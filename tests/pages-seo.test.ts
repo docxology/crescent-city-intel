@@ -87,7 +87,7 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
     expect(indexHtml).toContain("Methods &amp; Provenance");
     expect(indexHtml).toContain("What the models do not do");
     expect(indexHtml).toContain(PAGES_METHODS_COUNTS_PLACEHOLDER);
-    expect(indexHtml).toContain('href="#methods"');
+    expect(indexHtml).toContain('href="./#methods"');
   });
 
   test("FAQ visible text matches the FAQPage JSON-LD exactly", async () => {

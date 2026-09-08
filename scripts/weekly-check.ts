@@ -110,7 +110,7 @@ if (alertFailures.length > 0) {
     sources: missingAlerts.map(source => `${source.source}: ${source.status}`),
   });
 } else {
-  logger.info("✅ All 14 alert monitors complete");
+  logger.info("✅ All 15 alert monitors complete");
 }
 
 // 3. News + meeting monitors (non-fatal on failure)
@@ -124,10 +124,15 @@ const feedExecution = await executePipelineStep("news-and-meeting-monitors", () 
 });
 steps.push(feedExecution.report);
 const feedResults = feedExecution.value ?? [];
-const feedFailures = feedResults.filter(result => result.status === "rejected");
-if (feedFailures.length > 0) {
+// Conditional-expression narrowing keeps `result` a rejected result inside the
+// true branch — no type predicate needed (predicate narrowing did not survive
+// the allSettled tuple union here).
+const feedFailureReasons = feedResults.flatMap(result =>
+  result.status === "rejected" ? [String(result.reason)] : [],
+);
+if (feedFailureReasons.length > 0) {
   exitCode = Math.max(exitCode, 2);
-  logger.error(`${feedFailures.length} news/meeting monitor(s) failed`, { errors: feedFailures.map(result => String(result.reason)) });
+  logger.error(`${feedFailureReasons.length} news/meeting monitor(s) failed`, { errors: feedFailureReasons });
 } else {
   logger.info("✅ News and meeting monitors complete; inspect source-health artifacts for empty/unavailable feeds");
 }
@@ -310,7 +315,7 @@ const summary = {
   alertFailures: alertFailures.length,
   missingAlerts: missingAlerts.length,
   degradedAlerts: missingAlerts.length,
-  feedFailures: feedFailures.length,
+  feedFailures: feedFailureReasons.length,
   missingFeeds: missingFeeds.length,
   degradedFeeds: missingFeeds.length,
   downstreamFailures: failedSteps.length,

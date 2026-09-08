@@ -3,10 +3,12 @@
 This directory contains the reviewed, public municipal-code seed used when a
 GitHub Actions checkout has no local `output/` directory. It contains only
 public generated artifacts: the consolidated code export, TOC, manifest,
-passing verification report, coverage, readability data, and the backward-
-compatible `geo-intel.json` contract. The Pages exporter derives the map-ready
-view from that reviewed contract and publishes the combined API-shaped surface
-as `.pages/data/geo-intel.json`.
+passing verification report, coverage, readability data, the backward-
+compatible `geo-intel.json` contract, and the `geo-observations.json` live
+hazard-observation envelope (`crescent-city-geo-observations/v1`). The Pages
+exporter derives the map-ready view from that reviewed contract and publishes
+the combined API-shaped surface as `.pages/data/geo-intel.json`, plus the
+hazard-observation envelope as `.pages/data/geo-observations.json`.
 
 Refresh only after a successful scrape, verification, and export:
 

@@ -12,7 +12,7 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.6.0-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.7.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -114,7 +114,7 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 | 💬 **Chat** | Ollama or OpenRouter chat with Ollama embeddings + ChromaDB · source citations (municipal code + YouTube transcripts) · RAG query logging | ✓ | [→](docs/modules/llm.md) |
 | 📡 **Monitor** | Municipal code change detection + RSS/Atom news + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare), with per-source health | ✓ | [→](docs/modules/monitoring.md) |
 | 📰 **Curate** | Source-grounded, bounded LLM summaries + domain tagging across news/meetings/YouTube with provider/model-aware retry-safe idempotency | ✓ | [→](docs/modules/monitoring.md) |
-| 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing · EPA AirNow · CAL FIRE · NDBC marine | ✓ | [→](docs/modules/alerts.md) |
+| 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing · EPA AirNow · CAL FIRE · NDBC marine · +7 extended monitors | ✓ | [→](docs/modules/alerts.md) |
 | 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | ✓ | [→](docs/modules/gui.md) |
 | 🌐 **Publish** | Bounded static snapshot for GitHub Pages with source health and provenance | ✓ | [→](docs/modules/pages.md) |
 | 📝 **Manuscript** | Evidence-bound IMRAD paper with formal contracts, claim ledger, and template-rendered PDF/HTML | ✓ | [→](docs/manuscript.md) |
@@ -463,6 +463,7 @@ re-scraping this platform.
 | **Readability** | `output/readability.json` | Flesch-Kincaid scores for all sections in the current manifest |
 | **Coverage** | `output/domain-coverage.json` | Domain cross-reference coverage % |
 | **Geo-Intel** | `pages-data/geo-intel.json` + `output/geo-intel.json` | Transferable machine-readable municipality contract (Crescent City default civic + hazard) for geospatial consumers (GEO-INFER) |
+| **Geo-Observations** | `pages-data/geo-observations.json` + `output/geo-observations.json` | `crescent-city-geo-observations/v1` live hazard-observation envelope (composite severity, per-monitor states, hazard summary, contract freshness) for GEO-INFER consumers |
 | **RAG Log** | `output/rag-queries.jsonl` | All RAG queries with latency and sources |
 | **Pipeline run** | `output/state/latest-pipeline-run.json` | Stage-level status, duration, output paths, and source-health summary |
 | **Curation run** | `output/state/curation-report.json` | Provider/model, success counts, fingerprints, and retryable failures |
@@ -558,7 +559,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   source_registry.ts    # Canonical online source inventory + bounded discovery probes
   monthly_report.ts     # Monthly civic health report generator
   analytics_backend.ts  # Cross-surface analytics envelope (GUI, pipeline, Pages)
-  alert_analytics.ts    # Unified alert timeline across all 14 monitors + per-type statistics
+  alert_analytics.ts    # Unified alert timeline across all 15 monitors + per-type statistics
   structured_queries.ts # Legislative history, section compare, semantic similarity
   section_graph.ts      # Section dependency graph (citation network)
   section_longevity.ts  # Section age, dormancy, churn
@@ -569,7 +570,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   manuscript_variables.ts # Durable manuscript variable extraction from analytics
   alerts/
-    severity.ts         # Composite alert severity over all 14 monitor inputs
+    severity.ts         # Composite alert severity over all 15 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750, 48h predictions)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km, Cascadia)
@@ -615,7 +616,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   pages/static/         # Static dashboard and 404 fallback for Pages
 scripts/
   weekly-check.ts       # Weekly health check orchestrator (all monitors + composite)
-  run-alerts.ts         # Alert monitor runner (14 monitors, all feeding the composite)
+  run-alerts.ts         # Alert monitor runner (15 monitors, all feeding the composite)
   run-monitor.ts        # Change detection runner
   run-news.ts           # News monitor runner (--keywords= CLI flag)
   run-meetings.ts       # Meeting monitor runner
@@ -641,7 +642,7 @@ docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts 
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.6.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.7.0)
 ```
 
 ---
@@ -792,7 +793,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/analytics/embeddings` | GET | PCA projection (requires ChromaDB) |
 | `/api/monitor/status` | GET | Latest monitor report |
 | `/api/monitor/history` | GET | Monitor history JSONL |
-| `/api/monitor/alerts` | GET | Aggregated alert status (all 14 monitors) |
+| `/api/monitor/alerts` | GET | Aggregated alert status (all 15 monitors) |
 | `/api/metadata` | GET | Build, provider, artifact, and source-lineage metadata |
 | `/api/sources` | GET | Canonical source registry, coverage boundaries, and health joins |
 | `/api/sources?format=csv` | GET | Flat downloadable source coverage table |
@@ -801,7 +802,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.6.0)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.7.0)
 
 ---
 
@@ -857,7 +858,7 @@ All settings support environment variable overrides:
 | 📝 [Logger](docs/modules/logger.md) | Structured logging, LOG_LEVEL |
 | 🧭 [Domains](docs/modules/domains.md) | 12 civic intelligence domains, coverage metrics |
 | 📡 [Monitoring](docs/modules/monitoring.md) | Code change, configured news sources, meetings, YouTube, Triplicate, curation |
-| 🚨 [Alerts](docs/modules/alerts.md) | All 14 monitors with availability-aware severity |
+| 🚨 [Alerts](docs/modules/alerts.md) | All 15 monitors with availability-aware severity |
 | 🌐 [GitHub Pages](docs/modules/pages.md) | Static snapshot export and deployment |
 | 🔐 [API Middleware](docs/modules/api.md) | Sliding-window rate limiting, API key auth |
 
@@ -876,6 +877,10 @@ present state:
 | Source health | `bun run source-discovery` |
 | Manuscript state | [`docs/manuscript/MANUSCRIPT_STATUS.md`](docs/manuscript/MANUSCRIPT_STATUS.md) |
 | Changelog (unreleased work) | [CHANGELOG.md](CHANGELOG.md) |
+
+Shipped: **v2.7.0** (2026-09-08) — the geo-observations envelope, readability
+run history, the 15th alert monitor (USCG broadcasts), and a modularized GUI.
+The full entry lives in [CHANGELOG.md](CHANGELOG.md).
 
 Verified in this repo as of 2026-08-31: `bun test tests/geo-intel.test.ts` →
 13 pass / 0 fail; the weekly-check run of 2026-08-31T05:15Z reports

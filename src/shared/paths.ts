@@ -64,4 +64,6 @@ export const paths = {
   article: (guid: string) => `${articlesRoot()}/${guid}.json`,
   /** The search-query log the analytics surface reads; written only by the HTTP layer. */
   get searchQueryLog() { return `${outputRoot()}/search-queries.jsonl`; },
+  /** Bounded per-run readability history JSONL (one entry per scoring run). */
+  get readabilityHistory() { return `${outputRoot()}/readability/history.jsonl`; },
 };

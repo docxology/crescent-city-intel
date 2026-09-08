@@ -93,13 +93,16 @@ describe("Newspaper theme contracts (Pages index)", () => {
 });
 
 describe("Shared newspaper palette vars (GUI surfaces)", () => {
-  test("GUI index defines --cc/--rdark/--rtint in light theme and no banned names", async () => {
+  test("GUI index defines --cc/--rdark/--rtint in the extracted gui.css and no banned names", async () => {
     const html = await readFile("src/gui/static/index.html", "utf8");
+    // v2.7.0: the GUI <style> block moved verbatim to assets/gui.css.
+    const guiCss = await readFile("src/gui/static/assets/gui.css", "utf8");
     for (const name of ["--cc:", "--rdark:", "--rtint:"]) {
-      expect(html).toContain(name);
+      expect(guiCss).toContain(name);
     }
     for (const banned of BANNED_VARS) {
       expect(html.includes(banned)).toBe(false);
+      expect(guiCss.includes(banned)).toBe(false);
     }
   });
 

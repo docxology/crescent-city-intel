@@ -442,3 +442,37 @@ report. Full modelling notes in `docs/modules/corpus-intelligence.md`.
 | `GET /api/sections/longevity?limit=&title=&asOfYear=` | Longevity profile; out-of-range `asOfYear` falls back to the current year |
 | `GET /api/insights?rebuild=1&window=` | Civic insight brief from `src/insights.ts`; serves the persisted report by default (`source: "persisted"`), recomputes on `rebuild=1` or a `window` override (`source: "computed"`). Never triggers LLM narrative polish |
 | `GET /api/llm/models` | Models the configured chat provider can serve, always including the configured default; `status: "unavailable"` when the provider cannot be reached, rather than an error |
+
+## Live hazard observations and readability history (v2.7.0)
+
+Two machine-readable surfaces added with the geo-observations and
+readability-history modules. Full modelling notes live in
+`docs/modules/geo-observations.md` and `docs/modules/readability.md`.
+
+**From `src/geo_observations.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `buildHazardObservations(input)` | Pure `crescent-city-geo-observations/v1` envelope builder — composite severity snapshot, per-monitor observations, hazard-tag summary, and contract freshness; absent artifacts are honest empty states (`composite: null`, `monitors: []`), never a fabricated CALM |
+| `normalizeCompositeSnapshot(raw)` | Defensive composite artifact → snapshot or `null` |
+| `normalizeMonitorObservation(health)` | `SourceHealth` → public monitor entry; status is lower-cased and an unrecognized value degrades to `unavailable` |
+| `hazardTagSummary(domains)` | Per-tag aggregation over the hazard-relevant domain subset (sorted by tag) |
+| `monitorId(source)` | Stable slug id (`"NOAA Tsunami"` → `"noaa-tsunami"`) |
+| `GEO_OBSERVATIONS_SCHEMA` | `"crescent-city-geo-observations/v1"` (frozen, like the contract schema) |
+
+**From `src/readability_history.ts`:**
+
+| Export | Description |
+| :--- | :--- |
+| `buildReadabilityHistoryEntry(scored, runAt, asOf?)` | Aggregate one scoring run into a single history entry (pure; empty input yields an honest zero run) |
+| `appendReadabilityHistory(entry, path?, maxLines?)` | Bounded JSONL append to `output/readability/history.jsonl` (10,000-line cap, tail-trim, atomic; a failed trim never breaks the append) |
+| `readReadabilityHistory(limit?, path?)` | Read the history file skipping malformed lines; chronological oldest → newest; missing file → `[]` |
+| `buildReadabilityTrend(entries, opts?)` | Latest/previous/delta per headline metric plus daily average-Ease buckets; `null` fields until two runs exist |
+| `isReadabilityHistoryEntry(value)` | Runtime shape guard for one history line |
+
+### Routes added with them
+
+| Route | Description |
+| :--- | :--- |
+| `GET /api/geo-observations` | The `crescent-city-geo-observations/v1` envelope built per request from the live artifacts: `composite` (`{level, reason, assessedAt, hasUnavailableMonitors}` or `null`), `monitors[]` (`{id, label, status, checkedAt, itemCount?, ageMs?, url?}`), `hazardSummary[]` (`{tag, domainCount, topicCount}`), and `freshness.contractGeneratedAt` joined from the geo-intel seed (the in-repo domain surface substitutes when the seed is absent). Missing alert artifacts return the empty envelope — never a 500 |
+| `GET /api/readability/history?limit=&offset=` | Paginated bounded history: `{total, count, offset, limit, entries[], trend}`. Pagination walks from the newest end — `offset` skips the most-recent entries and `limit` takes the page before them, entries within the page staying chronological. `total` and `trend` always describe the FULL history file, never the page. `limit` is 1–200 (default 60), `offset` ≥ 0; non-numeric values are a 400, out-of-range values clamp |

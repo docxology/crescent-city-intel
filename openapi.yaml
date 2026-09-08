@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: The Quadruplicate — Civic Intelligence API
   description: REST API for accessing Crescent City, CA municipal code and intelligence system
-  version: 2.6.0
+  version: 2.7.0
   contact:
     name: Crescent City Intelligence Platform
     url: https://github.com/docxology/crescent-city-intel
@@ -439,6 +439,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/geo-observations:
+    get:
+      summary: Get the hazard-observation interface over the live alert monitors
+      description: >-
+        Returns the crescent-city-geo-observations/v1 envelope built from the
+        live artifacts: the composite severity snapshot, one normalized
+        observation per alert monitor from the source-health artifact, and the
+        anchor plus hazard-tag summary and contract freshness taken from the
+        crescent-city-geo-intel/v1 seed (falling back to the in-repo domain
+        surface when the seed is absent). Monitors that have not run are an
+        honest empty state (composite null, monitors []), never an error.
+      operationId: getGeoObservations
+      tags:
+        - Intelligence Domains
+      responses:
+        '200':
+          description: Hazard-observation envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schema, anchor, generatedAt, composite, monitors, hazardSummary, freshness]
+                properties:
+                  schema:
+                    type: string
+                    enum: [crescent-city-geo-observations/v1]
+                  anchor:
+                    type: object
+                    description: Point identity of the municipality (no bounds polygon).
+                    properties:
+                      name: { type: string }
+                      guid: { type: string }
+                      municipality: { type: string }
+                      county: { type: string }
+                      state: { type: string }
+                      latitude: { type: number }
+                      longitude: { type: number }
+                  generatedAt:
+                    type: string
+                    format: date-time
+                    description: Envelope build time (request time).
+                  composite:
+                    type: object
+                    nullable: true
+                    description: Normalized composite severity snapshot; null when the artifact is absent or unreadable.
+                    properties:
+                      level: { type: string, description: 'CALM | WATCH | WARNING | EMERGENCY' }
+                      reason: { type: string }
+                      assessedAt: { type: string, nullable: true, format: date-time }
+                      hasUnavailableMonitors: { type: boolean }
+                  monitors:
+                    type: array
+                    description: One entry per source in the alert source-health artifact; empty when it has not been written.
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: Stable slug of the source name, e.g. "noaa-tsunami". }
+                        label: { type: string }
+                        status: { type: string, enum: [ok, empty, unavailable, stale] }
+                        checkedAt: { type: string, nullable: true, format: date-time }
+                        itemCount: { type: integer }
+                        ageMs: { type: integer }
+                        url: { type: string }
+                  hazardSummary:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tag: { type: string }
+                        domainCount: { type: integer }
+                        topicCount: { type: integer }
+                  freshness:
+                    type: object
+                    properties:
+                      contractSchema:
+                        type: string
+                        enum: [crescent-city-geo-intel/v1]
+                      contractGeneratedAt:
+                        type: string
+                        nullable: true
+                        format: date-time
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/domain/{id}:
     get:
       summary: Get a specific intelligence domain
@@ -687,7 +774,7 @@ paths:
   /api/monitor/alerts:
     get:
       summary: Aggregated real-time hazard alert status
-      description: Returns latest status from all 14 monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 6 extended: drought, PSPS, smoke, roads, schools, marine forecast), including unavailable-source diagnostics.
+      description: Returns latest status from all 15 monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 7 extended: drought, PSPS, smoke, roads, schools, marine forecast, USCG broadcast notices), including unavailable-source diagnostics.
       operationId: getMonitorAlerts
       tags: [Monitoring, Alerts]
       responses:
@@ -727,6 +814,87 @@ paths:
                   averageGradeLevel: {type: number}
                   hardestSections: {type: array, items: {type: object}}
                   easiestSections: {type: array, items: {type: object}}
+  /api/readability/history:
+    get:
+      summary: Paginated readability run history with trend analytics
+      description: >-
+        Returns the bounded readability history (one entry per scoring run).
+        The history is a bounded tail, so pagination walks it from the newest
+        end: `offset` skips the most recent entries and `limit` takes the page
+        before them — offset=0 returns the newest runs. Entries within a page
+        stay chronological (oldest → newest). `total` and `trend` always
+        describe the FULL history file, not the page; an empty history yields
+        total 0 with the honest empty trend envelope.
+      operationId: getReadabilityHistory
+      tags:
+        - Analytics
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 60 }, description: Page size; non-numeric values are rejected, out-of-range values clamp. }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 }, description: Number of most-recent entries to skip before the page. }
+      responses:
+        '200':
+          description: Paginated history with the full-history trend
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, count, offset, limit, entries, trend]
+                properties:
+                  total: { type: integer, description: Entries in the entire history file. }
+                  count: { type: integer, description: Entries on this page. }
+                  offset: { type: integer }
+                  limit: { type: integer }
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        runAt: { type: string, format: date-time }
+                        asOf: { type: string, nullable: true, format: date-time }
+                        fleschKincaidEase: { type: number }
+                        fleschKincaidGrade: { type: number }
+                        gunningFog: { type: number }
+                        sentenceCount: { type: integer }
+                        wordCount: { type: integer }
+                        complexWordCount: { type: integer }
+                        sectionCount: { type: integer }
+                  trend:
+                    type: object
+                    description: Full-history trend (not scoped to the page).
+                    properties:
+                      count: { type: integer }
+                      latest: { type: object, nullable: true }
+                      previous: { type: object, nullable: true }
+                      delta:
+                        type: object
+                        nullable: true
+                        properties:
+                          ease: { type: number }
+                          grade: { type: number }
+                          fog: { type: number }
+                      buckets:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            windowStart: { type: string, format: date-time }
+                            windowEnd: { type: string, format: date-time }
+                            avgEase: { type: number, nullable: true }
+                            runs: { type: integer }
+                      earliestRunAt: { type: string, nullable: true, format: date-time }
+                      latestRunAt: { type: string, nullable: true, format: date-time }
+        '400':
+          description: Non-numeric limit or offset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/domains/coverage:
     get:
       summary: Domain coverage metrics
@@ -817,7 +985,7 @@ paths:
                     items:
                       type: object
                       properties:
-                        type: {type: string, enum: [tsunami, earthquake, weather, tides, airquality, wildfire, marine, fishing]}
+                        type: {type: string, enum: [tsunami, earthquake, weather, tides, airquality, wildfire, marine, fishing, uscg]}
                         count30d: {type: integer, description: Events inside the trailing 30-day window.}
                         countPrevious30d: {type: integer, description: Events in the 30-day window ending where the current window begins.}
                         delta: {type: integer, description: count30d minus countPrevious30d.}
@@ -1384,8 +1552,8 @@ paths:
 
   /api/alerts/composite:
     get:
-      summary: Composite 14-monitor alert severity
-      description: Aggregated severity assessment across all 14 alert monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 6 extended: drought, PSPS, smoke, roads, schools, marine forecast).
+      summary: Composite 15-monitor alert severity
+      description: Aggregated severity assessment across all 15 alert monitors (8 core: tsunami, earthquake, weather, tides, fishing, air quality, wildfire, marine; 7 extended: drought, PSPS, smoke, roads, schools, marine forecast, USCG broadcast notices).
       operationId: getCompositeSeverity
       tags: [Alerts]
       responses:

@@ -175,3 +175,13 @@ code { overflow-wrap:anywhere; }
    sticky dateline had exactly its own height to travel in — zero movement.
    Flow layout gives it the rest of the list to stick over. */
 #event-items.items { display:block; gap:0; margin-top:10px; border-top:3px solid var(--ink); }
+
+/* --- Live hazard observations (#observations): export-time rendered board ---
+   The template is filled by the exporter from the exact
+   data/geo-observations.json being published, so these styles only shape the
+   two board states (published envelope, honest empty state). Palette-only:
+   the existing --cc/--rdark/--rtint family and neutrals, never a new bright var. */
+.observation-board { display:grid; gap:8px; }
+.observation-monitors { display:flex; flex-wrap:wrap; gap:6px; }
+.observation-chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--rule); background:var(--card-bg); padding:4px 8px; font:.74rem/1.2 Inter,sans-serif; color:var(--ink-dim); max-width:100%; overflow-wrap:anywhere; }
+.observation-freshness { margin-top:2px; }

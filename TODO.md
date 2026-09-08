@@ -1,14 +1,70 @@
 # TODO — The Quadruplicate
 
-> Upcoming development backlog · v2.6.0 · validation counts are reported by `bun run validate`
+> Upcoming development backlog · v2.7.0 · validation counts are reported by `bun run validate`
 >
 > Priority key: 🔴 Major (new capability) · 🟡 Medium (significant enhancement) · 🟢 Minor (polish/fix) — reviewed 2026-08-04 (Round 3 completion pass)
 >
-> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-09-05 (corpus-intelligence pass)
+> **Owner:** docxology · **Status:** active · **Last reviewed:** 2026-09-08 (comprehensive pass)
 
 ---
 
 ## Completed / Closed
+
+### Comprehensive v2.7.0 pass (2026-09-08) — implemented and verified
+
+Three roadmap closes, two new machine-readable surfaces, a drift guard that
+caught real drift, and the GUI split into loadable assets.
+
+- ✅ **Live hazard-observation envelope (GEO-INFER).** `src/geo_observations.ts` +
+  `scripts/run-geo-observations.ts` (`bun run geo:observations`) emit the
+  `crescent-city-geo-observations/v1` envelope — composite severity snapshot,
+  per-monitor availability, hazard summary, and freshness vs the frozen
+  `crescent-city-geo-intel/v1` contract — to `pages-data/geo-observations.json`
+  + `output/geo-observations.json`; `GET /api/geo-observations` serves it.
+  Absent artifacts are honest empty states, never a fabricated CALM. Tests:
+  `tests/geo-observations.test.ts` (20); routes pinned in
+  `tests/geo-readability-routes.test.ts` (13).
+- ✅ **Geo contract drift guard.** `scripts/check-geo-sync.ts`
+  (`bun run geo:sync-check`) rebuilds the contract vs the
+  `pages-data/geo-intel.json` seed (exit 1 on drift) and sha256-compares the
+  GEO-INFER-BAYES bundled copy (exit 0 + loud `BUNDLED COPY DRIFT` warning).
+  Its first finding was real and is closed: the seed (2026-08-24) was stale vs
+  the current `src/domains.ts` surface (4 hazard-relevant domains in the seed,
+  6 rebuilt); `bun run geo:intel` regenerated the seed, the GEO-INFER-BAYES
+  bundled copy was refreshed to byte-identical, and all 43 BAYES/ACT/RISK
+  civic-intel consumer tests pass on the refreshed data.
+- ✅ **Readability trend/heatmap panels (roadmap Medium) — the storage decision
+  resolved as bounded JSONL.** `src/readability_history.ts` stores one entry
+  per scoring run (`output/readability/history.jsonl`, 10k cap);
+  `scripts/run-readability.ts` appends, `GET /api/readability/history?limit=&offset=`
+  serves `{total, count, offset, limit, entries, trend}` (trend always computed
+  over the FULL history), and the GUI Readability tab renders it. Tests:
+  `tests/readability-history.test.ts` (11).
+- ✅ **USCG Broadcast Notice to Mariners — the 15th monitor (roadmap Long-term,
+  USCG half).** `src/alerts/uscg_broadcasts.ts` reads the NAVCEN District 11
+  BNM listing (no API key, North Coast relevance filter, real fixtures in
+  `tests/fixtures/uscg/`), wired into the run-alerts batch, composite severity
+  (15th input, ADVISORY → WATCH), healer roster, `EXPECTED_SOURCE_HEALTH`,
+  `ALERT_TYPES`, and the GUI trend roster. Monitor count is 15 (8 core + 7
+  extended) everywhere. Tests: `tests/uscg-broadcasts.test.ts` (19).
+- ✅ **Virtual scroll for long section lists (roadmap Short-term).** Search
+  results (>24 items) and the glossary table (>40 rows) render through
+  `assets/virtual-list.js`.
+- ✅ **GUI modularization + navigation layer.** `src/gui/static/index.html`
+  4140 → 381 lines; CSS → `assets/gui.css`, JS →
+  `assets/modules/{00-nav…140-fuzzy-keys}.js` + `assets/virtual-list.js`
+  (plain scripts, order matters, implicit window globals preserved). New nav
+  layer: `#<section>` / `#<section>/<tab>` deep links, a header "Go to" jump
+  select (7 groups / 28 options), Alt+ArrowLeft/Right tab cycling, and
+  aria-current management.
+- ✅ **Pages observations artifact + nav drift guard.** `data/geo-observations.json`
+  is always emitted (64 KiB budget, fail-closed validation, seed fallback, an
+  explicit unavailable envelope so dashboard fetches never 404); the
+  `#observations` section + embed, `PAGES_SECTION_NAV` gains Observations,
+  and the JSON-LD dataset catalog grew 7 → 8. `tests/pages-nav.test.ts` (14)
+  pins authored nav/breadcrumb == generated canonical nav.
+- ✅ **API + spec.** Both routes registered in `src/gui/routes.ts` +
+  `openapi.yaml`; `info.version` is 2.7.0, matching `package.json`.
 
 ### Corpus intelligence + orphaned-engine surfacing (2026-09-05) — implemented and verified
 
@@ -291,16 +347,17 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
 
 - 🟢 **`.claude/` untracked** — pre-existing operator-owned file; decide whether to commit or
   `.gitignore` it (operator-owned files are untouched by these passes).
-- 🟢 **Roadmap UX/frontend items still open after the 2026-09-05 pass** (Phase 2
-  tooltips/cross-ref hyperlinking; Phase 7 readability trend/heatmap — blocked on a
-  readability *history* that is not yet stored, and plain-language rewrite; Phase 8
-  USCG/PacFIN/AIS/permits/dredging/fuel; Phase 9 AQ widget/marine panel/wildfire
-  map/virtual scroll/lazy load/annotation overlays; Phase 10 ordinal refinement/
+- 🟢 **Roadmap UX/frontend items still open after the 2026-09-08 pass** (Phase 2
+  tooltips/cross-ref hyperlinking; Phase 7 plain-language rewrite; Phase 8
+  PacFIN/AIS/permits/dredging/fuel; Phase 9 AQ widget/marine panel/wildfire
+  map/lazy load/annotation overlays; Phase 10 ordinal refinement/
   legal-citation + CA + US cross-linking/effective-date field; Phase 14 docs/modules
   dashboard and structured-query pages). **Reason:** new external-source features
-  needing live data, or UX decisions the owner has not made. The dependency graph,
-  word-frequency, section-longevity, and ordinance-timeline items previously listed
-  here shipped on 2026-09-05.
+  needing live data, or UX decisions the owner has not made. The readability
+  trend/heatmap panels (the storage decision resolved as bounded JSONL), virtual
+  scroll, and the USCG broadcasts monitor previously listed here shipped on
+  2026-09-08; the dependency graph, word-frequency, section-longevity, and
+  ordinance-timeline items shipped on 2026-09-05.
 - ✅ ~~**Fishing bulletin full-text fetch** (`src/alerts/cdfw_fishing.ts`).~~
   **Closed 2026-09-03 (implemented earlier, doc-lag reconciled):** `fetchBulletinBody`
   bounded-fetches each bulletin page and `extractBulletinBody` pulls the article body with a
@@ -310,4 +367,4 @@ owner UX/frontend decision). Each has a concrete plan + acceptance criteria.
   extraction chain and failure fallbacks.
 
 ---
-_Last updated: 2026-09-05 (corpus-intelligence pass) · v2.6.0 · run `bun run validate` for current test and contract counts_
+_Last updated: 2026-09-08 (comprehensive pass) · v2.7.0 · run `bun run validate` for current test and contract counts_

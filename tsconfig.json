@@ -5,13 +5,14 @@
     "moduleResolution": "bundler",
     "types": ["bun-types"],
     "strict": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "declaration": true,
     "resolveJsonModule": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "output"]
 }

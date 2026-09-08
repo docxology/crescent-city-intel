@@ -21,7 +21,9 @@ Per-module documentation. Each file covers one logical component of the system.
 | `alerts.md` | `alerts/severity.ts`, `alerts/composite.ts`, `alerts/notify.ts`, `alerts/noaa_tsunami.ts`, `alerts/usgs_earthquake.ts`, `alerts/nws_weather.ts`, `alerts/noaa_tides.ts`, `alerts/cdfw_fishing.ts`, `alerts/epa_airnow.ts`, `alerts/calfire_wildfire.ts`, `alerts/ndbc_marine.ts` |
 | `v2-intelligence.md` | `structured_queries.ts`, `legal_parser.ts`, `alert_analytics.ts`, `analytics_backend.ts` |
 | `geo-intel.md` | `geo.ts`, `geo_view.ts` |
+| `geo-observations.md` | `geo_observations.ts`, `scripts/run-geo-observations.ts`, `scripts/check-geo-sync.ts` |
 | `api.md` | `api/middleware.ts` |
+| `readability.md` | `readability_history.ts` (scorer `shared/readability.ts` documented in `shared.md`) |
 
 ## Convention
 

@@ -1,6 +1,7 @@
 # Monitoring Module
 
-Continuous change detection and civic intelligence gathering for Crescent City.
+Continuous change detection and civic intelligence gathering for Crescent City,
+including the 15-monitor real-time alert family.
 
 ## Source discovery registry
 
@@ -236,6 +237,30 @@ failures and selector drift are represented in
 ```bash
 bun run src/triplicate_monitor.ts
 ```
+
+## Alert monitors (15)
+
+The real-time hazard family has its own deep-dive in
+[alerts.md](alerts.md); the count matters here because the source-health
+denominator includes every monitor in the batch. `scripts/run-alerts.ts`
+runs all 15 concurrently (graceful degradation — a failing monitor is a typed
+`unavailable`, never a failed run) and feeds the composite severity:
+**8 core** (tsunami, earthquake, weather, tides, fishing, air quality,
+wildfire, marine) plus **7 extended** (drought, PSPS, smoke, roads, school
+closures, marine forecast, USCG broadcasts).
+
+| Module | Source | What it monitors | Artifacts |
+| :--- | :--- | :--- | :--- |
+| `uscg_broadcasts.ts` | USCG NAVCEN District 11 Broadcast Notice to Mariners listing (no API key) | New/updated BNMs relevant to the North Coast | `output/alerts/uscg/` |
+
+The USCG monitor is the 15th and newest: it reads the public District 11 BNM
+listing, filters items for North Coast relevance (no API key required),
+deduplicates by content hash into `output/alerts/uscg/`, and feeds the 15th
+positional input of `computeAlertSeverity` (its findings enter the composite
+as ADVISORY, escalating to WATCH). It is wired into the healer roster,
+`EXPECTED_SOURCE_HEALTH`, `ALERT_TYPES`, and the GUI trend roster like every
+other monitor. Real fixtures live in `tests/fixtures/uscg/`
+(`tests/uscg-broadcasts.test.ts`).
 
 ## Curation and reporting
 

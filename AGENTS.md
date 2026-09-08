@@ -19,9 +19,9 @@
 The most comprehensive local intelligence platform for Crescent City, CA.
 Built with TypeScript/Bun. Scrapes, verifies, exports, views, queries, and
 analyzes the Crescent City municipal code from ecode360.com, plus monitors
-14 real-time alert streams (8 core: tsunami, earthquake, weather, tides, fishing, air
-quality, wildfire, marine; 6 extended: USDM drought, PG&E PSPS, HRRR smoke, Caltrans
-roads, DUSD school closures, NWS marine forecast) and provides RAG chat with streaming SSE.
+15 real-time alert streams (8 core: tsunami, earthquake, weather, tides, fishing, air
+quality, wildfire, marine; 7 extended: USDM drought, PG&E PSPS, HRRR smoke, Caltrans
+roads, DUSD school closures, NWS marine forecast, USCG broadcasts) and provides RAG chat with streaming SSE.
 
 ## Architecture
 
@@ -43,11 +43,11 @@ ecode360.com/CR4919
  port 3000  + Chroma  Citations/Glossary
  RAG+SSE    RAG       Cross-refs
         |
-[Intelligence Layer — 14 monitors]
+[Intelligence Layer — 15 monitors]
    8 core: NOAA Tsunami · USGS Earthquake · NWS Weather · NOAA Tides ·
    CDFW Fishing · EPA AirNow · CAL FIRE Wildfire · NDBC Marine
-  6 extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads · DUSD Closures ·
-  NWS Marine Forecast (CWF PZZ450)
+  7 extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads · DUSD Closures ·
+  NWS Marine Forecast (CWF PZZ450) · USCG Broadcasts (BNM District 11)
         |
  [Alert Analytics — unified timeline + per-type stats]
 ```
@@ -68,6 +68,8 @@ src/
   export.ts             # Multi-format exporter (JSON, MD, TXT, CSV)
   geo.ts                # Transferable municipality geo-intel contract builder (civic + hazard, Crescent City default, machine-readable)
   geo_view.ts           # Tiles-free map-ready geo feature view (bounds polygon + hazard points + section refs)
+  geo_observations.ts   # GEO-INFER hazard-observation envelope (live composite + monitor health + hazard tags)
+  readability_history.ts # Bounded readability run history (JSONL, 10k cap) + pure trend builder
   domains.ts            # 12 civic intelligence domains with code cross-refs
   monitor.ts            # Municipal code change detection
   news_monitor.ts       # RSS/Atom news aggregator (configured sources + health + dedup)
@@ -97,7 +99,7 @@ src/
   alert_correlation.ts  # Directional cross-monitor co-occurrence with lift and lag
   release_gate.ts       # Deterministic release-gate checks (driven by scripts/validate.ts)
   alerts/
-    severity.ts         # Composite alert severity over all 14 monitor inputs
+    severity.ts         # Composite alert severity over all 15 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km)
@@ -107,6 +109,7 @@ src/
     calfire_wildfire.ts # CAL FIRE wildfire incident monitor
     ndbc_marine.ts      # NDBC buoy marine weather (wave, wind, temp)
     nws_marine.ts       # NWS CWF coastal waters forecast (PZZ450)
+    uscg_broadcasts.ts  # USCG NAVCEN District 11 broadcast notices to mariners monitor
     usdm_drought.ts     # US Drought Monitor DSCI for Del Norte
     pge_psps.ts         # PG&E public safety power shutoff monitor
     hrrr_smoke.ts       # NOAA HMS / HRRR smoke plume monitor
@@ -188,7 +191,7 @@ tests/                  # Deterministic zero-mock suite; run `bun run validate`
 docs/                   # Full module documentation suite
 output/                 # Scraped data + reports (gitignored)
 pages-data/             # Reviewed public seed artifacts for static Pages
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.6.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v2.7.0)
 ```
 
 ## What's New in v2.5.0
@@ -249,7 +252,7 @@ openapi.yaml            # OpenAPI 3.0.3 spec (v2.6.0)
 - Per-type statistics (counts, severity distribution, frequency)
 
 ### Enhanced Composite Severity
-- 14-monitor composite (8 core + the 5 Phase-12 extended monitors + the NWS marine forecast)
+- 15-monitor composite (8 core + the 5 Phase-12 extended monitors + the NWS marine forecast + the USCG broadcasts)
 - Air quality, wildfire, and marine integrated into severity scoring
 - Priority-ordered severity levels: CALM → WATCH → WARNING → EMERGENCY
 
@@ -266,7 +269,7 @@ bun run index                # Index sections into ChromaDB
 bun run chat                 # Interactive RAG chat
 bun run query "question"     # Single RAG query
 bun run status               # Show index stats
-bun run alerts               # All 14 alert monitors concurrently (8 core + 6 extended)
+bun run alerts               # All 15 alert monitors concurrently (8 core + 7 extended)
 bun run alerts:tsunami       # Individual alert monitors
 bun run alerts:earthquake
 bun run alerts:weather
@@ -285,6 +288,8 @@ bun run readability          # Flesch-Kincaid scoring
 bun run coverage             # Domain coverage analysis
 bun run report               # Monthly civic health report
 bun run insights             # Civic insight brief (also served at /api/insights)
+bun run geo:observations     # GEO-INFER hazard-observation envelope (crescent-city-geo-observations/v1)
+bun run geo:sync-check       # Geo-intel contract drift guard (seed rebuild + bundled sha256)
 bun test                     # Run the deterministic suite
 bun run validate             # Run the authoritative release gate
 ```
@@ -313,7 +318,7 @@ Run `bun run validate` for the current pass/fail result.
 - **Cloudflare bypass**: Non-headless Chromium with custom user agent
 - **Resume support**: Manifest tracks scraped articles
 - **SHA-256 verification**: Every page hashed at scrape time
-- **14-monitor composite severity**: priority-ordered aggregation over every monitor the runner collects
+- **15-monitor composite severity**: priority-ordered aggregation over every monitor the runner collects
 - **Persistent JSONL history**: All alert events logged for analytics
 - **Fuzzy search fallback**: Levenshtein correction when BM25 returns 0 results
 - **SSE streaming**: Word-by-word RAG answer delivery

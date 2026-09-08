@@ -99,6 +99,28 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
     });
   }, 60000);
 
+  test("unavailable analytics envelope requires no operator artifact (2026-09-08 regression)", async () => {
+    await withFixture(async root => {
+      await put(root, "crescent-city-code.json", { articles: [] });
+      // No state/analytics-overview.json on purpose: snapshot.analytics is
+      // null, so the exporter writes the honest analytics-unavailable
+      // envelope and deliberately emits no operator channel. The lane-A gate
+      // used to demand the operator artifact whenever data/analytics.json
+      // parsed, failing every corpus-less export; it must exempt the
+      // unavailable envelope.
+      const destination = join(root, "pages");
+      await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-08-28T00:00:00Z" });
+      const analytics = JSON.parse(await readFile(join(destination, "data/analytics.json"), "utf8")) as { available?: boolean; schemaVersion?: string };
+      expect(analytics.available).toBe(false);
+      expect(analytics.schemaVersion).toBe("crescent-city-analytics-unavailable/v1");
+      const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
+      const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
+      // The empty fixture still trips unrelated gates (feed items, etc.);
+      // the operator-channel demand must not be among them.
+      expect(output).not.toContain("missing required Pages asset when analytics exist");
+    });
+  }, 60000);
+
   test("publicSignalNotice copy stays free of executable detail (regression guard)", () => {
     const operatorSignal: OverviewSignal = {
       id: "source-youtube",

@@ -45,6 +45,20 @@ with existing consumers and its `view` field carries the
 `crescent-city-geo-view/v1` bounds, anchor, nominal hazard-domain features, and
 section references. It is built from the reviewed seed or the same in-repo pure
 builders, so no network, API key, tiles provider, or local service is required.
+The companion `data/geo-observations.json` carries the LIVE hazard-observation
+envelope (`crescent-city-geo-observations/v1`): the composite severity banner,
+one operational chip per alert monitor, and the freshness of the upstream
+geo-intel contract. It is ALWAYS emitted — when no valid envelope exists for
+the edition, an explicit `crescent-city-geo-observations-unavailable/v1`
+envelope (`available: false`) keeps the dashboard's fetch from 404ing rather
+than shipping silence. Validation is fail-closed: schema, anchor, composite,
+monitor, and freshness fields are checked offline plus a 64 KiB byte ceiling,
+and the `#observations` section must embed the panel. The masthead nav and
+breadcrumbs are generated from the canonical `PAGES_SECTION_NAV` list (which
+now includes Observations); `tests/pages-nav.test.ts` pins the authored
+markup against the generated nav so the two cannot drift, and the JSON-LD
+dataset catalog lists the observations artifact (8 entries).
+
 The export also includes the municipal code JSON/TOC/manifest plus
 verification, coverage, and readability artifacts when available, recent
 deduplicated news and government meeting items, YouTube video metadata,

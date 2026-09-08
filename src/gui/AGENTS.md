@@ -14,7 +14,7 @@ Lightweight Bun HTTP server serving a single-page application for browsing, sear
 | `semantic_search.ts` | Ollama-embed + ChromaDB semantic search with BM25 fallback (`/api/search/semantic`) | `tests/semantic-search.test.ts` |
 | `analytics.ts` | Code statistics, PCA projection, K-means clustering | `tests/analytics.test.ts` |
 | `alert_trends.ts` | Pure UTC-day alert trend buckets + heatmap intensity for the Alerts panel | `tests/alert-trends.test.ts` |
-| `static/` | `index.html` (SPA frontend: dark/light theme, TOC, search, analytics, chat) and `docs.html` (API docs page served at `/api/docs`) |
+| `static/` | `index.html` (SPA markup shell: dark/light theme, TOC, search, analytics, chat), `docs.html` (API docs at `/api/docs`), and `assets/` — `gui.css` + `virtual-list.js` + `modules/*.js` extracted verbatim from the former inline `<style>`/`<script>` (v2.7.0), loaded by classic `<link>`/`<script src>` tags in the original execution order | `tests/gui-chat-contract.test.ts`, `tests/gui-interactivity.test.ts`, `tests/corpus-intelligence-routes.test.ts`, `tests/pages-theme.test.ts` |
 
 ## Key Patterns
 

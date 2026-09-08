@@ -19,6 +19,7 @@ import type { AnalyticsOverview } from "./analytics_backend.js";
 import { buildGeoIntel } from "./geo.js";
 import { buildGeoIntelSurface, buildGeoViewSvg, type GeoIntelSurface, type GeoIntelView } from "./geo_view.js";
 import { buildEventsArtifact, buildEventsIcs, collectEvents, type EventsArtifact } from "./events.js";
+import { GEO_INTEL_CONTRACT_SCHEMA, GEO_OBSERVATIONS_SCHEMA, type GeoObservationsEnvelope } from "./geo_observations.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const NEWSPAPER_NAME = "The Quadruplicate";
@@ -33,6 +34,9 @@ export const PAGES_EVENTS_ARTIFACT = "data/events.json";
 export const PAGES_EVENTS_ICS_ARTIFACT = "data/events.ics";
 export const PAGES_NEWS_ARTIFACT = "data/news.json";
 export const PAGES_MEETINGS_ARTIFACT = "data/meetings.json";
+export const PAGES_GEO_OBSERVATIONS_ARTIFACT = "data/geo-observations.json";
+/** Honest empty-state envelope emitted when no valid observations artifact exists for the edition. */
+export const PAGES_GEO_OBSERVATIONS_UNAVAILABLE_SCHEMA = "crescent-city-geo-observations-unavailable/v1";
 export const PAGES_ALERTS_ARTIFACT = "data/alerts.json";
 export const PAGES_ANALYTICS_ARTIFACT = "data/analytics.json";
 /**
@@ -71,8 +75,8 @@ export function pagesContentHashName(path: string, bytes: Uint8Array | string): 
 export const PAGES_ARTIFACT_BYTE_BUDGETS: Readonly<Record<string, number>> = {
   [PAGES_NEWS_ARTIFACT]: 150 * 1024,
   [PAGES_MEETINGS_ARTIFACT]: 150 * 1024,
-  [PAGES_ANALYTICS_ARTIFACT]: 150 * 1024,
   [PAGES_ALERTS_ARTIFACT]: 150 * 1024,
+  [PAGES_GEO_OBSERVATIONS_ARTIFACT]: 64 * 1024,
   "data/source-health.json": 150 * 1024,
   "data/source-discovery.json": 150 * 1024,
   "data/source-registry.json": 150 * 1024,
@@ -169,8 +173,9 @@ const PAGES_SITE_URL = "https://quadruplicate.org";
 export const PAGES_ROBOTS_TXT = "robots.txt";
 export const PAGES_SITEMAP_XML = "sitemap.xml";
 export const PAGES_GEO_VIEW_PLACEHOLDER = '<template data-pages-geo-view></template>';
-export const PAGES_FEED_XML = "feed.xml";
+export const PAGES_OBSERVATIONS_PLACEHOLDER = '<template data-pages-observations></template>';
 export const PAGES_FEED_LINK_HTML = '<link rel="alternate" type="application/rss+xml" title="The Quadruplicate - public intelligence feed" href="https://quadruplicate.org/feed.xml">';
+export const PAGES_FEED_XML = "feed.xml";
 
 /** Shared page assets (§6.1/§6.3): authored under src/pages/static/assets/, emitted content-hashed. */
 export const PAGES_SHARED_ASSETS: ReadonlyArray<{ source: string; placeholder: string; hashPrefix: string }> = [
@@ -204,6 +209,7 @@ export const PAGES_FEED_MAX_ITEMS = 60;
 /** Export-time injection point for manifest-derived counts inside the Methods & Provenance section. */
 export const PAGES_METHODS_COUNTS_PLACEHOLDER = "<!--PAGES_METHODS_COUNTS-->";
 export const MAX_PAGES_GEO_INTEL_BYTES = 256 * 1024;
+const MAX_PAGES_GEO_OBSERVATIONS_BYTES = 64 * 1024;
 const MAX_PAGES_GEO_DOMAINS = 100;
 const MAX_PAGES_GEO_FEATURES = 102;
 const MAX_PAGES_GEO_SECTIONS = 2_000;
@@ -271,6 +277,7 @@ export interface PagesSnapshot {
     sourceDiscovery: string;
     analyticsOverview: string | null;
     geoIntel: string;
+    geoObservations: string | null;
     directory: string | null;
     events: string;
     /** Per-page artifacts (§1.2): each subpage fetches only what it renders. */
@@ -359,6 +366,7 @@ export const PAGES_STATIC_PAGES: ReadonlyArray<{ file: string; title: string; na
 /** Front-page section anchors shared by every page masthead nav (canonical labels). */
 export const PAGES_SECTION_NAV: ReadonlyArray<{ label: string; hash: string }> = [
   { label: "Geo-intel", hash: "geo" },
+  { label: "Observations", hash: "observations" },
   { label: "Alerts", hash: "alerts" },
   { label: "Methods", hash: "methods" },
   { label: "FAQ", hash: "faq" },
@@ -913,6 +921,7 @@ const PAGES_DATASET_ARTIFACTS: ReadonlyArray<{ file: string; name: string; descr
   { file: "data/source-registry.json", name: "Source registry", description: "The canonical registry of monitored, discovery-only, and reference-only public sources." },
   { file: "data/source-discovery.json", name: "Source discovery report", description: "Coverage analysis of the monitored public source registry." },
   { file: PAGES_GEO_INTEL_ARTIFACT, name: "Civic and hazard geo-intel", description: "The crescent-city-geo-intel/v1 surface covering Del Norte County hazard domains and linked code sections." },
+  { file: PAGES_GEO_OBSERVATIONS_ARTIFACT, name: "Live hazard observations", description: "The crescent-city-geo-observations/v1 envelope: composite severity, per-monitor operational states, and freshness of the upstream geo-intel contract." },
   { file: PAGES_EVENTS_ARTIFACT, name: "Community events calendar", description: "The crescent-city-events/v1 community calendar with government meetings, community events, and closures." },
   { file: PAGES_EVENTS_ICS_ARTIFACT, name: "Community events calendar (iCalendar)", description: "The community calendar in iCalendar format for subscription in calendar applications." },
 ];
@@ -982,6 +991,115 @@ export function embedPagesGeoView(indexHtml: string, view: GeoIntelView): string
   return indexHtml.replace(PAGES_GEO_VIEW_PLACEHOLDER, buildGeoViewSvg(view));
 }
 
+/** Render the observations panel backend-free from the exact envelope being exported. */
+export function buildPagesObservationsHtml(observations: GeoObservationsEnvelope | null): string {
+  if (!observations) {
+    return `<div class="observation-board" data-observations-state="none"><p class="empty-state">No hazard observations were published for this edition yet. The observations pipeline had nothing to report at export time; this section stays empty rather than showing stale monitor states.</p></div>`;
+  }
+  const composite = observations.composite;
+  const compositeHtml = composite
+    ? `<div class="banner ${escapePagesHtml(String(composite.level || "").toLowerCase())}"><strong>${escapePagesHtml(composite.level || "UNKNOWN")}</strong> — ${escapePagesHtml(composite.reason || "Composite assessment recorded")}${composite.assessedAt ? `<div class="meta">Assessed ${escapePagesHtml(composite.assessedAt)}${composite.hasUnavailableMonitors ? " · one or more monitors unavailable" : ""}</div>` : ""}</div>`
+    : `<div class="banner unavailable"><strong>No composite assessment</strong> — no composite alert snapshot was available when observations were built.</div>`;
+  const monitors = Array.isArray(observations.monitors) ? observations.monitors : [];
+  const chipsHtml = monitors.length
+    ? `<div class="observation-monitors" aria-label="Per-monitor operational states">${monitors.map(monitor => `<span class="observation-chip"><span class="status ${escapePagesHtml(monitor.status)}">${escapePagesHtml(String(monitor.status).toUpperCase())}</span> ${escapePagesHtml(monitor.label)}</span>`).join("")}</div>`
+    : `<div class="meta">No monitor observations were recorded for this edition.</div>`;
+  const freshness = observations.freshness;
+  const freshnessHtml = `<p class="meta observation-freshness">Contract generated ${escapePagesHtml(freshness?.contractGeneratedAt ?? "not recorded")} · observations generated ${escapePagesHtml(observations.generatedAt)}</p>`;
+  return `<div class="observation-board" data-observations-state="published">${compositeHtml}${chipsHtml}${freshnessHtml}</div>`;
+}
+
+/** Replace the static observations template with a backend-free render of the exact envelope being published. */
+export function embedPagesObservations(indexHtml: string, observations: GeoObservationsEnvelope | null): string {
+  const markerCount = indexHtml.split(PAGES_OBSERVATIONS_PLACEHOLDER).length - 1;
+  if (markerCount !== 1) {
+    throw new Error(`Pages index must contain exactly one observations placeholder; found ${markerCount}`);
+  }
+  return indexHtml.replace(PAGES_OBSERVATIONS_PLACEHOLDER, buildPagesObservationsHtml(observations));
+}
+
+/**
+ * Validate the bounded hazard-observation artifact without network or local
+ * service access, mirroring validatePagesGeoIntel: leak gates, byte budget,
+ * anchor identity, composite-or-null, per-monitor shapes, and the freshness
+ * block that couples the envelope to the upstream geo-intel contract.
+ */
+export function validatePagesGeoObservations(value: unknown, byteLength?: number): string[] {
+  const errors: string[] = [];
+  let serialized = "";
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    errors.push("geo-observations artifact is not JSON-serializable");
+  }
+  const actualBytes = byteLength ?? new TextEncoder().encode(serialized).byteLength;
+  if (actualBytes > MAX_PAGES_GEO_OBSERVATIONS_BYTES) {
+    errors.push(`geo-observations artifact exceeds ${MAX_PAGES_GEO_OBSERVATIONS_BYTES} bytes`);
+  }
+  if (serialized.includes("__CC_API_KEY__") || serialized.includes("__CC_API_KEY_INJECT__") || /\"(?:api[_-]?key|authorization)\"\s*:/i.test(serialized)) {
+    errors.push("geo-observations artifact contains an API-key or authorization field");
+  }
+  if (/localhost(?::\d+)?|127\.0\.0\.1/i.test(serialized)) {
+    errors.push("geo-observations artifact references a local-only service");
+  }
+  if (!isRecord(value)) {
+    errors.push("geo-observations artifact is not an object");
+    return errors;
+  }
+
+  if (value.schema !== GEO_OBSERVATIONS_SCHEMA) errors.push(`geo-observations contract schema is not ${GEO_OBSERVATIONS_SCHEMA}`);
+  if (typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt))) errors.push("geo-observations generatedAt is not an ISO timestamp");
+
+  const anchor = isRecord(value.anchor) ? value.anchor : null;
+  if (!anchor) {
+    errors.push("geo-observations anchor is missing");
+    return errors;
+  }
+  for (const field of ["name", "guid", "municipality", "county", "state"] as const) {
+    const text = anchor[field];
+    if (typeof text !== "string" || !text.trim()) errors.push(`geo-observations anchor ${field} is missing`);
+  }
+  if (typeof anchor.latitude !== "number" || !Number.isFinite(anchor.latitude) || anchor.latitude < -90 || anchor.latitude > 90) errors.push("geo-observations anchor latitude is invalid");
+  if (typeof anchor.longitude !== "number" || !Number.isFinite(anchor.longitude) || anchor.longitude < -180 || anchor.longitude > 180) errors.push("geo-observations anchor longitude is invalid");
+
+  if (value.composite !== null) {
+    const composite = isRecord(value.composite) ? value.composite : null;
+    if (!composite) {
+      errors.push("geo-observations composite must be an object or null");
+    } else {
+      if (typeof composite.level !== "string" || !composite.level.trim()) errors.push("geo-observations composite level is missing");
+      if (typeof composite.reason !== "string" || !composite.reason.trim()) errors.push("geo-observations composite reason is missing");
+      if (composite.assessedAt !== null && (typeof composite.assessedAt !== "string" || !Number.isFinite(Date.parse(composite.assessedAt)))) errors.push("geo-observations composite assessedAt is not an ISO timestamp or null");
+      if (typeof composite.hasUnavailableMonitors !== "boolean") errors.push("geo-observations composite hasUnavailableMonitors is not a boolean");
+    }
+  }
+
+  if (!Array.isArray(value.monitors)) {
+    errors.push("geo-observations monitors are missing");
+  } else {
+    for (const [index, monitor] of value.monitors.entries()) {
+      if (!isRecord(monitor)) {
+        errors.push(`geo-observations monitor ${index} is not an object`);
+        continue;
+      }
+      if (typeof monitor.id !== "string" || !monitor.id.trim()) errors.push(`geo-observations monitor ${index} id is missing`);
+      if (typeof monitor.label !== "string" || !monitor.label.trim()) errors.push(`geo-observations monitor ${index} label is missing`);
+      if (typeof monitor.status !== "string" || !["ok", "empty", "unavailable", "stale"].includes(monitor.status)) errors.push(`geo-observations monitor ${index} status is invalid`);
+      if (monitor.checkedAt !== null && (typeof monitor.checkedAt !== "string" || !Number.isFinite(Date.parse(monitor.checkedAt)))) errors.push(`geo-observations monitor ${index} checkedAt is not an ISO timestamp or null`);
+    }
+  }
+
+  if (!Array.isArray(value.hazardSummary)) errors.push("geo-observations hazardSummary is missing");
+
+  const freshness = isRecord(value.freshness) ? value.freshness : null;
+  if (!freshness) {
+    errors.push("geo-observations freshness block is missing");
+  } else {
+    if (freshness.contractSchema !== GEO_INTEL_CONTRACT_SCHEMA) errors.push(`geo-observations freshness contractSchema is not ${GEO_INTEL_CONTRACT_SCHEMA}`);
+    if (freshness.contractGeneratedAt !== null && (typeof freshness.contractGeneratedAt !== "string" || !Number.isFinite(Date.parse(freshness.contractGeneratedAt)))) errors.push("geo-observations freshness contractGeneratedAt is not an ISO timestamp or null");
+  }
+  return errors;
+}
 /** Derive the compact geo metadata embedded in the main snapshot envelope. */
 export function summarizePagesGeoIntel(value: unknown): PagesGeoIntelSummary | null {
   if (!isRecord(value) || !isRecord(value.view)) return null;
@@ -1113,6 +1231,24 @@ async function loadPagesGeoIntel(outputDir: string, seedDir: string): Promise<Ge
   const errors = validatePagesGeoIntel(surface);
   if (errors.length > 0) throw new Error(`Cannot build public geo-intel artifact: ${errors.join("; ")}`);
   return surface;
+}
+
+/**
+ * Load the hazard-observation envelope the way loadPagesGeoIntel does: the
+ * live output artifact first, the committed Pages seed second, and an honest
+ * null when neither carries a structurally valid envelope (a present-but-
+ * invalid artifact is skipped fail-closed, never published half-checked).
+ */
+async function loadPagesGeoObservations(outputDir: string, seedDir: string): Promise<GeoObservationsEnvelope | null> {
+  const candidates = await Promise.all([
+    readJson<unknown>(join(outputDir, "geo-observations.json")),
+    readJson<unknown>(join(seedDir, "geo-observations.json")),
+  ]);
+  for (const candidate of candidates) {
+    if (!isRecord(candidate)) continue;
+    if (validatePagesGeoObservations(candidate).length === 0) return candidate as unknown as GeoObservationsEnvelope;
+  }
+  return null;
 }
 
 async function readJsonLines(path: string): Promise<JsonRecord[]> {
@@ -1471,6 +1607,7 @@ export async function buildPagesSnapshot(
   const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
   const geoIntel = await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
   const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
+  const geoObservations = await loadPagesGeoObservations(resolvedOutput, resolvedSeed);
   // Local-establishments directory: seed first (hand-curated, source-cited),
   // then any prior edition artifact. A present-but-invalid seed fails loudly.
   const directorySeedRaw = await readJson<unknown>(join(resolvedSeed, "directory.json"))
@@ -1539,6 +1676,7 @@ export async function buildPagesSnapshot(
       sourceRegistry: "data/source-registry.json",
       sourceDiscovery: "data/source-discovery.json",
       geoIntel: PAGES_GEO_INTEL_ARTIFACT,
+      geoObservations: geoObservations ? PAGES_GEO_OBSERVATIONS_ARTIFACT : null,
       directory: directory ? PAGES_DIRECTORY_ARTIFACT : null,
       events: PAGES_EVENTS_ARTIFACT,
       news: PAGES_NEWS_ARTIFACT,
@@ -1581,6 +1719,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
   const seedRoot = resolve(seedDir);
   const snapshot = await buildPagesSnapshot(sourceRoot, generatedAt, seedRoot);
   const geoIntel = await loadPagesGeoIntel(sourceRoot, seedRoot);
+  const geoObservations = await loadPagesGeoObservations(sourceRoot, seedRoot);
   const directorySeedRaw = await readJson<unknown>(join(seedRoot, "directory.json"))
     ?? await readJson<unknown>(join(sourceRoot, "directory.json"));
   const directory = directorySeedSafeBuild(directorySeedRaw, generatedAt);
@@ -1626,7 +1765,10 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
         null,
       ),
     );
-    const indexHtmlFinal = embedPagesMethodsCounts(embedPagesGeoView(indexChromed, geoIntel.view), buildPagesMethodsCounts(snapshot))
+    const indexHtmlFinal = embedPagesMethodsCounts(
+      embedPagesGeoView(embedPagesObservations(indexChromed, geoObservations), geoIntel.view),
+      buildPagesMethodsCounts(snapshot),
+    )
       .split(PAGES_DATE_PUBLISHED_PLACEHOLDER).join(editionDate)
       .split(PAGES_DATE_MODIFIED_PLACEHOLDER).join(editionDate);
     if (indexHtmlFinal.includes(PAGES_DATE_PUBLISHED_PLACEHOLDER) || indexHtmlFinal.includes(PAGES_DATE_MODIFIED_PLACEHOLDER)) {
@@ -1737,7 +1879,21 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     await writeJson(join(temporary, PAGES_MEETINGS_ARTIFACT), snapshot.meetings);
     await writeJson(join(temporary, PAGES_ALERTS_ARTIFACT), snapshot.alerts);
     files.push(PAGES_DIRECTORY_ARTIFACT);
-    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT, PAGES_NEWS_ARTIFACT, PAGES_MEETINGS_ARTIFACT, PAGES_ALERTS_ARTIFACT);
+    // The observations artifact is ALWAYS emitted, even when this edition has
+    // no envelope: an explicit unavailable schema is the honest answer (the
+    // directory/analytics lesson), and snapshot.files.geoObservations stays
+    // null so nothing claims observations that do not exist.
+    if (geoObservations) {
+      await writeJson(join(temporary, PAGES_GEO_OBSERVATIONS_ARTIFACT), geoObservations);
+    } else {
+      await writeJson(join(temporary, PAGES_GEO_OBSERVATIONS_ARTIFACT), {
+        schema: PAGES_GEO_OBSERVATIONS_UNAVAILABLE_SCHEMA,
+        generatedAt,
+        available: false,
+        reason: "No hazard observations were published for this edition.",
+      });
+    }
+    files.push("data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_GEO_OBSERVATIONS_ARTIFACT, PAGES_EVENTS_ARTIFACT, PAGES_EVENTS_ICS_ARTIFACT, PAGES_NEWS_ARTIFACT, PAGES_MEETINGS_ARTIFACT, PAGES_ALERTS_ARTIFACT);
     // The analytics artifact is ALWAYS emitted, even when this edition has no
     // overview: gui.html fetches it on load, and a missing file made that fetch
     // 404 — which killed the whole console (the fetches shared one Promise.all,
@@ -1933,6 +2089,11 @@ export function validatePagesHtml(pagesHtml: Record<string, string>): string[] {
   if (!indexHtml.includes(PAGES_GEO_INTEL_ARTIFACT)) errors.push("Pages index does not expose geo-intel data");
   if (!indexHtml.includes('id="geo"')) errors.push("Pages index does not expose the hazard geo-view section");
   if (!indexHtml.includes('id="geo-map"')) errors.push("Pages index does not expose the geo-view map container");
+  if (!indexHtml.includes('id="observations"')) errors.push("Pages index does not expose the live hazard observations section");
+  if (!indexHtml.includes(PAGES_GEO_OBSERVATIONS_ARTIFACT)) errors.push("Pages index does not expose geo-observations data");
+  if (!indexHtml.includes(PAGES_OBSERVATIONS_PLACEHOLDER) && !indexHtml.includes('data-observations-state="published"') && !indexHtml.includes('data-observations-state="none"')) {
+    errors.push("Pages index does not embed the hazard observations panel");
+  }
   if (!indexHtml.includes(PAGES_GEO_VIEW_PLACEHOLDER) && !indexHtml.includes('data-geo-view-schema="crescent-city-geo-view/v1"')) {
     errors.push("Pages index does not embed the geo-view SVG");
   }

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { EXPECTED_SOURCE_HEALTH, isIsoTimestamp } from "./shared/source_health.js";
 import { PAGES_STATIC_PAGES, validatePagesHtml } from "./pages_snapshot.js";
@@ -47,11 +47,22 @@ export async function runReleaseGate(): Promise<void> {
   for (const requiredWorkflowText of ["actions/upload-pages-artifact", "actions/deploy-pages", "bun run pages:validate", "pages: write", "id-token: write"]) {
     if (!pagesWorkflow.includes(requiredWorkflowText)) throw new Error(`Pages workflow is missing ${requiredWorkflowText}`);
   }
+  // v2.7.0 GUI layout: index.html is a shell and the interactivity code lives
+  // in src/gui/static/assets/modules/*.js. The contract strings may sit in
+  // either the shell or any module, so check the union of the shell plus every
+  // module file — the GUI must still carry cancellable chat and metadata
+  // diagnostics wherever those strings now live.
+  const guiStaticDir = join(root, "src", "gui", "static");
+  const guiModuleDir = join(guiStaticDir, "assets", "modules");
+  const guiFiles = [join(guiStaticDir, "index.html")].concat(
+    existsSync(guiModuleDir)
+      ? readdirSync(guiModuleDir).filter((file) => file.endsWith(".js")).sort().map((file) => join(guiModuleDir, file))
+      : [],
+  );
+  const guiText = guiFiles.map((file) => readFileSync(file, "utf-8")).join("\n");
   for (const requiredGuiText of ['id="chat-cancel"', "/api/metadata", "AbortController"]) {
-    const gui = readFileSync(join(root, "src", "gui", "static", "index.html"), "utf-8");
-    if (!gui.includes(requiredGuiText)) throw new Error(`GUI is missing interactivity contract: ${requiredGuiText}`);
+    if (!guiText.includes(requiredGuiText)) throw new Error(`GUI is missing interactivity contract: ${requiredGuiText}`);
   }
-
   if (!openapi.includes(`  version: ${packageJson.version}`)) {
     throw new Error(`openapi.yaml version does not match package.json (${packageJson.version})`);
   }

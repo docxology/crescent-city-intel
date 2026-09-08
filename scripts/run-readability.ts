@@ -13,11 +13,13 @@
  *   --limit=N     Only show top/bottom N sections (default: all)
  *   --hardest     Show hardest N sections
  *   --easiest     Show easiest N sections
- *
  * Output:
- *   output/readability.json
+ *   output/readability.json            (per-run snapshot report)
+ *   output/readability/history.jsonl   (bounded per-run history, 10k-line cap)
  */
+
 import { scoreCorpusReadability } from "../src/shared/readability.ts";
+import { appendReadabilityHistory, buildReadabilityHistoryEntry } from "../src/readability_history.ts";
 import { loadAllSections } from "../src/shared/data.ts";
 import { createLogger } from "../src/logger.ts";
 import { writeFile, mkdir } from "fs/promises";
@@ -38,8 +40,9 @@ logger.info(`Scoring ${sections.length} sections...`);
 const scored = scoreCorpusReadability(sections); // sorted hardest → easiest
 
 await mkdir("output", { recursive: true });
+const computedAt = new Date().toISOString();
 await writeFile("output/readability.json", JSON.stringify({
-  computedAt: new Date().toISOString(),
+  computedAt,
   totalSections: sections.length,
   scored: scored.length,
   averageGradeLevel: scored.length > 0
@@ -49,6 +52,14 @@ await writeFile("output/readability.json", JSON.stringify({
   easiestSections: scored.slice(-10).reverse(),
   allScores: scored,
 }, null, 2));
+
+// One history entry per run — every run is recorded (no corpus-unchanged
+// skip); the shared bounded appender keeps the file at the 10k-line cap.
+try {
+  await appendReadabilityHistory(buildReadabilityHistoryEntry(scored, computedAt));
+} catch (err) {
+  logger.warn("Failed to append readability history", { error: String(err) });
+}
 
 // Console summary
 if (scored.length > 0) {

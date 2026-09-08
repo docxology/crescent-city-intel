@@ -98,10 +98,10 @@ describe("lane3: per-page JSON-LD (§3.5)", () => {
     expect(parsed.itemListElement[1].name).toBe("Sources");
   });
 
-  test("Dataset catalog describes the seven public artifacts", () => {
+  test("Dataset catalog describes the eight public artifacts", () => {
     const parsed = parseBlock(buildPagesDatasetJsonLd("2026-08-27T12:00:00.000Z"));
     expect(parsed["@type"]).toBe("DataCatalog");
-    expect(parsed.dataset.length).toBe(7);
+    expect(parsed.dataset.length).toBe(8);
     for (const dataset of parsed.dataset) {
       expect(dataset["@type"]).toBe("Dataset");
       expect((dataset.url as string).startsWith("https://quadruplicate.org/")).toBe(true);

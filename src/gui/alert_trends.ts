@@ -25,6 +25,7 @@ export const ALERT_SOURCE_BY_TYPE: Readonly<Record<AlertType, string>> = {
   wildfire: "CAL FIRE Wildfire",
   marine: "NDBC Marine",
   fishing: "CDFW Fishing",
+  uscg: "USCG Broadcast Notice to Mariners",
 };
 
 const ALERT_TYPE_SET = new Set<string>(ALERT_TYPES);
@@ -183,9 +184,9 @@ export function alertHeatIntensity(count: number, maximum: number): 0 | 1 | 2 | 
 }
 
 /**
- * Aggregate a bounded, UTC-day view over all eight alert types.
+ * Aggregate a bounded, UTC-day view over all nine alert types.
  *
- * Input events may be the union of `/api/alerts/timeline` and the eight
+ * Input events may be the union of `/api/alerts/timeline` and the nine
  * `/api/alerts/{type}/history` responses. Exact overlaps are deduplicated.
  */
 export function buildAlertTrendView(input: AlertTrendInput = {}): AlertTrendView {

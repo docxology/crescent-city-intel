@@ -32,14 +32,26 @@ const QUIET_BASE = [
 /** Compute severity from the quiet base plus whatever the extended monitors said. */
 function severityWith(reports: Parameters<typeof buildExtendedCompositeInput>[0]) {
   const extended = buildExtendedCompositeInput(reports);
+  /** The eight core severity inputs, in computeAlertSeverity's positional order. */
+  type CoreSeverityInputs = [
+    Parameters<typeof computeAlertSeverity>[0],
+    Parameters<typeof computeAlertSeverity>[1],
+    Parameters<typeof computeAlertSeverity>[2],
+    Parameters<typeof computeAlertSeverity>[3],
+    Parameters<typeof computeAlertSeverity>[4],
+    Parameters<typeof computeAlertSeverity>[5],
+    Parameters<typeof computeAlertSeverity>[6],
+    Parameters<typeof computeAlertSeverity>[7],
+  ];
   return computeAlertSeverity(
-    ...(QUIET_BASE as unknown as Parameters<typeof computeAlertSeverity>),
+    ...(QUIET_BASE as unknown as CoreSeverityInputs),
     extended.drought as Parameters<typeof computeAlertSeverity>[8],
     extended.psps as Parameters<typeof computeAlertSeverity>[9],
     extended.smoke as Parameters<typeof computeAlertSeverity>[10],
     extended.roads as Parameters<typeof computeAlertSeverity>[11],
     extended.schools as Parameters<typeof computeAlertSeverity>[12],
     extended.marinezone as Parameters<typeof computeAlertSeverity>[13],
+    extended.uscg as Parameters<typeof computeAlertSeverity>[14],
   );
 }
 
@@ -86,6 +98,19 @@ describe("extended monitors reach the composite severity", () => {
     const quiet = severityWith({});
     const smoke = severityWith({ smoke: { peakLevel: "HAZARDOUS", peakAqi: 320, maxPm25: 250 } });
     expect(smoke.level).not.toBe(quiet.level);
+  });
+
+  test("a USCG broadcast advisory reaches the composite", () => {
+    const quiet = severityWith({});
+    const advisory = severityWith({
+      uscg: { worstLevel: "ADVISORY" },
+    });
+    expect(quiet.level).toBe("CALM");
+    // BNM traffic is informational, so the composite's advisory-class WATCH is
+    // the ceiling it can impose — the same mapping NWS advisories get.
+    expect(advisory.level).toBe("WATCH");
+    expect(advisory.monitors.uscg.level).toBe("WATCH");
+    expect(advisory.monitors.uscg.availability).toBeUndefined();
   });
 });
 

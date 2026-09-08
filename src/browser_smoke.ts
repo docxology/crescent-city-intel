@@ -148,10 +148,12 @@ export async function runBrowserSmoke(): Promise<void> {
           note: document.querySelector(".alert-trend-note")?.textContent ?? "",
         };
       });
-      if (alertView.selectOptions !== 8) markFail(`alert type selector rendered ${alertView.selectOptions} options, expected 8`);
+      // Heatmap arithmetic: 9 alert types (8 core + "uscg") x 14 trend days =
+      // 126 cells. Rows/cells track the GUI's ALERT_TREND_TYPES roster.
+      if (alertView.selectOptions !== 9) markFail(`alert type selector rendered ${alertView.selectOptions} options, expected 9`);
       if (alertView.trendColumns !== 14) markFail(`alert trend rendered ${alertView.trendColumns} days, expected 14`);
-      if (alertView.heatRows !== 8 || alertView.heatCells !== 112) {
-        markFail(`alert heatmap shape was ${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)}, expected 8x14`);
+      if (alertView.heatRows !== 9 || alertView.heatCells !== 9 * 14) {
+        markFail(`alert heatmap shape was ${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)}, expected 9x14`);
       }
       if (alertView.labelledCells !== alertView.heatCells) markFail("alert heatmap cells are missing accessible recorded-event labels");
       for (const state of ["calm", "empty", "stale", "unavailable"]) {
@@ -162,7 +164,7 @@ export async function runBrowserSmoke(): Promise<void> {
       }
       if (!alertView.note.includes("rendering is capped at 5,000 records")) markFail("alert rendering bound is not visible");
       if (!alertRequests.some(path => path === "/api/alerts/timeline")) markFail("alert view did not request /api/alerts/timeline");
-      for (const type of ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"]) {
+      for (const type of ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg"]) {
         if (!alertRequests.some(path => path.startsWith(`/api/alerts/${type}/history?`))) {
           markFail(`alert view did not request ${type} history`);
         }

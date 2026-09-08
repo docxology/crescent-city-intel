@@ -71,7 +71,7 @@ describe("computeAlertTypeTrends (per-type 30-day trend summary)", () => {
   test("covers every alert type exactly once, in canonical order", () => {
     const trends = computeAlertTypeTrends([], new Date(now));
     expect(trends.map(t => t.type)).toEqual([
-      "tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing",
+      "tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg",
     ]);
   });
 });

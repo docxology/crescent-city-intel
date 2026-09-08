@@ -162,9 +162,7 @@
   </div>
   <div class="masthead-nav-wrap">
     <div class="inner">
-      <nav class="masthead-nav" aria-label="Sections">
-        <a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="directory.html">Directory</a><a href="code.html">Municipal code</a><a href="sources.html">Sources &amp; monitors</a><a href="#geo">Geo-Intel</a><a href="#alerts">Alerts</a><a href="#methods">Methods</a><a href="#faq">FAQ</a>
-      </nav>
+      <nav class="masthead-nav" aria-label="Page sections"><a href="./" aria-current="page">Front page</a><a href="gui.html">GUI console</a><a href="news.html">News</a><a href="meetings.html">Meetings</a><a href="events.html">Events</a><a href="directory.html">Directory</a><a href="code.html">Municipal code</a><a href="sources.html">Sources</a><a href="./#geo">Geo-intel</a><a href="./#observations">Observations</a><a href="./#alerts">Alerts</a><a href="./#methods">Methods</a><a href="./#faq">FAQ</a></nav>
     </div>
   </div>
   <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -261,6 +259,11 @@
           <div class="action-bar"><a class="button" href="data/geo-intel.json" download>Download geo-intel JSON</a></div>
         </aside>
       </div>
+    </section>
+    <section id="observations" class="section">
+      <div class="section-head"><span class="newspaper-label">Hazard Desk</span><h2>Live hazard observations</h2><span class="meta"><a href="data/geo-observations.json">Download observations JSON</a></span></div>
+      <p class="subtle">The same <code>crescent-city-geo-observations/v1</code> envelope served by the local GUI, rendered backend-free from the exact artifact published with this edition: composite severity, per-monitor operational states, and contract freshness.</p>
+      <template data-pages-observations></template>
     </section>
     <section id="sources" class="section">
       <div class="section-head"><h2>Dateline &mdash; source health</h2><span class="meta"><a href="data/source-health.json">Download health report</a></span></div>

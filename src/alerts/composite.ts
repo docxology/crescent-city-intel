@@ -24,6 +24,7 @@ import { HRRR_SMOKE_API_URL } from "./hrrr_smoke.js";
 import { CALTRANS_API_D1_URL } from "./caltrans_roads.js";
 import { DUSD_ALERTS_URL } from "./dusd_schools.js";
 import { NWS_CWF_LIST_URL } from "./nws_marine.js";
+import { USCG_BNM_LIST_URL } from "./uscg_broadcasts.js";
 
 /** A single monitor's run outcome + the metadata needed to classify it. */
 /**
@@ -38,7 +39,7 @@ import { NWS_CWF_LIST_URL } from "./nws_marine.js";
  */
 export const MONITOR_KEYS = [
   "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
-  "tides", "fishing", "drought", "psps", "smoke", "roads", "schools",
+  "tides", "fishing", "drought", "psps", "smoke", "roads", "schools", "uscg",
 ] as const;
 
 export type MonitorKey = typeof MONITOR_KEYS[number];
@@ -50,7 +51,7 @@ export type MonitorKey = typeof MONITOR_KEYS[number];
  */
 export const NULL_ON_FAILURE_MONITORS = new Set<MonitorKey>([
   "airquality", "wildfire", "marine", "marinezone", "tides", "fishing",
-  "drought", "psps", "smoke", "roads", "schools",
+  "drought", "psps", "smoke", "roads", "schools", "uscg",
 ]);
 
 export interface AlertMonitorDefinition {
@@ -220,6 +221,7 @@ export function buildExtendedCompositeInput(reports: {
   roads?: unknown;
   schools?: unknown;
   marinezone?: unknown;
+  uscg?: unknown;
 }): Record<string, unknown> {
   const drought = asRecord(reports.drought);
   const psps = asRecord(reports.psps);
@@ -227,6 +229,7 @@ export function buildExtendedCompositeInput(reports: {
   const roads = asRecord(reports.roads);
   const schools = asRecord(reports.schools);
   const marinezone = asRecord(reports.marinezone);
+  const uscg = asRecord(reports.uscg);
   return {
     drought: {
       severity: (drought.compositeSeverity as string) ?? "NONE",
@@ -263,10 +266,16 @@ export function buildExtendedCompositeInput(reports: {
       peakWindKt: typeof marinezone.peakWindKt === "number" ? marinezone.peakWindKt : null,
       available: reports.marinezone != null,
     },
+    uscg: {
+      totalBroadcasts: typeof uscg.totalBroadcasts === "number" ? uscg.totalBroadcasts : 0,
+      relevantCount: typeof uscg.relevantCount === "number" ? uscg.relevantCount : 0,
+      worstLevel: (uscg.worstLevel as string) ?? "CALM",
+      available: reports.uscg != null,
+    },
   };
 }
 
-/** The extended monitors (five Phase-12 + the NWS marine forecast), by stable key. */
+/** The extended monitors (five Phase-12 + the NWS marine forecast + USCG broadcasts), by stable key. */
 export type ExtendedMonitorSpec = readonly [
   source: string,
   key: MonitorKey,
@@ -282,6 +291,7 @@ export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
   ["Caltrans Roads", "roads", "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
   ["DUSD Schools", "schools", "items", DUSD_ALERTS_URL, "Del Norte USD announcements"],
   ["NWS Marine Forecast", "marinezone", "periods", NWS_CWF_LIST_URL, "NWS Coastal Waters Forecast text product (KEKA CWF, zone PZZ450)"],
+  ["USCG Broadcast Notice to Mariners", "uscg", "items", USCG_BNM_LIST_URL, "USCG NAVCEN District 11 Broadcast Notice to Mariners listing"],
 ];
 
 /**
@@ -301,7 +311,7 @@ export const CORE_MONITOR_SOURCE_NAMES: readonly string[] = [
   "CDFW Fishing",      // fishing
 ] as const;
 
-/** All 14 alert-monitor source names (8 core + 6 extended), in MONITOR_KEYS order. */
+/** All 15 alert-monitor source names (8 core + 7 extended), in MONITOR_KEYS order. */
 export const ALERT_MONITOR_SOURCE_NAMES: readonly string[] = [
   ...CORE_MONITOR_SOURCE_NAMES.slice(0, 6), // tsunami..marine
   ...CORE_MONITOR_SOURCE_NAMES.slice(6),    // tides, fishing

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * scripts/run-alerts.ts — Thin orchestrator: run all 14 alert monitors.
+ * scripts/run-alerts.ts — Thin orchestrator: run all 15 alert monitors.
  *
  * Imports and calls the alert monitoring functions from src/alerts/*, then
  * delegates ALL composite-input shaping and source-health classification to
@@ -39,6 +39,7 @@ import {
   type MonitorKey,
 } from "../src/alerts/composite.ts";
 import { runMarineZoneMonitor, getLastMarineZoneError } from "../src/alerts/nws_marine.ts";
+import { runUscgBroadcastMonitor, getLastUscgError } from "../src/alerts/uscg_broadcasts.ts";
 import { createLogger } from "../src/logger.ts";
 import { readFile, mkdir, unlink, open, stat } from "fs/promises";
 import { existsSync } from "fs";
@@ -100,7 +101,7 @@ if (import.meta.main) {
 export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
   const releaseLock = await acquireAlertsLock();
   try {
-    logger.info("=== Running All 14 Alert Monitors ===");
+    logger.info("=== Running All 15 Alert Monitors ===");
 
     const monitorErrors = new Map<MonitorKey, string>();
     function runNullableMonitor<T>(
@@ -140,6 +141,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       { key: "smoke", run: () => runNullableMonitor("smoke", "HRRR smoke", runSmokeMonitor, getLastSmokeError) },
       { key: "roads", run: () => runNullableMonitor("roads", "Caltrans roads", runRoadClosureMonitor, getLastRoadsError) },
       { key: "schools", run: () => runNullableMonitor("schools", "DUSD schools", runSchoolClosureMonitor, getLastSchoolsError) },
+      { key: "uscg", run: () => runNullableMonitor("uscg", "USCG broadcasts", runUscgBroadcastMonitor, getLastUscgError) },
     ];
     if (batch.length !== MONITOR_KEYS.length || batch.some((entry, position) => entry.key !== MONITOR_KEYS[position])) {
       throw new Error(`alert batch does not match MONITOR_KEYS: [${batch.map(entry => entry.key).join(", ")}]`);
@@ -153,9 +155,14 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       return result && result.status === "fulfilled" ? result.value : null;
     };
     const fishingReport = settledValue("fishing") as FishingReport | null;
+    // The tides report feeds buildCompositeInput and the source-health list
+    // below. It was referenced but never defined here, so every `bun run
+    // alerts` crashed with ReferenceError before the composite could be
+    // computed (pre-existing on main; caught by the 2026-09-08 live pass).
+    const tidesReport = settledValue("tides") as TideReport | null;
 
     // ─── Compute composite severity ───────────────────────────────────
-    logger.info("Computing 14-monitor composite alert severity...");
+    logger.info("Computing 15-monitor composite alert severity...");
 
     // Remove any prior snapshot when a feed failed this run.
     const currentTypes: MonitorKey[] = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"];
@@ -194,7 +201,13 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       roads: settledValue("roads"),
       schools: settledValue("schools"),
       marinezone: settledValue("marinezone"),
+      uscg: settledValue("uscg"),
     });
+    // The composite severity now takes all fifteen inputs: extendedInput.uscg
+    // (shaped by buildExtendedCompositeInput from the USCG BNM report) feeds
+    // the composite like the other extended monitors. BNM traffic is
+    // informational (CALM/ADVISORY), so it can raise the composite to WATCH
+    // but never manufacture a WARNING on its own.
 
     const severityReport = computeAlertSeverity(
       compositeInput.tsunami,
@@ -211,6 +224,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       extendedInput.roads as Parameters<typeof computeAlertSeverity>[11],
       extendedInput.schools as Parameters<typeof computeAlertSeverity>[12],
       extendedInput.marinezone as Parameters<typeof computeAlertSeverity>[13],
+      extendedInput.uscg as Parameters<typeof computeAlertSeverity>[14],
     );
 
     logger.info(`Composite alert severity: ${severityReport.level} — ${severityReport.reason}`);
@@ -267,7 +281,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
 
     await writeJsonAtomic(paths.alertsHealth, { checkedAt, sources: alertSources });
 
-    logger.info("=== All 14 Alert Monitors Complete ===");
+    logger.info("=== All 15 Alert Monitors Complete ===");
     return alertSources;
   } finally {
     await releaseLock();

@@ -55,12 +55,12 @@ async function cleanState() {
 describe("Healer — getHealerState", () => {
   beforeEach(cleanState);
 
-  test("returns a fresh state with all 14 monitors when no state file exists", async () => {
+  test("returns a fresh state with all 15 monitors when no state file exists", async () => {
     const { getHealerState } = await importHealer();
     const state = await getHealerState();
     expect(state).toBeDefined();
     expect(state.lastCycleRun).toBeTruthy();
-    expect(Object.keys(state.monitors).length).toBe(14);
+    expect(Object.keys(state.monitors).length).toBe(15);
     // Verify all expected monitor keys
     const names = Object.keys(state.monitors).sort();
     expect(names).toContain("NOAA Tsunami");
@@ -80,6 +80,8 @@ describe("Healer — getHealerState", () => {
     expect(names).toContain("Caltrans Roads");
     expect(names).toContain("DUSD Schools");
     expect(names).toContain("NWS Marine Forecast");
+    // The USCG Broadcast Notice to Mariners monitor is the 15th roster entry.
+    expect(names).toContain("USCG Broadcast Notice to Mariners");
   });
 
   test("all monitors start with zero consecutive failures", async () => {
@@ -97,7 +99,7 @@ describe("Healer — getHealerState", () => {
     const { getHealerState } = await importHealer();
     const state = await getHealerState();
     expect(state).toBeDefined();
-    expect(Object.keys(state.monitors).length).toBe(14);
+    expect(Object.keys(state.monitors).length).toBe(15);
   });
 });
 

@@ -10,6 +10,15 @@ import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, summarizeSourceHealth } f
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
 import { buildAnalyticsOverview, readAnalyticsOverview } from "../analytics_backend.js";
 import { domains } from "../domains.js";
+import {
+  DEFAULT_OBSERVATION_ANCHOR,
+  buildHazardObservations,
+  normalizeCompositeSnapshot,
+  normalizeMonitorObservation,
+  type HazardDomainInput,
+} from "../geo_observations.js";
+import { buildReadabilityTrend, readReadabilityHistory } from "../readability_history.js";
+import { outputRoot } from "../shared/paths.js";
 import { buildGeoIntel } from "../geo.js";
 import { buildGeoIntelSurface } from "../geo_view.js";
 
@@ -511,6 +520,50 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/readability/history?limit=&offset= — bounded readability run history
+  //
+  // The history file is a bounded tail (most-recent 10,000 runs), so
+  // pagination walks it from the newest end: `offset` skips the most recent
+  // entries and `limit` takes the page before them — offset=0 returns the
+  // newest `limit` runs. Entries within the page stay chronological
+  // (oldest → newest), matching readReadabilityHistory. `total` and `trend`
+  // always describe the FULL history file, never just the page.
+  if (path === "/api/readability/history") {
+    try {
+      const limitParam = url.searchParams.get("limit");
+      const offsetParam = url.searchParams.get("offset");
+      if (limitParam !== null && !/^\d+$/.test(limitParam.trim())) {
+        return json({ error: "limit must be an integer between 1 and 200" }, 400);
+      }
+      if (offsetParam !== null && !/^\d+$/.test(offsetParam.trim())) {
+        return json({ error: "offset must be a non-negative integer" }, 400);
+      }
+      const limit = limitParam !== null ? Math.min(200, Math.max(1, parseInt(limitParam, 10))) : 60;
+      const offset = Math.max(0, offsetParam !== null ? parseInt(offsetParam, 10) : 0);
+
+      // Full read: `total` must reflect the whole bounded file and the trend
+      // must be computed over every run, not the requested page.
+      const allEntries = readReadabilityHistory();
+      // Tail window sized limit+offset: exactly the entries the page needs
+      // without dragging the whole file into the slice.
+      const tailWindow = readReadabilityHistory(limit + offset);
+      const pageEnd = Math.max(0, tailWindow.length - offset);
+      const entries = tailWindow.slice(Math.max(0, pageEnd - limit), pageEnd);
+
+      return json({
+        total: allEntries.length,
+        count: entries.length,
+        offset,
+        limit,
+        entries,
+        trend: buildReadabilityTrend(allEntries, { now: new Date().toISOString() }),
+      });
+    } catch (err: any) {
+      log.error("[readability-history] failed", { error: err.message });
+      return json({ error: `Readability history failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
   // GET /api/domains/coverage — domain cross-reference coverage metrics
   if (path === "/api/domains/coverage") {
     try {
@@ -546,6 +599,72 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     return json(buildGeoIntelSurface(contract));
   }
 
+  // GET /api/geo-observations — GEO-INFER hazard-observation interface
+  //
+  // The `crescent-city-geo-observations/v1` envelope, built per request from
+  // the live artifacts: the composite severity snapshot (output/alerts/
+  // composite/current.json), the alert source-health artifact
+  // (paths.alertsHealth), and the committed geo-intel contract seed
+  // (PAGES_SEED_DIR override, the same seam `pages:seed` and the
+  // run-geo-observations runner use) for the anchor, hazard-tag summary, and
+  // contract freshness. When the seed is absent the in-repo domain surface
+  // substitutes — the same always-available source GET /api/geo-intel builds
+  // from — so the endpoint is never dead merely because a pipeline has not
+  // run. Monitors that have not run are a valid empty state (composite: null,
+  // monitors: []), never a 500.
+  if (path === "/api/geo-observations") {
+    try {
+      const { existsSync, readFileSync } = await import("fs");
+      const readJsonIfPresent = (filePath: string): unknown => {
+        if (!existsSync(filePath)) return null;
+        try { return JSON.parse(readFileSync(filePath, "utf-8")); }
+        catch { return null; } // a corrupt artifact is absent, not fatal
+      };
+
+      const seedPath = join(process.env.PAGES_SEED_DIR ?? "pages-data", "geo-intel.json");
+      const seeded = readJsonIfPresent(seedPath);
+      const contract = (seeded !== null && typeof seeded === "object" ? seeded : buildGeoIntel(domains)) as Record<string, unknown>;
+
+      const anchorRaw = (contract.anchor ?? {}) as Record<string, unknown>;
+      const str = (key: string, fallback: string): string => typeof anchorRaw[key] === "string" ? anchorRaw[key] as string : fallback;
+      const num = (key: string, fallback: number): number => typeof anchorRaw[key] === "number" ? anchorRaw[key] as number : fallback;
+      const anchor = {
+        name: str("name", DEFAULT_OBSERVATION_ANCHOR.name),
+        guid: str("guid", DEFAULT_OBSERVATION_ANCHOR.guid),
+        municipality: str("municipality", DEFAULT_OBSERVATION_ANCHOR.municipality),
+        county: str("county", DEFAULT_OBSERVATION_ANCHOR.county),
+        state: str("state", DEFAULT_OBSERVATION_ANCHOR.state),
+        latitude: num("latitude", DEFAULT_OBSERVATION_ANCHOR.latitude),
+        longitude: num("longitude", DEFAULT_OBSERVATION_ANCHOR.longitude),
+      };
+
+      const hazard = (contract.hazard ?? {}) as Record<string, unknown>;
+      const hazardDomains: HazardDomainInput[] = Array.isArray(hazard.relevantDomains)
+        ? (hazard.relevantDomains as HazardDomainInput[])
+        : [];
+
+      const health = readJsonIfPresent(paths.alertsHealth) as Record<string, unknown> | null;
+      const sources = health !== null && Array.isArray(health.sources) ? health.sources : [];
+      const monitors = sources.map((entry) =>
+        normalizeMonitorObservation(entry as Parameters<typeof normalizeMonitorObservation>[0]));
+
+      const composite = normalizeCompositeSnapshot(
+        readJsonIfPresent(join(outputRoot(), "alerts", "composite", "current.json")),
+      );
+
+      return json(buildHazardObservations({
+        anchor,
+        generatedAt: new Date().toISOString(),
+        composite,
+        monitors,
+        hazardDomains,
+        contractGeneratedAt: typeof contract.generatedAt === "string" ? contract.generatedAt : null,
+      }));
+    } catch (err: any) {
+      log.error("[geo-observations] failed", { error: err.message });
+      return json({ error: `Geo observations failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
   // GET /api/domain/:id — get a specific domain with all topics
   const domainMatch = path.match(/^\/api\/domain\/([a-z-]+)$/);
   if (domainMatch) {

@@ -47,6 +47,7 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "EPA AirNow", url: "https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml", monitor: "alerts" },
   { source: "CAL FIRE Wildfire", url: "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false", monitor: "alerts" },
   { source: "NDBC Marine", url: "https://www.ndbc.noaa.gov/data/realtime2", monitor: "alerts" },
+  { source: "USCG Broadcast Notice to Mariners", url: "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0", monitor: "alerts" },
 ];
 
 export function sourceHealth(

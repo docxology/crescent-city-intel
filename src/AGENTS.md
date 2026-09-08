@@ -46,6 +46,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `manuscript_variables.ts` | No (pure analytics-to-publication adapter) | `tests/manuscript.test.ts` |
 | `geo.ts` | No (pure municipality geo-intel contract builders) | `tests/geo-intel.test.ts` |
 | `geo_view.ts` | No (pure map-ready feature-view builder) | `tests/geo-view.test.ts` |
+| `geo_observations.ts` | No (pure hazard-observation envelope builders; GEO-INFER interface) | `tests/geo-observations.test.ts` |
 | `monthly_report.ts` | Yes (filesystem) | No (integration) |
 | `shared/orchestration.ts` | Yes (filesystem; run metadata) | `tests/orchestration.test.ts` |
 | `source_registry.ts` | Yes (filesystem; optional bounded probes) | `tests/source-registry.test.ts` |
@@ -78,7 +79,7 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `alerts/calfire_wildfire.ts` | CAL FIRE wildfire incident monitoring | `classifyWildfireSeverity()`, `runWildfireMonitor()` |
 | `alerts/ndbc_marine.ts` | NDBC buoy marine weather monitoring | `classifyMarineSeverity()`, `runMarineMonitor()` |
 | `alerts/nws_marine.ts` | NWS Coastal Waters Forecast monitor (CWF text product, zone PZZ450) | `runMarineZoneMonitor()`, `classifyMarineForecastPeriod()`, `parseWindKt()` |
-| `alerts/severity.ts` | 14-monitor composite severity | `computeAlertSeverity()` (8 core + 6 extended monitors) |
+| `alerts/severity.ts` | 15-monitor composite severity | `computeAlertSeverity()` (8 core + 7 extended monitors) |
 | `alerts/composite.ts` | Pure composite-input shaping + source-health classification (thin-script enabler for `scripts/run-alerts.ts`) | `buildCompositeInput()`, `classifySourceHealth()`, `isFreshReport()` |
 | `shared/fuzzy.ts` | Levenshtein fuzzy matching + typo correction | `levenshtein()`, `similarity()`, `fuzzyCorrect()`, `expandQueryFuzzy()` |
 | `llm/streaming_rag.ts` | SSE streaming RAG | `createStreamingRagResponse()` |
@@ -92,5 +93,7 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `domains/coverage.ts` | Domain coverage % with prefix matching | `computeDomainCoverage()` |
 | `geo.ts` | Transferable municipality geo-intel contract (Crescent default civic + hazard) | `buildGeoIntel()`, `buildMunicipalityContract()`, `hazardRelevantDomains()`, `CRESCENT_CITY_ANCHOR` |
 | `geo_view.ts` | Tiles-free map-ready Crescent City feature view (Del Norte bounds polygon + anchor + hazard-domain points + section refs) from the geo-intel contract | `buildGeoView()` |
+| `geo_observations.ts` | GEO-INFER hazard-observation envelope (`crescent-city-geo-observations/v1`): live composite + monitor health + hazard-tag summary over the frozen geo-intel contract | `buildHazardObservations()`, `normalizeCompositeSnapshot()`, `normalizeMonitorObservation()`, `hazardTagSummary()` |
 | `minutes_extraction.ts` | No (pure extraction + hash-drift builders; bounded fetch) | `tests/minutes-depth.test.ts`, `tests/gov-vote-extraction.test.ts` |
 | `agenda_crossref.ts` | Yes (BM25 index over the local scraped corpus) | `tests/agenda-crossref.test.ts` |
+| `readability_history.ts` | Bounded per-run readability history (JSONL, 10k cap) + pure trend builder | `buildReadabilityHistoryEntry()`, `appendReadabilityHistory()`, `readReadabilityHistory()`, `buildReadabilityTrend()` |

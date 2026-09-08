@@ -15,6 +15,8 @@ import {
   PAGES_FAVICON_ICO,
   PAGES_FAVICON_SVG,
   PAGES_GEO_INTEL_ARTIFACT,
+  PAGES_GEO_OBSERVATIONS_ARTIFACT,
+  PAGES_GEO_OBSERVATIONS_UNAVAILABLE_SCHEMA,
   PAGES_GEO_VIEW_PLACEHOLDER,
   PAGES_OG_IMAGE_PNG,
   PAGES_OPERATOR_SIGNALS_ARTIFACT,
@@ -27,8 +29,8 @@ import {
   PAGES_WEB_MANIFEST,
   summarizePagesGeoIntel,
   validatePagesGeoIntel,
+  validatePagesGeoObservations,
   validatePagesHtml,
-  validatePagesSource,
 } from "./pages_snapshot.js";
 import { EXPECTED_SOURCE_HEALTH } from "./shared/source_health.js";
 import { auditPagesCss, auditStylesheetBraces, type PageCssInput } from "./pages_css.js";
@@ -43,8 +45,7 @@ import type { PagesSnapshot } from "./pages_snapshot.js";
  */
 export async function validatePagesArtifact(destination: string): Promise<string[]> {
   const errors: string[] = [];
-  const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT];
-
+  const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_GEO_OBSERVATIONS_ARTIFACT];
   for (const relative of required) {
     try { await readFile(join(destination, relative)); }
     catch { errors.push(`missing required Pages asset: ${relative}`); }
@@ -58,6 +59,7 @@ export async function validatePagesArtifact(destination: string): Promise<string
     exportedPagesHtml[page] = await readFile(join(destination, page), "utf8").catch(() => "");
   }
   errors.push(...validatePagesHtml(exportedPagesHtml));
+
   if (indexHtml.includes(PAGES_GEO_VIEW_PLACEHOLDER)) errors.push("Pages geo-view placeholder was not replaced");
   if (!indexHtml.includes('data-geo-view-schema="crescent-city-geo-view/v1"')) errors.push("Pages artifact does not contain the rendered geo-view SVG");
 
@@ -101,6 +103,33 @@ export async function validatePagesArtifact(destination: string): Promise<string
     }
   }
 
+  let geoObservations: unknown = null;
+  let geoObservationsAvailable = false;
+  const observationsSource = await readFile(join(destination, PAGES_GEO_OBSERVATIONS_ARTIFACT), "utf8").catch(() => null);
+  if (observationsSource !== null) {
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(observationsSource) as unknown;
+    } catch {
+      errors.push(`${PAGES_GEO_OBSERVATIONS_ARTIFACT} is not valid JSON`);
+    }
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) && (parsed as Record<string, unknown>).schema === PAGES_GEO_OBSERVATIONS_UNAVAILABLE_SCHEMA) {
+      // The honest empty state: present, parseable, and explicitly unavailable.
+      const unavailable = parsed as Record<string, unknown>;
+      if (typeof unavailable.generatedAt !== "string" || !Number.isFinite(Date.parse(unavailable.generatedAt))) errors.push(`${PAGES_GEO_OBSERVATIONS_ARTIFACT} unavailable envelope has no ISO generatedAt`);
+      if (typeof unavailable.reason !== "string" || !unavailable.reason.trim()) errors.push(`${PAGES_GEO_OBSERVATIONS_ARTIFACT} unavailable envelope has no reason`);
+    } else if (parsed !== null) {
+      const observationErrors = validatePagesGeoObservations(parsed, new TextEncoder().encode(observationsSource).byteLength);
+      errors.push(...observationErrors);
+      geoObservations = parsed;
+      geoObservationsAvailable = observationErrors.length === 0;
+    }
+  }
+
+  if (indexHtml.includes("<template data-pages-observations>")) errors.push("Pages observations placeholder was not replaced");
+  if (geoObservationsAvailable && !indexHtml.includes('data-observations-state="published"')) errors.push("Pages index does not render the published hazard observations envelope");
+  if (!geoObservationsAvailable && indexHtml.includes('data-observations-state="published"')) errors.push("Pages index claims published hazard observations but the artifact does not carry a valid envelope");
+
   if (snapshot) {
     if (snapshot.schemaVersion !== "1.0.0") errors.push(`unsupported snapshot schema: ${String(snapshot.schemaVersion)}`);
     if (!Number.isFinite(Date.parse(snapshot.generatedAt))) errors.push("snapshot generatedAt is not an ISO timestamp");
@@ -111,6 +140,7 @@ export async function validatePagesArtifact(destination: string): Promise<string
     if (!snapshot.sourceDiscovery || snapshot.sourceDiscovery.registryFingerprint.length !== 64) errors.push("snapshot sourceDiscovery is missing or has an invalid fingerprint");
     if (snapshot.sourceDiscovery && snapshot.sourceRegistryFingerprint && snapshot.sourceDiscovery.registryFingerprint !== snapshot.sourceRegistryFingerprint) errors.push("snapshot source discovery fingerprint does not match source registry");
     if (snapshot.sourceDiscovery && snapshot.sourceDiscovery.sourceCount !== snapshot.sourceRegistry.length) errors.push("snapshot source discovery count does not match registry");
+
     if (!snapshot.healthSummary || !Array.isArray(snapshot.sourceHealth)) errors.push("snapshot healthSummary cannot be checked without sourceHealth");
     if (snapshot.healthSummary && Array.isArray(snapshot.sourceHealth) && snapshot.healthSummary.total !== snapshot.sourceHealth.length) errors.push("snapshot healthSummary does not match sourceHealth");
     if (snapshot.healthSummary && Array.isArray(snapshot.sourceHealth) && snapshot.healthSummary.degraded !== snapshot.sourceHealth.filter(source => source.status === "unavailable" || source.status === "stale").length) {
@@ -144,6 +174,8 @@ export async function validatePagesArtifact(destination: string): Promise<string
     if (snapshot.report?.metadata && snapshot.files.reportMetadata !== "data/report-metadata.json") errors.push("report metadata link is inconsistent");
     if (snapshot.analytics && snapshot.files.analyticsOverview !== "data/analytics-overview.json") errors.push("analytics overview link is inconsistent");
     if (snapshot.files?.geoIntel !== PAGES_GEO_INTEL_ARTIFACT) errors.push("geo-intel artifact link is inconsistent");
+    if (geoObservationsAvailable && snapshot.files?.geoObservations !== PAGES_GEO_OBSERVATIONS_ARTIFACT) errors.push("hazard observations artifact link is inconsistent");
+    if (!geoObservationsAvailable && snapshot.files?.geoObservations === PAGES_GEO_OBSERVATIONS_ARTIFACT) errors.push("snapshot claims hazard observations but the artifact is the unavailable envelope");
     const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
     if (!geoIntelSummary) errors.push("geo-intel artifact summary cannot be derived");
     else if (JSON.stringify(snapshot.geoIntel) !== JSON.stringify(geoIntelSummary)) errors.push("snapshot geoIntel summary does not match the geo-intel artifact");
@@ -833,18 +865,26 @@ export async function validatePagesArtifact(destination: string): Promise<string
   {
     const analyticsJson = await readFile(join(destination, "data/analytics.json"), "utf8").catch(() => null);
     if (analyticsJson !== null) {
-      const operatorJson = await readFile(join(destination, PAGES_OPERATOR_SIGNALS_ARTIFACT), "utf8").catch(() => null);
-      if (operatorJson === null) {
-        errors.push(`missing required Pages asset when analytics exist: ${PAGES_OPERATOR_SIGNALS_ARTIFACT}`);
-      } else {
-        const operator = JSON.parse(operatorJson) as { operatorSignalsNoticed?: unknown; schemaVersion?: unknown };
-        const analytics = JSON.parse(analyticsJson) as { operatorSignalsNoticed?: unknown };
-        if (operator.schemaVersion !== "crescent-city-operator-signals/v1") errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} has an unsupported schemaVersion`);
-        if (JSON.stringify(operator.operatorSignalsNoticed ?? []) !== JSON.stringify(analytics.operatorSignalsNoticed ?? [])) {
-          errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} operatorSignalsNoticed does not match data/analytics.json (routed detail diverged)`);
-        }
-        for (const leaked of ["yt-dlp", "yt_dlp", "$PATH", "not found in", "stack trace", "error:"]) {
-          if (operatorJson.toLowerCase().includes(leaked.toLowerCase())) errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} leaks operator-side detail: "${leaked}"`);
+      // §5.5 correctness (2026-09-08): the exporter writes an honest
+      // "analytics-unavailable" envelope when no overview was produced for the
+      // edition, and in that case deliberately emits no operator channel —
+      // there are no routed signals to preserve. The gate therefore demands
+      // the operator artifact only when a real overview exists.
+      const analyticsParsed = JSON.parse(analyticsJson) as { available?: unknown; schemaVersion?: unknown; operatorSignalsNoticed?: unknown };
+      const analyticsUnavailable = analyticsParsed.available === false || analyticsParsed.schemaVersion === "crescent-city-analytics-unavailable/v1";
+      if (!analyticsUnavailable) {
+        const operatorJson = await readFile(join(destination, PAGES_OPERATOR_SIGNALS_ARTIFACT), "utf8").catch(() => null);
+        if (operatorJson === null) {
+          errors.push(`missing required Pages asset when analytics exist: ${PAGES_OPERATOR_SIGNALS_ARTIFACT}`);
+        } else {
+          const operator = JSON.parse(operatorJson) as { operatorSignalsNoticed?: unknown; schemaVersion?: unknown };
+          if (operator.schemaVersion !== "crescent-city-operator-signals/v1") errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} has an unsupported schemaVersion`);
+          if (JSON.stringify(operator.operatorSignalsNoticed ?? []) !== JSON.stringify(analyticsParsed.operatorSignalsNoticed ?? [])) {
+            errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} operatorSignalsNoticed does not match data/analytics.json (routed detail diverged)`);
+          }
+          for (const leaked of ["yt-dlp", "yt_dlp", "$PATH", "not found in", "stack trace", "error:"]) {
+            if (operatorJson.toLowerCase().includes(leaked.toLowerCase())) errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} leaks operator-side detail: "${leaked}"`);
+          }
         }
       }
     }

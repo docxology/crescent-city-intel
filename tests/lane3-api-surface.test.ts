@@ -41,7 +41,7 @@ afterAll(() => {
 
 /** Documented enum from openapi.yaml — the response must stay inside it. */
 const TREND_VALUES = ["rising", "steady", "falling", "changed", "insufficient"];
-const ALERT_TYPE_VALUES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"];
+const ALERT_TYPE_VALUES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg"];
 
 /** Make a temp root holding one alert history file with `count` tsunami records. */
 function makeAlertRoot(count: number): string {

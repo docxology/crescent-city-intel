@@ -17,7 +17,7 @@ import { outputRoot } from "./shared/paths.js";
 
 const log = createLogger("alert_analytics");
 
-export const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"] as const;
+export const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg"] as const;
 export type AlertType = typeof ALERT_TYPES[number];
 
 interface AlertHistoryRecord {
@@ -118,6 +118,7 @@ function getSeverity(record: AlertHistoryRecord, type: AlertType): string {
   if (type === "wildfire") return record.level ?? "ADVISORY";
   if (type === "marine") return record.level ?? "CALM";
   if (type === "fishing") return record.level ?? "CALM";
+  if (type === "uscg") return record.level ?? "ADVISORY";
   return "alert";
 }
 
@@ -130,6 +131,7 @@ function getDescription(record: AlertHistoryRecord, type: AlertType): string {
   if (type === "airquality") return record.summary ?? `AQI ${record.maxAqi ?? "?"}`;
   if (type === "wildfire") return record.summary ?? `${record.name ?? "Wildfire"}`;
   if (type === "marine") return record.summary ?? "Marine condition";
+  if (type === "uscg") return record.summary ?? record.msgId ?? "USCG broadcast";
   return JSON.stringify(record).substring(0, 100);
 }
 

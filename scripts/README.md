@@ -10,7 +10,7 @@ logic lives in `src/` (importable and tested).
 | :--- | :--- | :--- | :--- |
 | `weekly-check.ts` | Full weekly health check (all monitors) | `src/monitor.ts`, `scripts/run-alerts.ts`, `src/events.ts`, `src/news_monitor.ts`, `src/gov_meeting_monitor.ts`, `src/youtube_monitor.ts`, `src/triplicate_monitor.ts`, `src/curation.ts`, `src/source_registry.ts`, `src/monthly_report.ts`, `src/analytics_backend.ts`, `src/shared/orchestration.ts` | `bun run weekly-check` |
 | `run-monitor.ts` | Municipal code change detection | `src/monitor.ts` | `bun run monitor` |
-| `run-alerts.ts` | All 14 alert monitors (8 core + 6 extended) plus availability-aware composite | `src/alerts/*` | `bun run alerts` / `bun run alerts:all` |
+| `run-alerts.ts` | All 15 alert monitors (8 core + 7 extended) plus availability-aware composite | `src/alerts/*` | `bun run alerts` / `bun run alerts:all` |
 | `run-news.ts` | RSS/Atom local news aggregation with source health | `src/news_monitor.ts` | `bun run news` |
 | `run-meetings.ts` | City meeting agenda scraper | `src/gov_meeting_monitor.ts` | `bun run gov-meetings` |
 | `run-youtube.ts` | YouTube transcript extraction/indexing with retryable failures | `src/youtube_monitor.ts` | `bun run youtube` |
@@ -20,6 +20,8 @@ logic lives in `src/` (importable and tested).
 | `run-coverage.ts` | Domain coverage % across the current manifest | `src/domains/coverage.ts` | `bun run coverage` |
 | `run-readability.ts` | Flesch-Kincaid + Gunning Fog scoring | `src/shared/readability.ts`, `src/shared/data.ts` | `bun run readability` |
 | `run-source-discovery.ts` | Canonical source inventory, fingerprint, and optional bounded probes | `src/source_registry.ts` | `bun run source-discovery [-- --check]` |
+| `run-geo-observations.ts` | GEO-INFER hazard-observation envelope (`crescent-city-geo-observations/v1`) from composite + source-health artifacts | `src/geo_observations.ts` | `bun run geo:observations` |
+| `check-geo-sync.ts` | Deterministic geo-intel contract drift guard (rebuild + bundled sha256 compare) | `src/geo.ts`, `src/utils.ts` | `bun run geo:sync-check` |
 | `validate-manuscript.ts` | IMRAD, citations, labels, claim ledger, and token contract | `src/manuscript_variables.ts` | `bun run manuscript:check` |
 | `hydrate-manuscript.ts` | Resolve source manuscript tokens from the analytics overview | `src/manuscript_variables.ts`, `src/analytics_backend.ts` | `bun run manuscript:hydrate` |
 | `z_generate_manuscript_variables.py` | Template renderer hook | `scripts/hydrate-manuscript.ts` (via Bun) | (template renderer) |

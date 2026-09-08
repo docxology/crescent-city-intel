@@ -52,7 +52,7 @@
 
 ## Future Direction
 
-> Status audit 2026-09-05 against the implemented tree. Earlier drafts listed
+> Status audit 2026-09-08 against the implemented tree. Earlier drafts listed
 > items under "Open" that had already shipped; those are marked ✅ below so the
 > open set stays honest, and the audit is re-run whenever this section is
 > touched rather than trusted from the last edit.
@@ -92,23 +92,36 @@
 - ✅ **Civic insights reached a consumer** — `src/insights.ts` computed a
   cross-artifact trend brief that only ever reached disk via a CLI script;
   `GET /api/insights` and the News & Feeds → 🔮 Civic Insights panel surface it.
+- ✅ **Readability trend/heatmap panels** — the blocker was history storage;
+  `src/readability_history.ts` landed the bounded JSONL run history (10k cap),
+  `GET /api/readability/history` serves it, and the GUI Readability tab renders
+  the trend. The storage decision is made: bounded JSONL, not a database.
+- ✅ **Virtual scroll for long section lists** — search results (>24 items)
+  and the glossary table (>40 rows) render through `assets/virtual-list.js`.
+- ✅ **USCG Broadcast Notice to Mariners monitor** (`src/alerts/uscg_broadcasts.ts`)
+  — the 15th monitor (8 core + 7 extended): District 11 BNM listing, no API
+  key, North Coast relevance filter, feeding the composite severity and the
+  GUI trend roster.
 
 ### Open
 
 #### Short-term (Minor)
 
 - Docs: keep architecture diagram and API reference in sync with each release
-- Performance: virtual scroll for very long section lists
 
 #### Medium-term
 
 - Marine: PacFIN landing data, AIS vessel tracking
-- Readability trend/heatmap panels (needs a readability *history*, not the
-  current single snapshot — the storage decision comes first)
 
 #### Long-term (Major)
 
-- New monitors: USCG broadcasts, permits/dredging/fuel
-- Incremental indexing (re-embed only changed articles)
+- New monitors: permits/dredging/fuel (USCG broadcasts shipped 2026-09-08 as
+  monitor #15 — the rest need live-source connectors and an owner decision on
+  data budgets)
+- Incremental indexing (re-embed only changed articles) — partially shipped:
+  verified 2026-09-08, `indexAllSections` (`src/llm/embeddings.ts`) skips the
+  rebuild only when the WHOLE-corpus chunk fingerprint is unchanged and deletes
+  stale chunks on rebuild; any single changed article still re-embeds the
+  entire corpus, so genuinely per-article re-embedding remains open.
 - GUI: AQ widget, wildfire map, annotation overlays, structured-query pages
   (scoped in `docs/`)

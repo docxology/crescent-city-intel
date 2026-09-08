@@ -1,4 +1,4 @@
-    :root { color-scheme: light; --ink:#000000; --ink-dim:#333333; --ink-faint:#666666; --paper:#ffffff; --paper2:#f2f2f2; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#f7dcdc; --sepia:#999999; --rule:#444444; --rule-light:#888888; --rule-thin:#dddddd; --panel:rgba(255,255,255,.96); --panel-hover:rgba(242,242,242,.9); }
+    :root { color-scheme: light; --ink:#000000; --ink-dim:#333333; --ink-faint:#666666; --paper:#ffffff; --paper2:#f2f2f2; --card-bg:#ffffff; --cc:#c41e1e; --rdark:#8b1a1a; --rtint:#f7dcdc; --sepia:#999999; --rule:#444444; --rule-light:#888888; --rule-thin:#dddddd; --panel:rgba(255,255,255,.96); --panel-hover:rgba(242,242,242,.9); --on-ink:#ffffff; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.6 "Source Serif 4","Georgia","Times New Roman",serif; -webkit-font-smoothing:antialiased; }
     a { color:var(--ink); text-decoration-color:var(--rule); text-underline-offset:2px; }
@@ -56,7 +56,7 @@
     .subtle { font:.8rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
     .ics-badge { display:inline-block; padding:5px 12px; border:2px solid var(--cc); background:var(--rtint); color:var(--rdark); font:700 .78rem/1 Inter,sans-serif; letter-spacing:.05em; text-transform:uppercase; text-decoration:none; border-radius:2px; transition:background .15s,color .15s; }
     .ics-badge:hover { background:var(--cc); color:#fff; text-decoration:none; }
-    .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#fff; background:var(--ink); padding:5px 11px; display:block; margin-top:8px; }
+    .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:var(--on-ink); background:var(--ink); padding:5px 11px; display:block; margin-top:8px; }
     .footer { border-top:3px solid var(--cc); margin-top:28px; padding-top:14px; font:.78rem/1.4 "Source Serif 4",Georgia,serif; color:var(--ink-dim); }
     .footer .contact-line { font-family:"DM Mono","Courier New",monospace; font-size:.74rem; color:var(--ink-faint); margin-top:4px; }
     @media (max-width:600px) { .cards-row { grid-template-columns:repeat(2,1fr); } .page { padding:0 12px 48px; } }
@@ -86,7 +86,7 @@
     .breadcrumb a { color:var(--ink-faint); text-decoration:none; }
     .breadcrumb a:hover { color:var(--cc); }
     .panel-heading { font:700 1.05rem/1.2 "Playfair Display",Georgia,serif; margin:0; letter-spacing:-.01em; color:var(--ink); }
-#event-items .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:#fff; background:var(--ink); padding:5px 11px; display:block; }
+#event-items .cal-dateline { font:700 .7rem/1 Inter,sans-serif; letter-spacing:.16em; text-transform:uppercase; color:var(--on-ink); background:var(--ink); padding:5px 11px; display:block; }
 #event-items .cal-entry { background:var(--card-bg); border:1px solid var(--rule-thin); border-top:0; border-left-width:3px; border-left-color:var(--cc); padding:11px 14px; break-inside:avoid; }
 #event-items .cal-entry + .cal-entry { border-top:1px dotted var(--rule-light); }
 #event-items .cal-when { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:3px; }
@@ -200,7 +200,7 @@ html { scroll-behavior: smooth; }
 h1, h2, h3 { text-wrap: balance; }
 .item p, .faq-item p, .errata .lede { text-wrap: pretty; }
 .meta, .card .value, td, .cal-time, .observation-freshness { font-variant-numeric: tabular-nums; }
-html[data-theme="dark"] { color-scheme: dark; --ink:#e6e1d7; --ink-dim:#b8b2a6; --ink-faint:#8b857c; --paper:#14120f; --paper2:#1c1916; --card-bg:#1a1714; --cc:#d43838; --rdark:#e08076; --rtint:rgba(196,30,30,.16); --sepia:#a09486; --rule:#4a443e; --rule-light:#35302b; --rule-thin:#2a2622; --panel:rgba(24,21,18,.96); --panel-hover:rgba(40,36,32,.92); }
+html[data-theme="dark"] { color-scheme: dark; --ink:#e6e1d7; --ink-dim:#b8b2a6; --ink-faint:#8b857c; --paper:#14120f; --paper2:#1c1916; --card-bg:#1a1714; --cc:#e05248; --rdark:#e08076; --rtint:rgba(196,30,30,.16); --sepia:#a09486; --rule:#4a443e; --rule-light:#35302b; --rule-thin:#2a2622; --panel:rgba(24,21,18,.96); --panel-hover:rgba(40,36,32,.92); --on-ink:var(--paper); }
 html[data-theme="dark"] body { background:var(--paper); color:var(--ink); }
 html[data-theme="dark"] a { text-decoration-color:var(--rule); }
 html[data-theme="dark"] ::selection { background:rgba(196,30,30,.35); color:#fff; }

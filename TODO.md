@@ -32,6 +32,12 @@ move to the CHANGELOG entry for their release.
   each release.** AC: after every version bump, `docs/architecture.md` and
   `docs/api-reference.md` pass the doc-inventory / route-contract gates
   unchanged.
+- 🟢 **State the geo-observations envelope schema once** — the shape is declared
+  independently in `src/geo_observations.ts` interfaces, `validatePagesGeoObservations`
+  (`src/pages_snapshot.ts`), and the inline OpenAPI response schema, and the
+  validator's error strings are pinned verbatim in `tests/pages-nav.test.ts`.
+  AC: one authority (or an automated cross-check) proves the three statements
+  agree before `bun run validate` passes.
 
 ---
 _Open set audited against the implemented tree 2026-09-14. `bun run validate`

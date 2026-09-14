@@ -230,7 +230,7 @@ describe("Healer — runHealingCycle", () => {
     expect(fourth.monitorsRetried).toEqual([]);
   });
 
-  test("extended monitor failures accumulate and trigger retries (14-monitor roster)", async () => {
+  test("extended monitor failures accumulate and trigger retries (15-monitor roster)", async () => {
     const { runHealingCycle } = await importHealer();
     const extendedFailing = { source: "Caltrans Roads", status: "unavailable" };
     const coreOk = [

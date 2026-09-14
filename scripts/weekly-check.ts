@@ -4,9 +4,9 @@
  *
  * A cron-friendly script that:
  *   1. Runs the municipal code change detection monitor
- *   2. Runs all 14 real-time alert monitors (8 core + 6 extended)
+ *   2. Runs all 15 real-time alert monitors (8 core + 7 extended)
  *   3. Runs news + meeting monitors
- *   4. Computes composite 14-monitor alert severity
+ *   4. Computes composite 15-monitor alert severity
  *   5. Summarizes results and exits non-zero if any issues found
  *
  * Usage:
@@ -88,8 +88,8 @@ if (!report) {
   logger.info("✅ Municipal code: no changes detected");
 }
 
-// 2. All 14 real-time alert monitors (8 core + 6 extended; run concurrently, retain per-task failures)
-logger.info("Stage 2/8: Polling all 14 real-time alert feeds...");
+// 2. All 15 real-time alert monitors (8 core + 7 extended; run concurrently, retain per-task failures)
+logger.info("Stage 2/8: Polling all 15 real-time alert feeds...");
 const alertExecution = await executePipelineStep("alert-monitors", () => runAllAlertMonitors(), {
   // A reachable empty source and a missing source are facts about coverage, not
   // failures of this completed monitoring stage — but a stage where NO monitor

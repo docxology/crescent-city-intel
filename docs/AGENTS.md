@@ -28,8 +28,13 @@ Comprehensive project documentation covering architecture, all src/ modules, API
 | `logger.md` | `logger.ts` |
 | `domains.md` | `domains.ts` (12 domains) |
 | `monitoring.md` | `monitor.ts`, `news_monitor.ts`, `gov_meeting_monitor.ts`, `youtube_monitor.ts`, `triplicate_monitor.ts`, `curation.ts`, `monthly_report.ts` |
-| `alerts.md` | All 8 `alerts/` monitors + `alerts/severity.ts`, `alerts/composite.ts`, `alerts/notify.ts`, `alert_analytics.ts` |
+| `alerts.md` | All 15 `alerts/` monitors + `alerts/severity.ts`, `alerts/composite.ts`, `alerts/healer.ts`, `alerts/notify.ts`, `alert_analytics.ts` (roster authority: `MONITOR_KEYS` in `alerts/composite.ts`) |
+| `uscg_broadcasts.md` | `alerts/uscg_broadcasts.ts` (monitor #15) |
 | `geo-intel.md` | `geo.ts`, `geo_view.ts` |
+| `geo-observations.md` | `geo_observations.ts`, `scripts/run-geo-observations.ts`, `scripts/check-geo-sync.ts` |
+| `corpus-intelligence.md` | `section_graph.ts`, `word_frequency.ts`, `section_longevity.ts` |
+| `events.md` | `events.ts` (community calendar, `crescent-city-events/v1`) |
+| `readability.md` | `readability_history.ts` |
 | `v2-intelligence.md` | `structured_queries.ts`, `legal_parser.ts`, `alert_analytics.ts`, `analytics_backend.ts` |
 | `api.md` | `api/middleware.ts` |
 

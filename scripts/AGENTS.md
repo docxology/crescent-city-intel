@@ -17,9 +17,9 @@ Every script is runnable directly via `bun run <script-name>`.
 
 | Script | npm alias | What it orchestrates (delegates to) |
 | :--- | :--- | :--- |
-| `weekly-check.ts` | `bun run weekly-check` | Full weekly health check: monitor + all 14 alerts (8 core + 6 extended) + news + meetings + analytics (`src/monitor.ts`, `scripts/run-alerts.ts`, `src/events.ts`, `src/curation.ts`, `src/monthly_report.ts`, `src/analytics_backend.ts`, `src/source_registry.ts`) |
+| `weekly-check.ts` | `bun run weekly-check` | Full weekly health check: monitor + all 15 alerts (8 core + 7 extended, incl. USCG broadcasts) + news + meetings + analytics (`src/monitor.ts`, `scripts/run-alerts.ts`, `src/events.ts`, `src/curation.ts`, `src/monthly_report.ts`, `src/analytics_backend.ts`, `src/source_registry.ts`) |
 | `run-monitor.ts` | `bun run monitor` | Municipal code change detection (`src/monitor.ts`) |
-| `run-alerts.ts` | `bun run alerts` / `bun run alerts:all` | All 14 alert monitors concurrently (8 core + 6 extended) + composite severity computation (`src/alerts/*`) |
+| `run-alerts.ts` | `bun run alerts` / `bun run alerts:all` | All 15 alert monitors concurrently (8 core + 7 extended, incl. USCG broadcasts via `src/alerts/uscg_broadcasts.ts`) + composite severity computation (`src/alerts/*`) |
 | `run-news.ts` | `bun run news` | RSS news aggregation (`src/news_monitor.ts`) |
 | `run-source-discovery.ts` | `bun run source-discovery [-- --check]` | Canonical source registry and optional bounded reachability probes (`src/source_registry.ts`) |
 | `run-meetings.ts` | `bun run gov-meetings` | Government meeting scraper (`src/gov_meeting_monitor.ts`) |
@@ -33,6 +33,8 @@ Every script is runnable directly via `bun run <script-name>`.
 | `refresh-pages-data.ts` | `bun run pages:seed` | Refresh the verified tracked municipal-code seed (`src/pages_seed.ts`) |
 | `validate-pages.ts` | `bun run pages:validate` | Validate the generated Pages artifact (`src/pages_validation.ts`) |
 | `validate.ts` | `bun run validate` | Authoritative deterministic release gate (`src/release_gate.ts`) |
+| `run-geo-observations.ts` | `bun run geo:observations` | Build the live geo-observations companion envelope (`src/geo_observations.ts`) |
+| `check-geo-sync.ts` | `bun run geo:sync-check` | Rebuild-compare drift guard over the tracked `pages-data/geo-intel.json` seed (enforced by `src/release_gate.ts`) |
 | `repair-output.ts` | `bun run repair-output` | Historical output repair/quarantine utility (`src/shared/orchestration.ts`) |
 | `browser-smoke.ts` | `bun run test:browser` | Real Playwright/Chromium smoke test of the running GUI (render + API-key trust boundary + api auth + semantic-search fallback) (`src/browser_smoke.ts`) |
 | `lifeos-bridge.ts` | `bun run lifeos:bridge` | Writes the LifeOS/Pulse LocalIntelligence digest (North Coast: Del Norte + Humboldt) from this platform's outputs (`src/lifeos_bridge.ts`) |
@@ -41,11 +43,6 @@ Every script is runnable directly via `bun run <script-name>`.
 | `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Hydrate manuscript tokens from the canonical analytics envelope (`src/manuscript_variables.ts`) |
 | `z_generate_manuscript_variables.py` | template renderer hook | Thin Python adapter that delegates to the Bun hydrator |
 | `cron-setup.sh` | `bun run cron-setup` | macOS Launchd / Linux cron installer |
-
-## v2.0 Changes
-
-- `run-alerts.ts` now runs all 14 monitors (8 core + 6 extended, including the NWS marine forecast) and computes composite 14-monitor severity, persisting to `output/alerts/composite/current.json`
-- `weekly-check.ts` now runs all 14 alert monitors + alert analytics in its weekly cycle
 
 ## Adding New Scripts
 

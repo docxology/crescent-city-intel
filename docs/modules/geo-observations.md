@@ -38,7 +38,7 @@ never invented values, never a fabricated CALM.
 ## Data flow
 
 ```
-src/geo_observations.ts (pure builders — no I/O, no clock)
+src/geo_observations.ts (pure builders + shared loadObservationInputs loader — no clock)
     ▲
 scripts/run-geo-observations.ts (thin orchestrator; `bun run geo:observations`)
     ├── output/alerts/composite/current.json  → composite (normalizeCompositeSnapshot)
@@ -50,6 +50,13 @@ scripts/run-geo-observations.ts (thin orchestrator; `bun run geo:observations`)
 
 Missing inputs are a VALID empty-state run — the runner never fails because an
 alert artifact is absent.
+
+Both consumers — the runner above and the `GET /api/geo-observations` route
+(`src/gui/routes.ts`) — load these artifacts through the shared
+`loadObservationInputs(options)` helper in `src/geo_observations.ts` (the
+module's one filesystem seam; the builders stay pure). The runner passes
+`seedDir` and a warning `onCorrupt`; the route also passes
+`fallbackContract: () => buildGeoIntel(domains)` for the absent-seed fallback.
 
 ## GEO-INFER adoption (BAYES / ACT / RISK)
 
@@ -101,6 +108,7 @@ exported and tested against tmp files
 | Export | Purpose |
 | :--- | :--- |
 | `buildHazardObservations(input)` | Pure envelope builder (route surface: `GET /api/geo-observations`) |
+| `loadObservationInputs(options)` | Shared artifact loader + anchor projection (runner and `GET /api/geo-observations`) |
 | `normalizeCompositeSnapshot(raw)` | Defensive artifact → `CompositeSnapshot \| null` |
 | `normalizeMonitorObservation(health)` | `SourceHealth` → public monitor entry |
 | `hazardTagSummary(domains)` | Per-tag aggregation over the hazard subset |
@@ -113,7 +121,7 @@ exported and tested against tmp files
 - `src/geo.ts` — `CRESCENT_CITY_ANCHOR` (frozen contract; never modified here).
 - `src/types.ts` — `SourceHealth`, `SourceHealthStatus`.
 - `src/shared/source_health.ts` — `writeJsonAtomic` (runner only).
-- `src/shared/paths.ts` — `outputRoot()` (runner only).
+- `src/shared/paths.ts` — `outputRoot()` (shared loader and runner).
 
 ## Tests
 

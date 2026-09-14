@@ -251,6 +251,7 @@ export async function runReleaseGate(): Promise<void> {
     run({ name: "Manuscript evidence hydration", args: ["bun", "run", "manuscript:hydrate"] });
     run({ name: "Hydrated manuscript contract", args: ["bun", "run", "scripts/validate-manuscript.ts", "--hydrated"] });
   }
+  run({ name: "Geo contract sync", args: ["bun", "run", "geo:sync-check"] });
   // The suite deliberately exercises the real local corpus and service
   // degradation paths. A 30-second per-test bound keeps transient CPU/IO
   // contention from turning a correct test into a false timeout while still

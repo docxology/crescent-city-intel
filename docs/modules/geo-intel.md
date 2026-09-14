@@ -141,8 +141,10 @@ in [geo-observations.md](geo-observations.md); build it with
 `bun run geo:sync-check` (`scripts/check-geo-sync.ts`) is the drift guard over
 the frozen contract: it rebuilds the contract with the pure builder and
 compares the stable fields against `pages-data/geo-intel.json` (exit 1 on
-drift), then sha256-compares the GEO-INFER-BAYES bundled copy (loud
-`BUNDLED COPY DRIFT` warning, exit 0, so CI decides policy). Its first run
+drift) — no longer manual-only, the drift check now runs inside
+`bun run validate` via `src/release_gate.ts` — then sha256-compares the
+GEO-INFER-BAYES bundled copy (loud `BUNDLED COPY DRIFT` warning, exit 0, so
+CI decides policy). Its first run
 caught real drift — the 2026-08-24 seed carried 4 hazard-relevant domains
 against 6 in the rebuilt contract. Closed 2026-09-08: the seed was
 regenerated with `bun run geo:intel` and the GEO-INFER-BAYES bundled copy

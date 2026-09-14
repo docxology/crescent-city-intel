@@ -2,7 +2,7 @@ name: Weekly Intelligence Cycle
 
 on:
   schedule:
-    # Every Monday at 07:00 UTC (midnight Pacific Standard, 00:00 Pacific Daylight)
+    # Every Monday at 07:00 UTC (00:00 Pacific Daylight / 23:00 Sunday Pacific Standard)
     - cron: '0 7 * * 1'
   workflow_dispatch:
     inputs:
@@ -40,16 +40,6 @@ jobs:
 
       - name: Run full test suite
         run: bun test
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-${{ github.run_id }}
-          path: |
-            *.xml
-            test-results/
-          retention-days: 30
 
       - name: Check NOAA Tsunami alerts
         run: bun run src/alerts/noaa_tsunami.ts

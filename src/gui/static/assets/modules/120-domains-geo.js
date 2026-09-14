@@ -102,13 +102,15 @@
       }
     }
 
-    // ─ Live hazard observations (additive; wave-2 endpoint) ─────────
+    // ─ Live hazard observations ─────────────────────────────────────
     // GET /api/geo-observations → the crescent-city-geo-observations/v1
     // envelope: { schema, anchor, composite, monitors[], hazardSummary[],
-    // freshness }. The route goes live in wave 2; until then the fetch fails
-    // and the graceful empty state below stays visible. Every field is read
-    // defensively — a missing or malformed field renders the empty state,
-    // never a throw.
+    // freshness }. The route is live (src/gui/routes.ts) and pinned by
+    // tests/geo-readability-routes.test.ts. This panel renders the schema
+    // line, the composite severity badge, one status chip per monitor, the
+    // hazard summary tags, and the contract freshness line. Every field is
+    // read defensively — a missing or malformed field renders the empty
+    // state, never a throw.
     function geoObservationsEmpty(el, message) {
       el.innerHTML = `<p style="color:var(--text-secondary)">${escapeHtml(message || 'No live hazard observations available yet.')}</p>`;
     }

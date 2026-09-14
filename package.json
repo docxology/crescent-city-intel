@@ -45,6 +45,7 @@
     "pages:seed": "bun run scripts/refresh-pages-data.ts",
     "pages:validate": "bun run scripts/validate-pages.ts",
     "validate": "bun run scripts/validate.ts",
+    "typecheck": "bunx tsc --noEmit",
     "test:coverage": "bun test tests/ --coverage",
     "test:browser": "bun run scripts/browser-smoke.ts",
     "lifeos:bridge": "bun run scripts/lifeos-bridge.ts",

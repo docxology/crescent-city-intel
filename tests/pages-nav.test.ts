@@ -139,7 +139,7 @@ describe("pages observations export validation", () => {
     try {
       const seed = JSON.parse(await readFile("pages-data/geo-observations.json", "utf8")) as unknown;
       expect(validatePagesGeoObservations(seed)).toEqual([]);
-    } catch { /* seed is untracked; the inline envelope covers the contract */ }
+    } catch { /* seed is tracked; the inline envelope covers the contract */ }
   });
 
   test("fail-closed: missing schema id, missing anchor, wrong composite shape, and leak gates all reject", () => {

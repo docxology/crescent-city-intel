@@ -11,14 +11,20 @@
  * -RISK): every field is either passed in or an honest empty state
  * (`composite: null`, `monitors: []`) — absent artifacts never become
  * invented values. The builder is PURE: it takes plain data and returns a
- * JSON-safe envelope with no filesystem, clock, or network access. The
- * filesystem seam lives in `scripts/run-geo-observations.ts`, which loads
- * the composite + source-health artifacts and passes `generatedAt` in.
+ * JSON-safe envelope with no filesystem, clock, or network access; callers
+ * pass `generatedAt` in. The filesystem seam is `loadObservationInputs` in
+ * this module — the single copy of the artifact-loading + anchor-projection
+ * logic shared by `scripts/run-geo-observations.ts` and the
+ * `GET /api/geo-observations` route (`src/gui/routes.ts`).
  *
  * Sibling adoption mirrors `geo_infer_bayes.civic_intel.load_crescent_city_intel`:
  * load the JSON artifact at its documented path and read the envelope fields.
  */
+import { existsSync } from "fs";
+import { readFile } from "fs/promises";
+import { join } from "path";
 import { CRESCENT_CITY_ANCHOR } from "./geo.js";
+import { outputRoot } from "./shared/paths.js";
 import type { SourceHealth, SourceHealthStatus } from "./types.js";
 
 /** Output schema id for this envelope (registered as GET /api/geo-observations). */
@@ -246,5 +252,119 @@ export function buildHazardObservations(input: GeoObservationInput): GeoObservat
       contractSchema: GEO_INTEL_CONTRACT_SCHEMA,
       contractGeneratedAt: input.contractGeneratedAt,
     },
+  };
+}
+
+/**
+ * Artifact inputs for `buildHazardObservations` — everything the builder
+ * needs except the caller-owned `generatedAt` clock stamp. Spread the result
+ * and add `generatedAt` to build the envelope.
+ */
+export type ObservationInputs = Omit<GeoObservationInput, "generatedAt">;
+
+/** Options for {@link loadObservationInputs}. */
+export interface ObservationInputOptions {
+  /**
+   * Directory holding the committed geo-intel contract seed
+   * (`<seedDir>/geo-intel.json`). Required, not env-read: both callers
+   * resolve `PAGES_SEED_DIR ?? "pages-data"` themselves and pass exactly
+   * what they use, so this helper never reads the environment.
+   */
+  seedDir: string;
+  /**
+   * Substitute contract when the seed is absent, corrupt, or not an object —
+   * the route's in-repo `buildGeoIntel(domains)` surface. A thunk, so the
+   * fallback is only built when the seed is actually missing. Omit it for
+   * the runner's honest null-contract empty state.
+   */
+  fallbackContract?: () => Record<string, unknown>;
+  /**
+   * Notified when an artifact exists but cannot be parsed or read; the
+   * helper still treats it as absent. The runner logs a warning; the route
+   * stays silent.
+   */
+  onCorrupt?: (path: string, error: unknown) => void;
+}
+
+/** Read a JSON artifact; absent, unreadable, or corrupt files are null, never a crash. */
+async function readJsonArtifact(
+  path: string,
+  onCorrupt?: (path: string, error: unknown) => void,
+): Promise<unknown> {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(await readFile(path, "utf-8"));
+  } catch (error) {
+    onCorrupt?.(path, error);
+    return null;
+  }
+}
+
+/**
+ * Project the contract anchor (or the built-in default) to the observation
+ * shape. Malformed or missing fields degrade to the Crescent City defaults —
+ * byte-identical to what the runner and the route each projected inline
+ * before this helper absorbed them.
+ */
+function observationAnchor(raw: unknown): ObservationAnchor {
+  const anchor = (raw != null && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const stringField = (key: string, fallback: string): string =>
+    typeof anchor[key] === "string" ? (anchor[key] as string) : fallback;
+  const numberField = (key: string, fallback: number): number =>
+    typeof anchor[key] === "number" ? (anchor[key] as number) : fallback;
+  return {
+    name: stringField("name", DEFAULT_OBSERVATION_ANCHOR.name),
+    guid: stringField("guid", DEFAULT_OBSERVATION_ANCHOR.guid),
+    municipality: stringField("municipality", DEFAULT_OBSERVATION_ANCHOR.municipality),
+    county: stringField("county", DEFAULT_OBSERVATION_ANCHOR.county),
+    state: stringField("state", DEFAULT_OBSERVATION_ANCHOR.state),
+    latitude: numberField("latitude", DEFAULT_OBSERVATION_ANCHOR.latitude),
+    longitude: numberField("longitude", DEFAULT_OBSERVATION_ANCHOR.longitude),
+  };
+}
+
+/**
+ * Load the live artifact inputs for `buildHazardObservations`: the committed
+ * geo-intel contract seed (`<seedDir>/geo-intel.json`), the composite
+ * severity snapshot (`output/alerts/composite/current.json`), and the alert
+ * source-health artifact (`output/alerts/source-health.json`), projecting
+ * the anchor, hazard-relevant domain subset, and contract freshness from the
+ * seed. The module's one filesystem seam, shared by both consumers:
+ *
+ * - `scripts/run-geo-observations.ts` — no seed fallback (an absent seed is
+ *   the honest empty state) and a `log.warn` per corrupt artifact.
+ * - `GET /api/geo-observations` (`src/gui/routes.ts`) — falls back to the
+ *   in-repo `buildGeoIntel(domains)` surface when the seed is absent, so the
+ *   endpoint is never dead merely because a pipeline has not run.
+ *
+ * Absent, corrupt, and malformed artifacts degrade to the honest empty
+ * states (`composite: null`, `monitors: []`, default anchor) — never
+ * invented values, never a throw. Artifact paths follow `outputRoot()` at
+ * call time, so the `CC_OUTPUT_DIR` seam applies as everywhere else.
+ */
+export async function loadObservationInputs(options: ObservationInputOptions): Promise<ObservationInputs> {
+  const seeded = await readJsonArtifact(join(options.seedDir, "geo-intel.json"), options.onCorrupt);
+  const contract: Record<string, unknown> | null =
+    seeded !== null && typeof seeded === "object"
+      ? (seeded as Record<string, unknown>)
+      : (options.fallbackContract?.() ?? null);
+
+  const hazard = (contract?.hazard != null && typeof contract.hazard === "object" ? contract.hazard : {}) as Record<string, unknown>;
+  const hazardDomains: HazardDomainInput[] = Array.isArray(hazard.relevantDomains)
+    ? (hazard.relevantDomains as HazardDomainInput[])
+    : [];
+
+  const compositeRaw = await readJsonArtifact(join(outputRoot(), "alerts", "composite", "current.json"), options.onCorrupt);
+  const healthRaw = await readJsonArtifact(join(outputRoot(), "alerts", "source-health.json"), options.onCorrupt);
+  const health = (healthRaw != null && typeof healthRaw === "object" ? healthRaw : {}) as Record<string, unknown>;
+  const monitors: MonitorObservation[] = (Array.isArray(health.sources) ? health.sources : []).map((entry) =>
+    normalizeMonitorObservation(entry as Parameters<typeof normalizeMonitorObservation>[0]));
+
+  return {
+    anchor: observationAnchor(contract?.anchor),
+    composite: normalizeCompositeSnapshot(compositeRaw),
+    monitors,
+    hazardDomains,
+    contractGeneratedAt: typeof contract?.generatedAt === "string" ? contract.generatedAt : null,
   };
 }

@@ -10,15 +10,8 @@ import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, summarizeSourceHealth } f
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
 import { buildAnalyticsOverview, readAnalyticsOverview } from "../analytics_backend.js";
 import { domains } from "../domains.js";
-import {
-  DEFAULT_OBSERVATION_ANCHOR,
-  buildHazardObservations,
-  normalizeCompositeSnapshot,
-  normalizeMonitorObservation,
-  type HazardDomainInput,
-} from "../geo_observations.js";
+import { buildHazardObservations, loadObservationInputs } from "../geo_observations.js";
 import { buildReadabilityTrend, readReadabilityHistory } from "../readability_history.js";
-import { outputRoot } from "../shared/paths.js";
 import { buildGeoIntel } from "../geo.js";
 import { buildGeoIntelSurface } from "../geo_view.js";
 
@@ -612,54 +605,15 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // from — so the endpoint is never dead merely because a pipeline has not
   // run. Monitors that have not run are a valid empty state (composite: null,
   // monitors: []), never a 500.
+  // Artifact loading + anchor projection are shared with the runner through
+  // `loadObservationInputs` (src/geo_observations.ts).
   if (path === "/api/geo-observations") {
     try {
-      const { existsSync, readFileSync } = await import("fs");
-      const readJsonIfPresent = (filePath: string): unknown => {
-        if (!existsSync(filePath)) return null;
-        try { return JSON.parse(readFileSync(filePath, "utf-8")); }
-        catch { return null; } // a corrupt artifact is absent, not fatal
-      };
-
-      const seedPath = join(process.env.PAGES_SEED_DIR ?? "pages-data", "geo-intel.json");
-      const seeded = readJsonIfPresent(seedPath);
-      const contract = (seeded !== null && typeof seeded === "object" ? seeded : buildGeoIntel(domains)) as Record<string, unknown>;
-
-      const anchorRaw = (contract.anchor ?? {}) as Record<string, unknown>;
-      const str = (key: string, fallback: string): string => typeof anchorRaw[key] === "string" ? anchorRaw[key] as string : fallback;
-      const num = (key: string, fallback: number): number => typeof anchorRaw[key] === "number" ? anchorRaw[key] as number : fallback;
-      const anchor = {
-        name: str("name", DEFAULT_OBSERVATION_ANCHOR.name),
-        guid: str("guid", DEFAULT_OBSERVATION_ANCHOR.guid),
-        municipality: str("municipality", DEFAULT_OBSERVATION_ANCHOR.municipality),
-        county: str("county", DEFAULT_OBSERVATION_ANCHOR.county),
-        state: str("state", DEFAULT_OBSERVATION_ANCHOR.state),
-        latitude: num("latitude", DEFAULT_OBSERVATION_ANCHOR.latitude),
-        longitude: num("longitude", DEFAULT_OBSERVATION_ANCHOR.longitude),
-      };
-
-      const hazard = (contract.hazard ?? {}) as Record<string, unknown>;
-      const hazardDomains: HazardDomainInput[] = Array.isArray(hazard.relevantDomains)
-        ? (hazard.relevantDomains as HazardDomainInput[])
-        : [];
-
-      const health = readJsonIfPresent(paths.alertsHealth) as Record<string, unknown> | null;
-      const sources = health !== null && Array.isArray(health.sources) ? health.sources : [];
-      const monitors = sources.map((entry) =>
-        normalizeMonitorObservation(entry as Parameters<typeof normalizeMonitorObservation>[0]));
-
-      const composite = normalizeCompositeSnapshot(
-        readJsonIfPresent(join(outputRoot(), "alerts", "composite", "current.json")),
-      );
-
-      return json(buildHazardObservations({
-        anchor,
-        generatedAt: new Date().toISOString(),
-        composite,
-        monitors,
-        hazardDomains,
-        contractGeneratedAt: typeof contract.generatedAt === "string" ? contract.generatedAt : null,
-      }));
+      const inputs = await loadObservationInputs({
+        seedDir: process.env.PAGES_SEED_DIR ?? "pages-data",
+        fallbackContract: () => buildGeoIntel(domains),
+      });
+      return json(buildHazardObservations({ ...inputs, generatedAt: new Date().toISOString() }));
     } catch (err: any) {
       log.error("[geo-observations] failed", { error: err.message });
       return json({ error: `Geo observations failed: ${publicApiDetail(err.message)}` }, 500);

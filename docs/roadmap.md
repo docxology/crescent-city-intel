@@ -105,23 +105,12 @@
 
 ### Open
 
-#### Short-term (Minor)
-
-- Docs: keep architecture diagram and API reference in sync with each release
-
-#### Medium-term
-
-- Marine: PacFIN landing data, AIS vessel tracking
-
-#### Long-term (Major)
-
-- New monitors: permits/dredging/fuel (USCG broadcasts shipped 2026-09-08 as
-  monitor #15 — the rest need live-source connectors and an owner decision on
-  data budgets)
-- Incremental indexing (re-embed only changed articles) — partially shipped:
-  verified 2026-09-08, `indexAllSections` (`src/llm/embeddings.ts`) skips the
-  rebuild only when the WHOLE-corpus chunk fingerprint is unchanged and deletes
-  stale chunks on rebuild; any single changed article still re-embeds the
-  entire corpus, so genuinely per-article re-embedding remains open.
-- GUI: AQ widget, wildfire map, annotation overlays, structured-query pages
-  (scoped in `docs/`)
+Item-level tracking lives in [TODO.md](../TODO.md), which holds the
+reconciled open set with acceptance criteria — this section no longer
+duplicates it. Strategically, the remaining work clusters into: live-source
+monitor expansion (permits/dredging/fuel, PacFIN, AIS), blocked on owner
+decisions about data budgets rather than engineering; genuinely per-article
+incremental re-embedding (the whole-corpus fingerprint check shipped
+2026-09-08); and the deferred GUI/UX set. Keeping the architecture diagram
+and API reference in sync with each release remains the standing short-term
+obligation.

@@ -10,6 +10,8 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-09-08
+
 ### Night edition — site-wide dark theme, live observations, and reading UX (2026-09-08)
 
 - **Dark/night theme with persistence** — `html[data-theme="dark"]` token set
@@ -474,6 +476,10 @@ names its actual source.
   TODO.md Phase-12 item closed with the residual recorded.
 
 
+---
+
+## [2.6.0] — 2026-08-25
+
 ### GitHub Pages — Vintage newspaper aesthetic — renamed to The Quadruplicate (2026-08-25)
 
 ### Added
@@ -884,7 +890,7 @@ TODO.md). See the issue-by-issue notes in TODO.md.
 
 ---
 
-## [2.4.0] — 2026-07-23
+## [2.3.0] — 2026-07-23
 
 ### 🚀 TODO Items Implemented
 
@@ -918,13 +924,13 @@ TODO.md). See the issue-by-issue notes in TODO.md.
 - `Dockerfile` — Bun-based image for the GUI server
 
 ### 📊 Test Suite
-- **454 tests passing** across **38 files** (up from 413 in v2.4.0)
+- **454 tests passing** across **38 files** (up from 413 in v2.2.0)
 - New test files: `scraper_utils.test.ts` (18 tests), `v2-endpoints-extended.test.ts` (6 tests)
 - **0 test failures** (5 pre-existing module import errors)
 
 ---
 
-## [2.4.0] — 2026-07-23
+## [2.2.0] — 2026-07-23
 
 ### 🚀 TODO Items Implemented
 

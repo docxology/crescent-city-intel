@@ -465,7 +465,7 @@ re-scraping this platform.
 | **Geo-Intel** | `pages-data/geo-intel.json` + `output/geo-intel.json` | Transferable machine-readable municipality contract (Crescent City default civic + hazard) for geospatial consumers (GEO-INFER) |
 | **Geo-Observations** | `pages-data/geo-observations.json` + `output/geo-observations.json` | `crescent-city-geo-observations/v1` live hazard-observation envelope (composite severity, per-monitor states, hazard summary, contract freshness) for GEO-INFER consumers |
 | **RAG Log** | `output/rag-queries.jsonl` | All RAG queries with latency and sources |
-| **Pipeline run** | `output/state/latest-pipeline-run.json` | Stage-level status, duration, output paths, and source-health summary |
+| **Pipeline run** | `output/state/latest-pipeline-run.json` | Stage-level status, duration, output paths, and source-health summary — produced by `bun run weekly-check`, so it is absent until the first weekly run |
 | **Curation run** | `output/state/curation-report.json` | Provider/model, success counts, fingerprints, and retryable failures |
 | **Report metadata** | `output/reports/monthly-YYYY-MM.json` | Period bounds, numeric metrics, warnings, and health |
 
@@ -872,11 +872,11 @@ present state:
 | Question | Command / file |
 | :------- | :------------- |
 | Release gate (types + tests + contracts) | `bun run validate` |
-| Latest pipeline run | `output/state/latest-pipeline-run.json` |
+| Latest pipeline run | `output/state/latest-pipeline-run.json` (produced by `bun run weekly-check`; absent until the first weekly run) |
 | Latest analytics | `output/state/analytics-overview.json` |
 | Source health | `bun run source-discovery` |
 | Manuscript state | [`docs/manuscript/MANUSCRIPT_STATUS.md`](docs/manuscript/MANUSCRIPT_STATUS.md) |
-| Changelog (unreleased work) | [CHANGELOG.md](CHANGELOG.md) |
+| Changelog (release history) | [CHANGELOG.md](CHANGELOG.md) |
 
 Shipped: **v2.7.0** (2026-09-08) — the geo-observations envelope, readability
 run history, the 15th alert monitor (USCG broadcasts), and a modularized GUI.

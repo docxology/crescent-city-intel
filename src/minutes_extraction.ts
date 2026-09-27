@@ -25,10 +25,29 @@ export type { VoteResult } from "./gov_meeting_monitor.js";
 import type { VoteResult } from "./gov_meeting_monitor.js";
 import { parseVotes } from "./gov_meeting_monitor.js";
 
-/** Split minutes text into candidate blocks (paragraph / numbered / lettered items). */
+/**
+ * Split minutes text into candidate blocks: paragraph breaks, numbered or
+ * lettered item starts, and ALL-CAPS heading lines.
+ *
+ * The third alternative used to be `\n(?=[A-Z0-9])` — a split before *any*
+ * line beginning with a capital or digit. That destroyed the one construct this
+ * module exists to read: a roll call is a name per line
+ *
+ *     Roll call:
+ *     Smith - Yea
+ *     Jones - Nay
+ *
+ * so each name became its own block, `parseVotes` saw a single name per block
+ * (below the 3-name threshold, and with no motion context to satisfy the
+ * alternative path), and `extractVotes` returned [] for the item. It was also
+ * format-fragile: indenting the identical roll call by two spaces defeated both
+ * the capital-letter and numbered-item alternatives, so the same minutes parsed
+ * or did not depending on whitespace. Headings are now matched as headings —
+ * short, upper-case lines — not any capitalised line.
+ */
 function voteBlocks(text: string): string[] {
   return text
-    .split(/\n\s*\n|(?=\n\s*\(?[a-z0-9]+[\).]\s)|\n(?=[A-Z0-9])/)
+    .split(/\n\s*\n|(?=\n\s*\(?[a-z0-9]+[\).]\s)|\n(?=[A-Z][A-Z0-9 ,.'()/-]{3,60}\n)/)
     .map(b => b.trim())
     .filter(b => b.length > 0);
 }
@@ -36,12 +55,16 @@ function voteBlocks(text: string): string[] {
 /**
  * Extract every parseable vote from a minutes document, in document order.
  *
- * Collapsing is deliberately narrow: only an identical tally in the
- * IMMEDIATELY PRECEDING block is treated as the same vote described twice
- * (a roll-call line followed by its "Vote: 3-1-1" summary). Collapsing every
- * repeat of a tally anywhere in the document — which this used to do —
- * destroyed real votes, because a consent calendar routinely passes item after
- * item 5-0 and each of those is its own vote.
+ * Collapsing is deliberately narrow: an identical tally is treated as the same
+ * vote described twice only when the preceding block gives positive evidence of
+ * duplication — it is a roll-call line ("Roll call: Alpha: Yea, Beta: Nay"
+ * followed by "Vote: 2 yea, 1 nay"), or the two blocks are byte-identical.
+ *
+ * Adjacency plus an identical tally is NOT sufficient evidence. A consent
+ * calendar's items 3a and 3b sit in adjacent blocks, separated only by a blank
+ * line, and both tally 5-0 — each a genuinely separate vote. Collapsing on
+ * adjacency alone deleted one of them, and a consent calendar routinely passes
+ * item after item unanimously, so this class of loss was systematic.
  *
  * Never throws; returns [] for empty/unparseable input.
  */
@@ -51,10 +74,14 @@ export function extractVotes(minutesText: string): VoteResult[] {
   let previous: { vote: VoteResult; blockIndex: number } | null = null;
   const blocks = voteBlocks(minutesText);
   for (let blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
-    const vote = parseVotes(blocks[blockIndex]!);
+    const block = blocks[blockIndex]!;
+    const vote = parseVotes(block);
     if (!vote) continue;
+    const previousBlock = previous !== null ? blocks[previous.blockIndex] ?? "" : "";
+    const isDuplication = /\broll\s*call\b/i.test(previousBlock) || previousBlock === block;
     const restatesPrevious = previous !== null
       && blockIndex === previous.blockIndex + 1
+      && isDuplication
       && previous.vote.yea === vote.yea
       && previous.vote.nay === vote.nay
       && previous.vote.abstain === vote.abstain

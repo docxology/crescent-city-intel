@@ -40,6 +40,19 @@ const HISTORY_DIR = join(process.cwd(), "output", "alerts", "marine");
 const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
 const CURRENT_FILE = join(HISTORY_DIR, "current.json");
 
+/**
+ * Last failure reason, for the runner's health record. Set on every exit path
+ * that yields a null report, and cleared at the start of each run — a total
+ * buoy outage previously produced a fulfilled CALM report instead, so the
+ * runner had nothing to report and this was never consulted.
+ */
+let lastMarineError: string | undefined;
+
+/** The last NDBC failure reason, or undefined if the last run succeeded. */
+export function getLastMarineError(): string | undefined {
+  return lastMarineError;
+}
+
 export type MarineSeverity = "CALM" | "WATCH" | "WARNING" | "EMERGENCY";
 
 export interface BuoyObservation {
@@ -245,6 +258,7 @@ export async function fetchBuoyObservation(station: typeof MONITORED_STATIONS[nu
 
 export async function runMarineMonitor(): Promise<MarineReport | null> {
   logger.info("Fetching NDBC buoy data for Crescent City marine region");
+  lastMarineError = undefined;
 
   try {
     const observations: BuoyObservation[] = [];
@@ -259,6 +273,19 @@ export async function runMarineMonitor(): Promise<MarineReport | null> {
           appendHistory(obs);
         }
       }
+    }
+
+    // Zero observations is a total outage, not calm seas. This used to fall
+    // through to `classifyMarineSeverity([])` (which returns CALM) and publish
+    // a report reading "No buoy data available" with `level: "CALM"` — a false
+    // calm, and a health record of `empty`, which counts as *present*. It also
+    // made the `"marine"` entry in NULL_ON_FAILURE_MONITORS unreachable, since
+    // no code path could ever return null. Returning null here is what makes
+    // that declared contract real: unavailable source, counted missing.
+    if (observations.length === 0) {
+      lastMarineError = "no buoy observations returned by NDBC (total outage or unparseable feed)";
+      logger.error("NDBC marine: no observations from any station; reporting unavailable", { error: lastMarineError });
+      return null;
     }
 
     const { level, advisory } = classifyMarineSeverity(observations);
@@ -298,6 +325,7 @@ export async function runMarineMonitor(): Promise<MarineReport | null> {
 
     return report;
   } catch (err: any) {
+    lastMarineError = err.message;
     logger.error("Failed to fetch marine buoy data", { error: err.message });
     return null;
   }

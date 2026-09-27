@@ -37,6 +37,17 @@ function matchesTitle(sectionNumber: string, titleFilter: string): boolean {
 
 export const SECTION_LONGEVITY_SCHEMA = "crescent-city-section-longevity/v1" as const;
 
+/**
+ * A municipal code cannot plausibly have been enacted before 1800, nor amended
+ * after the report's own as-of year (with one year of slack for a code that
+ * carries a forward-dated amendment). Anything outside that band is treated as
+ * unparsed rather than believed.
+ */
+const MIN_PLAUSIBLE_YEAR = 1800;
+function isPlausibleYear(year: number, asOfYear: number): boolean {
+  return Number.isInteger(year) && year >= MIN_PLAUSIBLE_YEAR && year <= asOfYear + 1;
+}
+
 /** Structural shape this module needs from a scraped section. */
 export interface LongevitySectionInput {
   guid: string;
@@ -158,6 +169,14 @@ export function buildSectionLongevity(
 
   const profiles: SectionLongevity[] = [];
   const decades = new Map<number, DecadeBucket>();
+  // Safety net for the contiguous fill below. The fill is what stops a chart
+  // compressing an empty stretch of the code's history, so it must not become
+  // the thing that *manufactures* one: a thousand years is far wider than any
+  // real municipal code, and unreachable in practice because `isPlausibleYear`
+  // already rejects any year outside 1800..asOfYear+1. Generous on purpose —
+  // a tighter cap would drop genuinely observed decades at the far end of a
+  // long-lived code, which is the contiguity the fill exists to preserve.
+  const MAX_DECADE_SPAN = 100;
   const ages: number[] = [];
   const sinceAmendment: number[] = [];
   let withHistory = 0;
@@ -177,7 +196,16 @@ export function buildSectionLongevity(
 
   for (const section of scoped) {
     const amendments = extractOrdinanceAmendments(section.history ?? "");
-    const years = amendments.map((a) => a.year).filter((year): year is number => year !== null);
+    // Plausibility gate on every parsed year. A section-number or ordinance
+    // number can survive a year regex when the history line is unusual, and an
+    // implausible year is worse than no year: 6453 produced ageYears of -4427,
+    // a "never amended" status, and a decade histogram that fabricated hundreds
+    // of all-zero buckets. The route already clamps its own asOfYear to
+    // 1800-2200; the years read *out of the corpus* now get the same treatment.
+    // Rejecting a year is not a silent loss — it lands in `withoutHistory`.
+    const years = amendments
+      .map((a) => a.year)
+      .filter((year): year is number => year !== null && isPlausibleYear(year, asOfYear));
     const enactedYear = years.length > 0 ? Math.min(...years) : null;
     const lastAmendedYear = years.length > 0 ? Math.max(...years) : null;
 
@@ -200,7 +228,12 @@ export function buildSectionLongevity(
       title: section.title,
       enactedYear,
       lastAmendedYear,
-      amendmentCount: amendments.length,
+      // Dated actions only. `amendmentCount` used to count every parsed action
+      // while `status`, `churnPerDecade` and `neverAmended` counted only dated
+      // ones, so a section with an undated trailing action could rank at the
+      // top of "most amended" while simultaneously reporting `status:
+      // "original"` and being counted as never-amended.
+      amendmentCount: years.length,
       ageYears,
       yearsSinceLastAmendment: yearsSince,
       churnPerDecade,
@@ -233,8 +266,12 @@ export function buildSectionLongevity(
   const observedDecades = [...decades.keys()].sort((a, b) => a - b);
   const byDecade: DecadeBucket[] = [];
   if (observedDecades.length > 0) {
+    // Widest observed decade, so a plausible-but-distant outlier year cannot
+    // stretch the axis either. Observed decades are never dropped: every key in
+    // `decades` is within [min, max] by construction, so the bound below is a
+    // pure safety net for inputs that arrive with implausible keys.
     const first = observedDecades[0];
-    const last = observedDecades[observedDecades.length - 1];
+    const last = Math.min(observedDecades[observedDecades.length - 1], first + MAX_DECADE_SPAN);
     for (let decade = first; decade <= last; decade += 10) {
       byDecade.push(decades.get(decade) ?? { decade, enacted: 0, lastTouched: 0 });
     }

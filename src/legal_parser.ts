@@ -129,7 +129,15 @@ export function extractOrdinanceAmendments(historyText: string): OrdinanceAmendm
 
   for (const part of parts) {
     const match = part.match(/Ord(?:inance)?\.?\s*(?:No\.?)?\s*(\d+)/i);
-    const yearMatch = part.match(/(\d{4})/);
+    // The year must be searched for in the text *after* the ordinance number,
+    // never in the whole part. `Ord. 6453 § 5, 1991` is a real history line in
+    // the scraped corpus: an unanchored /(\d{4})/ matched the ordinance number
+    // 6453 and reported year 6453, which then flowed into the city-wide
+    // ordinance timeline (earliest year 6453), section-longevity ages
+    // (2026 − 6453 = -4427, and a "never amended" status), and a decade
+    // histogram that fabricated ~443 all-zero buckets between 2020 and 6450.
+    const rest = match ? part.slice((match.index ?? 0) + match[0].length) : part;
+    const yearMatch = rest.match(/(\d{4})/);
     const actionMatch = part.match(/\b(enacted|amended|repealed|adopted|added|deleted|renumbered)\b/i);
 
     if (match) {

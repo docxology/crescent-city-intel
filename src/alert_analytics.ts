@@ -17,8 +17,39 @@ import { outputRoot } from "./shared/paths.js";
 
 const log = createLogger("alert_analytics");
 
-export const ALERT_TYPES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg"] as const;
+/**
+ * The alert families that reach the analytics timeline, `typeStats`, the GUI
+ * heatmap, the insight brief and `/api/alerts/{type}/history`.
+ *
+ * All fifteen, in `MONITOR_KEYS` order. This list has been the wrong length
+ * three times: it once held 8 of 14 (road closures, school closures, PSPS,
+ * smoke, drought and the coastal-waters forecast never reached the timeline,
+ * heatmap, insight brief, monthly report, or `/api/monitor/alerts`, despite all
+ * six writing a `history.jsonl` the reader already consumed), then 9 when
+ * `uscg` was added, then 14.
+ *
+ * Order is the display order of the heatmap and the trend selector, so it is
+ * `MONITOR_KEYS` rather than alphabetical: emergency-first, then the civic set.
+ * `ALERT_SOURCE_BY_TYPE` in `gui/alert_trends.ts` and the hand-written monitor
+ * and icon maps in `gui/static/index.html` follow this order, and
+ * `tests/alert-source-roster.test.ts` asserts they match.
+ */
+export const ALERT_TYPES = [
+  "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
+  "tides", "fishing", "drought", "psps", "smoke", "roads", "schools", "uscg",
+] as const;
 export type AlertType = typeof ALERT_TYPES[number];
+
+/**
+ * Monitors that write a `history.jsonl` but are not in `ALERT_TYPES`.
+ *
+ * Empty: the 2026-09-26/27 passes closed the gap. Retained as an explicit,
+ * asserted constant so that "every history-keeping monitor is analysed" is a
+ * checkable property rather than a fact that quietly regresses — the same drift
+ * class that left six monitors out of `EXPECTED_SOURCE_HEALTH` and one out of
+ * `CORRELATION_SOURCES`.
+ */
+export const ANALYTICS_GAP_TYPES: readonly string[] = [];
 
 interface AlertHistoryRecord {
   id?: string;
@@ -104,13 +135,35 @@ function getTimestamp(record: AlertHistoryRecord): string | null {
   return record.fetchedAt ?? record.timestamp ?? record.time ?? record.assessedAt ?? null;
 }
 
-/** Extract severity from various record shapes */
+/**
+ * Extract severity from various record shapes.
+ *
+ * Read the monitor's OWN tier, not a parallel enum, wherever the record carries
+ * one. Two types persisted both: `noaa_tsunami` writes the CAP `severity`
+ * (Minor/Moderate/Severe/Extreme) alongside `threatLevel` (warning/watch/
+ * advisory), and `nws_weather` writes CAP `severity` alongside `severityLevel`
+ * (advisory/watch/warning). Reading the CAP field put NWS enums in the same
+ * histogram as composite tiers, so a Severe warning was bucketed as "Severe"
+ * rather than WARNING — and the GUI heatmap inherited the mixed vocabulary.
+ * `composite.ts` already read the tier fields; this now agrees with it.
+ */
 function getSeverity(record: AlertHistoryRecord, type: AlertType): string {
-  // Type-specific severity extraction
-  if (type === "tsunami") return record.severity ?? "alert";
-  if (type === "earthquake") {
-    const mag = record.magnitude ?? record.mag;
-    return mag >= 6 ? "WARNING" : "WATCH";
+  switch (type) {
+    case "tsunami": return record.threatLevel ?? record.severity ?? "alert";
+    // Prefer the monitor's persisted verdict when present, so an M7.2 flagged
+    // for tsunami (which severity.ts scores EMERGENCY) is not flattened to
+    // WARNING here, and a magnitude-less row is not guessed at.
+    case "earthquake":
+      if (record.alertLevel) return record.alertLevel;
+      if (typeof record.tsunami === "number" && record.tsunami >= 2) return "EMERGENCY";
+      return (record.magnitude ?? record.mag ?? 0) >= 6 ? "WARNING" : "WATCH";
+    case "weather": return record.severityLevel ?? record.severity ?? "advisory";
+    case "tides": return record.level ?? "CALM";
+    case "airquality": return record.level ?? "CALM";
+    case "wildfire": return record.level ?? "ADVISORY";
+    case "marine": return record.level ?? "CALM";
+    case "fishing": return record.level ?? "CALM";
+    default: return "alert";
   }
   if (type === "weather") return record.severity ?? "advisory";
   if (type === "tides") return record.level ?? "CALM";
@@ -119,6 +172,16 @@ function getSeverity(record: AlertHistoryRecord, type: AlertType): string {
   if (type === "marine") return record.level ?? "CALM";
   if (type === "fishing") return record.level ?? "CALM";
   if (type === "uscg") return record.level ?? "ADVISORY";
+  // The six civic monitors added on 2026-09-27, read from the field each one
+  // actually persists. Falling through to a bare "alert" would bucket a D3
+  // drought as the same undifferentiated value as a tsunami, in the same
+  // histogram the GUI heatmap renders.
+  if (type === "marinezone") return record.worstLevel ?? "CALM";
+  if (type === "drought") return record.severity ?? record.category ?? "NONE";
+  if (type === "psps") return record.level ?? record.status ?? record.overallStatus ?? "alert";
+  if (type === "smoke") return record.level ?? "GOOD";
+  if (type === "roads") return record.severity ?? "NONE";
+  if (type === "schools") return record.status ?? "OPEN";
   return "alert";
 }
 
@@ -132,6 +195,15 @@ function getDescription(record: AlertHistoryRecord, type: AlertType): string {
   if (type === "wildfire") return record.summary ?? `${record.name ?? "Wildfire"}`;
   if (type === "marine") return record.summary ?? "Marine condition";
   if (type === "uscg") return record.summary ?? record.msgId ?? "USCG broadcast";
+  // The six civic monitors. Prefer the monitor's own human-facing line, and
+  // otherwise compose one from the fields it persists, so a timeline row is
+  // never a raw JSON blob.
+  if (type === "marinezone") return record.summary ?? `Coastal waters forecast ${record.worstLevel ?? "?"}`;
+  if (type === "drought") return record.summary ?? `${record.county ?? "Del Norte"} drought ${record.severity ?? record.category ?? "?"}`;
+  if (type === "psps") return record.summary ?? `PSPS ${record.status ?? record.overallStatus ?? "?"}`;
+  if (type === "smoke") return record.summary ?? `Smoke ${record.level ?? "?"} (AQI ${record.aqi ?? "?"})`;
+  if (type === "roads") return record.summary ?? (record.route ? `${record.route}: ${record.description ?? ""}` : "Road incident");
+  if (type === "schools") return record.summary ?? `School status ${record.status ?? "?"}`;
   return JSON.stringify(record).substring(0, 100);
 }
 
@@ -192,7 +264,14 @@ function computeTypeStats(type: AlertType, records: AlertHistoryRecord[]): Alert
  * over the FULL record set.
  */
 export function buildAlertAnalytics(maxTimelineEntries = 1000): AlertAnalyticsReport {
-  const alertsDir = join(process.cwd(), "output", "alerts");
+  // Every branch resolves through `outputRoot()`. `alertsDir` used to hardcode
+  // `process.cwd()/output` while the tides and fishing branches used the seam,
+  // so with `CC_OUTPUT_DIR` set one report read two different trees — the
+  // redirected (empty) tree for the eight core types and the real one for tides
+  // and fishing. That is a silent false-calm: the core types contribute zero
+  // events while the other two contribute real ones, and nothing marks the
+  // report as partial.
+  const alertsDir = join(outputRoot(), "alerts");
   const fishingDir = join(outputRoot(), "fishing");
   const tidesDir = join(outputRoot(), "tides");
 
@@ -402,11 +481,19 @@ export function computeAlertTypeTrends(
 }
 
 /**
- * Get the last N alert events across all types.
+ * Get the last N alert events across all types, newest first.
+ *
+ * The bound is clamped here as well as in the route. `slice(-limit)` treats a
+ * NEGATIVE limit as a start offset, so `?limit=-5` returned every event except
+ * the five oldest, reversed — while the response echoed `limit: -5`. Zero was
+ * already coerced to the default by the route's `parseInt(...) || 20`, but a
+ * direct caller passing 0 or -1 got the whole timeline.
  */
 export function getRecentAlerts(limit: number = 20): TimelineEntry[] {
   const report = buildAlertAnalytics();
-  return report.timeline.slice(-limit).reverse();
+  const bounded = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 20;
+  if (bounded === 0) return [];
+  return report.timeline.slice(-bounded).reverse();
 }
 
 /**

@@ -75,6 +75,55 @@ describe("buildWordFrequency", () => {
     expect(report.topByFrequency.some((t) => t.surface.startsWith("zoning"))).toBe(true);
   });
 
+  test("section titles are tokenised, so heading-only terms get a document frequency", () => {
+    // The module documents itself as mirroring the BM25 index's tokenisation,
+    // and the index feeds BOTH `text` and `title` into one term map. A term
+    // appearing only in a heading (very common: "Appeals", "Definitions") had
+    // index df > 0 but this module's df 0, so it was missing from
+    // topBySalience instead of correctly scoring 0 as universal boilerplate.
+    const report = buildWordFrequency([
+      { guid: "a", number: "1.01.010", title: "Appeals", text: "A person may appeal." },
+      { guid: "b", number: "1.01.020", title: "Appeals", text: "Another person may appeal." },
+    ], { limit: 50 });
+    const appeals = report.topByFrequency.find((e: { term: string }) => e.term === "appeal");
+    expect(appeals).toBeDefined();
+    expect(appeals!.documentFrequency).toBe(2);
+    // Present in every section, so it has no discriminative value.
+    expect(appeals!.salience).toBe(0);
+  });
+
+  test("the vocabulary summary describes the filtered tables, not the raw corpus", () => {
+    // distinctTerms/hapaxCount were computed before the minDocumentFrequency
+    // filter, so with `minDf=2` the summary reported a vocabulary the two
+    // ranked lists did not contain.
+    const sections = [
+      { guid: "a", number: "1.01.010", title: "T", text: "harbor harbor harbor dock" },
+      { guid: "b", number: "1.01.020", title: "T", text: "harbor dock dock" },
+      { guid: "c", number: "1.01.030", title: "T", text: "harbor dock" },
+    ];
+    const report = buildWordFrequency(sections, { minDocumentFrequency: 2, limit: 50 });
+    const listed = new Set([...report.topByFrequency, ...report.topBySalience].map((e: { term: string }) => e.term));
+    for (const term of listed) {
+      expect(report.summary.distinctTerms).toBeGreaterThanOrEqual(listed.size);
+    }
+    // Every term the summary counts is actually present in the tables.
+    expect(report.summary.distinctTerms).toBe(listed.size);
+    // "dock" appears in all three sections so it survives minDf=2.
+    expect(listed.has("dock")).toBe(true);
+  });
+
+  test("a non-finite limit falls back to the default rather than emptying the tables", () => {
+    // `Math.max(1, NaN)` is NaN, `[].slice(0, NaN)` is [], and `x > NaN` is
+    // false — so a direct caller passing `limit: NaN` got empty tables with
+    // `truncated: false`, claiming nothing was cut when everything was.
+    const report = buildWordFrequency(
+      [{ guid: "a", number: "1.01.010", title: "T", text: "harbor dock quay" }],
+      { limit: Number.NaN as unknown as number },
+    );
+    expect(report.topByFrequency.length).toBeGreaterThan(0);
+    expect(report.truncated).toBe(false);
+  });
+
   test("minLength and minDocumentFrequency filter the ranking", () => {
     const long = buildWordFrequency(sections, { minLength: 8, limit: 50 });
     expect(long.topByFrequency.every((t) => t.surface.length >= 8)).toBe(true);

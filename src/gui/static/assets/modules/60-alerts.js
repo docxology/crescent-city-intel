@@ -36,13 +36,21 @@
     // The pure TypeScript implementation is the tested contract. This local
     // SPA has no build step, so the browser keeps a small equivalent view-model
     // builder and is exercised end-to-end by scripts/browser-smoke.ts.
-    const ALERT_TREND_TYPES = ['tsunami', 'earthquake', 'weather', 'tides', 'airquality', 'wildfire', 'marine', 'fishing', 'uscg'];
+    // Every analysed monitor, in ALERT_TYPES (MONITOR_KEYS) order. This list
+    // was 8 of 14 for most of the project's life, so road closures, school
+    // closures, PSPS, smoke, drought and the coastal-waters forecast had history
+    // on disk but never appeared here — and the restated copy could not be
+    // derived from the roster, so it drifted silently.
+    // tests/alert-source-roster.test.ts asserts these maps against MONITOR_KEYS.
+    const ALERT_TREND_TYPES = ['tsunami', 'earthquake', 'weather', 'airquality', 'wildfire', 'marine', 'marinezone', 'tides', 'fishing', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg'];
     const ALERT_TREND_SOURCE_BY_TYPE = {
-      tsunami: 'NOAA Tsunami', earthquake: 'USGS Earthquake', weather: 'NWS Weather', tides: 'NOAA Tides',
-      airquality: 'EPA AirNow', wildfire: 'CAL FIRE Wildfire', marine: 'NDBC Marine', fishing: 'CDFW Fishing',
-      uscg: 'USCG Notice to Mariners',
+      tsunami: 'NOAA Tsunami', earthquake: 'USGS Earthquake', weather: 'NWS Weather',
+      airquality: 'EPA AirNow', wildfire: 'CAL FIRE Wildfire', marine: 'NDBC Marine',
+      marinezone: 'NWS Marine Forecast', tides: 'NOAA Tides', fishing: 'CDFW Fishing',
+      drought: 'USDM Drought', psps: 'PG&E PSPS', smoke: 'HRRR Smoke',
+      roads: 'Caltrans Roads', schools: 'DUSD Schools', uscg: 'USCG Broadcast Notice to Mariners',
     };
-    const ALERT_TREND_ICONS = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', uscg: '📻' };
+    const ALERT_TREND_ICONS = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻' };
     const ALERT_TREND_DAY_MS = 24 * 60 * 60 * 1000;
     const ALERT_TREND_WINDOW_DAYS = 14;
     const ALERT_TREND_HISTORY_LIMIT = 500;
@@ -383,8 +391,8 @@ ${sample}
         }
 
         // Per-monitor grid
-        const monitorOrder = ['tsunami', 'earthquake', 'weather', 'tides', 'fishing', 'airquality', 'wildfire', 'marine', 'uscg'];
-        const monitorIcons = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', uscg: '📻' };
+        const monitorOrder = ['tsunami', 'earthquake', 'weather', 'tides', 'fishing', 'airquality', 'wildfire', 'marine', 'marinezone', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg'];
+        const monitorIcons = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻' };
 
         html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0.5rem; margin-bottom:1rem;">';
         for (const type of monitorOrder) {

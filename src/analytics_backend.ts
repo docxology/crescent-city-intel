@@ -311,6 +311,34 @@ function buildSignals(input: { health: SourceHealth[]; alerts: JsonRecord | null
       nextStep: "Open Safety & live alerts and follow the individual monitor evidence.",
     });
   }
+  // A CALM composite with unavailable monitors is NOT a clean bill of health.
+  // The level enum has no "unknown", so the flag is the only signal that some
+  // feeds could not be checked; without surfacing it here, a run that could
+  // not reach the tsunami, earthquake, roads, fishing and marine feeds produced
+  // no signal at all and the overview headlined the corpus as ready.
+  if (input.alerts?.hasUnavailableMonitors === true) {
+    const unavailable = Array.isArray(input.alerts.monitors)
+      ? input.alerts.monitors
+        .filter((m: { availability?: string }) => m?.availability === "unavailable")
+        .map((m: { name?: string }) => m.name)
+        .filter((name: unknown): name is string => typeof name === "string")
+      : [];
+    signals.push({
+      id: "composite-monitors-unavailable",
+      category: "alert",
+      severity: "watch",
+      title: "Some alert monitors could not be checked",
+      detail: alertLevel === "CALM"
+        ? `The composite reads CALM, but ${unavailable.length} monitor(s) were unavailable, so this is not a confirmed all-clear.`
+        : "At least one monitor was unavailable; the reported level covers only the monitors that responded.",
+      evidence: [
+        `level=${alertLevel}`,
+        `hasUnavailableMonitors=true`,
+        `unavailable=${unavailable.join(",") || "not itemised"}`,
+      ],
+      nextStep: "Open Source health and inspect the unavailable monitor records or retry their runs.",
+    });
+  }
   if (input.curated.length === 0) {
     signals.push({ id: "curation-empty", category: "content", severity: "watch", title: "No LLM briefs are available", detail: "The public feed may still contain source items, but no provider-generated brief is currently recorded.", evidence: ["curatedCount=0"], nextStep: "Run `bun run curate` after the configured provider is reachable." });
   }

@@ -232,8 +232,17 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
     return { level: "CALM", summary: "No qualifying earthquakes nearby", count: 0 };
   }
 
+  // USGS tsunami flag 2 = tsunami generated, 1 = possible tsunami. The monitor
+  // sorts events by distance, so the array order is nearest-first and the first
+  // element is not necessarily the most significant. Rank by magnitude (then
+  // distance) so the headline names the worst event, not the closest one — an
+  // M7.4 at 180 km was previously invisible behind an M6.3 at 50 km.
+  const bySignificance = (a: typeof nearbyEvents[number], b: typeof nearbyEvents[number]): number =>
+    b.magnitude - a.magnitude || a.distanceKm - b.distanceKm;
+  const ranked = [...nearbyEvents].sort(bySignificance);
+
   // USGS tsunami flag 2 = tsunami generated
-  const tsunamiEvents = nearbyEvents.filter((e) => e.tsunami >= 2);
+  const tsunamiEvents = ranked.filter((e) => e.tsunami >= 2);
   if (tsunamiEvents.length > 0) {
     return {
       level: "EMERGENCY",
@@ -242,7 +251,20 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
     };
   }
 
-  const severe = nearbyEvents.filter((e) => e.magnitude >= 6.0);
+  // Flag 1 = "possible tsunami". The monitor records it as TSUNAMI_WATCH and
+  // logs it at warn level; the composite used to mention tsunamis only for
+  // flag >= 2, so a flagged possible tsunami produced no tsunami wording at all.
+  const possibleTsunami = ranked.filter((e) => e.tsunami === 1);
+  if (possibleTsunami.length > 0) {
+    const top = possibleTsunami[0];
+    return {
+      level: "WARNING",
+      summary: `\u{1f6a8} M${top.magnitude} earthquake ${top.distanceKm.toFixed(0)} km away — possible tsunami`,
+      count: nearbyEvents.length,
+    };
+  }
+
+  const severe = ranked.filter((e) => e.magnitude >= 6.0);
   if (severe.length > 0) {
     const top = severe[0];
     return {
@@ -253,7 +275,7 @@ function assessEarthquake(input: EarthquakeInput): MonitorStatus {
   }
 
   // M4.0-5.9 in range
-  const top = nearbyEvents[0];
+  const top = ranked[0];
   return {
     level: "WATCH",
     summary: `\u{1f7e1} M${top.magnitude} earthquake ${top.distanceKm.toFixed(0)} km away`,
@@ -272,23 +294,31 @@ function assessWeather(input: WeatherInput): MonitorStatus {
     return { level: "CALM", summary: "No active weather alerts", count: 0 };
   }
 
+  // The summary must count the alerts *in the tier that matched*, not every
+  // active alert: `input.count` is the total, so one warning plus three
+  // advisories rendered "4 active NWS Warning(s)". `count` on the returned
+  // status stays the total, which is its documented meaning.
+  const tierCount = (tier: string): number => input.severities.filter(s => s === tier).length;
+
   if (input.severities.includes("warning")) {
+    const n = tierCount("warning");
     return {
       level: "WARNING",
-      summary: `\u{1f534} ${input.count} active NWS Warning(s)`,
+      summary: `\u{1f534} ${n} active NWS Warning(s)`,
       count: input.count,
     };
   }
   if (input.severities.includes("watch")) {
+    const n = tierCount("watch");
     return {
       level: "WATCH",
-      summary: `\u{1f7e1} ${input.count} active NWS Watch(es)`,
+      summary: `\u{1f7e1} ${n} active NWS Watch(es)`,
       count: input.count,
     };
   }
   return {
     level: "WATCH",
-    summary: `\u{1f535} ${input.count} active NWS Advisory(ies)`,
+    summary: `\u{1f535} ${tierCount("advisory")} active NWS Advisory(ies)`,
     count: input.count,
   };
 }
@@ -595,6 +625,32 @@ const SEVERITY_ORDER: Record<AlertSeverity, number> = {
 };
 
 /**
+ * Hazard priority for choosing the single headline `reason`, most urgent first.
+ * Two monitors at the same tier must not be decided by object-literal order:
+ * the operator-visible one-liner is the only summary on the dashboard, so a
+ * school closure losing the slot to a long-running drought was a real
+ * mis-report. Immediate life-safety and same-day-disruption sources lead;
+ * chronic background conditions (drought, air quality, tides) come last
+ * because they are the ones most likely to sit at WARNING for weeks.
+ */
+const MONITOR_PRIORITY: readonly string[] = [
+  "tsunami",      // highest consequence, rare
+  "earthquake",   // sudden, life-safety
+  "wildfire",     // evacuation orders
+  "weather",      // NWS warnings/watches
+  "marinezone",   // gale/storm warning forecast for the nearshore zone
+  "roads",        // US-101 closure — the region's one artery
+  "schools",      // same-day civic impact
+  "psps",         // power loss
+  "marine",       // buoy conditions
+  "tides",        // chronic, but flood-relevant at the extremes
+  "smoke",        // air quality
+  "fishing",      // seasonal economic impact
+  "airQuality",
+  "drought",      // multi-year background state
+];
+
+/**
  * Marine zone forecast input (NWS CWF PZZ450, src/alerts/nws_marine.ts).
  */
 export interface MarineZoneInput {
@@ -718,14 +774,27 @@ export function computeAlertSeverity(
     uscg: assessUscg(uscg),
   };
 
-  // Find the highest severity across all monitors
+  // Find the highest severity across all monitors.
+  //
+  // Ties are broken by hazard priority, not by the order the `monitors` literal
+  // happens to be written in. A strict `>` let the first-declared key win, so a
+  // chronic drought WARNING outranked an active PSPS WARNING or a school
+  // closure for the single front-page reason line, purely because `drought` is
+  // declared before `psps`/`schools`. MONITOR_PRIORITY is ordered
+  // emergency-first and matches the "applied in priority order" the module
+  // header claims.
   let topLevel: AlertSeverity = "CALM";
   let topReason = "All systems nominal";
+  let topPriority = Number.POSITIVE_INFINITY;
 
   for (const [name, status] of Object.entries(monitors)) {
-    if (SEVERITY_ORDER[status.level] > SEVERITY_ORDER[topLevel]) {
+    const level = SEVERITY_ORDER[status.level];
+    const priority = MONITOR_PRIORITY.indexOf(name);
+    const rank = priority === -1 ? MONITOR_PRIORITY.length : priority;
+    if (level > SEVERITY_ORDER[topLevel] || (level === SEVERITY_ORDER[topLevel] && level > 0 && rank < topPriority)) {
       topLevel = status.level;
       topReason = `${name.charAt(0).toUpperCase() + name.slice(1)}: ${status.summary}`;
+      topPriority = rank;
     }
   }
 

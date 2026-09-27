@@ -49,7 +49,8 @@ Hard-coded project constants. Change these to target a different municipality.
 | `CURATION_SUMMARY_TIMEOUT_MS` | `15000` | Maximum time for one source summary before source-only fallback |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
-| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
+| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale. Applies to the non-alert source families (news, meetings, YouTube, Triplicate). |
+| `ALERT_FRESHNESS_WINDOW_MS` | `3600000` | Maximum age before an *alert-monitor* report is treated as stale by the composite. Applies to all 14 monitors — core and extended — which share one window. The alert window is deliberately stricter than `SOURCE_FRESHNESS_WINDOW_MS`; the two were previously independent, with the alert side hardcoded, so a report could be `ok` under one policy and `stale` under the other and the stricter one was not tunable. An unparseable or non-positive value falls back to the default rather than disabling the gate. |
 | `SOURCE_DISCOVERY_TIMEOUT_MS` | `10000` | Bounded timeout for optional source-discovery probes |
 | `SOURCE_DISCOVERY_LIVE_CHECK` | unset | Set to `1` in scheduled orchestration to probe discovery-only sources; offline runs keep them `not-checked` |
 | `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |

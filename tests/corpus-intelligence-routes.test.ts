@@ -8,7 +8,7 @@
  * the counts belong to the pure-module tests, which use fixtures.
  */
 import { describe, expect, test } from "bun:test";
-import { handleApiRoute } from "../src/gui/routes.ts";
+import { handleApiRoute, _resetInsightsCache } from "../src/gui/routes.ts";
 import { SECTION_GRAPH_SCHEMA } from "../src/section_graph.ts";
 import { WORD_FREQUENCY_SCHEMA } from "../src/word_frequency.ts";
 import { SECTION_LONGEVITY_SCHEMA } from "../src/section_longevity.ts";
@@ -111,7 +111,25 @@ describe("GET /api/insights", () => {
     expect(Array.isArray(body.trends)).toBe(true);
     expect(Array.isArray(body.coverageGaps)).toBe(true);
     expect(body.narrative).toHaveProperty("status");
-  });
+    // The build walks the whole corpus and nothing on the request changes the
+    // answer, so consecutive reads are served from a short cache rather than
+    // each rebuilding. Without it this test was the slowest in the suite and
+    // intermittently hit the 30s per-test bound under full-suite load.
+    const again = await (await get("/api/insights")).json();
+    expect(again.schemaVersion).toBe(body.schemaVersion);
+    expect(again.generatedAt ?? null).toBe(body.generatedAt ?? null);
+  }, 120000);
+
+  test("an explicit rebuild bypasses the cache", async () => {
+    _resetInsightsCache();
+    const first = await (await get("/api/insights")).json();
+    const rebuilt = await (await get("/api/insights?rebuild=1")).json();
+    expect(rebuilt.source).toBe("computed");
+    // A rebuild re-runs the build, so the envelope is regenerated rather than
+    // replayed from the cache the previous call populated.
+    expect(rebuilt.schemaVersion).toBe(first.schemaVersion);
+    expect(Array.isArray(rebuilt.trends)).toBe(true);
+  }, 120000);
 
   test("a window override forces a computed report and is clamped", async () => {
     const body = await (await get("/api/insights?window=9999")).json();

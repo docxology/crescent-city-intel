@@ -15,6 +15,7 @@ import {
   worstMarineLevel,
   MARINE_ZONE_CODE,
 } from "../src/alerts/nws_marine";
+import { isFreshReport } from "../src/alerts/composite";
 
 /** Verbatim excerpt shape from the live 2026-09-03 KEKA CWF (FZUS56 KEKA). */
 const CWF_TEXT = `PZZ400-040515-
@@ -122,6 +123,18 @@ describe("toMarineZoneForecast", () => {
     expect(forecast!.peakWindKt).toBe(15);
     expect(forecast!.worstLevel).toBe("CALM");
     expect(forecast!.summary).toContain("peak forecast wind 15 kt");
+  });
+
+  test("stamps the fetch time, so the composite freshness gate can read it", () => {
+    // The defect this replaces: MarineZoneForecast carried no `timestamp` or
+    // `fetchedAt`, so `isFreshReport` returned false on every run and the
+    // monitor reported itself `stale` permanently — counted as *missing*
+    // coverage and pushed into the healer's retry roster even when the CWF
+    // fetch succeeded. `issuance` is free text ("913 AM PDT Thu Sep 3 2026")
+    // and cannot substitute.
+    const forecast = toMarineZoneForecast(CWF_TEXT, "2026-09-03T16:13:00Z")!;
+    expect(forecast.timestamp).toBe("2026-09-03T16:13:00Z");
+    expect(isFreshReport(forecast, Date.parse("2026-09-03T16:20:00Z"))).toBe(true);
   });
 
   test("returns null when the zone block is missing", () => {

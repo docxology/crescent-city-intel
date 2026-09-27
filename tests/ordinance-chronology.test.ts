@@ -70,12 +70,36 @@ describe("buildOrdinanceChronology", () => {
     expect(report.truncated).toBe(true);
   });
 
-  test("guidFilter yields exactly one section and honest scan count", () => {
+  test("guidFilter narrows the per-section output only", () => {
+    // The defect: the filter `continue`d at the top of the loop, so it also
+    // narrowed `cityTimeline` and the corpus summary — both documented as
+    // describing the whole city — while still being labelled that way.
+    // `?guid=g2` reported a one-ordinance "city-wide" timeline.
     const report = buildOrdinanceChronology(sections, { guidFilter: "g2" });
-    expect(report.summary.sectionsScanned).toBe(1);
     expect(report.sectionChronologies).toHaveLength(1);
     expect(report.sectionChronologies[0]?.guid).toBe("g2");
     expect(report.truncated).toBe(false);
+    // City-wide and corpus-level facts still describe the corpus.
+    expect(report.summary.sectionsScanned).toBe(4);
+    expect(report.summary.distinctOrdinances).toBe(2);
+    expect(report.summary.totalAmendments).toBe(3);
+    expect(report.cityTimeline.map((o) => o.ordinance).sort()).toEqual(["Ord. No. 123", "Ord. No. 200"]);
+    // Ord. 123 touched two sections; a one-section filter must not hide that.
+    expect(report.cityTimeline.find((o) => o.ordinance === "Ord. No. 123")?.sectionCount).toBe(2);
+  });
+
+  test("an ordinance's actions and section numbers are sorted, not first-encounter order", () => {
+    // Determinism: these lists were built in load order, so the report's bytes
+    // could change with a re-scrape or a different loader order.
+    const report = buildOrdinanceChronology(sections);
+    const ord123 = report.cityTimeline.find((o) => o.ordinance === "Ord. No. 123")!;
+    expect(ord123.sectionNumbers).toEqual([...ord123.sectionNumbers].sort((a, b) => a.localeCompare(b, "en", { numeric: true })));
+    expect(ord123.actions).toEqual([...ord123.actions].sort());
+    // Shuffling the input must not change the report.
+    const shuffled = [sections[2], sections[0], sections[3], sections[1]];
+    const a = buildOrdinanceChronology(sections);
+    const b = buildOrdinanceChronology(shuffled);
+    expect(JSON.stringify(b.cityTimeline)).toBe(JSON.stringify(a.cityTimeline));
   });
 
   test("empty input produces an empty but well-formed report", () => {

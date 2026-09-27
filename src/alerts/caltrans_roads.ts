@@ -274,7 +274,12 @@ export function parseRouteConditionText(route: string, text: string): RoadIncide
       if (!/del norte/i.test(sentence)) continue;
       const countyMatch = sentence.match(/\(([^)]*Co\.?)\)/i);
       const lower = sentence.toLowerCase();
-      const endMatch = text.match(/thru\s+\d{1,4}\s*hrs\s+on\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+      // Scope the estimated-end match to THIS sentence. It used to match
+      // against the whole route document outside the loop, so every incident
+      // from a route was stamped with the first end time found anywhere in
+      // that document — typically another closure's, and possibly belonging to
+      // a different route entirely.
+      const endMatch = sentence.match(/thru\s+\d{1,4}\s*hrs\s+on\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
       incidents.push({
         id: "caltrans-text-" + route + "-" + sentence.slice(0, 48).replace(/\W+/g, "-").toLowerCase(),
         route: "Route " + route,
@@ -300,7 +305,19 @@ export function parseRouteConditionText(route: string, text: string): RoadIncide
  * shell (verified 2026-08-30) but are retained so a service restoration
  * needs no code change.
  */
-export async function fetchRoadIncidents(): Promise<RoadIncident[]> {
+/**
+ * Fetch Del Norte route conditions.
+ *
+ * Returns `null` when the coverage is partial: at least one route's fetch
+ * failed (a transient error, or a route page with no "reported as of" anchor),
+ * so the incidents we did collect are not a complete picture. A partial result
+ * used to be returned as a *successful* report, so a US-101 closure invisible
+ * to the surviving routes published as "No road incidents on Del Norte routes"
+ * — a false calm on the region's single artery. `null` is what
+ * `NULL_ON_FAILURE_MONITORS` maps to an unavailable source, so the composite and
+ * the source-health record both say "unavailable" rather than "clear".
+ */
+export async function fetchRoadIncidents(): Promise<RoadIncident[] | null> {
   const results = await Promise.allSettled(
     TEXT_ROUTES.map(async route => parseRouteConditionText(route, await fetchRouteConditionsText(route))),
   );
@@ -314,7 +331,14 @@ export async function fetchRoadIncidents(): Promise<RoadIncident[]> {
       logger.warn("Caltrans text fetch failed for one route", { error: String(result.reason) });
     }
   }
-  if (failures < TEXT_ROUTES.length) return incidents;
+  if (failures === 0) return incidents;
+  if (failures < TEXT_ROUTES.length) {
+    logger.warn("Caltrans route coverage is partial; reporting unavailable rather than a clean bill of health", {
+      failedRoutes: failures,
+      totalRoutes: TEXT_ROUTES.length,
+    });
+    return null;
+  }
   logger.warn("All Caltrans text routes failed; trying legacy QuickMap JSON");
   return await fetchRoadIncidentsLegacy();
 }
@@ -326,6 +350,15 @@ export async function runRoadClosureMonitor(): Promise<RoadClosureReport | null>
 
   try {
     const incidents = await fetchRoadIncidents();
+    // Partial route coverage is not a clean bill of health. `null` here becomes
+    // an unavailable source via NULL_ON_FAILURE_MONITORS, so the composite says
+    // "unavailable" and the health record counts it missing — rather than
+    // reporting CALM "No road incidents" from whatever subset did respond.
+    if (incidents === null) {
+      lastRoadsError = "partial Caltrans route coverage (at least one route fetch failed)";
+      logger.error("Caltrans road coverage incomplete; reporting unavailable", { error: lastRoadsError });
+      return null;
+    }
 
     const delNorteIncidents = incidents.filter(i => i.isDelNorteRoute);
     const hasMajorClosure = delNorteIncidents.some(i => i.severity === "CLOSURE");

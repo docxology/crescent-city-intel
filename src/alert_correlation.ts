@@ -24,18 +24,35 @@ const log = createLogger("alert_correlation");
 
 export const CORRELATION_SCHEMA = "crescent-city-alert-correlations/v1" as const;
 
-/** Every monitor source that keeps (or may keep) a history.jsonl. */
+/**
+ * Every monitor source that keeps (or may keep) a history.jsonl.
+ *
+ * `marinezone` is included: `nws_marine.ts` writes
+ * `output/alerts/marinezone/history.jsonl` with a `fetchedAt` stamp and a
+ * `worstLevel` tier, so it is analytics-shaped like the rest. Omitting it
+ * under-reported `sourcesScanned` and made the `weather-marine` pair read the
+ * buoy monitor only, never the zone forecast product.
+ */
 export const CORRELATION_SOURCES = [
-  "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine",
-  "tides", "fishing", "drought", "psps", "smoke", "roads", "schools",
+  "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
+  "tides", "fishing", "drought", "psps", "smoke", "roads", "schools", "uscg",
 ] as const;
 export type CorrelationSource = (typeof CORRELATION_SOURCES)[number];
 
-/** History paths match the runners: extended monitors live under output/alerts, tides/fishing under output/. */
+/**
+ * History paths match the runners: extended monitors live under output/alerts,
+ * tides/fishing under output/.
+ *
+ * Every branch resolves through `outputRoot()`. The eleven alert branches used
+ * to hardcode `process.cwd()/output`, so with `CC_OUTPUT_DIR` set one report
+ * read two different trees — and any process whose cwd was not the repo root
+ * silently got `hasHistory: false` for every monitor. `outputRoot()` is the
+ * documented artifact-root seam (see `src/shared/paths.ts`).
+ */
 function historyPathFor(source: CorrelationSource): string {
   if (source === "fishing") return join(outputRoot(), "fishing", "history.jsonl");
   if (source === "tides") return join(outputRoot(), "tides", "history.jsonl");
-  return join(process.cwd(), "output", "alerts", source, "history.jsonl");
+  return join(outputRoot(), "alerts", source, "history.jsonl");
 }
 
 /** One normalized monitor event. */
@@ -93,12 +110,16 @@ function severityFor(source: CorrelationSource, r: Record<string, unknown>): str
     case "airquality": return str(r.level) || "CALM";
     case "wildfire": return str(r.level) || (r.hasEvacuationOrders === true ? "WARNING" : "ADVISORY");
     case "marine": return str(r.level) || "CALM";
+    // The CWF monitor persists `worstLevel` (its tier), not `level`.
+    case "marinezone": return str(r.worstLevel) || "CALM";
     case "tides":
     case "fishing": return str(r.level) || "CALM";
     case "drought": return str(r.severity) || "NONE";
     case "smoke": return str(r.level) || "UNKNOWN";
     case "roads":
     case "schools": return str(r.severity) || "ADVISORY";
+    // The monitor persists `level` (its classified criticality) per broadcast.
+    case "uscg": return str(r.level) || "CALM";
     case "psps": return str(r.level) || str(r.severity) || "alert";
   }
 }
@@ -125,12 +146,14 @@ function describe(source: CorrelationSource, r: Record<string, unknown>): string
     case "wildfire": return `${str(r.name) || "Wildfire"} (${typeof r.acres === "number" ? r.acres : "?"} acres, ${str(r.county)})`;
     case "airquality": return `AQI ${maxAqiOf(r) ?? "?"}`;
     case "marine": return str(r.stationName) ? `Marine ${str(r.stationName)}` : "Marine condition";
+    case "marinezone": return str(r.summary) || `Coastal waters forecast ${str(r.worstLevel)}`;
     case "tsunami": return str(r.headline) || str(r.event) || "Tsunami alert";
     case "weather": return str(r.headline) || str(r.event) || "Weather alert";
     case "tides": return str(r.summary) || "Tide reading";
     case "fishing": return str(r.summary) || "Fishing report";
     case "psps": return str(r.summary) || "PSPS status";
     case "schools": return str(r.summary) || "School status";
+    case "uscg": return str(r.summary) || str(r.descriptor) || `USCG broadcast ${str(r.msgId)}`;
   }
 }
 
@@ -230,7 +253,7 @@ export interface AlertCorrelationReport {
   totalEventsScanned: number;
   pairs: CorrelationPairReport[];
   /** Sample-level detections in the legacy route shape ({type, description, events}). */
-  correlations: Array<{ type: string; description: string; events: Array<Record<string, unknown>> }>;
+  correlations: Array<{ type: string; description: string; events: Array<Record<string, unknown>>; pairIndex: number }>;
   totalCorrelations: number;
   notes: string[];
 }
@@ -266,9 +289,24 @@ export function buildAlertCorrelations(
   const bySource = new Map<CorrelationSource, CorrelationEvent[]>();
   for (const source of CORRELATION_SOURCES) {
     const raw = eventsBySource ? (eventsBySource[source] ?? []) : readHistory(source);
-    const events = raw.map((e) => ({ ...e, severity: severityFor(source, e.record), description: describe(source, e.record) }));
+    // Sort unconditionally. `medianCadenceMinutes` differences consecutive
+    // timestamps, and the disk path already sorted; the injected path did not,
+    // so injecting two out-of-order events produced a negative cadence, which
+    // then tripped the cadence-sensitivity gate and sorted the pair last
+    // despite real co-occurrences.
+    const events = raw
+      .map((e) => ({ ...e, severity: severityFor(source, e.record), description: describe(source, e.record) }))
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     bySource.set(source, events);
-    scanned.push({ source, events: events.length, hasHistory: events.length > 0 || existsSync(historyPathFor(source)) });
+    // An injected map replaces disk for every source, so `existsSync` is not
+    // consulted on that path: it made the report cwd-dependent (the same input
+    // reported hasHistory true from the repo root and false elsewhere) and
+    // contradicted this module's own "no filesystem" test contract.
+    scanned.push({
+      source,
+      events: events.length,
+      hasHistory: events.length > 0 || (!eventsBySource && existsSync(historyPathFor(source))),
+    });
   }
 
   const allStamps = [...bySource.values()].flat().map((e) => e.timestamp).sort();
@@ -282,6 +320,8 @@ export function buildAlertCorrelations(
   const pairs: CorrelationPairReport[] = [];
   const correlations: AlertCorrelationReport["correlations"] = [];
   const notes: string[] = [];
+  /** Final sort position per note, filled after `pairs` is reordered. */
+  const notePairIndex = new Map<string, number>();
 
   for (const spec of CORRELATION_PAIR_SPECS) {
     const aEvents = (bySource.get(spec.typeA) ?? []).filter(spec.relevantA);
@@ -291,35 +331,55 @@ export function buildAlertCorrelations(
     let first: string | null = null;
     let last: string | null = null;
 
-    for (const a of aEvents) {
-      const aMs = Date.parse(a.timestamp);
-      for (const b of bEvents) {
-        const lag = (Date.parse(b.timestamp) - aMs) / 60000;
-        if (lag < 0 || lag > spec.windowMinutes) continue;
+    // Both event lists are sorted by timestamp (see the sort in the scan loop),
+    // so the inner scan can stop at the first event past the window instead of
+    // testing every remaining pair. Without this the 30-day drought->wildfire
+    // spec runs a full A x B cross product — every pair in-window on sub-daily
+    // cron histories — parsing each timestamp twice and retaining every lag in
+    // memory, synchronously on a plain GET request.
+    const aParsed = aEvents.map((e) => ({ event: e, ms: Date.parse(e.timestamp) }));
+    const bParsed = bEvents.map((e) => ({ event: e, ms: Date.parse(e.timestamp) }));
+
+    for (const a of aParsed) {
+      for (const b of bParsed) {
+        const lag = (b.ms - a.ms) / 60000;
+        if (lag < 0) continue;
+        if (lag > spec.windowMinutes) break;
         lags.push(lag);
-        if (first === null || a.timestamp < first) first = a.timestamp;
-        if (last === null || a.timestamp > last) last = a.timestamp;
+        if (first === null || a.event.timestamp < first) first = a.event.timestamp;
+        if (last === null || a.event.timestamp > last) last = a.event.timestamp;
         if (samples.length < 3) {
           samples.push({
-            aTimestamp: a.timestamp, aDescription: a.description,
-            bTimestamp: b.timestamp, bDescription: b.description,
+            aTimestamp: a.event.timestamp, aDescription: a.event.description,
+            bTimestamp: b.event.timestamp, bDescription: b.event.description,
             lagMinutes: Math.round(lag * 10) / 10,
           });
           correlations.push({
             type: spec.id,
-            description: `${a.description} then ${b.description} (${lag.toFixed(0)} min later)`,
+            // Placeholder; rewritten to the final `pairs` index after the sort.
+            pairIndex: 0,
+            description: `${a.event.description} then ${b.event.description} (${lag.toFixed(0)} min later)`,
             events: [
-              { source: a.source, timestamp: a.timestamp, severity: a.severity, description: a.description },
-              { source: b.source, timestamp: b.timestamp, severity: b.severity, description: b.description },
+              { source: a.event.source, timestamp: a.event.timestamp, severity: a.event.severity, description: a.event.description },
+              { source: b.event.source, timestamp: b.event.timestamp, severity: b.event.severity, description: b.event.description },
             ],
           });
         }
       }
     }
 
+    // Uniform-rate expectation. The probability that a given B lands inside a
+    // window of width w is min(w, span)/span, not w/span: the window cannot
+    // extend past the span being analysed. Without the clamp, a spec whose
+    // window exceeds the observed history (the 30-day drought->wildfire window
+    // over ~12,400 minutes of history) over-counts its expectation, and since
+    // observed <= A*B always, lift is mathematically capped below 1 — a perfect
+    // relationship reads as 0.29 next to a coincidental 60-minute pair at 200.
+    const effectiveWindow = Math.min(spec.windowMinutes, spanMinutes);
     const expected = analyzedSpan && aEvents.length > 0 && bEvents.length > 0
-      ? (aEvents.length * bEvents.length * spec.windowMinutes) / spanMinutes
+      ? (aEvents.length * bEvents.length * effectiveWindow) / spanMinutes
       : 0;
+    const windowExceedsSpan = analyzedSpan !== null && spec.windowMinutes > spanMinutes;
     const cadenceA = medianCadenceMinutes(aEvents);
     const cadenceB = medianCadenceMinutes(bEvents);
     const cadenceSensitive =
@@ -347,16 +407,37 @@ export function buildAlertCorrelations(
     if (lags.length > 0 && cadenceSensitive) {
       notes.push(`${spec.id}: A or B writes more often than the ${spec.windowMinutes}-minute window — treat the co-occurrence as cadence, not causation.`);
     }
+    if (windowExceedsSpan) {
+      notes.push(`${spec.id}: its ${spec.windowMinutes}-minute window is wider than the ${Math.round(spanMinutes)}-minute history analysed, so the window is not testable over this span — lift is computed against the clamped window.`);
+    }
   }
 
   const totalEvents = [...bySource.values()].flat().length;
   log.info(`Alert correlations: ${totalEvents} events scanned, ${pairs.reduce((sum, p) => sum + p.observedPairs, 0)} co-occurring pairs`);
 
   // Informative pairs first (non-cadence, by lift), cadence artifacts last.
+  //
+  // `correlations` and `notes` are built in CORRELATION_PAIR_SPECS order while
+  // this sort reorders `pairs`, so a consumer that matched `correlations[i].type`
+  // to `pairs[i].id` — or `notes[i]` to `pairs[i].id` — read the wrong pair.
+  // Re-keying both by pair id makes the index correspondence hold for any
+  // consumer, sorted or not.
   pairs.sort((a, b) => {
     if (a.cadenceSensitive !== b.cadenceSensitive) return a.cadenceSensitive ? 1 : -1;
     return (b.lift ?? -1) - (a.lift ?? -1);
   });
+  for (const [index, pair] of pairs.entries()) {
+    for (const correlation of correlations) {
+      if (correlation.type === pair.id) correlation.pairIndex = index;
+    }
+    for (const note of notes) {
+      if (note.startsWith(`${pair.id}:`)) notePairIndex.set(note, index);
+    }
+  }
+  const orderedNotes = notes
+    .map(note => ({ note, index: notePairIndex.get(note) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((a, b) => a.index - b.index)
+    .map(entry => entry.note);
 
   return {
     schemaVersion: CORRELATION_SCHEMA,
@@ -367,6 +448,6 @@ export function buildAlertCorrelations(
     pairs,
     correlations,
     totalCorrelations: correlations.length,
-    notes,
+    notes: orderedNotes,
   };
 }

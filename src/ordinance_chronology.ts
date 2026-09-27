@@ -84,7 +84,12 @@ export function buildOrdinanceChronology(
   const years: number[] = [];
 
   for (const section of sections) {
-    if (options.guidFilter && section.guid !== options.guidFilter) continue;
+    // Scope, stated precisely: `guidFilter` narrows the PER-SECTION output
+    // only. The city-wide timeline and the corpus summary always describe the
+    // whole corpus — that is what "which ordinance touched which sections"
+    // means. The filter used to `continue` at the top of the loop, so both were
+    // silently reduced to one section while still being labelled corpus-wide.
+    const inScope = !options.guidFilter || section.guid === options.guidFilter;
     scannedCount++;
     const amendments = extractOrdinanceAmendments(section.history ?? "");
     if (amendments.length === 0) continue;
@@ -93,14 +98,16 @@ export function buildOrdinanceChronology(
     const knownYears = amendments.map((a) => a.year).filter((y): y is number => y !== null);
     for (const year of knownYears) years.push(year);
 
-    sectionChronologies.push({
-      guid: section.guid,
-      sectionNumber: section.number,
-      articleTitle: section.articleTitle ?? titlePrefix(section.number),
-      amendments: [...amendments].sort((a, b) => yearSort(a.year) - yearSort(b.year)),
-      firstYear: knownYears.length > 0 ? Math.min(...knownYears) : null,
-      lastYear: knownYears.length > 0 ? Math.max(...knownYears) : null,
-    });
+    if (inScope) {
+      sectionChronologies.push({
+        guid: section.guid,
+        sectionNumber: section.number,
+        articleTitle: section.articleTitle ?? titlePrefix(section.number),
+        amendments: [...amendments].sort((a, b) => yearSort(a.year) - yearSort(b.year)),
+        firstYear: knownYears.length > 0 ? Math.min(...knownYears) : null,
+        lastYear: knownYears.length > 0 ? Math.max(...knownYears) : null,
+      });
+    }
 
     for (const amendment of amendments) {
       let entry = byOrdinance.get(amendment.ordinance);
@@ -115,6 +122,16 @@ export function buildOrdinanceChronology(
       if (!entry.sectionNumbers.includes(section.number)) entry.sectionNumbers.push(section.number);
       entry.sectionCount = entry.sectionNumbers.length;
     }
+  }
+
+  // Sort the accumulated per-ordinance lists. They were built in first-encounter
+  // order, so the report's bytes depended on the order sections happened to be
+  // loaded in — a re-scrape or a different loader could reorder them, and the
+  // existing test had to `.sort()` before asserting. Sorted, the report is a
+  // function of the corpus alone.
+  for (const entry of byOrdinance.values()) {
+    entry.actions.sort((a, b) => a.localeCompare(b));
+    entry.sectionNumbers.sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
   }
 
   sectionChronologies.sort((a, b) => a.sectionNumber.localeCompare(b.sectionNumber, "en", { numeric: true }));

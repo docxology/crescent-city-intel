@@ -338,11 +338,19 @@ bun run alerts              # all 15 concurrently + composite severity
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.
 
-Three layers count differently, by design: the runner / composite / health
-layer covers all 15 monitors; `alert_analytics` `ALERT_TYPES` covers the 8
-hazard-core families that keep `history.jsonl` in the analytics shape; and
-`src/alert_correlation.ts` scans 13 sources (every monitor except
-`marinezone` and `uscg`, which have no directional pair specs yet).
+All three layers now cover every monitor. `alert_analytics` `ALERT_TYPES` held
+only the 8 hazard-core families until 2026-09-27, so road closures, school
+closures, PSPS, smoke plumes, drought transitions and the coastal-waters
+forecast reached neither `/api/alerts/timeline`, the GUI heatmap, the insight
+brief, the monthly report, nor `GET /api/monitor/alerts` — despite all six
+writing a `history.jsonl` in the shape the reader already consumed.
+`alert_correlation.ts` scanned 13, omitting `marinezone` and `uscg`.
+
+`tests/alert-source-roster.test.ts` derives every roster from `MONITOR_KEYS`
+rather than restating it, and asserts the SPA's hand-written monitor and icon
+maps in `gui/static/index.html` against it too. `ANALYTICS_GAP_TYPES` is
+retained as an explicit asserted-empty constant so "every history-keeping
+monitor is analysed" stays a checkable property.
 
 ## Alert Analytics & History
 

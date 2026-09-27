@@ -55,14 +55,23 @@ function severityWith(reports: Parameters<typeof buildExtendedCompositeInput>[0]
   );
 }
 
+/**
+ * The extended monitors are freshness-gated through the same `isFreshReport` as
+ * the eight core ones, so a fixture must be stamped like a real report — every
+ * real extended report interface carries a `timestamp`. `FRESH` is the stamp for
+ * "this run"; `STALE` is one well outside the alert freshness window.
+ */
+const FRESH = new Date().toISOString();
+const STALE = "2020-01-01T00:00:00.000Z";
+
 describe("extended monitors reach the composite severity", () => {
   test("an all-quiet run with every monitor reporting is not escalated by the mapping itself", () => {
     const report = severityWith({
-      drought: { compositeSeverity: "NONE", severeDroughtPercent: 0 },
-      psps: { overallStatus: "NONE", totalEvents: 0, delNorteAffected: false },
-      smoke: { peakLevel: "GOOD", peakAqi: 10, maxPm25: 2 },
-      roads: { overallSeverity: "NONE", hasMajorClosure: false, totalIncidents: 0 },
-      schools: { districtStatus: "OPEN", hasActiveClosure: false, hasActiveDelay: false, totalEvents: 0 },
+      drought: { timestamp: FRESH, compositeSeverity: "NONE", severeDroughtPercent: 0 },
+      psps: { timestamp: FRESH, overallStatus: "NONE", totalEvents: 0, delNorteAffected: false },
+      smoke: { timestamp: FRESH, peakLevel: "GOOD", peakAqi: 10, maxPm25: 2 },
+      roads: { timestamp: FRESH, overallSeverity: "NONE", hasMajorClosure: false, totalIncidents: 0 },
+      schools: { timestamp: FRESH, districtStatus: "OPEN", hasActiveClosure: false, hasActiveDelay: false, totalEvents: 0 },
     });
     expect(report.level).toBe("CALM");
   });
@@ -70,7 +79,7 @@ describe("extended monitors reach the composite severity", () => {
   test("a full closure on a major route raises the composite above the quiet baseline", () => {
     const quiet = severityWith({});
     const closed = severityWith({
-      roads: { overallSeverity: "CLOSURE", hasMajorClosure: true, totalIncidents: 4 },
+      roads: { timestamp: FRESH, overallSeverity: "CLOSURE", hasMajorClosure: true, totalIncidents: 4 },
     });
     // The specific level is severity.ts's business; what this test pins is that
     // the finding REACHES it, which it did not before.
@@ -81,7 +90,7 @@ describe("extended monitors reach the composite severity", () => {
   test("an active district closure reaches the composite", () => {
     const quiet = severityWith({});
     const closed = severityWith({
-      schools: { districtStatus: "CLOSED", hasActiveClosure: true, hasActiveDelay: false, totalEvents: 2 },
+      schools: { timestamp: FRESH, districtStatus: "CLOSED", hasActiveClosure: true, hasActiveDelay: false, totalEvents: 2 },
     });
     expect(closed.level).not.toBe(quiet.level);
   });
@@ -89,28 +98,41 @@ describe("extended monitors reach the composite severity", () => {
   test("an active PSPS affecting Del Norte reaches the composite", () => {
     const quiet = severityWith({});
     const psps = severityWith({
-      psps: { overallStatus: "ACTIVE", totalEvents: 1, delNorteAffected: true },
+      psps: { timestamp: FRESH, overallStatus: "ACTIVE", totalEvents: 1, delNorteAffected: true },
     });
     expect(psps.level).not.toBe(quiet.level);
   });
 
   test("hazardous forecast smoke reaches the composite", () => {
     const quiet = severityWith({});
-    const smoke = severityWith({ smoke: { peakLevel: "HAZARDOUS", peakAqi: 320, maxPm25: 250 } });
+    const smoke = severityWith({ smoke: { timestamp: FRESH, peakLevel: "HAZARDOUS", peakAqi: 320, maxPm25: 250 } });
     expect(smoke.level).not.toBe(quiet.level);
+  });
+
+  test("a finding from a stale snapshot does not reach the composite as a current one", () => {
+    // The freshness gate the extended monitors were missing: a road closure
+    // recorded yesterday is not the county's road state now. Before the gate,
+    // `available` was `reports.X != null`, so a day-old report scored as current
+    // while the core monitors went stale after an hour.
+    const stale = severityWith({
+      roads: { timestamp: STALE, overallSeverity: "CLOSURE", hasMajorClosure: true, totalIncidents: 4 },
+    });
+    const absent = severityWith({});
+    expect(stale.monitors.roads.level).toBe("CALM");
+    expect(stale.monitors.roads.availability).toBe("unavailable");
+    expect(stale.level).toBe(absent.level);
   });
 
   test("a USCG broadcast advisory reaches the composite", () => {
     const quiet = severityWith({});
-    const advisory = severityWith({
-      uscg: { worstLevel: "ADVISORY" },
-    });
+    const advisory = severityWith({ uscg: { timestamp: FRESH, worstLevel: "ADVISORY" } });
     expect(quiet.level).toBe("CALM");
     // BNM traffic is informational, so the composite's advisory-class WATCH is
     // the ceiling it can impose — the same mapping NWS advisories get.
     expect(advisory.level).toBe("WATCH");
     expect(advisory.monitors.uscg.level).toBe("WATCH");
     expect(advisory.monitors.uscg.availability).toBeUndefined();
+  });
   });
 });
 
@@ -124,9 +146,9 @@ describe("the mapping is honest about what the monitors reported", () => {
 
   test("a report's own fields are carried through unchanged, not re-derived", () => {
     const input = buildExtendedCompositeInput({
-      drought: { compositeSeverity: "D3", severeDroughtPercent: 42 },
-      roads: { overallSeverity: "WARNING", hasMajorClosure: false, totalIncidents: 7 },
-      schools: { districtStatus: "DELAYED", hasActiveClosure: false, hasActiveDelay: true, totalEvents: 1 },
+      drought: { timestamp: FRESH, compositeSeverity: "D3", severeDroughtPercent: 42 },
+      roads: { timestamp: FRESH, overallSeverity: "WARNING", hasMajorClosure: false, totalIncidents: 7 },
+      schools: { timestamp: FRESH, districtStatus: "DELAYED", hasActiveClosure: false, hasActiveDelay: true, totalEvents: 1 },
     });
     expect(input.drought).toEqual({ severity: "D3", severeDroughtPercent: 42, available: true });
     expect(input.roads).toEqual({ severity: "WARNING", hasMajorClosure: false, incidentCount: 7, available: true });
@@ -134,8 +156,18 @@ describe("the mapping is honest about what the monitors reported", () => {
   });
 
   test("a malformed report degrades to the quiet defaults but stays marked available", () => {
-    // Present-but-unreadable is a different fact from absent: the monitor ran.
-    const input = buildExtendedCompositeInput({ roads: { unexpected: true } });
+    // Present-but-unreadable is a different fact from absent: the monitor ran,
+    // it just did not emit the fields the mapper reads. The freshness stamp is
+    // what makes it "present" now, exactly as a real report carries one.
+    const input = buildExtendedCompositeInput({ roads: { timestamp: FRESH, unexpected: true } });
     expect(input.roads).toEqual({ severity: "NONE", hasMajorClosure: false, incidentCount: 0, available: true });
+  });
+
+  test("a report with no freshness stamp is treated as stale, not as current", () => {
+    // The whole point of the gate: `isFreshReport` reads `fetchedAt ?? timestamp`
+    // and treats neither-present as stale forever. That is precisely how the
+    // NWS marine forecast read as permanently stale — it had no timestamp at all.
+    const input = buildExtendedCompositeInput({ roads: { hasMajorClosure: true, totalIncidents: 4 } });
+    expect((input.roads as { available: boolean }).available).toBe(false);
   });
 });

@@ -143,10 +143,22 @@ function extractDelayMinutes(text: string): number | null {
   return null;
 }
 
-function isTodayEvent(dateText: string): boolean {
-  const today = new Date().toISOString().slice(0, 10);
-  // Check dateText contains today or a relative date
-  return dateText.includes(today);
+/**
+ * Pull the announcement headline out of a page: the `<title>`, and the first
+ * few headings, which is where a district posts "Schools Closed ...". This is
+ * the ONLY text allowed to decide a closure on the fallback path — body text
+ * mentions "closed" in navigation, footers and unrelated posts.
+ */
+function extractHeadlineText(html: string): string {
+  const parts: string[] = [];
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (title?.[1]) parts.push(title[1]);
+  for (const heading of html.slice(0, 20_000).matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)) {
+    const text = (heading[1] ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (text) parts.push(text);
+    if (parts.length >= 6) break;
+  }
+  return parts.join(" ");
 }
 
 /**
@@ -209,8 +221,17 @@ export async function fetchSchoolClosures(): Promise<SchoolClosureItem[]> {
         }
 
         if (items.length === 0) {
-          // Fallback: just check the entire page
-          const status = classifySchoolStatus(lower);
+          // Fallback: classify the page's HEADLINE, never its whole body.
+          // Scanning the full HTML meant that any page containing the word
+          // "closed" — a footer "Emergency Information" link, a "Closure"
+          // nav item, an unrelated "Applications Closed" post — produced a
+          // synthetic `status: "CLOSED"` event stamped with *today's* date,
+          // which set hasActiveClosure and drove the composite to WARNING
+          // ("School closure active"). Scope the fallback to the document
+          // title and headings: the only text that can actually announce
+          // today's status.
+          const headline = extractHeadlineText(html);
+          const status = classifySchoolStatus(headline.toLowerCase());
           if (status !== "OPEN") {
             events.push({
               id: "dusd-news-" + today,
@@ -219,7 +240,7 @@ export async function fetchSchoolClosures(): Promise<SchoolClosureItem[]> {
               status,
               affectedSchools: [],
               reason: "Posted on DUSD alerts page",
-              delayMinutes: extractDelayMinutes(lower),
+              delayMinutes: extractDelayMinutes(headline.toLowerCase()),
               sourceUrl: DUSD_ALERTS_URL,
               announcedAt: new Date().toISOString(),
             });
@@ -231,7 +252,11 @@ export async function fetchSchoolClosures(): Promise<SchoolClosureItem[]> {
               const titleMatch = item.match(/<h[2-4][^>]*>([^<]*)<\/h[2-4]>/i);
               const title = titleMatch ? titleMatch[1].trim() : "DUSD Alert";
               const status = classifySchoolStatus(title);
-              if (status !== "OPEN") {
+              // A closure announced last week is not a closure today. These
+              // events are stamped with `today`, so gate on the one signal that
+              // distinguishes them: the post's own date, when the markup has one.
+              const posted = item.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+              if (status !== "OPEN" && (!posted || posted[1] === today)) {
                 events.push({
                   id: "dusd-news-" + events.length + "-" + today,
                   title,

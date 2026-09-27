@@ -18,7 +18,7 @@ Per-module documentation. Each file covers one logical component of the system.
 | `logger.md` | `logger.ts` |
 | `domains.md` | `domains.ts` (12 domains) |
 | `monitoring.md` | `monitor.ts`, `news_monitor.ts`, `gov_meeting_monitor.ts`, `youtube_monitor.ts`, `triplicate_monitor.ts`, `curation.ts`, `monthly_report.ts` |
-| `alerts.md` | `alerts/severity.ts`, `alerts/composite.ts`, `alerts/notify.ts`, `alerts/noaa_tsunami.ts`, `alerts/usgs_earthquake.ts`, `alerts/nws_weather.ts`, `alerts/noaa_tides.ts`, `alerts/cdfw_fishing.ts`, `alerts/epa_airnow.ts`, `alerts/calfire_wildfire.ts`, `alerts/ndbc_marine.ts` |
+| `alerts.md` | All 14 monitors in `alerts/` (`noaa_tsunami`, `usgs_earthquake`, `nws_weather`, `noaa_tides`, `cdfw_fishing`, `epa_airnow`, `calfire_wildfire`, `ndbc_marine`, `nws_marine`, `usdm_drought`, `pge_psps`, `hrrr_smoke`, `caltrans_roads`, `dusd_schools`) plus `alerts/severity.ts`, `alerts/composite.ts`, `alerts/healer.ts`, `alerts/notify.ts`, `alert_analytics.ts`, `alert_correlation.ts` |
 | `v2-intelligence.md` | `structured_queries.ts`, `legal_parser.ts`, `alert_analytics.ts`, `analytics_backend.ts` |
 | `geo-intel.md` | `geo.ts`, `geo_view.ts` |
 | `geo-observations.md` | `geo_observations.ts`, `scripts/run-geo-observations.ts`, `scripts/check-geo-sync.ts` |

@@ -82,6 +82,21 @@ async function resetProviderBudget(): Promise<void> {
 const HEALTH_TRENDS_TTL_MS = 60_000;
 
 /**
+ * TTL for the computed civic-insight report, used only when no persisted
+ * artifact exists (an unseeded deployment, or before `bun run insights` has run).
+ * Same reasoning as HEALTH_TRENDS_TTL_MS: the build walks the whole corpus and
+ * the answer cannot change within a minute.
+ */
+const INSIGHTS_TTL_MS = 60_000;
+
+let insightsCache: { computedAt: number; value: import("../insights.js").InsightReport } | null = null;
+
+/** Test hook: drop the cached insight report so the next call rebuilds. */
+export function _resetInsightsCache(): void {
+  insightsCache = null;
+}
+
+/**
  * Cap on GET /api/llm/models. Ollama lists what is installed locally (a
  * handful); OpenRouter lists its whole public catalogue (several hundred). The
  * cap keeps an external catalogue from setting this endpoint's payload size,
@@ -1116,11 +1131,24 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const alertTrends30d = await getHealthAlertTrends();
     if (alertTrends30d) health.alertTrends30d = alertTrends30d;
 
-    // Include composite alert severity if available
+    // Include composite alert severity if available.
+    //
+    // `hasUnavailableMonitors` and `reason` travel WITH the level. The composite
+    // expresses "could not check" as a `CALM` level plus a separate flag (the
+    // level enum has no unknown), so a consumer reading `alertLevel` alone
+    // published a clean bill of health for a run that may not have been able to
+    // check the tsunami, earthquake, roads, fishing and marine feeds at all.
     const compositePath = "output/alerts/composite/current.json";
     if (existsSync(compositePath)) {
       try {
-        health.alertLevel = JSON.parse(readFileSync(compositePath, "utf-8")).level;
+        const composite = JSON.parse(readFileSync(compositePath, "utf-8")) as {
+          level?: string; reason?: string; hasUnavailableMonitors?: boolean;
+        };
+        if (composite.level) health.alertLevel = composite.level;
+        if (composite.hasUnavailableMonitors !== undefined) {
+          health.alertHasUnavailableMonitors = composite.hasUnavailableMonitors;
+        }
+        if (composite.reason) health.alertReason = composite.reason;
       } catch { /* ignore */ }
     }
 
@@ -1515,7 +1543,24 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
       const typed = getAlertsByType(type);
       const page = typed.slice(offset, offset + limit);
-      return json({ type, total: typed.length, offset, limit, count: page.length, alerts: page });
+      // `total` is the number of events this type contributes to the retained
+      // timeline, which `buildAlertAnalytics` caps at 1000 entries. Report the
+      // truncation explicitly: the response previously looked like a complete
+      // history while silently omitting older events past the cap, and these
+      // two fields exist precisely so "absence of old entries" is not read as
+      // "absence of old events".
+      const { buildAlertAnalytics } = await import("../alert_analytics.js");
+      const report = buildAlertAnalytics();
+      return json({
+        type,
+        total: typed.length,
+        offset,
+        limit,
+        count: page.length,
+        timelineTruncated: report.timelineTruncated,
+        timelineRetainedFrom: report.timelineRetainedFrom,
+        alerts: page,
+      });
     } catch (err: any) {
       return json({ error: `Alert history failed: ${publicApiDetail(err.message)}` }, 500);
     }
@@ -1717,6 +1762,19 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!rebuild && windowDays === undefined) {
         const persisted = await readCivicInsights();
         if (persisted) return json({ ...persisted, source: "persisted" });
+        // No persisted artifact yet, so this request has to build one. Cache it
+        // for the TTL, exactly as /api/health caches its trend summary: the
+        // build walks the whole corpus (~800ms cold) and nothing here changes
+        // the answer within a minute, so concurrent readers of an unseeded
+        // deployment should share one build rather than each pay for it. A
+        // `?rebuild=1` or a `?window=` override always bypasses the cache.
+        const now = Date.now();
+        if (insightsCache && now - insightsCache.computedAt < INSIGHTS_TTL_MS) {
+          return json({ ...insightsCache.value, source: "computed" });
+        }
+        const report = await buildInsightReport({ windowDays, polish: false });
+        insightsCache = { computedAt: now, value: report };
+        return json({ ...report, source: "computed" });
       }
       const report = await buildInsightReport({ windowDays, polish: false });
       return json({ ...report, source: "computed" });

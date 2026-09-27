@@ -22,7 +22,7 @@ import { monitorUSGSEarthquakeAlerts } from "../src/alerts/usgs_earthquake.ts";
 import { monitorNWSWeatherAlerts } from "../src/alerts/nws_weather.ts";
 import { AIRNOW_PUBLIC_KML_URL, getLastAirQualityError, runAirQualityMonitor } from "../src/alerts/epa_airnow.ts";
 import { CALFIRE_API_URL, getLastWildfireError, runWildfireMonitor } from "../src/alerts/calfire_wildfire.ts";
-import { runMarineMonitor } from "../src/alerts/ndbc_marine.ts";
+import { runMarineMonitor, getLastMarineError } from "../src/alerts/ndbc_marine.ts";
 import { monitorTides, type TideReport } from "../src/alerts/noaa_tides.ts";
 import { monitorFishing, type FishingReport } from "../src/alerts/cdfw_fishing.ts";
 import { computeAlertSeverity } from "../src/alerts/severity.ts";
@@ -45,7 +45,7 @@ import { readFile, mkdir, unlink, open, stat } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import type { SourceHealth } from "../src/types.ts";
-import { paths } from "../src/shared/paths.ts";
+import { paths, outputRoot } from "../src/shared/paths.ts";
 import { writeJsonAtomic } from "../src/shared/source_health.ts";
 import { maybeSendSeverityWebhook } from "../src/alerts/notify.ts";
 import { runHealingCycle } from "../src/alerts/healer.ts";
@@ -60,28 +60,39 @@ export { buildTidesInput, buildFishingInput };
 
 const logger = createLogger("alerts");
 
-/** Advisory lock path + staleness for preventing concurrent alert runs. */
-const ALERTS_LOCK_PATH = join(process.cwd(), "output", "state", "alerts-run.lock");
+/**
+ * Advisory lock path + staleness for preventing concurrent alert runs.
+ *
+ * Resolved through `outputRoot()` so the lock, the state dir, the per-monitor
+ * `current.json` files and the composite all live in ONE tree. These paths used
+ * to hardcode `process.cwd()/output` while `paths.alertsHealth` (used a few lines
+ * away for the source-health artifact) followed the `CC_OUTPUT_DIR` seam — so a
+ * redirected run took its lock in the real corpus and wrote its health record
+ * elsewhere, and the per-monitor snapshots it later read back were not the ones
+ * it had just written.
+ */
+const alertsStateDir = (): string => join(outputRoot(), "state");
+const ALERTS_LOCK_PATH = (): string => join(alertsStateDir(), "alerts-run.lock");
 const ALERTS_LOCK_STALE_MS = 6 * 60 * 60 * 1000;
 
 /** Acquire an exclusive alert-run lock; stale locks from terminated runs are recoverable. */
 async function acquireAlertsLock(): Promise<() => Promise<void>> {
-  await mkdir(join(process.cwd(), "output", "state"), { recursive: true });
+  await mkdir(alertsStateDir(), { recursive: true });
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const handle = await open(ALERTS_LOCK_PATH, "wx");
+      const handle = await open(ALERTS_LOCK_PATH(), "wx");
       await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
       await handle.close();
-      return async () => { await unlink(ALERTS_LOCK_PATH).catch(() => undefined); };
+      return async () => { await unlink(ALERTS_LOCK_PATH()).catch(() => undefined); };
     } catch (error: any) {
       if (error?.code !== "EEXIST" || attempt > 0) {
         throw new Error("An alert run is already in progress; retry after it completes.");
       }
-      const lockStats = await stat(ALERTS_LOCK_PATH).catch(() => null);
+      const lockStats = await stat(ALERTS_LOCK_PATH()).catch(() => null);
       if (!lockStats || Date.now() - lockStats.mtimeMs <= ALERTS_LOCK_STALE_MS) {
         throw new Error("An alert run is already in progress; retry after it completes.");
       }
-      await unlink(ALERTS_LOCK_PATH).catch(() => undefined);
+      await unlink(ALERTS_LOCK_PATH()).catch(() => undefined);
     }
   }
   throw new Error("Unable to acquire alert run lock");
@@ -130,7 +141,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       { key: "weather", run: () => monitorNWSWeatherAlerts().catch((err) => { logger.error("NWS weather monitor failed", { error: err.message }); throw err; }) },
       { key: "airquality", run: () => runNullableMonitor("airquality", "EPA air quality", runAirQualityMonitor, getLastAirQualityError) },
       { key: "wildfire", run: () => runNullableMonitor("wildfire", "CAL FIRE wildfire", runWildfireMonitor, getLastWildfireError) },
-      { key: "marine", run: () => runNullableMonitor("marine", "NDBC marine", runMarineMonitor, () => undefined) },
+      { key: "marine", run: () => runNullableMonitor("marine", "NDBC marine", runMarineMonitor, getLastMarineError) },
       { key: "marinezone", run: () => runNullableMonitor("marinezone", "NWS marine forecast", runMarineZoneMonitor, getLastMarineZoneError) },
       { key: "tides", run: () => monitorTides().catch((err) => { logger.error("NOAA tides monitor failed", { error: err.message }); return null; }) },
       { key: "fishing", run: () => monitorFishing().catch((err) => { logger.error("CDFW fishing monitor failed", { error: err.message }); return null; }) },
@@ -155,10 +166,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       return result && result.status === "fulfilled" ? result.value : null;
     };
     const fishingReport = settledValue("fishing") as FishingReport | null;
-    // The tides report feeds buildCompositeInput and the source-health list
-    // below. It was referenced but never defined here, so every `bun run
-    // alerts` crashed with ReferenceError before the composite could be
-    // computed (pre-existing on main; caught by the 2026-09-08 live pass).
+    // Tides is read from its settled batch result like every other monitor. It
+    // was referenced as a bare `tidesReport` identifier that nothing declared,
+    // so every live `bun run alerts` / `bun run weekly-check` run died with
+    // "tidesReport is not defined" at the composite step. The deterministic
+    // suite never exercised that path, so only a real run surfaced it.
     const tidesReport = settledValue("tides") as TideReport | null;
 
     // ─── Compute composite severity ───────────────────────────────────
@@ -170,11 +182,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       const result = resultsByKey[type];
       const failed = result.status === "rejected" ||
         (result.status === "fulfilled" && NULL_ON_FAILURE_MONITORS.has(type) && result.value === null);
-      if (failed) await unlink(join(process.cwd(), "output", "alerts", type, "current.json")).catch(() => {});
+      if (failed) await unlink(join(outputRoot(), "alerts", type, "current.json")).catch(() => {});
     }
 
     async function readCurrentFile(type: string): Promise<any | null> {
-      const filePath = join(process.cwd(), "output", "alerts", type, "current.json");
+      const filePath = join(outputRoot(), "alerts", type, "current.json");
       if (!existsSync(filePath)) return null;
       try { return JSON.parse(await readFile(filePath, "utf-8")); } catch { return null; }
     }
@@ -248,15 +260,18 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       monitorsWithFailures: Object.values(healingResult.state.monitors)
         .filter(entry => entry.consecutiveFailures > 0).length,
     };
-    const severityDir = join(process.cwd(), "output", "alerts", "composite");
+    const severityDir = join(outputRoot(), "alerts", "composite");
     await mkdir(severityDir, { recursive: true });
     await writeJsonAtomic(join(severityDir, "current.json"), severityReport);
     if (healingResult.monitorsRetried.length > 0) {
-      logger.info("Healing cycle triggered retries for monitors", { retried: healingResult.monitorsRetried });
-      // Also send a push notification for monitors being retried
+      // The healer marks monitors *eligible* for retry and assigns a backoff
+      // window; it does not re-invoke them. Say so, rather than announcing a
+      // retry that this run did not perform — the old wording made every 4-hour
+      // backoff step read as a fresh recovery attempt.
+      logger.info("Healing cycle marked monitors eligible for retry", { eligible: healingResult.monitorsRetried });
       await sendPushNotification(
         "Alert Monitor Healing",
-        `Retrying ${healingResult.monitorsRetried.length} monitor(s): ${healingResult.monitorsRetried.join(", ")}`,
+        `${healingResult.monitorsRetried.length} monitor(s) failing and eligible for retry: ${healingResult.monitorsRetried.join(", ")}`,
       ).catch(() => {});
     }
     if (healingResult.monitorsRecovered.length > 0) {

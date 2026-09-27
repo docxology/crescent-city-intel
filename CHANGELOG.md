@@ -8,7 +8,313 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+
 ## [Unreleased]
+
+### Correctness pass: false-safety signals, roster drift, determinism (2026-09-26)
+
+A review of all 14 alert monitors and the corpus-intelligence layer. The
+recurring theme: an outage or an unusual input produced a *plausible but wrong*
+answer — a clean bill of health where there should have been a gap, a value
+read from the wrong field, or a report that was not reproducible. Also fixes a
+crash that made every live alert run fail.
+
+#### Fixed — a run could report "all clear" without having checked
+
+- **`MarineZoneForecast` carried no timestamp**, so `isFreshReport` always
+  returned false: the NWS marine forecast reported `stale` on every run, counted
+  as *missing* coverage, and sat in the healer's permanent retry roster even when
+  the CWF fetch succeeded. `issuance` cannot substitute — it is free text like
+  `"913 AM PDT Thu Sep 3 2026"`, which `Date.parse` rejects.
+- **Total NDBC outage produced a `CALM` report.** Zero observations fell through
+  to `classifyMarineSeverity([])` and published `"No buoy data available"` with
+  `level: "CALM"`, while the monitor's own entry in `NULL_ON_FAILURE_MONITORS`
+  was unreachable. Returns `null` now, and `getLastMarineError()` reports why.
+- **A CDFW fetch failure was indistinguishable from "no bulletins."** An HTTP
+  error, a timeout, or a CDN change all returned `[]`, so the source reported
+  healthy `empty` — which the repo's own convention counts as *present* — while
+  the composite's fishing verdict came from a date-only calendar function that
+  no network result could affect. `fetchCdfwBulletins` now returns `null` on
+  failure, distinct from a successful empty list.
+- **Partial Caltrans route coverage reported "No road incidents."** One failed
+  route out of five returned the surviving routes' incidents as a *successful*
+  report, so a US-101 closure invisible to the other four published as CALM.
+  Partial coverage is now `null` → unavailable.
+- **A dead tide sensor was replaced by a 48-hour forecast maximum** and published
+  as a current reading ("Water level 7.1 ft MLLW (significant exceedance)")
+  while the input report's own summary said "max *predicted* water level".
+- **A school closure could be synthesised from page furniture.** The DUSD
+  fallback classified the entire page HTML, so any occurrence of "closed" (a
+  nav item, an "Applications Closed" post, a footer link) produced a `CLOSED`
+  event stamped with today's date and drove the composite to WARNING. It now
+  classifies the page headline only, and drops posts whose own date is not today.
+- **"Unavailable" reached every consumer as `CALM`.** The composite expresses
+  "could not check" as a CALM level plus `hasUnavailableMonitors`, but no consumer
+  read the flag: `/api/health` published `alertLevel: "CALM"` and the analytics
+  overview headlined the corpus as ready. `/api/health` now returns
+  `alertHasUnavailableMonitors` and `alertReason` alongside `alertLevel`, and the
+  overview raises an explicit `composite-monitors-unavailable` signal.
+
+#### Fixed — wrong values from the right code
+
+- **An ordinance number was read as a year.** `(Ord. 6453 § 5, 1991)` is a real
+  corpus history line; an unanchored `/(\d{4})/` matched the ordinance number,
+  giving section ages of −4427, a "never amended" status, and a decade histogram
+  with ~443 fabricated all-zero buckets. The year is now read from the text
+  after the ordinance number, with a plausibility gate (1800..asOfYear+1) on
+  every parsed year and a `MAX_DECADE_SPAN` net on the contiguous fill.
+- **`section_longevity.amendmentCount` counted undated actions** while `status`,
+  `churnPerDecade` and `neverAmended` counted only dated ones, so a section
+  reporting "never amended" could rank at the top of "most amended".
+- **A hazardous smoke plume reported AQI 0.** The top PM2.5 band used
+  `max: Infinity`, and `aqi * (pm25 / Infinity)` evaluates to 0 — so
+  `peakLevel: "HAZARDOUS"` shipped beside `peakAqi: 0` and the analytics layer
+  recorded a hazardous plume as clean air.
+- **`section_graph.viaPrefix` was `true` for every edge.** It compared the stored
+  number (which carries the `§` marker) against the bare citation digits, so the
+  field documented as "resolved by prefix, not exact match" carried no
+  information — the same marker-vs-bare defect `normalizeSectionNumber` exists
+  to end. `articleNumber` had the same problem in its fallback derivation.
+- **The composite headline was chosen by object-literal order.** A strict `>`
+  tie-break let the first-declared key win, so a chronic drought WARNING took the
+  reason slot ahead of an active school closure or PSPS event. Ties now break on
+  an explicit `MONITOR_PRIORITY`.
+- **Earthquake assessment named the nearest event, not the worst**, and ignored
+  USGS tsunami flag 1 ("possible tsunami", which the monitor itself records as
+  `TSUNAMI_WATCH` at warn level).
+- **The weather summary labelled the total alert count as the tier count**, so
+  one warning plus three advisories read "4 active NWS Warning(s)".
+- **The marine composite substituted a 120 NM-distant buoy's reading** for a
+  missing field on the primary one: the `??` applied per-field instead of
+  per-observation.
+- **Caltrans stamped every incident** with the first estimated-end time found
+  anywhere in the route document, possibly another route's closure.
+- **The DUSD headline extractor** now reads `<title>` and headings, replacing a
+  whole-page keyword scan.
+
+#### Fixed — a live alert run crashed on every invocation
+
+- `run-alerts.ts` referenced a bare `tidesReport` that nothing declared, so
+  `bun run alerts` and `bun run weekly-check` failed with
+  `tidesReport is not defined` at the composite step. The deterministic suite
+  does not exercise that path; it was found by running the pipeline.
+
+#### Fixed — count/roster drift (the recurring class)
+
+- **`EXPECTED_SOURCE_HEALTH` named 8 of the 14 alert monitors**, so aggregate
+  source coverage had a denominator of 8, `completeSourceHealth` could never
+  synthesize an "expected monitor output was absent" marker for the other six,
+  and a skipped alert run shrank coverage invisibly. Both gates only assert a
+  superset, so the omission could not fail CI. The six added entries name the
+  endpoints actually called rather than three dead legacy URLs (PG&E's JSON,
+  AirFire, and QuickMap all now 404 or serve an SPA shell).
+- **`CORRELATION_SOURCES` omitted `marinezone`**, which does write
+  `history.jsonl` — under-reporting `sourcesScanned` and meaning the
+  `weather-marine` pair read the buoy monitor only. Now scans all 14.
+- **`EXTENDED_MONITOR_SPECS` named two fields that do not exist**
+  (`smoke.forecast` vs `forecasts`, `schools.items` vs `events`), so both
+  reported `itemCount: 0` forever and were classified `empty` — which counts as
+  *present* — while actively emitting plumes and closures. The test fixtures
+  matched the spec rather than the monitor interfaces, so the suite agreed with
+  the bug.
+
+#### Fixed — determinism and reproducibility
+
+- **Correlation lift was mathematically capped below 1** whenever a pair's window
+  exceeded the observed history span (`drought-wildfire`, 30 days, over ~12,400
+  minutes of history): the uniform-rate expectation over-counted, and since
+  observed ≤ A·B always, a *perfect* relationship read as 0.29 next to a
+  coincidental 60-minute pair at 200. The window is now clamped to the span, with
+  a note saying the window is not testable over it.
+- **The A×B correlation scan had no early exit** and retained every in-window lag
+  for one median — 1,000 × 5,000 pairs, 10M `Date.parse` calls and a 5M-element
+  array, synchronously on a plain `GET`. Both event lists are now sorted, parsed
+  once, and the inner loop breaks past the window.
+- **Injected correlation events were never sorted**, so `medianCadenceMinutes`
+  differences could go negative and spuriously flag a pair as cadence-sensitive.
+  `sourcesScanned.hasHistory` also consulted the filesystem even on the injected
+  path, making the report cwd-dependent.
+- **`alert_correlation` mixed two output roots**, defeating the `CC_OUTPUT_DIR`
+  seam; the eleven alert branches hardcoded `process.cwd()/output`.
+- **The alert pipeline resolved its paths four different ways.**
+  `alert_analytics` read the eight core alert types from `process.cwd()/output`
+  while reading tides and fishing through the seam — so a redirected run
+  produced one report from two trees, with the core types silently contributing
+  zero events. `run-alerts.ts` took its advisory lock and its per-monitor
+  `current.json` reads in the real corpus while writing its health artifact
+  through the seam. `healer.ts` read `process.cwd()/output` and so could not see
+  the `source-health.json` the same run had just written. All four now resolve
+  through `outputRoot()`.
+- **`guidFilter` silently narrowed the city-wide ordinance timeline** and the
+  corpus summary, both of which are documented as describing the whole city.
+- **Per-ordinance `actions`/`sectionNumbers` were in first-encounter order**, so
+  the report's bytes depended on section load order. Now sorted.
+- **`word_frequency` ignored section titles**, though it documents itself as
+  mirroring the BM25 index's tokenisation — and the index indexes titles, so
+  heading-only terms had index `df > 0` and this module's `df = 0`. Its
+  `minLength` default also admitted 1-char tokens the index never indexes, and
+  `distinctTerms`/`hapaxCount` described the unfiltered vocabulary while both
+  ranked tables were filtered.
+- **Multi-line roll calls were shredded.** The block splitter broke before *any*
+  capitalised or digit-leading line, so a roll call — one `Name - Yea` per line —
+  became one-name fragments that `parseVotes` cannot read, and the parse result
+  depended on indentation. It now splits on paragraph breaks, numbered/lettered
+  items, and ALL-CAPS headings.
+- **`extractVotes` deleted a consent calendar's repeated votes.** Collapsing
+  required only adjacency plus an identical tally, but consent-calendar items sit
+  in adjacent blocks and routinely pass unanimously — each a real vote. It now
+  requires a roll-call line or a byte-identical preceding block.
+- **`appendBoundedJsonl*` rewrote the whole file on every append past the cap**,
+  because trimming to exactly `maxLines` left the next append over it again.
+  Appends are not low-frequency (`hrrr_smoke` writes one line per forecast hour,
+  up to 48 per run). The trim is now amortised — fires at the cap, trims to 90%.
+- **`getRecentAlerts(-5)`** returned every event except the five oldest, reversed,
+  while echoing `limit: -5`.
+- **A NaN limit emptied tables and reported `truncated: false`** in all four
+  bounded corpus builders (`Math.max(1, NaN)` is `NaN`; `slice(0, NaN)` is `[]`).
+- **`agenda_crossref` forwarded `refsPerTopic` unclamped** — 0 gave no refs, a
+  negative gave all-but-last via `slice(0, -1)`.
+- **The healer's failure threshold froze at module load**, unlike its sibling
+  `healerOutputDir()`, which is deliberately a per-call getter for exactly this
+  reason.
+- **`/api/alerts/{type}/history` hid its truncation**: `total` counts the
+  retained timeline (capped at 1000), and the two fields that exist to declare
+  the cap were not in the response.
+- **`export.ts` kept an inline, flag-less copy** of the section-marker strip.
+
+#### Changed
+
+- **The severity webhook now fires on a tier transition, not on every run at that
+  tier.** It was purely level-triggered with no memory, so a persistently-WARNING
+  composite — which a multi-year drought or a chronic air-quality band produces
+  on its own — POSTed forever. The last-notified level is persisted at
+  `output/state/alert-webhook-level.json`; a drop below the threshold clears it,
+  and an escalation within the notified range still fires.
+- **The healer and its notification now say "eligible for retry"** rather than
+  "Retrying N monitor(s)". `healer.ts` identifies and schedules; the batch runner
+  owns re-invocation. The old wording announced a retry the run had not
+  performed, every 4 hours, for monitors stuck permanently stale.
+- **The extended monitors are now freshness-gated.** `buildExtendedCompositeInput`
+  read `reports.X != null` with no freshness check, so a day-old drought or
+  school-closure snapshot scored as a current reading while the eight core
+  monitors went stale after an hour. All 14 now share one window.
+- **One alert freshness window, and it is tunable.** The alert layer used a
+  hardcoded 1-hour window while `shared/source_health.ts` used a separate 24-hour
+  env-overridable one, so the same report could be `ok` under one policy and
+  `stale` under the other and the stricter of the two could not be tuned.
+  `ALERT_FRESHNESS_WINDOW_MS` now sets it; an invalid value falls back to the
+  default rather than disabling the gate.
+- **`classifySourceHealth` no longer publishes `ageMs: 0` next to
+  `status: "stale"`.** A future-dated stamp is rejected by `isFreshReport` and
+  then clamped to 0 by the age calculation, claiming brand-new data that is not
+  usable. The age is now omitted for a future stamp.
+- **`GET /api/insights` caches its computed report for 60s** when no persisted
+  artifact exists. The build walks the whole corpus (~800ms cold) and nothing on
+  the request changes the answer within a minute, so concurrent readers of an
+  unseeded deployment now share one build instead of each paying for it. Same
+  idiom and TTL as the `/api/health` trend summary; `?rebuild=1` and `?window=`
+  bypass the cache. This was the slowest test in the suite and intermittently hit
+  the 30s per-test bound under full-suite load.
+- **`alert_analytics.getSeverity` reads each monitor's own tier** —
+  `threatLevel`/`severityLevel` rather than the CAP `severity` enum, and
+  `alertLevel`/tsunami flag for earthquakes. Previously a Severe NWS warning was
+  bucketed as `"Severe"` in the same histogram as composite tiers, and an
+  M7.2-with-tsunami event scored EMERGENCY in the composite but WARNING here.
+
+#### Added
+
+- **`tests/alert-source-roster.test.ts`** — derives every monitor roster from
+  `MONITOR_KEYS` rather than restating it, so a monitor cannot be added to one
+  list and missed in another.
+- **`tests/false-calm-guards.test.ts`** — pins the unavailable-vs-calm and
+  forecast-vs-observation contracts, the hazard-priority tie-break, the tsunami
+  flag, and the AQI band monotonicity.
+- **`tests/output-root-seam.test.ts`** — asserts the alert pipeline builds every
+  artifact path through `outputRoot()` rather than a hardcoded
+  `process.cwd()/output`, and covers the correlation report's cwd-independence,
+  its event sorting, and the untestable-window note. The path check is
+  structural because exercising the rest would need a full live batch.
+- **`tests/minutes-rollcall.test.ts`** — multi-line roll calls, indentation
+  invariance, and consent-calendar vote preservation.
+- Regression tests for the ordinance-year parse, the section-longevity year gate,
+  the marine-forecast timestamp, the amortised JSONL trim, the webhook transition
+  memory, the word-frequency title tokenisation and summary consistency, and the
+  `guidFilter` scope.
+- `getLastMarineError()` and `getLastCdfwBulletinsError()` so the runner can
+  report *why* a monitor is unavailable.
+- `EXTENDED_MONITOR_SPECS` list fields are pinned to the real monitor report
+  interfaces by type-annotated fixtures, so renaming `SmokeReport.forecasts`
+  fails the release gate rather than silently zeroing a monitor's coverage.
+
+### Analytics coverage, severity tiers, and monitor tiles (2026-09-27)
+
+Closes the six-family analytics gap left open by the pass above, and fixes three
+severity-tier defects and three monitor tiles that could report a clean bill of
+health. Replayed onto v2.7.0, which added the USCG broadcast monitor (#15).
+
+#### Added
+
+- **All 15 alert families are analysed.** `ALERT_TYPES` covered 8 of the 14
+  monitors, so road closures, school closures, PSPS, smoke plumes, drought
+  transitions and the coastal-waters forecast never appeared in
+  `/api/alerts/timeline`, `typeStats`, the GUI heatmap, the insight brief, the
+  monthly report, or `GET /api/monitor/alerts` — despite all six writing a
+  `history.jsonl` in the `{..., fetchedAt}` shape the reader already consumed.
+  Now every monitor, in `MONITOR_KEYS` order, with per-type severity and
+  description mapping that reads each monitor's own tier field.
+- **Civic-domain attribution for the six** in `insights.ts`, and
+  `ALERT_TYPE_DOMAINS` keyed by `AlertType` so a monitor cannot be added
+  without one.
+- **The heatmap grew to every analysed type**; the browser smoke derives its
+  expected shape from `ALERT_TYPES` and `ALERT_TREND_DAYS` rather than
+  hardcoding `8x14`, so a six-row heatmap dropping the civic monitors can no
+  longer pass.
+- **The release gate now verifies every OpenAPI `$ref` resolves** — an
+  unresolvable ref is legal YAML and renders as a browser silently ignoring it
+  — and that the published alert-type enum matches `ALERT_TYPES` exactly.
+
+#### Fixed
+
+- **The marine forecast's `EMERGENCY` was flattened to `WARNING`** while the
+  adjacent comment claimed the monitor's own mapping was "authoritative". A
+  STORM WARNING / HURRICANE FORCE / sustained ≥48 kt forecast — the strongest
+  nearshore condition the system detects — published as WARNING.
+- **The drought documentation and code were inverted.** The header said
+  "D3+ → WATCH" while the code ran D3/D4 → WARNING and D0 → WATCH. D0 is USDM's
+  mildest category; escalating a county to WARNING on "abnormally dry" would
+  leave the headline signal permanently raised.
+- **PSPS `delNorteAffected` was hardcoded `false`**, making the documented
+  "active PSPS event *in Del Norte*" WARNING tier unreachable, so an ACTIVE event
+  in Crescent City rendered as a regional WATCH reading "0 event(s)
+  (regionally)". Now derived from the PG&E event page, with `null` meaning "the
+  page carried no county list" — a real third state, distinct from "named
+  counties, none of them ours".
+- **Three monitor tiles could render a permanent clean bill of health.** The
+  earthquake, tsunami and NWS-weather `current.json` artifacts carried neither
+  `level` nor `summary`, so the GUI tile's `summary ?? level ?? 'Data
+  available'` fallback showed "OK" / "Data available" no matter what happened.
+  All three now derive both from the same inputs the composite uses.
+- **The earthquake tile read the wrong file.** The route picked the
+  lexicographic-max `.json`, which is `earthquake-<id>-<ts>.json` for that
+  monitor because 'e' sorts after 'c' — so once any M4+ event was recorded, the
+  single-event wrapper (no `level`, no `summary`) was rendered instead of
+  `current.json`.
+- **`GET /api/monitor/alerts` served 8 of 14 monitors** and read cwd-relative
+  paths. Now derived from `MONITOR_KEYS` and resolved through `outputRoot()`.
+- **Health records named three dead endpoints.** PG&E's exported JSON constant
+  404s, AirFire's 404s, and QuickMap's serves an SPA shell; the health `url`
+  now names the endpoint each monitor actually calls.
+
+#### Changed
+
+- `ALERT_TYPES` is in `MONITOR_KEYS` order, because the order is the heatmap's
+  and the trend selector's display order and the browser smoke asserts it.
+- `ANALYTICS_GAP_TYPES` is retained as an explicit, asserted **empty** constant
+  so "every history-keeping monitor is analysed" stays a checkable property
+  rather than a fact that quietly regresses.
+- Three test fixtures that restated an 8-of-14 list are now derived from the
+  roster; each would have passed against the incomplete analytics set, which is
+  how it stayed incomplete.
 
 ## [2.7.0] — 2026-09-08
 

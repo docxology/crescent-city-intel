@@ -205,8 +205,21 @@ meetings source-health artifact. `src/agenda_crossref.ts` associates agenda
 link-item titles with municipal-code sections through the real BM25 index
 (`crossReferenceAgendaTopics`). All three surfaces render in the monthly
 report's meeting subsections and are covered by
-`tests/minutes-depth.test.ts`, `tests/gov-vote-extraction.test.ts`, and
-`tests/agenda-crossref.test.ts`.
+`tests/minutes-depth.test.ts`, `tests/gov-vote-extraction.test.ts`,
+`tests/minutes-rollcall.test.ts`, and `tests/agenda-crossref.test.ts`.
+
+Two parsing rules matter for reading the output:
+
+- **Multi-line roll calls are read as one vote.** Minutes render a roll call as
+  one `Name - Yea` per line. The block splitter therefore splits on paragraph
+  breaks, numbered/lettered item starts, and ALL-CAPS *headings* — not before
+  any capitalised line, which shredded every roll call into unusable one-name
+  fragments and made the parse depend on indentation.
+- **Repeated identical tallies are separate votes.** Collapsing applies only when
+  the preceding block is a roll-call line (the one real case where a tally
+  legitimately appears twice) or is byte-identical. Adjacency alone is not
+  evidence: a consent calendar's items sit in adjacent blocks and routinely pass
+  unanimously, each its own vote.
 
 ---
 

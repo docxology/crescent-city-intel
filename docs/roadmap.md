@@ -103,6 +103,60 @@
   key, North Coast relevance filter, feeding the composite severity and the
   GUI trend roster.
 
+### Correctness and coverage passes (2026-09-26 → 2026-09-27)
+
+Two review passes over the alert layer and the corpus-intelligence layer. The
+recurring finding was an outage or an unusual input producing a *plausible but
+wrong* answer — a clean bill of health where there should have been a gap, a
+value read from the wrong field, or a report that was not reproducible. Replayed
+onto v2.7.0. Full inventory in `CHANGELOG.md`.
+
+- ✅ **A run could report "all clear" without having checked.** The marine
+  forecast had no `timestamp`, so it read `stale` on every run and sat in the
+  healer's permanent retry roster; a total NDBC outage published `CALM`; a CDFW
+  failure was indistinguishable from "no bulletins"; partial Caltrans route
+  coverage published a US-101 closure invisible to the other four routes as "No
+  road incidents"; a dead tide sensor was replaced by a **48-hour forecast
+  maximum** presented as a current reading; and a school closure could be
+  synthesized from a footer link containing the word "closed".
+- ✅ **A live alert run crashed on every invocation** — `run-alerts.ts`
+  referenced an undeclared `tidesReport`, so `bun run alerts` died at the
+  composite step. The deterministic suite never exercised that path.
+- ✅ **"Unavailable" reached consumers as `CALM`.** The composite expresses
+  "could not check" as a CALM level plus `hasUnavailableMonitors`, and nothing
+  read the flag. `/api/health` gained `alertHasUnavailableMonitors` +
+  `alertReason`; the analytics overview raises an explicit signal.
+- ✅ **The six civic alert families now reach the analytics surfaces** —
+  `ALERT_TYPES` covered 8 of 14, so road closures, school closures, PSPS, smoke,
+  drought and the coastal forecast never reached the timeline, heatmap, insight
+  brief, monthly report, or `/api/monitor/alerts`. `ALERT_SOURCE_BY_TYPE`, the
+  SPA's monitor and icon maps, the OpenAPI type enum, and civic-domain
+  attribution all extended to match; `ANALYTICS_GAP_TYPES` is retained and
+  asserted empty so the gap cannot reopen.
+- ✅ **Three severity tiers were wrong.** The marine forecast's `EMERGENCY` was
+  flattened to `WARNING`; the drought tiers were documented backwards from the
+  code; and PSPS `delNorteAffected` was hardcoded `false`, making the documented
+  "active PSPS *in Del Norte*" WARNING tier unreachable.
+- ✅ **Three monitor tiles were permanently reassuring.** The earthquake,
+  tsunami and NWS-weather `current.json` artifacts carried neither `level` nor
+  `summary`, so the GUI's `summary ?? level ?? 'Data available'` fallback showed
+  "OK" however bad the news.
+- ✅ **Determinism:** the correlation lift was mathematically capped below 1 when
+  a pair's window exceeded the history span; the A×B scan had no early exit;
+  injected events were unsorted; the alert pipeline resolved artifact paths four
+  different ways; `guidFilter` silently narrowed the city-wide ordinance
+  timeline; per-ordinance lists were in first-encounter order;
+  `word_frequency` ignored titles; multi-line roll calls were shredded;
+  `extractVotes` deleted a consent calendar's repeated votes; the bounded-JSONL
+  appender rewrote the whole file on every append past the cap.
+- ✅ **Roster drift closed and made unrepeatable.** `EXPECTED_SOURCE_HEALTH`
+  named 8 of 14; `CORRELATION_SOURCES` omitted one; `EXTENDED_MONITOR_SPECS`
+  named two fields that do not exist. `tests/alert-source-roster.test.ts` now
+  derives every roster — including the SPA's hand-written maps — from
+  `MONITOR_KEYS`.
+- ✅ **The release gate verifies every OpenAPI `$ref` resolves** and that the
+  published alert-type enum matches `ALERT_TYPES`.
+
 ### Open
 
 Item-level tracking lives in [TODO.md](../TODO.md), which holds the

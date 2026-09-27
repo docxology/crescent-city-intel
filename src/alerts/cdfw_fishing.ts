@@ -148,12 +148,30 @@ export async function fetchBulletinBody(url: string): Promise<string> {
 // ─── CDFW Bulletin Fetch ──────────────────────────────────────────
 
 /**
- * Fetch the current CDFW marine bulletin page for North Coast (Districts 1-3).
- * Returns parsed bulletin items, or empty array if unavailable.
+ * Last fetch failure reason. Cleared at the start of each run and set on every
+ * failure path, so `null` from `fetchCdfwBulletins` can say *why*.
  */
-export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
+let lastBulletinsError: string | undefined;
+
+/** The last CDFW bulletin-fetch failure reason, or undefined if it succeeded. */
+export function getLastCdfwBulletinsError(): string | undefined {
+  return lastBulletinsError;
+}
+
+/**
+ * Fetch the current CDFW marine bulletin page for North Coast (Districts 1-3).
+ *
+ * Returns `null` when the fetch FAILED, which is deliberately distinct from
+ * `[]` meaning "fetched successfully, no relevant bulletins". These previously
+ * collapsed into the same value: an HTTP error, a timeout, or a CDN change all
+ * produced `[]`, so the monitor reported a healthy `empty` (which the repo's
+ * own convention counts as *present*) while the composite's fishing verdict
+ * came from a date-only calendar function that no network result could affect.
+ */
+export async function fetchCdfwBulletins(): Promise<FishingBulletin[] | null> {
   const url = "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins";
   logger.info("Fetching CDFW marine bulletins", { url });
+  lastBulletinsError = undefined;
 
   try {
     const resp = await fetch(url, {
@@ -165,8 +183,9 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
     });
 
     if (!resp.ok) {
-      logger.warn(`CDFW bulletins returned HTTP ${resp.status}`);
-      return [];
+      lastBulletinsError = `CDFW bulletins returned HTTP ${resp.status}`;
+      logger.warn(lastBulletinsError);
+      return null;
     }
 
     const html = await resp.text();
@@ -228,8 +247,9 @@ export async function fetchCdfwBulletins(): Promise<FishingBulletin[]> {
     logger.info(`Found ${bulletins.length} relevant CDFW bulletins`);
     return bulletins;
   } catch (err: any) {
+    lastBulletinsError = err.message;
     logger.error("Failed to fetch CDFW bulletins", { error: err.message });
-    return [];
+    return null;
   }
 }
 
@@ -278,8 +298,15 @@ export function estimateCrabSeasonStatus(): CrabSeasonStatus {
 
 // ─── Main report ─────────────────────────────────────────────────
 
-/** Run the full fishing monitor: season status + CDFW bulletins. */
-export async function monitorFishing(): Promise<FishingReport> {
+/**
+ * Run the full fishing monitor: season status + CDFW bulletins.
+ *
+ * Returns `null` when the bulletin fetch failed, so `NULL_ON_FAILURE_MONITORS`
+ * (which already lists "fishing") can classify it as an unavailable source. It
+ * previously never returned null, so a CDFW outage was indistinguishable from
+ * "no bulletins" and the health surface claimed coverage it did not have.
+ */
+export async function monitorFishing(): Promise<FishingReport | null> {
   logger.info("=== Starting CDFW Crescent City Fishing Monitor ===");
   await mkdir(outputDir(), { recursive: true });
 
@@ -287,6 +314,13 @@ export async function monitorFishing(): Promise<FishingReport> {
     fetchCdfwBulletins(),
     Promise.resolve(estimateCrabSeasonStatus()),
   ]);
+
+  if (bulletins === null) {
+    logger.error("CDFW bulletin fetch failed; reporting the fishing source unavailable", {
+      error: lastBulletinsError,
+    });
+    return null;
+  }
 
   const summary = [
     `Crab commercial: ${crabStatus.commercialOpen ? "OPEN (estimated)" : "CLOSED (estimated)"}`,
@@ -324,8 +358,15 @@ export async function monitorFishing(): Promise<FishingReport> {
 
 // CLI entry point
 if (import.meta.main) {
-  monitorFishing().catch((err: any) => {
-    logger.error("Fishing monitor failed", { error: err.message });
-    process.exit(1);
-  });
+  monitorFishing()
+    .then(report => {
+      if (report === null) {
+        logger.error("Fishing monitor: CDFW bulletins unreachable", { error: lastBulletinsError });
+        process.exit(1);
+      }
+    })
+    .catch((err: any) => {
+      logger.error("Fishing monitor failed", { error: err.message });
+      process.exit(1);
+    });
 }

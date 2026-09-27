@@ -19,9 +19,13 @@ import type { SourceHealth, SourceHealthStatus } from "../types.js";
 // place and the health record can never name an endpoint the monitor no longer
 // calls.
 import { USDM_API_URL } from "./usdm_drought.js";
-import { PGE_PSPS_API_URL } from "./pge_psps.js";
-import { HRRR_SMOKE_API_URL } from "./hrrr_smoke.js";
-import { CALTRANS_API_D1_URL } from "./caltrans_roads.js";
+// The health record names the endpoint the monitor ACTUALLY calls. PG&E's
+// exported JSON constant still exists (retained as the documented dead path)
+// but 404s, AirFire's constant likewise, and QuickMap's serves an SPA shell —
+// so naming them pointed an auditor at three dead or wrong endpoints.
+import { PGE_PSPS_PAGE_URL } from "./pge_psps.js";
+import { HMS_SMOKE_URL } from "./hrrr_smoke.js";
+import { CALTRANS_ROADS_TEXT_URL } from "./caltrans_roads.js";
 import { DUSD_ALERTS_URL } from "./dusd_schools.js";
 import { NWS_CWF_LIST_URL } from "./nws_marine.js";
 import { USCG_BNM_LIST_URL } from "./uscg_broadcasts.js";
@@ -81,8 +85,6 @@ function asRecord(value: unknown): Record<string, any> {
   return (value && typeof value === "object" ? value : {}) as Record<string, any>;
 }
 
-const FRESHNESS_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
 /**
  * A monitor report is "fresh" only if its fetchedAt/timestamp is within the
  * last hour. Anything else is treated as absent so a stale snapshot is not
@@ -93,19 +95,47 @@ export function isFreshReport(report: unknown, now = Date.now()): boolean {
   const timestamp = record.fetchedAt ?? record.timestamp;
   if (typeof timestamp !== "string") return false;
   const ageMs = now - Date.parse(timestamp);
-  return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= FRESHNESS_WINDOW_MS;
+  return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= alertFreshnessWindowMs();
 }
 
-/** Shaping for the tides monitor: prefer the current observed level. */
+/**
+ * The extended monitors report `available: reports.X != null` — "did this monitor
+ * produce a report in this run?" — with no freshness gate, unlike the eight core
+ * monitors, which are gated through `isFreshReport`. Two windows then govern the
+ * alert layer: `FRESHNESS_WINDOW_MS` here (1 hour, hardcoded) and
+ * `DEFAULT_FRESHNESS_WINDOW_MS` in `shared/source_health.ts` (24 hours,
+ * env-overridable). The same report can be `ok` under one and `stale` under the
+ * other, and `SOURCE_FRESHNESS_WINDOW_MS` has no effect on alerts at all, so the
+ * stricter of the two policies is not the one an operator can tune.
+ *
+ * One window, one place. `ALERT_FRESHNESS_WINDOW_MS` overrides it; unparseable or
+ * non-positive values fall back to the 1-hour default rather than disabling the
+ * gate, because a gate that silently turns off is how a stale snapshot starts
+ * being presented as a current reading.
+ */
+function alertFreshnessWindowMs(): number {
+  const parsed = Number((process.env.ALERT_FRESHNESS_WINDOW_MS ?? "").trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 60 * 60 * 1000;
+}
+
+/**
+ * Shaping for the tides monitor: report the OBSERVED level only.
+ *
+ * A dead sensor used to be silently replaced with `maxPredictedLevel` — the
+ * maximum over the next 48 hours — and published as a current water level
+ * ("Water level 7.1 ft MLLW (significant exceedance)") while the input report's
+ * own summary said "max *predicted* water level". A routine sensor outage
+ * therefore produced a real-sounding warning on a value that is a forecast, and
+ * the monitor still reported healthy (`ok`, itemCount 72). A missing reading is
+ * now `null` → `available: false` → "unavailable", never a plausible number.
+ */
 export function buildTidesInput(report: TideReport | null): {
   waterLevelFt: number | null;
   available: boolean;
 } {
   const observed = Number(report?.waterLevel?.v);
   return {
-    waterLevelFt: report
-      ? (Number.isFinite(observed) ? observed : (report.maxPredictedLevel ?? null))
-      : null,
+    waterLevelFt: report && Number.isFinite(observed) ? observed : null,
     available: !!report,
   };
 }
@@ -191,11 +221,19 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
     },
     marine: {
       // Prefer the primary buoy (46027) exactly as ndbc_marine.ts does —
-      // `observations[0]` can be a far-field station when 46027 is down.
-      waveHeightFt: (Array.isArray(marineR.observations) ? marineR.observations : []).find((o: any) => o.stationId === "46027")?.waveHeightFt
-        ?? marineR.observations?.[0]?.waveHeightFt ?? null,
-      windSpeedKt: (Array.isArray(marineR.observations) ? marineR.observations : []).find((o: any) => o.stationId === "46027")?.windSpeedKt
-        ?? marineR.observations?.[0]?.windSpeedKt ?? null,
+      // `observations[0]` can be a far-field station (Eel River, 120 NM south)
+      // when 46027 is down. The fallback applies to the *observation*, not to
+      // the individual field: it used to `??` each field separately, so a
+      // present-but-missing WVHT ("MM"/"--", routine for wave height) on 46027
+      // silently pulled a 120 NM-distant buoy's reading into 46027's slot.
+      ...(() => {
+        const observations = Array.isArray(marineR.observations) ? marineR.observations : [];
+        const primary = observations.find((o: any) => o.stationId === "46027") ?? observations[0];
+        return {
+          waveHeightFt: primary?.waveHeightFt ?? null,
+          windSpeedKt: primary?.windSpeedKt ?? null,
+        };
+      })(),
       available: isFreshReport(marine, now) && Array.isArray(marineR.observations) && marineR.observations.length > 0,
     },
   };
@@ -213,16 +251,24 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
  *
  * `available` is the honest question "did this monitor produce a report in this
  * run?", not "is anything wrong?" — an unavailable monitor must not read as calm.
+ *
+ * Availability is freshness-gated through the same `isFreshReport` as the eight
+ * core monitors. It previously read `reports.X != null` alone, so a day-old
+ * snapshot of an extended monitor was scored as a current reading while the
+ * core monitors went stale after an hour.
  */
-export function buildExtendedCompositeInput(reports: {
-  drought?: unknown;
-  psps?: unknown;
-  smoke?: unknown;
-  roads?: unknown;
-  schools?: unknown;
-  marinezone?: unknown;
-  uscg?: unknown;
-}): Record<string, unknown> {
+export function buildExtendedCompositeInput(
+  reports: {
+    drought?: unknown;
+    psps?: unknown;
+    smoke?: unknown;
+    roads?: unknown;
+    schools?: unknown;
+    marinezone?: unknown;
+    uscg?: unknown;
+  },
+  now = Date.now(),
+): Record<string, unknown> {
   const drought = asRecord(reports.drought);
   const psps = asRecord(reports.psps);
   const smoke = asRecord(reports.smoke);
@@ -234,37 +280,37 @@ export function buildExtendedCompositeInput(reports: {
     drought: {
       severity: (drought.compositeSeverity as string) ?? "NONE",
       severeDroughtPercent: typeof drought.severeDroughtPercent === "number" ? drought.severeDroughtPercent : 0,
-      available: reports.drought != null,
+      available: isFreshReport(reports.drought, now),
     },
     psps: {
       status: (psps.overallStatus as string) ?? "NONE",
       eventCount: typeof psps.totalEvents === "number" ? psps.totalEvents : 0,
       delNorteAffected: psps.delNorteAffected === true,
-      available: reports.psps != null,
+      available: isFreshReport(reports.psps, now),
     },
     smoke: {
       peakLevel: (smoke.peakLevel as string) ?? "GOOD",
       peakAqi: typeof smoke.peakAqi === "number" ? smoke.peakAqi : null,
       maxPm25: typeof smoke.maxPm25 === "number" ? smoke.maxPm25 : null,
-      available: reports.smoke != null,
+      available: isFreshReport(reports.smoke, now),
     },
     roads: {
       severity: (roads.overallSeverity as string) ?? "NONE",
       hasMajorClosure: roads.hasMajorClosure === true,
       incidentCount: typeof roads.totalIncidents === "number" ? roads.totalIncidents : 0,
-      available: reports.roads != null,
+      available: isFreshReport(reports.roads, now),
     },
     schools: {
       status: (schools.districtStatus as string) ?? "OPEN",
       hasActiveClosure: schools.hasActiveClosure === true,
       hasActiveDelay: schools.hasActiveDelay === true,
       eventCount: typeof schools.totalEvents === "number" ? schools.totalEvents : 0,
-      available: reports.schools != null,
+      available: isFreshReport(reports.schools, now),
     },
     marinezone: {
       worstLevel: (marinezone.worstLevel as string) ?? "CALM",
       peakWindKt: typeof marinezone.peakWindKt === "number" ? marinezone.peakWindKt : null,
-      available: reports.marinezone != null,
+      available: isFreshReport(reports.marinezone, now),
     },
     uscg: {
       totalBroadcasts: typeof uscg.totalBroadcasts === "number" ? uscg.totalBroadcasts : 0,
@@ -286,10 +332,13 @@ export type ExtendedMonitorSpec = readonly [
 
 export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
   ["USDM Drought", "drought", "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
-  ["PG&E PSPS", "psps", "events", PGE_PSPS_API_URL, "PG&E PSPS events JSON"],
-  ["HRRR Smoke", "smoke", "forecast", HRRR_SMOKE_API_URL, "AirFire HRRR smoke PM2.5 forecast"],
-  ["Caltrans Roads", "roads", "incidents", CALTRANS_API_D1_URL, "Caltrans QuickMap District 1 incidents"],
-  ["DUSD Schools", "schools", "items", DUSD_ALERTS_URL, "Del Norte USD announcements"],
+  // PG&E's named JSON endpoint now 404s; the monitor reads the browser-rendered
+  // event page. Name the endpoint actually called, so an auditor following this
+  // health record is not sent to a dead URL.
+  ["PG&E PSPS", "psps", "events", PGE_PSPS_PAGE_URL, "PG&E PSPS events (event page; the legacy JSON endpoint 404s)"],
+  ["HRRR Smoke", "smoke", "forecasts", HMS_SMOKE_URL, "NOAA HMS smoke polygons (AirFire PM2.5 JSON is the fallback; the named AirFire URL 404s)"],
+  ["Caltrans Roads", "roads", "incidents", CALTRANS_ROADS_TEXT_URL, "Caltrans per-route road conditions text (QuickMap JSON serves an SPA shell; legacy fallback)"],
+  ["DUSD Schools", "schools", "events", DUSD_ALERTS_URL, "Del Norte USD announcements"],
   ["NWS Marine Forecast", "marinezone", "periods", NWS_CWF_LIST_URL, "NWS Coastal Waters Forecast text product (KEKA CWF, zone PZZ450)"],
   ["USCG Broadcast Notice to Mariners", "uscg", "items", USCG_BNM_LIST_URL, "USCG NAVCEN District 11 Broadcast Notice to Mariners listing"],
 ];
@@ -389,7 +438,11 @@ export function classifySourceHealth(
   };
   if (fetchedAt) {
     const ageMs = Date.parse(fetchedAt);
-    if (Number.isFinite(ageMs)) health.ageMs = Math.max(0, Date.now() - ageMs);
+    // A FUTURE stamp is not "brand new": `isFreshReport` rejects it (ageMs < 0),
+    // so the status above is `stale`, and clamping the same timestamp to 0 would
+    // publish `ageMs: 0` next to `status: "stale"` — claiming fresh data that is
+    // not usable. Omit the age instead and let the status carry the truth.
+    if (Number.isFinite(ageMs) && ageMs >= 0) health.ageMs = ageMs;
   }
   return health;
 }

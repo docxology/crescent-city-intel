@@ -32,6 +32,15 @@ move to the CHANGELOG entry for their release.
   each release.** AC: after every version bump, `docs/architecture.md` and
   `docs/api-reference.md` pass the doc-inventory / route-contract gates
   unchanged.
+- 🟢 **Keep the monitor rosters derived, not restated** — the recurring defect
+  class behind the 2026-09-26/27 correctness passes: an 8-of-14 analytics list,
+  a 13-of-14 correlation list, an 8-of-14 coverage contract, and two spec rows
+  naming fields the monitors do not have. `tests/alert-source-roster.test.ts`
+  now derives every roster (and the SPA's hand-written maps) from
+  `MONITOR_KEYS`. AC: the remaining hand-written restatements —
+  `MONITOR_PRIORITY` in `severity.ts` and the `type` enum in `openapi.yaml` —
+  are either derived or covered by an existing gate assertion. The enum is
+  already checked by `bun run validate`; the priority list is not.
 - 🟢 **State the geo-observations envelope schema once** — the shape is declared
   independently in `src/geo_observations.ts` interfaces, `validatePagesGeoObservations`
   (`src/pages_snapshot.ts`), and the inline OpenAPI response schema, and the

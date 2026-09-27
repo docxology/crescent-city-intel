@@ -970,6 +970,28 @@ paths:
                       missing: {type: integer}
                       coveragePercent: {type: number}
                       coverageStatus: {type: string, enum: [complete, partial, none]}
+                  alertLevel:
+                    type: string
+                    description: >-
+                      Composite alert level (CALM/WATCH/WARNING/EMERGENCY) from
+                      output/alerts/composite/current.json. Read it together with
+                      alertHasUnavailableMonitors: the level enum has no
+                      "unknown", so a monitor that could not be checked leaves
+                      the level at CALM and is reported only by that flag.
+                    enum: [CALM, WATCH, WARNING, EMERGENCY]
+                  alertHasUnavailableMonitors:
+                    type: boolean
+                    description: >-
+                      True when at least one of the 14 monitors was unavailable
+                      or stale in the composite run. A CALM alertLevel with this
+                      flag set means "nothing detected among the monitors that
+                      could be checked", not "everything checked and clear".
+                  alertReason:
+                    type: string
+                    description: >-
+                      The composite's headline one-liner, naming the
+                      hazard-priority monitor at the top tier, or listing the
+                      unavailable monitors when nothing could be assessed.
                   alertTrends30d:
                     type: array
                     description: >-
@@ -1712,8 +1734,30 @@ paths:
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 }, description: Number of entries to skip }
       responses:
         '200':
-          description: Paginated timeline entries for the type
-          content: { application/json: { schema: { type: object, properties: { type: { type: string }, total: { type: integer }, offset: { type: integer }, limit: { type: integer }, count: { type: integer }, alerts: { type: array, items: { type: object } } } } } }
+          description: >-
+            Paginated timeline entries for the type. `total` counts the events
+            this type contributes to the RETAINED timeline, which
+            /api/alerts/timeline caps at 1000 entries; read
+            `timelineTruncated` and `timelineRetainedFrom` to tell "no more
+            events" from "older events are not in the retained window".
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type: { type: string }
+                  total: { type: integer }
+                  offset: { type: integer }
+                  limit: { type: integer }
+                  count: { type: integer }
+                  timelineTruncated:
+                    type: boolean
+                    description: True when the shared timeline exceeded its 1000-entry cap, so older events are absent from every paginated type.
+                  timelineRetainedFrom:
+                    type: string
+                    nullable: true
+                    description: ISO timestamp of the oldest entry still retained, or null when nothing was dropped.
+                  alerts: { type: array, items: { type: object } }
         '400': { description: Unknown alert type }
 
   /api/alerts/correlation:

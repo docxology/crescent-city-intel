@@ -19,7 +19,7 @@ import { mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import type { TocNode, ArticlePage } from "./types.js";
-import { flattenToc, htmlToText, csvEscape, sanitizeFilename } from "./utils.js";
+import { flattenToc, htmlToText, csvEscape, sanitizeFilename, normalizeSectionNumber } from "./utils.js";
 import { loadToc, loadManifest, loadAllArticles } from "./shared/data.js";
 import { writeJsonAtomic, writeTextAtomic } from "./shared/source_health.js";
 import { paths } from "./shared/paths.js";
@@ -86,7 +86,10 @@ export function buildMarkdownFiles(
         mdLines.push(section.text || htmlToText(section.html));
         if (section.history) mdLines.push(`\n*${section.history}*\n`);
         titleIndex.push(
-          `- [${section.number}: ${section.title}](${sanitizeFilename(chapter.number)}.md#${section.number.replace(/§\s*/, "").replace(/\s/g, "-")})`
+          // normalizeSectionNumber, not an inline strip: this copy lacked the
+          // `g` flag, so a number carrying two markers kept the second, and it
+          // is exactly the duplication `normalizeSectionNumber` exists to end.
+          `- [${section.number}: ${section.title}](${sanitizeFilename(chapter.number)}.md#${normalizeSectionNumber(section.number).replace(/\s/g, "-")})`
         );
       }
       files.push({

@@ -110,8 +110,12 @@ export function buildWordFrequency(
   sections: readonly FrequencySectionInput[],
   options: BuildWordFrequencyOptions = {},
 ): WordFrequencyReport {
-  const limit = Math.max(1, options.limit ?? 100);
-  const minLength = Math.max(1, options.minLength ?? 3);
+  // A non-finite limit is coerced to the default rather than propagated:
+  // `Math.max(1, NaN)` is NaN, `arr.slice(0, NaN)` is [], and every `>` against
+  // NaN is false — so a direct caller passing `limit: NaN` got empty tables with
+  // `truncated: false`, claiming nothing was cut when everything was.
+  const limit = Number.isFinite(options.limit) ? Math.max(1, Math.floor(options.limit!)) : 100;
+  const minLength = Math.max(1, options.minLength ?? 2);
   const minDocumentFrequency = Math.max(1, options.minDocumentFrequency ?? 1);
   const titleFilter = options.titleFilter ?? null;
 
@@ -126,7 +130,15 @@ export function buildWordFrequency(
 
   for (const section of scoped) {
     const seen = new Set<string>();
-    const tokens = (section.text ?? "")
+    // Tokenise the title as well as the body. The module promises this profile
+    // mirrors the BM25 index's own tokenisation, and the index feeds BOTH
+    // `section.text` and `section.title` into one term map — so a term appearing
+    // only in a heading (very common for "Appeals", "Definitions") has index
+    // df > 0 while this module saw df 0. That made documentFrequency, the
+    // df-ratio and salience systematically differ from the index they are
+    // documented against. The default `minLength` also matches the index's
+    // `length > 1` filter rather than admitting 1-char tokens it never indexes.
+    const tokens = `${section.title ?? ""} ${section.text ?? ""}`
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, " ")
       .split(/\s+/)
@@ -151,9 +163,7 @@ export function buildWordFrequency(
 
   const sectionsScanned = scoped.length;
   const entries: TermFrequency[] = [];
-  let hapaxCount = 0;
   for (const [term, count] of counts) {
-    if (count === 1) hapaxCount++;
     const df = documentFrequency.get(term) ?? 0;
     if (df < minDocumentFrequency) continue;
     const forms = surfaceForms.get(term)!;
@@ -181,6 +191,14 @@ export function buildWordFrequency(
   const topByFrequency = [...entries].sort((a, b) => b.count - a.count || a.term.localeCompare(b.term, "en"));
   const topBySalience = [...entries].sort((a, b) => b.salience - a.salience || a.term.localeCompare(b.term, "en"));
 
+  // Derive the vocabulary summary from the FILTERED entries, not from the raw
+  // counters. `distinctTerms` and `hapaxCount` were computed before the
+  // minDocumentFrequency filter, so with `?minDf=2` the summary described a
+  // vocabulary the two ranked tables do not contain — a chart built from the
+  // summary and a table built from the lists disagreed.
+  const distinctTerms = entries.length;
+  const hapaxCount = entries.filter((entry) => entry.count === 1).length;
+
   return {
     schemaVersion: WORD_FREQUENCY_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -188,9 +206,9 @@ export function buildWordFrequency(
     summary: {
       sectionsScanned,
       totalTokens,
-      distinctTerms: counts.size,
+      distinctTerms,
       hapaxCount,
-      typeTokenRatio: totalTokens === 0 ? 0 : Math.round((counts.size / totalTokens) * 10_000) / 10_000,
+      typeTokenRatio: totalTokens === 0 ? 0 : Math.round((distinctTerms / totalTokens) * 10_000) / 10_000,
       meanTokensPerSection: sectionsScanned === 0 ? 0 : Math.round((totalTokens / sectionsScanned) * 100) / 100,
     },
     topByFrequency: topByFrequency.slice(0, limit),

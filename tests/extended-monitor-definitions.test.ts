@@ -14,10 +14,48 @@ import {
   MONITOR_KEYS,
   type MonitorKey,
 } from "../src/alerts/composite.ts";
+import type { DroughtReport } from "../src/alerts/usdm_drought.ts";
+import type { PspsReport } from "../src/alerts/pge_psps.ts";
+import type { SmokeReport } from "../src/alerts/hrrr_smoke.ts";
+import type { RoadClosureReport } from "../src/alerts/caltrans_roads.ts";
+import type { SchoolClosureReport } from "../src/alerts/dusd_schools.ts";
+import type { MarineZoneForecast } from "../src/alerts/nws_marine.ts";
+import type { UscgBroadcastReport } from "../src/alerts/uscg_broadcasts.ts";
 
 function settled<T>(value: T, status: "fulfilled" | "rejected" = "fulfilled"): PromiseSettledResult<T> {
   return status === "fulfilled" ? { status, value } : { status, reason: new Error("boom") };
 }
+
+/**
+ * Real report objects, typed against each monitor's own exported interface.
+ * The type annotations are load-bearing: `bunx tsc --noEmit` runs inside
+ * `bun run validate`, so renaming `SmokeReport.forecasts` or
+ * `SchoolClosureReport.events` fails the gate here rather than silently
+ * zeroing that monitor's itemCount at runtime.
+ */
+function realDrought(): DroughtReport {
+  return { timestamp: FIXED, readings: [{ fips: "06015", county: "Del Norte", state: "CA", severity: "D0", percent: 1 }], compositeSeverity: "D0", severeDroughtPercent: 0, summary: "s" };
+}
+function realPsps(): PspsReport {
+  return { timestamp: FIXED, events: [], totalEvents: 0, overallStatus: "NONE", delNorteAffected: false, summary: "s" };
+}
+function realSmoke(): SmokeReport {
+  return { timestamp: FIXED, forecasts: [], maxPm25: null, peakAqi: null, peakLevel: "GOOD", source: "noaa-hms", summary: "s", advisory: null };
+}
+function realRoads(): RoadClosureReport {
+  return { timestamp: FIXED, incidents: [], totalIncidents: 0, delNorteIncidents: [], overallSeverity: "NONE", hasMajorClosure: false, summary: "s" };
+}
+function realSchools(): SchoolClosureReport {
+  return { timestamp: FIXED, events: [], totalEvents: 0, districtStatus: "OPEN", hasActiveClosure: false, hasActiveDelay: false, summary: "s" };
+}
+function realMarineZone(): MarineZoneForecast {
+  return { timestamp: FIXED, zone: "PZZ450", zoneTitle: "t", issuance: "i", office: "EKA", periods: [], peakWindKt: null, worstLevel: "CALM", worstPeriodName: null, summary: "s" };
+}
+function realUscg(): UscgBroadcastReport {
+  return { fetchedAt: FIXED, sourceUrl: "https://www.navcen.uscg.gov/", windowDays: 7, totalBroadcasts: 0, items: [], relevantCount: 0, worstLevel: "CALM", summary: "s" };
+}
+
+const FIXED = "2026-09-26T12:00:00.000Z";
 
 /** An all-rejected baseline, keyed by monitor (the 8 core + 7 extended). */
 function baseline(): Record<MonitorKey, PromiseSettledResult<unknown>> {
@@ -39,6 +77,38 @@ describe("EXTENDED_MONITOR_SPECS", () => {
     for (const [, , , url, provenance] of EXTENDED_MONITOR_SPECS) {
       expect(url.startsWith("https://")).toBe(true);
       expect(provenance.length).toBeGreaterThan(5);
+    }
+  });
+
+  test("covers every extended monitor key, so the roster cannot silently shrink", () => {
+    // The recurring defect in this repo: a monitor is in some lists and not
+    // others. MONITOR_KEYS minus the 8 core keys IS the extended set, so assert
+    // the spec table against that derivation rather than restating it.
+    const CORE = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "tides", "fishing"];
+    const extended = MONITOR_KEYS.filter(key => !CORE.includes(key));
+    expect(EXTENDED_MONITOR_SPECS.map(spec => spec[1]).sort()).toEqual([...extended].sort());
+  });
+
+  test("every spec listField names a real list on that monitor's own report interface", () => {
+    // The defect this replaces: `smoke` and `schools` named a field that does
+    // not exist on the monitor's report (`forecast` vs `forecasts`, `items` vs
+    // `events`), so itemCount was permanently 0 for both — reported as `empty`,
+    // which counts as *present*, while the monitor was actively emitting plumes
+    // and closures. The test file itself fed fabricated shapes matching the spec,
+    // so it agreed with the bug. Asserting against the real report interfaces
+    // makes a renamed field fail here instead of silently zeroing coverage.
+    const reportShapes: Record<string, () => object> = {
+      drought: () => realDrought(),
+      psps: () => realPsps(),
+      smoke: () => realSmoke(),
+      roads: () => realRoads(),
+      schools: () => realSchools(),
+      marinezone: () => realMarineZone(),
+      uscg: () => realUscg(),
+    };
+    for (const [, key, listField] of EXTENDED_MONITOR_SPECS) {
+      const report = reportShapes[key]!() as Record<string, unknown>;
+      expect(Array.isArray(report[listField])).toBe(true);
     }
   });
 });
@@ -64,7 +134,7 @@ describe("buildExtendedMonitorDefinitions", () => {
 
   test("a non-array truthy value (smoke forecast object) counts as exactly 1", () => {
     const results = baseline();
-    results.smoke = settled({ forecast: { maxPm25: 4.2 } });
+    results.smoke = settled({ forecasts: { maxPm25: 4.2 } });
     const defs = buildExtendedMonitorDefinitions(results);
     expect(defs.find(d => d.key === "smoke")?.itemCount).toBe(1);
   });
@@ -95,9 +165,9 @@ describe("monitor identity survives a change to the batch order", () => {
     const results = baseline();
     results.drought = settled({ readings: [{ fips: "06015" }] });
     results.psps = settled({ events: [{ id: "a" }, { id: "b" }] });
-    results.smoke = settled({ forecast: { maxPm25: 9 } });
+    results.smoke = settled({ forecasts: [{ maxPm25: 9 }] });
     results.roads = settled({ incidents: [{ id: 1 }, { id: 2 }, { id: 3 }] });
-    results.schools = settled({ items: [{ id: "x" }] });
+    results.schools = settled({ events: [{ id: "x" }] });
     const counts = Object.fromEntries(buildExtendedMonitorDefinitions(results).map(def => [def.key, def.itemCount]));
     expect(counts).toEqual({ drought: 1, psps: 2, smoke: 1, roads: 3, schools: 1, marinezone: 0, uscg: 0 });
   });

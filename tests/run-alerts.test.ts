@@ -17,13 +17,15 @@ import { buildTidesInput, buildFishingInput } from "../scripts/run-alerts.ts";
 import type { TideReport } from "../src/alerts/noaa_tides.ts";
 import type { FishingReport } from "../src/alerts/cdfw_fishing.ts";
 
-function makeTideReport(maxPredictedLevel: number): TideReport {
+function makeTideReport(maxPredictedLevel: number, observedLevel: number | null = null): TideReport {
   return {
     fetchedAt: new Date().toISOString(),
     stationId: "9419750",
     stationName: "Crescent City, CA",
     predictions: [],
-    waterLevel: null,
+    waterLevel: observedLevel === null
+      ? null
+      : { v: observedLevel.toString(), t: new Date().toISOString(), s: "9419750" } as TideReport["waterLevel"],
     highTideAlert: maxPredictedLevel >= 5,
     maxPredictedLevel,
     alertThresholdFt: 5,
@@ -47,15 +49,27 @@ function makeFishingReport(commercialOpen: boolean, recreationalOpen: boolean): 
 }
 
 describe("buildTidesInput", () => {
-  test("a real high-tide report produces available=true with the predicted level", () => {
-    const input = buildTidesInput(makeTideReport(6.77));
+  test("a live sensor reading is reported as the current water level", () => {
+    const input = buildTidesInput(makeTideReport(6.77, 6.9));
     expect(input.available).toBe(true);
-    expect(input.waterLevelFt).toBe(6.77);
+    expect(input.waterLevelFt).toBe(6.9);
   });
 
   test("a null report (monitor failed) produces available=false, not a crash", () => {
     const input = buildTidesInput(null);
     expect(input.available).toBe(false);
+    expect(input.waterLevelFt).toBeNull();
+  });
+
+  test("a dead sensor is unavailable, never a 48-hour forecast maximum presented as current", () => {
+    // The defect this replaces: with `waterLevel: null` (sensor offline, a
+    // routine occurrence) the input fell back to `maxPredictedLevel` — the
+    // maximum over the next 48 hours — and the composite published it as
+    // "Water level 7.1 ft MLLW (significant exceedance)" while the report's own
+    // summary said "max *predicted* water level". A 48-hour forecast high is
+    // not a reading, and forecasting one as an observation is exactly the
+    // false-calm/false-alarm class this repo treats as a correctness bug.
+    const input = buildTidesInput(makeTideReport(7.1, null));
     expect(input.waterLevelFt).toBeNull();
   });
 });

@@ -267,7 +267,14 @@ export function buildSectionGraph(
         toGuid: resolved.guid,
         toNumber: resolved.number,
         citation,
-        viaPrefix: resolved.number !== target,
+        // Compare normalised on both sides. `resolved.number` is the *stored*
+        // number, which carries the section marker ("§ 5.100.060"), while
+        // `target` is the bare citation digits ("5.100.060") — so an unnormalised
+        // comparison is `true` for every edge in the corpus, including exact
+        // matches, and the field documented as "resolved by prefix, not exact"
+        // carried no information. This is the same marker-vs-bare defect that
+        // `normalizeSectionNumber` was introduced to end.
+        viaPrefix: normalizeSectionNumber(resolved.number) !== target,
         weight: count,
       });
     }
@@ -321,7 +328,13 @@ export function buildSectionGraph(
       guid: section.guid,
       number: section.number,
       title: section.title,
-      articleNumber: section.articleNumber ?? section.number.split(".").slice(0, 2).join("."),
+      // Normalise before deriving the article prefix: the stored number carries
+      // the section marker, so `"§ 5.100.010".split(".")` yields
+      // `["§ 5","100","010"]` and an unnormalised derivation produces the
+      // never-joining key `"§ 5.100"` (and `"§ SR"` for the Sunset District
+      // chapter). Both sibling derivations of this value normalise first
+      // (`ordinance_chronology.titlePrefix`, `gui/analytics.ts`).
+      articleNumber: section.articleNumber ?? normalizeSectionNumber(section.number).split(".").slice(0, 2).join("."),
       outDegree,
       inDegree,
     });

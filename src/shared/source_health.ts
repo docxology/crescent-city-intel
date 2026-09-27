@@ -47,6 +47,24 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "EPA AirNow", url: "https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml", monitor: "alerts" },
   { source: "CAL FIRE Wildfire", url: "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false", monitor: "alerts" },
   { source: "NDBC Marine", url: "https://www.ndbc.noaa.gov/data/realtime2", monitor: "alerts" },
+  // The extended monitors. The alert runner emits a SourceHealth record for
+  // every monitor, but this coverage contract listed only the eight core ones,
+  // so the denominator was 8: `completeSourceHealth` could never synthesize an
+  // "expected monitor output was absent" marker for the rest, and a skipped or
+  // crashed alert run shrank coverage invisibly instead of showing gaps. Both
+  // gates only assert a superset, so the omission could not fail CI.
+  //
+  // Each `url` names the endpoint the monitor ACTUALLY calls, not a legacy
+  // constant it no longer uses: PG&E's exported JSON now 404s (the monitor reads
+  // the event page), AirFire's 404s (NOAA HMS is primary), and QuickMap's serves
+  // an SPA shell (per-route roads text is primary). Source names must match
+  // ALERT_MONITOR_SOURCE_NAMES in alerts/composite.ts.
+  { source: "USDM Drought", url: "https://usdmapi.cpc.ncep.noaa.gov/api/StateDroughtMonitor/GetDroughtSeverity/Drought/06015", monitor: "alerts" },
+  { source: "PG&E PSPS", url: "https://pgealerts.alerts.pge.com/pg-e-partners/psps-events/", monitor: "alerts" },
+  { source: "HRRR Smoke", url: "https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/Shapefile/", monitor: "alerts" },
+  { source: "Caltrans Roads", url: "https://roads.dot.ca.gov/?roadnumber=", monitor: "alerts" },
+  { source: "DUSD Schools", url: "https://www.dnusd.org/news", monitor: "alerts" },
+  { source: "NWS Marine Forecast", url: "https://api.weather.gov/products/types/CWF/locations/EKA", monitor: "alerts" },
   { source: "USCG Broadcast Notice to Mariners", url: "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0", monitor: "alerts" },
 ];
 
@@ -182,8 +200,37 @@ function toJsonLine(record: string | unknown): string {
   return (typeof record === "string" ? record : JSON.stringify(record)) + "\n";
 }
 
+/**
+ * Amortised trim thresholds.
+ *
+ * Trimming to exactly `maxLines` leaves the very next append over the cap
+ * again, so a full-file rewrite (read + temp + fsync + rename) happened on
+ * *every* append once the cap was reached. That is not the low-frequency case
+ * the original comment assumed: `hrrr_smoke` appends one line per forecast
+ * hour (up to 48 in a run) and `caltrans_roads` one per incident, so a single
+ * run could trigger dozens of full-file rewrites.
+ *
+ * Trim when the file reaches `maxLines`, and trim down to `maxLines *
+ * RETAIN_RATIO` — so the next ~10% of appends are free. Retention is
+ * deliberately *less* than the cap, never more: a reader must never be able to
+ * see a file that violates the documented bound.
+ */
+const RETAIN_RATIO = 0.9;
+
+/** Below this cap, trimming to a ratio would save nothing measurable, so the
+ * trim target is the cap itself and the "at most maxLines" contract reads back
+ * exactly. It also keeps the amortisation from degenerating on tiny caps used
+ * by tests (`floor(2 * 0.9)` is 1 — a 50% drop, not a 10% one). */
+const AMORTISE_MIN_LINES = 100;
+
+/** The number of lines a trim keeps: the cap itself for small caps, else the
+ * cap scaled by RETAIN_RATIO. Never exceeds `maxLines`. */
+function trimTarget(maxLines: number): number {
+  return maxLines < AMORTISE_MIN_LINES ? maxLines : Math.floor(maxLines * RETAIN_RATIO);
+}
+
 /** Async bounded JSONL appender: appends one record and, when the file
- * exceeds `maxLines`, atomically trims it to the most-recent tail. */
+ * reaches `maxLines`, atomically trims it to the most-recent tail. */
 export async function appendBoundedJsonl(
   path: string,
   record: string | unknown,
@@ -192,12 +239,9 @@ export async function appendBoundedJsonl(
   await mkdir(dirname(path), { recursive: true });
   await appendFile(path, toJsonLine(record));
   try {
-    // Plain line-count bound: appends are low-frequency (a new alert/resolution),
-    // so re-reading to enforce the cap every append is cheap next to the months
-    // of unbounded growth this replaces (R7).
     const lines = (await readFile(path, "utf-8")).split("\n");
-    if (lines.filter(Boolean).length > maxLines) {
-      await writeTextAtomic(path, boundedTail(lines, maxLines));
+    if (lines.filter(Boolean).length >= maxLines) {
+      await writeTextAtomic(path, boundedTail(lines, trimTarget(maxLines)));
     }
   } catch {
     // A failed trim must never break an alert run; the file just stays unbounded.
@@ -214,11 +258,12 @@ export function appendBoundedJsonlSync(
   appendFileSync(path, toJsonLine(record));
   try {
     const lines = readFileSync(path, "utf-8").split("\n");
-    if (lines.filter(Boolean).length > maxLines) {
+    if (lines.filter(Boolean).length >= maxLines) {
       // Synchronous crash-safe trim: temp file + rename, so a partial write
-      // cannot corrupt the live history under the real path.
+      // cannot corrupt the live history under the real path. Same amortised
+      // down-trim as the async appender — see RETAIN_RATIO.
       const tmp = `${path}.${process.pid}.${Date.now()}.trim`;
-      writeFileSync(tmp, boundedTail(lines, maxLines));
+      writeFileSync(tmp, boundedTail(lines, trimTarget(maxLines)));
       renameSync(tmp, path);
     }
   } catch {

@@ -71,13 +71,23 @@ export interface SmokeReport {
   advisory: string | null;
 }
 
+/**
+ * PM2.5 breakpoints mapped to the AQI band ceiling they represent.
+ *
+ * `Math.round(aqi * (pm25 / max))` interpolates a reading up to its own band
+ * ceiling, so the open-ended top band cannot use `Infinity`: `x / Infinity` is
+ * 0, which reported the top band's `HAZARDOUS` level alongside `peakAqi: 0` — a
+ * hazardous plume recorded in analytics as a perfectly clean AQI. The top band
+ * is expressed as a wide finite ceiling so interpolation stays monotonic and
+ * every reading above 500.4 clamps to the band maximum.
+ */
 const PM25_THRESHOLDS = [
   { max: 12.0, level: "GOOD" as SmokeLevel, aqi: 50 },
   { max: 35.4, level: "MODERATE" as SmokeLevel, aqi: 100 },
   { max: 55.4, level: "UNHEALTHY_SENSITIVE" as SmokeLevel, aqi: 150 },
   { max: 150.4, level: "UNHEALTHY" as SmokeLevel, aqi: 200 },
   { max: 250.4, level: "VERY_UNHEALTHY" as SmokeLevel, aqi: 300 },
-  { max: Infinity, level: "HAZARDOUS" as SmokeLevel, aqi: 500 },
+  { max: 500.4, level: "HAZARDOUS" as SmokeLevel, aqi: 500 },
 ];
 
 export function classifyPm25(pm25: number): { level: SmokeLevel; aqi: number } {

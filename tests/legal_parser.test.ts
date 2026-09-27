@@ -104,4 +104,22 @@ describe("extractEffectiveDate", () => {
   test("returns null for empty history", () => {
     expect(extractEffectiveDate("")).toBeNull();
   });
+
+  test("an ordinance number is never mistaken for the year", () => {
+    // "(Ord. 6453 § 5, 1991)" is a verbatim history line from the scraped
+    // corpus (output/articles/44236585.json). The year must be read from the
+    // text *after* the ordinance number: an unanchored /(\d{4})/ matched 6453,
+    // which then reported year 6453 into the city-wide ordinance timeline
+    // (earliest year 6453), section-longevity ages (2026 − 6453 = −4427, plus
+    // a "never amended" status), and a decade histogram that fabricated ~443
+    // all-zero buckets.
+    const [amendment] = extractOrdinanceAmendments("(Ord. 6453 § 5, 1991)");
+    expect(amendment!.ordinance).toBe("Ord. No. 6453");
+    expect(amendment!.year).toBe(1991);
+    expect(extractEffectiveDate("(Ord. 6453 § 5, 1991)")).toBe(1991);
+  });
+
+  test("a history line with no year reports null, not the ordinance number", () => {
+    expect(extractOrdinanceAmendments("Ord. No. 2004")[0]!.year).toBeNull();
+  });
 });

@@ -44,6 +44,11 @@ export async function crossReferenceAgendaTopics(
   topics: Array<{ title: unknown; url?: unknown }>,
   refsPerTopic = 3,
 ): Promise<AgendaCodeRef[]> {
+  // Clamp once, at the boundary. `refsPerTopic` was forwarded to `search()`
+  // unbounded, and every sibling bounded builder clamps its own limit: 0
+  // produced zero refs, a negative produced `slice(0, -1)` (all but the last),
+  // and NaN produced an empty list.
+  const limit = Number.isFinite(refsPerTopic) ? Math.max(1, Math.floor(refsPerTopic)) : 3;
   const seen = new Set<string>();
   const bounded: Array<{ title: string; url: string }> = [];
   for (const topic of topics ?? []) {
@@ -65,7 +70,7 @@ export async function crossReferenceAgendaTopics(
   const refs: AgendaCodeRef[] = [];
   for (const topic of bounded) {
     try {
-      const { results } = search(topic.title, { limit: refsPerTopic });
+      const { results } = search(topic.title, { limit });
       for (const result of results) {
         refs.push({
           topic: topic.title,

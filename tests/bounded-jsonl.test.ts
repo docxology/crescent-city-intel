@@ -50,6 +50,29 @@ describe("appendBoundedJsonl", () => {
     expect(last.s).toBe("x");
   }, 60000);
 
+  test("a large cap is trimmed down to the retained tail, not rewritten to the exact cap", async () => {
+    // The defect this replaces: trimming to exactly `maxLines` left the next
+    // append over the cap again, so once a file reached the cap EVERY append
+    // did a full read + temp + fsync + rename. That is not the low-frequency
+    // case the original comment assumed — hrrr_smoke appends one line per
+    // forecast hour (up to 48 per run) and caltrans_roads one per incident.
+    // Trimming to 90% means the next ~10% of appends are free.
+    const bigFile = join(dir, "amortised.jsonl");
+    rmSync(bigFile, { force: true });
+    for (let i = 0; i < 100; i++) appendBoundedJsonlSync(bigFile, { n: i }, 100);
+    const afterCap = readFileSync(bigFile, "utf-8").split("\n").filter(Boolean);
+    expect(afterCap.length).toBeLessThan(100);
+    // The most recent record always survives the trim.
+    expect(JSON.parse(afterCap.at(-1)!).n).toBe(99);
+    // Retention is a bound, never above the cap.
+    expect(afterCap.length).toBeLessThanOrEqual(100);
+    // And the file stays within the cap as more records arrive.
+    for (let i = 100; i < 160; i++) appendBoundedJsonlSync(bigFile, { n: i }, 100);
+    const grown = readFileSync(bigFile, "utf-8").split("\n").filter(Boolean);
+    expect(grown.length).toBeLessThanOrEqual(100);
+    expect(JSON.parse(grown.at(-1)!).n).toBe(159);
+  }, 60000);
+
   test("a small file stays untrimmed", async () => {
     mkdirSync(dir, { recursive: true });
     const small = join(dir, "small.jsonl");

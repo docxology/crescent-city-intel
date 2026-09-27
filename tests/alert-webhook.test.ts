@@ -2,11 +2,32 @@
  * Tests for the config-driven webhook notifier (src/alerts/notify.ts).
  * Zero-mock: spins a real local Bun.serve listener to capture the POST.
  */
-import { describe, test, expect, afterAll } from "bun:test";
+import { describe, test, expect, afterAll, beforeAll } from "bun:test";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { maybeSendSeverityWebhook, sendWebhook, isWebhookConfigured, webhookTimeoutMs } from "../src/alerts/notify.ts";
 
 let server: ReturnType<typeof Bun.serve> | null = null;
 let captured: { body: unknown } | null = null;
+
+/**
+ * The notifier persists the last-notified level under `output/state/`. Scope
+ * that to a temp dir for the whole file: the release gate's output-corpus fence
+ * fails any test that writes into the real `output/` tree, because a test that
+ * mutates the corpus is a mock on a path reachable from a reported result.
+ */
+let webhookRoot: string;
+const prevOutputRoot = process.env.CC_OUTPUT_DIR;
+beforeAll(() => {
+  webhookRoot = mkdtempSync(join(tmpdir(), "cc-webhook-root-"));
+  process.env.CC_OUTPUT_DIR = webhookRoot;
+});
+afterAll(() => {
+  if (prevOutputRoot === undefined) delete process.env.CC_OUTPUT_DIR;
+  else process.env.CC_OUTPUT_DIR = prevOutputRoot;
+  rmSync(webhookRoot, { recursive: true, force: true });
+});
 
 function startServer(): void {
   server = Bun.serve({
@@ -57,6 +78,34 @@ describe("alert webhook", () => {
   test("no-op (no throw) when ALERT_WEBHOOK_URL is unset", async () => {
     delete process.env.ALERT_WEBHOOK_URL;
     await expect(maybeSendSeverityWebhook({ level: "WARNING", reason: "x" })).resolves.toBeUndefined();
+  });
+
+  test("a persistently WARNING composite notifies once, not on every run", async () => {
+    // The defect: the notifier was purely level-triggered with no memory, so a
+    // chronic WARNING — which a multi-year drought or a persistent air-quality
+    // band produces on its own — POSTed on every run forever. A notifier that
+    // is always firing trains the operator to ignore the endpoint.
+    captured = null;
+    process.env.ALERT_WEBHOOK_URL = url;
+    await maybeSendSeverityWebhook({ level: "WARNING", reason: "chronic drought" });
+    expect(captured).not.toBeNull();
+    captured = null;
+    await maybeSendSeverityWebhook({ level: "WARNING", reason: "chronic drought" });
+    await maybeSendSeverityWebhook({ level: "WARNING", reason: "chronic drought" });
+    // Suppressed: the level has not changed since the last notification.
+    expect(captured).toBeNull();
+
+    // A drop below the threshold clears the memory...
+    await maybeSendSeverityWebhook({ level: "CALM", reason: "all nominal" });
+    // ...so a later rise notifies again.
+    captured = null;
+    await maybeSendSeverityWebhook({ level: "WARNING", reason: "chronic drought" });
+    expect(captured).not.toBeNull();
+
+    // An escalation within the notified range still fires.
+    captured = null;
+    await maybeSendSeverityWebhook({ level: "EMERGENCY", reason: "tsunami warning" });
+    expect((captured!.body as any).severity).toBe("EMERGENCY");
   });
 
   test("sendWebhook reports a non-2xx status without throwing", async () => {

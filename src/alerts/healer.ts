@@ -2,8 +2,15 @@
  * Self-healing monitor system for alert monitors.
  *
  * Tracks consecutive "unavailable" or "stale" runs per monitor. When a monitor
- * crosses the threshold (N consecutive failures, configurable default 3), an
- * automatic retry is triggered with exponential backoff: 5min, 15min, 1hr, 4hr.
+ * crosses the threshold (N consecutive failures, configurable default 3) it is
+ * marked eligible for retry and given an exponential backoff window —
+ * 5min, 15min, 1hr, 4hr — so a failing monitor is re-attempted no more often
+ * than the backoff allows.
+ *
+ * Scope, stated plainly: this module identifies and schedules. It does not
+ * itself re-invoke a monitor; `scripts/run-alerts.ts` owns the batch and acts on
+ * `retriedMonitors` by re-running those monitors on the next cycle. A monitor
+ * named here is "eligible for retry", not "has been retried by this module".
  *
  * State is persisted to output/state/healer-state.json so it survives restarts.
  * NEVER throws — graceful degradation at every step.
@@ -13,6 +20,7 @@
  *   HEALER_RETRY_BACKOFF_CAP_MS     (default 4 * 60 * 60 * 1000 = 4 hours)
  */
 import { createLogger } from "../logger.js";
+import { outputRoot } from "../shared/paths.js";
 import { ALERT_MONITOR_SOURCE_NAMES as MONITOR_SOURCE_NAMES } from "./composite.js";
 import { mkdir, readFile, writeFile, rename } from "fs/promises";
 import { existsSync } from "fs";
@@ -25,8 +33,12 @@ const log = createLogger("healer");
 // Dependency-injection seam: tests point HEALER_OUTPUT_DIR at a temp dir so the
 // healing cycle never reads or writes the real output/ tree. Resolved at call
 // time so module-load order across test files can never freeze a wrong dir.
+// Falls back to `outputRoot()` (the CC_OUTPUT_DIR seam) rather than a hardcoded
+// cwd, so a redirected run has the healer read the same tree it wrote — it
+// previously read `process.cwd()/output` and so could not see the
+// source-health.json the same run had just written elsewhere.
 function healerOutputDir(): string {
-  return process.env.HEALER_OUTPUT_DIR ?? join(process.cwd(), "output");
+  return process.env.HEALER_OUTPUT_DIR ?? outputRoot();
 }
 function healerStatePath(): string {
   return join(healerOutputDir(), "state", "healer-state.json");
@@ -84,8 +96,17 @@ function envInt(key: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
-/** Max consecutive failures before triggering a retry (default 3). */
-const MAX_CONSECUTIVE_FAILURES = envInt("HEALER_MAX_CONSECUTIVE_FAILURES", 3);
+/**
+ * Max consecutive failures before triggering a retry (default 3).
+ *
+ * Read at call time, not module load, for the same reason `healerOutputDir` is:
+ * the env var is part of the documented test seam, and a frozen module-level
+ * read silently ignores it when a test (or a runtime reconfiguration) sets it
+ * after import.
+ */
+function maxConsecutiveFailures(): number {
+  return envInt("HEALER_MAX_CONSECUTIVE_FAILURES", 3);
+}
 
 /** Read the source-health.json file produced by the alert monitor runner. */
 async function readSourceHealthFile(): Promise<Record<string, unknown> | null> {
@@ -235,7 +256,7 @@ export async function runHealingCycle(): Promise<{
 
       if (isFailing) {
         monitor.consecutiveFailures += 1;
-        if (monitor.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        if (monitor.consecutiveFailures >= maxConsecutiveFailures()) {
           const backoffTime = monitor.backoffUntil ? Date.parse(monitor.backoffUntil) : 0;
           if (!monitor.backoffUntil || (Number.isFinite(backoffTime) && now >= backoffTime)) {
             monitor.retryCount += 1;

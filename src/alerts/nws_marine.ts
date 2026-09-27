@@ -65,8 +65,21 @@ export interface MarineForecastPeriod {
 }
 
 export interface MarineZoneForecast {
+  /**
+   * When this forecast was fetched. Required, not optional: every other monitor
+   * report carries a `timestamp`, and the composite's freshness gate
+   * (`isFreshReport`) reads `fetchedAt ?? timestamp` and treats a report with
+   * neither as stale forever. Omitting it made the 14th monitor permanently
+   * report `stale` — counted as *missing* coverage, and pushed into the healer's
+   * permanent retry roster — even when the CWF fetch succeeded.
+   *
+   * `issuance` cannot stand in for it: it is free text ("913 AM PDT Thu Sep 3
+   * 2026") that `Date.parse` rejects.
+   */
+  timestamp: string;
   zone: string;
   zoneTitle: string;
+  /** The product's own issuance line (free text, human-facing). */
   issuance: string;
   office: string;
   periods: MarineForecastPeriod[];
@@ -198,6 +211,7 @@ export function toMarineZoneForecast(productText: string, now = new Date().toISO
     (peakWindKt !== null ? `, peak forecast wind ${peakWindKt} kt` : "") +
     (worstPeriodName ? ` (${worstPeriodName})` : "");
   return {
+    timestamp: now,
     zone: zone.zone,
     zoneTitle: zone.zoneTitle,
     issuance: zone.issuance || now,

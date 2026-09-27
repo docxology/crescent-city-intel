@@ -103,6 +103,57 @@ describe("buildSectionLongevity", () => {
     expect(report.truncated).toBe(true);
   });
 
+  test("a 4-digit ordinance number is not read as an enactment year", () => {
+    // Verbatim corpus history line: "(Ord. 6453 § 5, 1991)"
+    // (output/articles/44236585.json). The year must be 1991, not the ordinance
+    // number. An implausible year is worse than an absent one: it produced a
+    // negative ageYears, a "never amended" status, and a decade histogram
+    // stretched across ~443 fabricated all-zero buckets.
+    const report = buildSectionLongevity(
+      [{ guid: "z", number: "8.04.030", title: "Implied", history: "(Ord. 6453 § 5, 1991)" }],
+      { asOfYear: AS_OF, limit: 50 },
+    );
+    expect(report.oldest[0]?.enactedYear).toBe(1991);
+    expect(report.oldest[0]?.ageYears).toBe(AS_OF - 1991);
+    expect(report.byDecade.map(d => d.decade)).toEqual([1990]);
+  });
+
+  test("an implausible parsed year is rejected, not believed", () => {
+    // Defence in depth: even if a year survives the parse, a year outside
+    // 1800..asOfYear+1 is treated as unparsed. It lands in `withoutHistory`
+    // rather than silently vanishing.
+    const report = buildSectionLongevity(
+      [{ guid: "w", number: "8.04.040", title: "Absurd", history: "Ord. No. 5, 1200" }],
+      { asOfYear: AS_OF, limit: 50 },
+    );
+    // Rejected years leave the section undated, so it drops out of the dated
+    // rankings entirely and is reported in the `unknown` bucket instead.
+    expect(report.oldest).toEqual([]);
+    expect(report.byDecade).toEqual([]);
+    expect(report.summary.withoutHistory).toBe(1);
+    expect(report.summary.oldestYear).toBeNull();
+  });
+
+  test("amendmentCount counts dated actions, so a never-amended section cannot top the amended ranking", () => {
+    // "Ord. No. 777, amended" carries an action but no parseable year, so it is
+    // `unknown` and correctly absent from the dated rankings. The regression
+    // this guards: amendmentCount used to count undated actions while status,
+    // churnPerDecade and neverAmended counted only dated ones, so a section
+    // reporting status "original" and counted as never-amended could still rank
+    // at the top of `mostAmended`.
+    const report = buildSectionLongevity(sections, { asOfYear: AS_OF, limit: 50 });
+    // "d" is undated, so it must be absent from the dated ranking.
+    expect(report.mostAmended.map(s => s.guid)).not.toContain("d");
+    // One number now drives status, churnPerDecade, neverAmended and the
+    // ranking, so the two can no longer disagree: a section ranked "amended"
+    // always scores at least 2, and one scoring 1 is always "original".
+    for (const s of report.mostAmended) {
+      expect(s.amendmentCount >= 2).toBe(s.status === "amended");
+    }
+    // "a" has three dated actions (1990, 2005, 2010) and ranks first.
+    expect(report.mostAmended[0]!.amendmentCount).toBe(3);
+  });
+
   test("an empty corpus yields nulls, not fabricated years", () => {
     const report = buildSectionLongevity([], { asOfYear: AS_OF });
     expect(report.summary).toMatchObject({

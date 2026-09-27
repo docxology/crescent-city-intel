@@ -16,15 +16,31 @@ export const ALERT_TREND_DAYS = 14;
 export const MAX_ALERT_TREND_DAYS = 31;
 export const MAX_ALERT_TREND_EVENTS = 5_000;
 
+/**
+ * Source-health name per analytics type. One entry per `ALERT_TYPES` member, in
+ * the same order — `tests/alert-trends.test.ts` asserts the key list equals
+ * `ALERT_TYPES` exactly, and `tests/alert-source-roster.test.ts` asserts these
+ * names are the runner's own `ALERT_MONITOR_SOURCE_NAMES`, so a monitor cannot
+ * be renamed on one side only. The names must match the `source` field in
+ * `output/alerts/source-health.json`; they are NOT restated from
+ * `ALERT_MONITOR_SOURCE_NAMES` at runtime because this module is imported by the
+ * GUI without pulling in the whole monitor roster.
+ */
 export const ALERT_SOURCE_BY_TYPE: Readonly<Record<AlertType, string>> = {
   tsunami: "NOAA Tsunami",
   earthquake: "USGS Earthquake",
   weather: "NWS Weather",
-  tides: "NOAA Tides",
   airquality: "EPA AirNow",
   wildfire: "CAL FIRE Wildfire",
   marine: "NDBC Marine",
+  marinezone: "NWS Marine Forecast",
+  tides: "NOAA Tides",
   fishing: "CDFW Fishing",
+  drought: "USDM Drought",
+  psps: "PG&E PSPS",
+  smoke: "HRRR Smoke",
+  roads: "Caltrans Roads",
+  schools: "DUSD Schools",
   uscg: "USCG Broadcast Notice to Mariners",
 };
 

@@ -69,6 +69,43 @@ export async function runReleaseGate(): Promise<void> {
   if ((openapi.match(/^components:$/gm) ?? []).length !== 1) {
     throw new Error("openapi.yaml must contain exactly one top-level components block");
   }
+  // Every $ref in the spec must resolve. An unresolvable $ref is legal YAML and
+  // renders as a browser would silently ignore it, so the spec can advertise a
+  // path with no `type` parameter and nothing in the pipeline notices.
+  for (const match of openapi.matchAll(/\$ref:\s*'([^']+)'/g)) {
+    const ref = match[1]!;
+    if (ref.startsWith("#/components/parameters/")) {
+      const name = ref.slice("#/components/parameters/".length);
+      const declared = new RegExp(`^  parameters:\\n(?:.*\\n)*?^    ${name}:`, "m").test(openapi);
+      if (!declared) throw new Error(`openapi.yaml $ref does not resolve: ${ref}`);
+    } else if (ref.startsWith("#/components/schemas/")) {
+      const name = ref.slice("#/components/schemas/".length);
+      if (!new RegExp(`^    ${name}:`, "m").test(openapi)) {
+        throw new Error(`openapi.yaml $ref does not resolve: ${ref}`);
+      }
+    } else if (ref.startsWith("#/components/securitySchemes/")) {
+      const name = ref.slice("#/components/securitySchemes/".length);
+      if (!new RegExp(`^    ${name}:`, "m").test(openapi)) {
+        throw new Error(`openapi.yaml $ref does not resolve: ${ref}`);
+      }
+    } else {
+      throw new Error(`openapi.yaml $ref uses an unexpected component type: ${ref}`);
+    }
+  }
+  // The published alert-type enum must list every analysed monitor, so a new
+  // monitor cannot be added to the roster while the documented contract still
+  // advertises the old set.
+  {
+    const { ALERT_TYPES } = await import("./alert_analytics.js");
+    const enumMatch = openapi.match(/enum:\s*\n\s*\[(tsunami[^\]]*)\]/);
+    if (!enumMatch) throw new Error("openapi.yaml is missing the alert-type enum");
+    const documented = enumMatch[1]!.split(",").map(value => value.trim()).filter(Boolean);
+    if (JSON.stringify(documented) !== JSON.stringify([...ALERT_TYPES])) {
+      throw new Error(
+        `openapi.yaml alert-type enum does not match ALERT_TYPES: [${documented.join(", ")}] vs [${ALERT_TYPES.join(", ")}]`,
+      );
+    }
+  }
   for (const healthField of ["providerHealth:", "embeddingProvider:", "vectorStore:"]) {
     if (!openapi.includes(healthField)) throw new Error(`openapi.yaml health schema is missing ${healthField}`);
   }

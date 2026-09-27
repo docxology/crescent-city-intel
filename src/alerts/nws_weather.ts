@@ -408,10 +408,27 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
       isRedFlag: /red\s*flag/i.test(a.event ?? ''),
     }));
     const redFlagCount = enrichedAlerts.filter(a => a.isRedFlag).length;
+    // `level`/`summary` match the composite's own mapping, read from
+    // `severityLevel` (advisory/watch/warning) rather than the CAP `severity`
+    // enum, and the summary counts the tier it names. Without them this tile
+    // rendered "OK" / "Data available" because the report carried neither.
+    const warningCount = enrichedAlerts.filter(a => a.severityLevel === 'warning').length;
+    const watchCount = enrichedAlerts.filter(a => a.severityLevel === 'watch').length;
+    const advisoryOnly = enrichedAlerts.filter(a => a.severityLevel === 'advisory').length;
+    const level = warningCount > 0 ? 'WARNING' : (watchCount > 0 || advisoryOnly > 0) ? 'WATCH' : 'CALM';
+    const summary = warningCount > 0
+      ? `${warningCount} active NWS Warning(s) for Del Norte coastal zone`
+      : watchCount > 0
+        ? `${watchCount} active NWS Watch(es) for Del Norte coastal zone`
+        : advisoryOnly > 0
+          ? `${advisoryOnly} active NWS Advisory(ies) for Del Norte coastal zone`
+          : 'No active NWS alerts for the Del Norte coastal zone (CAZ006)';
     await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
       fetchedAt: new Date().toISOString(),
       alerts: enrichedAlerts,
       redFlagCount,
+      level,
+      summary,
     });
     
   } catch (error: unknown) {

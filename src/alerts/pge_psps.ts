@@ -131,8 +131,23 @@ export const PGE_PSPS_PAGE_URL = "https://pgealerts.alerts.pge.com/pg-e-partners
 
 export interface PspsPageState {
   active: boolean;
+  /**
+   * Whether the page text names Del Norte County in the context of the event.
+   *
+   * `null` means the page was read but carried no county list to judge from —
+   * a real fact about our confidence, and materially different from `false`
+   * ("PG&E named counties, none of them Del Norte"). It is what lets
+   * `delNorteAffected` be derived instead of hardcoded: the composite's
+   * documented WARNING tier is "an active PSPS event *in Del Norte*", and with
+   * the flag pinned to `false` that tier was unreachable on the live path, so
+   * an ACTIVE PSPS in Crescent City rendered as a regional WATCH.
+   */
+  delNorteAffected: boolean | null;
   statusText: string;
 }
+
+/** The counties Crescent City actually sits in, as PG&E names them. */
+const DEL_NORTE_COUNTY = /\bdel\s+norte\b/i;
 
 export async function fetchPspsPageState(): Promise<PspsPageState> {
   const ctx = await launchBrowser();
@@ -147,10 +162,20 @@ export async function fetchPspsPageState(): Promise<PspsPageState> {
     if (!hasNoActive && !hasAnnounced) {
       throw new Error("PG&E PSPS page state unrecognized - refusing to guess");
     }
+    // Derive the county flag from the page rather than hardcoding it. The
+    // "no active events" page is authoritative evidence that Del Norte is NOT
+    // affected; an announced-events page is not, so it reports the county list
+    // only when the text actually names one.
+    const delNorteAffected = hasAnnounced
+      ? (DEL_NORTE_COUNTY.test(text) ? true : null)
+      : false;
     return {
       active: hasAnnounced,
+      delNorteAffected,
       statusText: hasAnnounced
-        ? "PSPS activity indicated on the official PG&E event page"
+        ? delNorteAffected === true
+          ? "PSPS activity announced on the official PG&E event page; Del Norte County named"
+          : "PSPS activity announced on the official PG&E event page; open the event page for county details."
         : "No active PSPS events (official PG&E event page)",
     };
   } finally {
@@ -222,10 +247,12 @@ export async function runPSPSMonitor(): Promise<PspsReport | null> {
       events: [],
       totalEvents: 0,
       overallStatus,
-      delNorteAffected: false,
-      summary: state.active
-        ? "PG&E official event page indicates PSPS activity; open the event page for county details."
-        : "No active PSPS events (official PG&E event page).",
+      // Derived from the page. `null` (announced, but no county list) is not
+      // `false`: it means "cannot tell", and severity.ts treats the three
+      // states differently so an active event in Del Norte can reach its
+      // documented WARNING tier instead of being flattened to a regional WATCH.
+      delNorteAffected: state.delNorteAffected === true,
+      summary: state.statusText,
     };
     await mkdir(HISTORY_DIR, { recursive: true });
     await writeJsonAtomic(CURRENT_FILE, report);

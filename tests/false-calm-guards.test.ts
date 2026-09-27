@@ -14,7 +14,7 @@ import { describe, expect, test } from "bun:test";
 import { computeAlertSeverity } from "../src/alerts/severity.ts";
 import type {
   EarthquakeInput, PspsInput, SchoolClosureInput, TsunamiInput, WeatherInput,
-  DroughtInput, TidesInput, FishingInput,
+  DroughtInput, TidesInput, FishingInput, MarineZoneInput,
 } from "../src/alerts/severity.ts";
 import { buildTidesInput, buildFishingInput, isFreshReport, buildExtendedCompositeInput } from "../src/alerts/composite.ts";
 import { classifyPm25 } from "../src/alerts/hrrr_smoke.ts";
@@ -39,6 +39,7 @@ function severityWith(overrides: {
   drought?: DroughtInput;
   psps?: PspsInput;
   schools?: SchoolClosureInput;
+  marinezone?: MarineZoneInput;
 }): ReturnType<typeof computeAlertSeverity> {
   return computeAlertSeverity(
     CALM_TSUNAMI,
@@ -54,8 +55,38 @@ function severityWith(overrides: {
     undefined,
     undefined,
     overrides.schools,
+    overrides.marinezone,
   );
 }
+
+describe("every monitor tile has something honest to render", () => {
+  test("no monitor report is missing both level and summary", async () => {
+    // The GUI's per-monitor tile reads `summary ?? level ?? 'Data available'`
+    // and shows the level uppercased or "OK". A report carrying neither
+    // rendered as a permanent clean bill of health. The earthquake
+    // `current.json` carried neither, so its tile read "OK" / "Data available"
+    // however large the event was — the tile and the composite disagreed.
+    const { MONITOR_KEYS } = await import("../src/alerts/composite.ts");
+    const { outputRoot } = await import("../src/shared/paths.ts");
+    const { existsSync, readFileSync } = await import("fs");
+    const { join } = await import("path");
+    const missing: string[] = [];
+    let checked = 0;
+    for (const type of MONITOR_KEYS) {
+      const dir = type === "tides" ? "tides" : type === "fishing" ? "fishing" : join("alerts", type);
+      const file = join(outputRoot(), dir, "current.json");
+      if (!existsSync(file)) continue; // monitor not yet run on this host
+      checked++;
+      const report = JSON.parse(readFileSync(file, "utf-8")) as {
+        level?: string; summary?: string; worstLevel?: string; worstPeriodName?: string;
+      };
+      if (!report.summary && !report.level && !report.worstLevel) missing.push(type);
+    }
+    if (checked === 0) return; // no corpus on this host; pure tests cover the contract
+    expect(`monitors with neither level nor summary: ${missing.join(", ")}`)
+      .toBe("monitors with neither level nor summary: ");
+  });
+});
 
 describe("unavailable is never reported as calm", () => {
   test("a monitor with no data reports availability, and the reason says so", () => {
@@ -83,6 +114,59 @@ describe("unavailable is never reported as calm", () => {
     });
     expect(report.level).toBe("WARNING");
     expect(report.reason).toMatch(/^Schools:/);
+  });
+
+  test("a marine forecast EMERGENCY reaches the composite as EMERGENCY", () => {
+    // The defect: `assessMarineZone` collapsed `EMERGENCY` into `WARNING`,
+    // while the comment above it claimed the monitor's own mapping was
+    // authoritative. `classifyMarineForecastPeriod` returns EMERGENCY for STORM
+    // WARNING / HURRICANE FORCE / sustained >= 48 kt — the strongest nearshore
+    // condition the system detects — so a hurricane-force forecast published as
+    // WARNING. Tsunami and wildfire both reached the top tier; this was the one
+    // real EMERGENCY being dropped.
+    const report = severityWith({ marinezone: { worstLevel: "EMERGENCY", peakWindKt: 52, available: true } });
+    expect(report.level).toBe("EMERGENCY");
+    expect(report.monitors.marinezone.summary).toContain("EMERGENCY");
+  });
+
+  test("a marine WARNING forecast is still WARNING, not escalated", () => {
+    const report = severityWith({ marinezone: { worstLevel: "WARNING", peakWindKt: 28, available: true } });
+    expect(report.monitors.marinezone.level).toBe("WARNING");
+  });
+
+  test("an active PSPS affecting Del Norte reaches the documented WARNING tier", () => {
+    const report = severityWith({
+      psps: { status: "ACTIVE", eventCount: 2, delNorteAffected: true, available: true },
+    });
+    expect(report.level).toBe("WARNING");
+    expect(report.monitors.psps.summary).toContain("Del Norte County");
+  });
+
+  test("an active PSPS with no county information reports the real event count", () => {
+    // The live path used to hardcode `delNorteAffected: false`, making the
+    // documented WARNING tier unreachable, so an ACTIVE event fell to the
+    // WATCH branch and rendered "0 event(s) (regionally)" — a mis-report rather
+    // than an honest gap. The count is real even when the county is unknown.
+    const report = severityWith({
+      psps: { status: "ACTIVE", eventCount: 2, delNorteAffected: false, available: true },
+    });
+    expect(report.monitors.psps.level).toBe("WATCH");
+    expect(report.monitors.psps.summary).toContain("2 event(s)");
+    expect(report.monitors.psps.summary).not.toContain("0 event(s)");
+  });
+
+  test("D0 alone is a WATCH, not a WARNING; D3 is a WARNING", () => {
+    // The module header documented "D3+ drought -> WATCH" while the code ran
+    // D3/D4 -> WARNING and D0 -> WATCH. D0 is USDM's mildest category
+    // ("abnormally dry"); escalating a county to WARNING on it would leave the
+    // headline signal permanently raised by a condition most residents would
+    // not call a drought.
+    const mild = severityWith({ drought: { severity: "D0", severeDroughtPercent: 0, available: true } });
+    expect(mild.level).toBe("WATCH");
+    const severe = severityWith({ drought: { severity: "D3", severeDroughtPercent: 40, available: true } });
+    expect(severe.level).toBe("WARNING");
+    const none = severityWith({ drought: { severity: "NONE", severeDroughtPercent: 0, available: true } });
+    expect(none.level).toBe("CALM");
   });
 
   test("an active PSPS outranks a chronic drought at the same tier", () => {

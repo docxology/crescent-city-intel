@@ -307,9 +307,27 @@ export async function monitorNOAATsunamiAlerts(): Promise<void> {
   }
 
   await mkdir(HISTORY_DIR, { recursive: true });
+  // `level`/`summary` are part of this artifact's contract, matching every other
+  // monitor's `current.json`. The GUI tile reads `summary ?? level ??
+  // 'Data available'` and shows the level (or "OK"), so without them this tile
+  // reported a permanent clean bill of health. Derived from the monitor's OWN
+  // `threatLevel` (warning/watch/advisory) — not the CAP `severity` enum — so
+  // the tile cannot disagree with the composite, which reads the same field.
+  const warnings = alerts.filter((a) => a.threatLevel === 'warning').length;
+  const watches = alerts.filter((a) => a.threatLevel === 'watch' || a.threatLevel === 'advisory').length;
+  const level = warnings > 0 ? 'EMERGENCY' : watches > 0 ? 'WATCH' : 'CALM';
+  const summary = warnings > 0
+    ? `${warnings} active tsunami warning(s)`
+    : watches > 0
+      ? `${watches} active tsunami watch/advisory event(s)`
+      : 'No active tsunami alerts for the Crescent City area';
+
   await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
     fetchedAt: new Date().toISOString(),
     alerts,
+    alertCount: alerts.length,
+    level,
+    summary,
   });
 
   logger.info('=== NOAA Tsunami Alert Monitoring Complete ===');

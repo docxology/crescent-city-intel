@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { computeAlertTypeTrends, ALERT_TREND_STEADY_BAND, type TimelineEntry } from "../src/alert_analytics";
+import { computeAlertTypeTrends, ALERT_TREND_STEADY_BAND, ALERT_TYPES, type TimelineEntry } from "../src/alert_analytics";
+import { MONITOR_KEYS } from "../src/alerts/composite";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -70,8 +71,11 @@ describe("computeAlertTypeTrends (per-type 30-day trend summary)", () => {
 
   test("covers every alert type exactly once, in canonical order", () => {
     const trends = computeAlertTypeTrends([], new Date(now));
-    expect(trends.map(t => t.type)).toEqual([
-      "tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg",
-    ]);
+    // Every analysed type, exactly once, in ALERT_TYPES order. Derived rather
+    // than restated: the previous literal named 8 of 14 (and later 9 of 15),
+    // so it neither caught a missing monitor nor a reordering.
+    expect(trends.map(t => t.type)).toEqual([...ALERT_TYPES]);
+    // And that order is the canonical monitor order, not an arbitrary one.
+    expect([...ALERT_TYPES]).toEqual([...MONITOR_KEYS]);
   });
 });

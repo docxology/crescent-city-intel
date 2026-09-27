@@ -11,6 +11,84 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Analytics coverage, severity tiers, and monitor tiles (2026-09-27)
+
+Closes the six-family analytics gap left open by the previous pass, and fixes
+three severity-tier defects and three monitor tiles that could report a clean
+bill of health. Suite: 1451 pass / 0 fail.
+
+#### Added
+
+- **All 14 alert families are analysed.** `ALERT_TYPES` covered 8 of the 14
+  monitors, so road closures, school closures, PSPS, smoke plumes, drought
+  transitions and the coastal-waters forecast never appeared in
+  `/api/alerts/timeline`, `typeStats`, the GUI heatmap, the insight brief, the
+  monthly report, or `GET /api/monitor/alerts` — despite all six writing a
+  `history.jsonl` in the `{..., fetchedAt}` shape the reader already consumed.
+  Now 14, in `MONITOR_KEYS` order, with per-type severity and description
+  mapping that reads each monitor's own tier field.
+- **Civic-domain attribution for the six** in `insights.ts`: `marinezone` and
+  `roads` to harbor/marine, `drought` to climate and environmental protection,
+  `psps` to emergency management, `smoke` to public health, `schools` to
+  education and public safety. `ALERT_TYPE_DOMAINS` is now keyed by `AlertType`,
+  so a monitor cannot be added without one.
+- **The heatmap has 14 rows**; the browser smoke derives its expected shape from
+  `ALERT_TYPES` and `ALERT_TREND_DAYS` rather than hardcoding `8x14`, so a
+  six-row heatmap that dropped the civic monitors can no longer pass.
+- **The SPA's hand-written monitor and icon maps cover all 14**, asserted
+  against the roster — that HTML cannot import it, so those copies were the
+  drift risk.
+- **`openapi.yaml` documents the 14-member type enum** and moves `typeParam` to a
+  real `components/parameters` entry.
+- **The release gate now verifies every OpenAPI `$ref` resolves** and that the
+  published alert-type enum matches `ALERT_TYPES` exactly. An unresolvable `$ref`
+  is legal YAML and renders as a browser silently ignoring it, so the spec could
+  advertise a path with no `type` parameter with nothing failing.
+
+#### Fixed
+
+- **The marine forecast's `EMERGENCY` was flattened to `WARNING`.**
+  `classifyMarineForecastPeriod` returns EMERGENCY for STORM WARNING, HURRICANE
+  FORCE, or sustained ≥48 kt — the strongest nearshore condition the system
+  detects — while the code comment claimed the monitor's own mapping was
+  "authoritative". A hurricane-force forecast published as WARNING. Tsunami and
+  wildfire both reached the top tier; this was the one real EMERGENCY being
+  dropped.
+- **The drought documentation and code were inverted.** The header said
+  "D3+ drought → WATCH" while the code ran D3/D4 → WARNING and D0 → WATCH. The
+  header now states the implemented mapping, with the reasoning: D0 is USDM's
+  mildest category, and escalating a county to WARNING on "abnormally dry" would
+  leave the headline signal permanently raised.
+- **The PSPS `delNorteAffected` flag was hardcoded `false`**, making the
+  documented "active PSPS event *in Del Norte*" WARNING tier unreachable, so an
+  ACTIVE event in Crescent City rendered as a regional WATCH reading
+  "0 event(s) (regionally)". Now derived from the PG&E event page, with `null`
+  meaning "the page carried no county list" — a real third state, distinct from
+  "named counties, none of them ours".
+- **Three monitor tiles could render a permanent clean bill of health.** The
+  earthquake, tsunami and NWS-weather `current.json` artifacts carried neither
+  `level` nor `summary`, so the GUI tile's `summary ?? level ?? 'Data available'`
+  fallback showed "OK" / "Data available" no matter what happened. All three now
+  derive both from the same inputs the composite uses, so the tile and the
+  headline cannot disagree.
+- **The earthquake tile read the wrong file.** The route picked the
+  lexicographic-max `.json`, which is `earthquake-<id>-<ts>.json` for that
+  monitor because 'e' sorts after 'c' — so once any M4+ event was recorded, the
+  single-event wrapper (no `level`, no `summary`) was rendered instead of
+  `current.json`. Now prefers `current.json` explicitly.
+- **`GET /api/monitor/alerts` served 8 of 14 monitors** and read cwd-relative
+  paths. Now derived from `MONITOR_KEYS` and resolved through `outputRoot()`.
+
+#### Changed
+
+- `ALERT_TYPES` is now in `MONITOR_KEYS` order — emergency-first, then the civic
+  set — because the order is the heatmap's and the trend selector's display
+  order, and the browser smoke asserts it.
+- `ANALYTICS_GAP_TYPES` is retained as an explicit, asserted **empty** constant
+  so "every history-keeping monitor is analysed" stays a checkable property
+  rather than a fact that quietly regresses.
+- `ALERT_TYPE_DOMAINS` is keyed by `AlertType` rather than `string`.
+
 ### Correctness pass: false-safety signals, roster drift, determinism (2026-09-26)
 
 A review of all 14 alert monitors and the corpus-intelligence layer. The

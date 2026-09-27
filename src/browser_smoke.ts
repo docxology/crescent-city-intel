@@ -1,6 +1,8 @@
 import { chromium } from "playwright";
 import { existsSync, readdirSync } from "fs";
 import { join } from "path";
+import { ALERT_TYPES } from "./alert_analytics.js";
+import { ALERT_TREND_DAYS } from "./gui/alert_trends.js";
 
 /**
  * Real browser smoke test — boots the actual GUI server, drives it with
@@ -148,12 +150,22 @@ export async function runBrowserSmoke(): Promise<void> {
           note: document.querySelector(".alert-trend-note")?.textContent ?? "",
         };
       });
-      // Heatmap arithmetic: 9 alert types (8 core + "uscg") x 14 trend days =
-      // 126 cells. Rows/cells track the GUI's ALERT_TREND_TYPES roster.
-      if (alertView.selectOptions !== 9) markFail(`alert type selector rendered ${alertView.selectOptions} options, expected 9`);
-      if (alertView.trendColumns !== 14) markFail(`alert trend rendered ${alertView.trendColumns} days, expected 14`);
-      if (alertView.heatRows !== 9 || alertView.heatCells !== 9 * 14) {
-        markFail(`alert heatmap shape was ${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)}, expected 9x14`);
+      // Derive the expected row count from the roster rather than hardcoding 8.
+      // Every analysed monitor has a row (ALERT_TYPES), so a literal count
+      // would have silently blessed a heatmap that dropped the civic monitors — exactly the drift this assertion exists to catch.
+      const expectedRows = ALERT_TYPES.length;
+      const expectedCells = expectedRows * ALERT_TREND_DAYS;
+      if (alertView.selectOptions !== expectedRows) {
+        markFail(`alert type selector rendered ${alertView.selectOptions} options, expected ${expectedRows}`);
+      }
+      if (alertView.trendColumns !== ALERT_TREND_DAYS) {
+        markFail(`alert trend rendered ${alertView.trendColumns} days, expected ${ALERT_TREND_DAYS}`);
+      }
+      if (alertView.heatRows !== expectedRows || alertView.heatCells !== expectedCells) {
+        markFail(
+          `alert heatmap shape was ${alertView.heatRows}x${alertView.heatCells / Math.max(1, alertView.heatRows)}, ` +
+          `expected ${expectedRows}x${ALERT_TREND_DAYS}`,
+        );
       }
       if (alertView.labelledCells !== alertView.heatCells) markFail("alert heatmap cells are missing accessible recorded-event labels");
       for (const state of ["calm", "empty", "stale", "unavailable"]) {

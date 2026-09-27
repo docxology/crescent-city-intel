@@ -14,6 +14,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import { buildTidesInput, buildFishingInput } from "../scripts/run-alerts.ts";
+import { buildExtendedCompositeInput } from "../src/alerts/composite.ts";
 import type { TideReport } from "../src/alerts/noaa_tides.ts";
 import type { FishingReport } from "../src/alerts/cdfw_fishing.ts";
 
@@ -31,6 +32,13 @@ function makeTideReport(maxPredictedLevel: number, observedLevel: number | null 
     alertThresholdFt: 5,
     summary: "test",
   };
+}
+
+/** The psps composite input, as `buildExtendedCompositeInput` shapes it. */
+function buildPspsInput(report: { status: string; delNorteAffected: boolean }): { delNorteAffected: boolean } {
+  return buildExtendedCompositeInput({
+    psps: { timestamp: new Date().toISOString(), overallStatus: report.status, totalEvents: 2, delNorteAffected: report.delNorteAffected },
+  }).psps as { delNorteAffected: boolean };
 }
 
 function makeFishingReport(commercialOpen: boolean, recreationalOpen: boolean): FishingReport {
@@ -53,6 +61,17 @@ describe("buildTidesInput", () => {
     const input = buildTidesInput(makeTideReport(6.77, 6.9));
     expect(input.available).toBe(true);
     expect(input.waterLevelFt).toBe(6.9);
+  });
+
+  test("an ACTIVE PSPS in Del Norte is distinguishable from one that is not", () => {
+    // The live path hardcoded `delNorteAffected: false`, which made the
+    // composite's documented WARNING tier ("an active PSPS event *in Del
+    // Norte*") unreachable, so an ACTIVE event in Crescent City rendered as a
+    // regional WATCH. `pge_psps` now derives the flag from the event page and
+    // reports `null` when the page carries no county list — "cannot tell",
+    // which is materially different from "named counties, none of them ours".
+    expect(buildPspsInput({ status: "ACTIVE", delNorteAffected: true }).delNorteAffected).toBe(true);
+    expect(buildPspsInput({ status: "ACTIVE", delNorteAffected: false }).delNorteAffected).toBe(false);
   });
 
   test("a null report (monitor failed) produces available=false, not a crash", () => {

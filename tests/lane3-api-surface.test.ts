@@ -13,7 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, rmSync } from "f
 import { tmpdir } from "os";
 import { join } from "path";
 import { handleApiRoute, getHealthAlertTrends, _resetHealthTrendsCache } from "../src/gui/routes.ts";
-import { computeAlertTypeTrends, summarizeAlertTypeTrends, type TimelineEntry } from "../src/alert_analytics.ts";
+import { computeAlertTypeTrends, summarizeAlertTypeTrends, ALERT_TYPES, type TimelineEntry } from "../src/alert_analytics.ts";
 import { readFileSync } from "fs";
 
 const REPO_ROOT = process.cwd();
@@ -41,7 +41,11 @@ afterAll(() => {
 
 /** Documented enum from openapi.yaml — the response must stay inside it. */
 const TREND_VALUES = ["rising", "steady", "falling", "changed", "insufficient"];
-const ALERT_TYPE_VALUES = ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing", "uscg"];
+// Derived from the real roster, not a hand-written literal. The previous list
+// named 8 of 14 (later 9 of 15), so this assertion would have passed against
+// a /api/health that silently dropped the civic monitors from its trend
+// diagnostics — which is exactly what it did.
+const ALERT_TYPE_VALUES = [...ALERT_TYPES];
 
 /** Make a temp root holding one alert history file with `count` tsunami records. */
 function makeAlertRoot(count: number): string {

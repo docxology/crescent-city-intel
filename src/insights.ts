@@ -16,7 +16,7 @@
 import { existsSync } from "fs";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
-import { buildAlertAnalytics } from "./alert_analytics.js";
+import { buildAlertAnalytics, ALERT_TYPES, type AlertType } from "./alert_analytics.js";
 import { domains } from "./domains.js";
 import { scoreDomainCoverageGaps, type DomainCoverageGap, type DomainGapInput } from "./domains/coverage.js";
 import { checkChatProvider, chatWithProvider } from "./llm/provider.js";
@@ -90,15 +90,44 @@ export interface DatedRecord {
 }
 
 /** Alert monitor types carry an implicit domain mapping for fast attribution. */
-export const ALERT_TYPE_DOMAINS: Record<string, string[]> = {
+/**
+ * Which civic domains each analysed alert type attributes its records to.
+ *
+ * `Record<string, string[]>` rather than keyed by `AlertType` on purpose: the
+ * domain ids here are the civic vocabulary (`public-safety`,
+ * `climate-environment`, …), not the monitor roster, and a type with no
+ * meaningful civic attribution should be absent rather than mapped to a
+ * catch-all. `tests/insights.test.ts` iterates `ALERT_TYPES` and fails on any
+ * unmapped type, so an added monitor cannot slip through unmapped — that test
+ * previously iterated a hand-written 8-item list and so did not catch the six
+ * civic monitors this map gained entries for.
+ */
+export const ALERT_TYPE_DOMAINS: Record<AlertType, string[]> = {
   tsunami: ["emergency-management"],
   earthquake: ["emergency-management"],
   weather: ["emergency-management", "climate-environment"],
+  // The coastal-waters forecast is a nearshore hazard product, so it attributes
+  // to the harbour/marine domain rather than to climate.
+  marinezone: ["harbor-marine-operations"],
   tides: ["harbor-marine-operations"],
   marine: ["harbor-marine-operations"],
   fishing: ["harbor-marine-operations"],
   airquality: ["public-health-safety", "climate-environment"],
   wildfire: ["public-safety", "emergency-management"],
+  // Drought is the long-horizon climate/water signal, so it also feeds the
+  // environment domain the weather type uses.
+  drought: ["climate-environment", "environmental-protection"],
+  // A public-safety power shutoff is an emergency-management event; a school
+  // closure is an education event as much as a public-safety one, so it
+  // attributes to both; smoke is an air-quality signal the public-health domain
+  // already reads from the measured AQI monitor.
+  psps: ["emergency-management", "public-safety"],
+  smoke: ["public-health-safety", "climate-environment"],
+  roads: ["public-safety", "harbor-marine-operations"],
+  schools: ["education-youth", "public-safety"],
+  // A Broadcast Notice to Mariners is a navigational hazard, so it attributes
+  // to the harbour/marine domain like the other mooring and channel products.
+  uscg: ["harbor-marine-operations"],
 };
 
 interface AlertTimelineEntry extends Record<string, unknown> {
@@ -279,7 +308,7 @@ export function attributeRecords(records: DatedRecord[]): Map<string, DatedRecor
       const mappedAlert =
         record.feed === "alerts" &&
         record.alertType !== undefined &&
-        ALERT_TYPE_DOMAINS[record.alertType]?.includes(domain.id);
+        (ALERT_TYPE_DOMAINS as Record<string, string[]>)[record.alertType]?.includes(domain.id);
       if (mappedAlert || keywords.some(keyword => lowerTexts[index].includes(keyword))) {
         mine.push(record);
       }

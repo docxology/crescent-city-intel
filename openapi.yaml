@@ -2191,6 +2191,22 @@ components:
       in: header
       name: X-API-Key
       description: API key for accessing protected endpoints
+  parameters:
+    typeParam:
+      name: type
+      in: path
+      required: true
+      description: >-
+        One of the 14 alert-monitor families. All fourteen are analysed: the
+        eight hazard-core monitors (tsunami, earthquake, weather, airquality,
+        wildfire, marine, tides, fishing) and the six extended civic monitors
+        (marinezone, drought, psps, smoke, roads, schools). A type with no
+        recorded history is still a valid type and returns an empty page.
+      schema:
+        type: string
+        enum:
+          [tsunami, earthquake, weather, airquality, wildfire, marine, marinezone,
+           tides, fishing, drought, psps, smoke, roads, schools]
   schemas:
     TocItem:
       type: object

@@ -17,6 +17,7 @@ import {
   type DatedRecord,
 } from "../src/insights.ts";
 import { buildGeoView, attachGeoDomainInsights, type HazardDomainInsight } from "../src/geo_view.ts";
+import { ALERT_TYPES as ANALYSED_ALERT_TYPES } from "../src/alert_analytics.ts";
 import {
   GAP_REASON_MEETING_REFERENCE_ONLY,
   GAP_REASON_NEWS_STALE,
@@ -278,7 +279,11 @@ describe("buildInsightReport end to end", () => {
   });
 
   test("alert type mapping covers every monitored type except standalone dirs", () => {
-    for (const type of ["tsunami", "earthquake", "weather", "tides", "airquality", "wildfire", "marine", "fishing"]) {
+    // Iterate ALERT_TYPES, not a restated 8-item literal. The literal predated
+    // the six civic monitors being analysed, so this test would have passed
+    // while `insights.ts` silently failed to attribute a road closure or a
+    // school closure to any civic domain.
+    for (const type of ANALYSED_ALERT_TYPES) {
       if (type in ALERT_TYPE_DOMAINS || ["tides", "fishing"].includes(type)) continue;
       throw new Error(`alert type ${type} lacks a domain mapping`);
     }

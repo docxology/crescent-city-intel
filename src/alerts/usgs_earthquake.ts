@@ -333,11 +333,39 @@ export async function monitorUSGSEarthquakeAlerts(): Promise<void> {
   }
 
   await mkdir(HISTORY_DIR, { recursive: true });
+  // `level` and `summary` are part of this artifact's contract, not decoration.
+  // Every other monitor's `current.json` carries them, and the GUI's per-monitor
+  // tile reads `summary ?? level` — so the earthquake tile rendered "OK" /
+  // "Data available" regardless of the composite, and an M6+ event was
+  // indistinguishable from a quiet week. Derive both from the same inputs the
+  // composite uses (significance-filtered events inside 200 km), so the tile
+  // and the headline cannot disagree.
+  const relevant = earthquakes.filter((e) => e.distanceKm <= 200);
+  // Worst = greatest magnitude, then nearest. Matches `severity.ts`'s ranking,
+  // so the tile and the composite headline name the same event.
+  const worst = [...relevant].sort((a, b) => b.magnitude - a.magnitude || a.distanceKm - b.distanceKm)[0];
+  const tsunamiEvent = relevant.find((e) => e.tsunami >= 2);
+  const possibleTsunami = relevant.find((e) => e.tsunami === 1);
+  const level =
+    tsunamiEvent ? 'EMERGENCY'
+    : possibleTsunami ? 'WARNING'
+    : relevant.some((e) => e.magnitude >= 6) ? 'WARNING'
+    : relevant.length > 0 ? 'WATCH'
+    : 'CALM';
+  const summary =
+    tsunamiEvent ? `Earthquake M${tsunamiEvent.magnitude} with tsunami generated`
+    : possibleTsunami ? `M${possibleTsunami.magnitude} earthquake ${possibleTsunami.distanceKm.toFixed(0)} km away — possible tsunami`
+    : worst ? `M${worst.magnitude} earthquake ${worst.distanceKm.toFixed(0)} km away`
+    : 'No qualifying earthquakes within 200 km';
+
   await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
     fetchedAt: new Date().toISOString(),
     events: earthquakes,
+    relevantEventCount: relevant.length,
+    level,
+    summary,
   });
-  
+
   logger.info('=== USGS Earthquake Alert Monitoring Complete ===');
 }
 

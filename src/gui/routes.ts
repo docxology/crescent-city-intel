@@ -4,7 +4,7 @@ import { loadToc, loadArticle, loadSection, loadManifest, loadAllSections } from
 import { search, logSearchQuery, getIndexedCount, type PagedSearchResult } from "./search.js";
 import { createLogger } from "../logger.js";
 import { llmConfig } from "../llm/config.js";
-import { paths } from "../shared/paths.js";
+import { paths, outputRoot } from "../shared/paths.js";
 import { normalizeSectionNumber } from "../utils.js";
 import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, summarizeSourceHealth } from "../shared/source_health.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "../source_registry.js";
@@ -858,30 +858,47 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
-  // GET /api/monitor/alerts — latest entry from each of 8 alert monitors
+  // GET /api/monitor/alerts — latest entry from each of the 14 alert monitors
   if (path === "/api/monitor/alerts") {
     const { existsSync } = await import("fs");
     const { readdir, readFile } = await import("fs/promises");
-    const alertTypes = ["tsunami", "earthquake", "weather", "tides", "fishing", "airquality", "wildfire", "marine"];
+    // All 14, not the 8 hazard-core. This route is what the GUI's per-monitor
+    // grid reads, so road closures, school closures, PSPS, smoke, drought and the
+    // coastal-waters forecast were invisible on it even though the composite
+    // already included them. Derived from MONITOR_KEYS so it cannot drift.
+    const { MONITOR_KEYS } = await import("../alerts/composite.js");
     const alerts: Record<string, unknown> = {};
 
-    for (const type of alertTypes) {
-      const searchDir = type === "tides" ? "output/tides" : type === "fishing" ? "output/fishing" : `output/alerts/${type}`;
+    for (const type of MONITOR_KEYS) {
+      // Resolve through `outputRoot()` like the rest of the alert surfaces, so
+      // a redirected deployment reads one tree rather than mixing this route's
+      // cwd-relative reads with `paths.alertsHealth`.
+      const searchDir = type === "tides"
+        ? join(outputRoot(), "tides")
+        : type === "fishing"
+          ? join(outputRoot(), "fishing")
+          : join(outputRoot(), "alerts", type);
       if (!existsSync(searchDir)) { alerts[type] = null; continue; }
       try {
-        const files = (await readdir(searchDir))
-          .filter(f => f.endsWith(".json"))
-          .sort()
-          .reverse();
+        // Prefer `current.json` explicitly. The lexicographic-max pick was
+        // `earthquake-<id>-<ts>.json` for the earthquake monitor, because 'e'
+        // sorts after 'c' — so once any M4+ event was recorded, the tile
+        // rendered that single-event wrapper, which has no `level` and no
+        // `summary`, as "OK" / "Data available" regardless of the composite.
+        // The other monitors happened to be unaffected because their per-event
+        // files start with `alert-`.
+        const files = (await readdir(searchDir)).filter(f => f.endsWith(".json"));
         if (files.length === 0) { alerts[type] = null; continue; }
-        alerts[type] = JSON.parse(await readFile(`${searchDir}/${files[0]}`, "utf-8"));
+        const current = files.find(f => f === "current.json");
+        const newest = [...files].sort().reverse()[0];
+        alerts[type] = JSON.parse(await readFile(`${searchDir}/${current ?? newest}`, "utf-8"));
       } catch {
         alerts[type] = null;
       }
     }
 
     // Also include composite severity if available
-    const compositePath = "output/alerts/composite/current.json";
+    const compositePath = join(outputRoot(), "alerts", "composite", "current.json");
     if (existsSync(compositePath)) {
       try {
         alerts["composite"] = JSON.parse(await readFile(compositePath, "utf-8"));
@@ -1138,7 +1155,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     // level enum has no unknown), so a consumer reading `alertLevel` alone
     // published a clean bill of health for a run that may not have been able to
     // check the tsunami, earthquake, roads, fishing and marine feeds at all.
-    const compositePath = "output/alerts/composite/current.json";
+    const compositePath = join(outputRoot(), "alerts", "composite", "current.json");
     if (existsSync(compositePath)) {
       try {
         const composite = JSON.parse(readFileSync(compositePath, "utf-8")) as {

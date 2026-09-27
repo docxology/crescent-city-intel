@@ -3,17 +3,32 @@
  * Aggregates input from all 15 alert monitors and returns a single
  * standardised composite status: CALM | WATCH | WARNING | EMERGENCY.
  *
- * Rules (applied in priority order):
- *   EMERGENCY — any active Tsunami Warning (CAP) or USGS tsunami flag >= 2
- *   WARNING   — active Earthquake M>=6 within 200 km, NWS Severe weather warning,
- *               tidal water level >= 7.0 ft MLLW (significant exceedance), gale-force winds,
- *               wildfire evac orders, or active PSPS event in Del Norte
- *   WATCH     — Earthquake M4-6 within 200 km, NWS watch/advisory,
- *               CDFW fishing closure, tidal level >= 6.0 ft MLLW (at/above the typical max high tide),
- *               elevated seas, gale/hazardous-seas marine forecast, D3+ drought, air quality AQI > 100,
- *               road closure, school closure, HRRR smoke UNHEALTHY+, or a USCG
+ * Rules (applied in MONITOR_PRIORITY order, then tier; the implementation is
+ * authoritative where this summary has drifted, and the two are reconciled here):
+ *   EMERGENCY — active Tsunami Warning; USGS tsunami flag >= 2; a marine
+ *               forecast reporting EMERGENCY (STORM WARNING / HURRICANE FORCE /
+ *               sustained >= 48 kt)
+ *   WARNING   — active Earthquake M>=6 within 200 km or a possible tsunami
+ *               (USGS flag 1), NWS warning, tidal water level >= 7.0 ft MLLW
+ *               (significant exceedance), hazardous marine conditions,
+ *               wildfire evacuation orders, school closure, or an ACTIVE PSPS
+ *               event affecting Del Norte
+ *   WATCH     — Earthquake M4-6 within 200 km, NWS watch/advisory, CDFW fishing
+ *               closure, tidal level >= 6.0 ft MLLW, elevated seas, a
+ *               gale/hazardous-seas marine forecast, air quality AQI > 100,
+ *               road incident or closure, school schedule change, HRRR smoke
+ *               UNHEALTHY+, D0+ drought (D3/D4 reach WARNING), or a USCG
  *               Broadcast Notice to Mariners advisory (worst broadcast level ADVISORY)
- *   CALM      — no active alerts meeting above thresholds
+ *   CALM      — no active alerts meeting the above thresholds
+ *
+ * Two things this block previously got wrong, both now fixed and noted in place:
+ * the marine forecast's EMERGENCY tier was flattened to WARNING, and the drought
+ * tiers were documented as "D3+ -> WATCH" while the code ran the opposite
+ * (D3/D4 -> WARNING, D0 -> WATCH). The implemented mapping is the one above:
+ * D0 is USDM's mildest category ("abnormally dry"), and holding a county at
+ * WATCH for it would leave the composite permanently escalated by a condition
+ * that most Del Norte residents would not call a drought, which is worse than
+ * useless for a headline signal.
  *
  * Designed to be called by GET /api/monitor/alerts and the GUI dashboard.
  */
@@ -510,6 +525,11 @@ function assessPsps(input: PspsInput): MonitorStatus {
   if (!input.available) {
     return { level: "CALM", summary: "PSPS data unavailable", count: 0, availability: "unavailable" };
   }
+  // Both conditions are required, and `delNorteAffected` is derived from the
+  // event page's county list. If PG&E's page stops naming counties, this branch
+  // is unreachable and an ACTIVE PSPS falls to the WATCH branch below, which
+  // renders as "0 event(s) (regionally)" — a mis-report rather than a gap, so
+  // the region-wide branch reports the real count.
   if (input.delNorteAffected && input.status === "ACTIVE") {
     return {
       level: "WARNING",
@@ -648,6 +668,7 @@ const MONITOR_PRIORITY: readonly string[] = [
   "fishing",      // seasonal economic impact
   "airQuality",
   "drought",      // multi-year background state
+  "uscg",         // Broadcast Notice to Mariners; advisory-class at most
 ];
 
 /**
@@ -678,7 +699,17 @@ function assessMarineZone(input: MarineZoneInput): MonitorStatus {
   }
   const level = input.worstLevel;
   const wind = input.peakWindKt !== null ? `peak wind ${input.peakWindKt} kt` : "peak wind unknown";
-  if (level === "EMERGENCY" || level === "WARNING") {
+  if (level === "EMERGENCY") {
+    // Pass the top tier through. `classifyMarineForecastPeriod` returns
+    // EMERGENCY for STORM WARNING, HURRICANE FORCE, or sustained >= 48 kt —
+    // the strongest nearshore condition this system can detect — and the
+    // comment above this branch claimed the monitor's own mapping was
+    // "authoritative" while flattening that one tier. A hurricane-force
+    // forecast read as WARNING. Tsunami and wildfire both reach EMERGENCY, so
+    // this was the only real EMERGENCY being silently dropped.
+    return { level: "EMERGENCY", summary: `\u{1f6a8} Marine forecast ${level} (${wind})`, count: 1 };
+  }
+  if (level === "WARNING") {
     return { level: "WARNING", summary: `\u{1f534} Marine forecast ${level} (${wind})`, count: 1 };
   }
   if (level === "ADVISORY" || level === "WATCH") {
@@ -712,6 +743,9 @@ export interface UscgBroadcastInput {
  * advisory-class WATCH exactly like the other advisory-class inputs (NWS
  * advisories, marinezone ADVISORY); unknown levels surface as a visible WATCH
  * rather than a fabricated CALM.
+ *
+ * Capped at WATCH by design, which is why "uscg" sits last in `MONITOR_PRIORITY`:
+ * it should never take the headline slot from a monitor that can reach WARNING.
  */
 function assessUscg(input: UscgBroadcastInput): MonitorStatus {
   if (!input.available) {

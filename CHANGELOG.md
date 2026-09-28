@@ -40,6 +40,25 @@ and layout logic are unchanged.
 - Tests: `tests/gui-plain-language.test.ts` — string contracts pinning the new
 copy per surface, banning the retired jargon strings, and asserting each
 rewritten surface's explicit empty state (TODO.md Deferred GUI/UX set AC).
+### Phase 14 GUI surfaces: docs/modules dashboard + structured-query pages (2026-09-28)
+
+- **Docs/modules dashboard** — `GET /api/docs/modules` (new, in the spec) plus
+  a static page at `/docs-dashboard.html`. Everything it shows is derived from
+  the tree at request time via `src/gui/docs_dashboard.ts` (pure,
+  offline-tested): the module roster comes from `src/**/*.ts`, the docs
+  surfaces from `docs/modules/*.md` + `docs/architecture.md`, and per-surface
+  `.ts` references that resolve to no existing file are reported as stale
+  (`missingFiles`). Nothing is restated from a hand-maintained list; a root
+  with no backing tree is an explicit empty state, never a fabricated roster.
+- **Structured-query pages** — a dedicated page at `/structured-queries.html`
+  for the engine's three surfaces (legislative history, section diff,
+  similarity), which previously lived only as tabs inside the Code Analytics
+  overlay. Inputs accept a section number (resolved via
+  `/api/search?field=number`) or a GUID. Both pages are served through the
+  same loopback-only API-key injection as `index.html`.
+- Every surface ships with an explicit empty state, locked by string-contract
+  tests in `tests/gui-phase14.test.ts` (page markup, route wiring, derivation
+  empty-state fixture, and a real-repo stale-reference control).
 
 ### The analytics-overview tests stop being the gate's bottleneck (2026-09-28)
 

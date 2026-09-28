@@ -127,14 +127,17 @@ shared/
   fuzzy.ts                      # Levenshtein fuzzy matching + typo correction
   idempotency.ts                # Durable idempotency store for repeated runs
   output_fence.ts               # Output-corpus fence: proves the suite mutates nothing
-gui/                            # Bun.serve HTTP server (port 3000)
+gui/
   server.ts                     # Bun.serve() HTTP server (port 3000)
   routes.ts                     # API route handlers (contract in openapi.yaml)
+  docs_dashboard.ts             # Docs/modules dashboard derivation (pure; sync status from the tree)
   search.ts                     # In-memory BM25 full-text search
   semantic_search.ts            # Chroma vector search with BM25 fallback
   analytics.ts                  # PCA, K-Means, word loadings
   alert_trends.ts               # Per-type trend bars + all-monitor heatmap
   static/index.html             # Single-page app (no framework)
+  static/docs-dashboard.html    # Phase 14 docs/modules dashboard page
+  static/structured-queries.html # Phase 14 dedicated structured-query page (history/compare/similar)
 llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   config.ts                     # LLM configuration
   provider.ts                   # Explicit Ollama/OpenRouter chat-provider selection

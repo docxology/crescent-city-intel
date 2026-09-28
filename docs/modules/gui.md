@@ -125,6 +125,38 @@ calm.
 
 ---
 
+## `src/gui/docs_dashboard.ts` — Docs/Modules Dashboard Derivation (Phase 14)
+
+Pure, offline-testable derivation behind `GET /api/docs/modules` and the
+`/docs-dashboard.html` page. It computes — never restates — the module roster
+from the source tree and the docs surfaces from `docs/modules/*.md` plus
+`docs/architecture.md`. Per module it reports which docs surfaces name it
+(`documentedBy`); per docs surface it reports the modules it names and any
+`.ts` references that resolve to no existing file (`missingFiles`, the live
+drift signal). A root with no backing tree yields `empty: true` and zero
+rows — the dashboard's explicit empty state, never a fabricated roster.
+
+Tests: `tests/gui-phase14.test.ts` (real-repo derivation, stale-reference
+control, empty-root fixture, page and route string contracts).
+
+---
+
+## `src/gui/static/structured-queries.html` — Structured-Query Page (Phase 14)
+
+A dedicated static page at `/structured-queries.html` for the three
+structured-query engine surfaces already served by the API — legislative
+history (`/api/history/{guid}`), section diff (`/api/compare`), and semantic
+similarity (`/api/similar/{guid}`). Inputs accept a section number (resolved
+through `/api/search?field=number`) or a raw GUID. Each panel carries an
+explicit empty state on load and on an empty result, plus a distinct error
+state; the page is served with the same loopback-only API-key injection as
+`index.html` (see `server.ts`'s `serveStaticHtmlWithKey`).
+
+Tests: `tests/gui-phase14.test.ts` (string contracts on the empty states,
+endpoint wiring, and server serving).
+
+---
+
 ## `src/gui/alert_trends.ts` — Alert Trend Aggregation
 
 Pure UTC-day aggregation for the local GUI's compact per-type trend and

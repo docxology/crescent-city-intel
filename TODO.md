@@ -35,8 +35,10 @@ move to the CHANGELOG entry for their release.
   legal-citation/CA/US cross-linking, effective-date field; Phase 14
   docs/modules dashboard and structured-query pages. AC: each surface ships
   with an explicit empty state and a string-contract (or browser-smoke) test.
-  **Cross-reference hyperlinking (Phase 2) shipped 2026-09-28**; the rest are
-  unchanged.
+  **Cross-reference hyperlinking (Phase 2) shipped 2026-09-28; Phase 14
+  shipped 2026-09-28** — the docs/modules dashboard (`/docs-dashboard.html`
+  + `GET /api/docs/modules`, derived from the tree) and the structured-query
+  page (`/structured-queries.html`); the rest are unchanged.
 - ✅ **The analytics-backend tests are cheap again** — closed 2026-09-28.
   `getCodeStats` reads every article through `loadAllArticles()`, and over the
   real 2,206-section corpus each overview build cost ~65s, so the two overview

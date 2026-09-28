@@ -1125,6 +1125,54 @@ paths:
 
   # ─── v2.0 Intelligence Endpoints ──────────────────────────────────
 
+  /api/docs/modules:
+    get:
+      summary: Docs/modules dashboard
+      description: >-
+        Phase 14 docs/modules dashboard. Derives the module roster and the
+        docs-surface sync status from the repository tree at request time —
+        every roster, count, and staleness flag is computed, never restated
+        from a hand-maintained list. When the backing tree is absent the
+        response is an explicit empty state (`empty: true`, zero rows).
+      operationId: getDocsModuleIndex
+      tags: [System]
+      responses:
+        '200':
+          description: Derived docs/module sync report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generatedAt: {type: string}
+                  empty: {type: boolean}
+                  counts:
+                    type: object
+                    properties:
+                      modules: {type: integer}
+                      documented: {type: integer}
+                      undocumented: {type: integer}
+                      docsSurfaces: {type: integer}
+                  modules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        file: {type: string}
+                        documentedBy:
+                          type: array
+                          items: {type: string}
+                  docsSurfaces:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        file: {type: string}
+                        namesModules: {type: integer}
+                        missingFiles:
+                          type: array
+                          items: {type: string}
+
   /api/history/{guid}:
     get:
       summary: Legislative history for a section

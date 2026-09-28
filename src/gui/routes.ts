@@ -970,6 +970,22 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/docs/modules — docs/modules dashboard (Phase 14)
+  //
+  // Derives the module roster and docs-surface sync status from the tree at
+  // request time (src/gui/docs_dashboard.ts, pure + tested) — the response
+  // restates nothing hand-maintained. When the backing tree is absent the
+  // payload is an explicit empty state (`empty: true`, zero rows), which the
+  // dashboard page renders as such; it never fabricates a roster.
+  if (path === "/api/docs/modules") {
+    try {
+      const { buildDocsModuleIndex } = await import("./docs_dashboard.js");
+      return json(buildDocsModuleIndex(process.cwd()));
+    } catch (err: any) {
+      return json({ error: `Docs dashboard failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
   // GET /api/docs — Swagger UI
   if (path === "/api/docs" || path === "/api/docs/") {
     try {

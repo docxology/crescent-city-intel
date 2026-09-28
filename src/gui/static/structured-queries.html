@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Quadruplicate — Structured Queries</title>
+  <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
+  <style>
+    body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
+    header{background:#c41e1e;color:#fff;padding:18px 24px}
+    header h1{margin:0;font-size:1.4rem}
+    header .sub{opacity:.85;font-size:.85rem}
+    nav{padding:8px 24px;border-bottom:1px solid #ddd}
+    nav a{color:#c41e1e;text-decoration:none;margin-right:12px}
+    main{padding:16px 24px;max-width:1100px;margin:0 auto}
+    section{margin-bottom:32px}
+    h2{border-bottom:2px solid #c41e1e;padding-bottom:4px}
+    label{display:block;margin:8px 0 2px;font-weight:bold;font-size:.9rem}
+    input{padding:6px 8px;border:1px solid #999;border-radius:4px;min-width:280px;font-family:inherit}
+    button{background:#c41e1e;color:#fff;border:none;border-radius:4px;padding:8px 16px;margin-top:10px;cursor:pointer}
+    button:disabled{opacity:.5;cursor:default}
+    table{border-collapse:collapse;margin-top:10px}
+    th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:.9rem}
+    th{background:#f2f2f2}
+    .empty-state{border:1px dashed #999;border-radius:8px;padding:16px;color:#555;margin-top:10px}
+    .hidden{display:none}
+    .error-state{color:#b91c1c;margin-top:10px;font-weight:bold}
+    .metric{font-size:1.3rem;font-weight:bold}
+    .only{white-space:pre-wrap;background:#fdf2f2;border:1px solid #f3d4d4;border-radius:6px;padding:10px;font-size:.85rem;max-height:300px;overflow:auto}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Structured Queries</h1>
+    <div class="sub">Legislative history, section diff, and semantic similarity — dedicated pages for the structured query engine</div>
+  </header>
+  <nav>
+    <a href="/">GUI</a>
+    <a href="/docs.html">API Docs</a>
+    <a href="/docs-dashboard.html">Docs &amp; Modules</a>
+  </nav>
+  <main>
+    <section id="history-section">
+      <h2>Legislative history</h2>
+      <label for="history-guid">Section (number or GUID)</label><br>
+      <input id="history-guid" placeholder="Section number or GUID, e.g. 1.04.020">
+      <button id="history-load">Load history</button>
+      <div id="history-empty" class="empty-state"><p>No history loaded yet. Enter a section number or GUID and press Load — the ordinance chain parsed from that section's history field appears here.</p></div>
+      <div id="history-error" class="error-state hidden"></div>
+      <div id="history-content"></div>
+      <div id="history-empty-result" class="empty-state hidden"><p>No legislative history entries were found for this section.</p></div>
+    </section>
+
+    <section id="compare-section">
+      <h2>Compare sections</h2>
+      <label for="compare-guid1">First section (number or GUID)</label>
+      <input id="compare-guid1">
+      <label for="compare-guid2">Second section (number or GUID)</label>
+      <input id="compare-guid2">
+      <button id="compare-run">Compare</button>
+      <div id="compare-empty" class="empty-state"><p>Nothing compared yet. Enter two section GUIDs to diff their text and see similarity and the word-count delta.</p></div>
+      <div id="compare-result"></div>
+      <div id="compare-error" class="error-state hidden"></div>
+    </section>
+
+    <section id="similar-section">
+      <h2>Similar sections</h2>
+      <label for="similar-guid">Section (number or GUID)</label>
+      <input id="similar-guid">
+      <label for="similar-limit">Limit</label>
+      <input id="similar-limit" type="number" min="1" max="100" value="10" style="min-width:80px">
+      <button id="similar-run">Find similar</button>
+      <div id="similar-empty" class="empty-state"><p>Nothing loaded yet. Enter a section number or GUID to find the most similar sections.</p></div>
+      <div id="similar-empty-result" class="empty-state hidden"><p>No similar sections were found for this GUID.</p></div>
+      <div id="similar-result"></div>
+      <div id="similar-error" class="error-state hidden"></div>
+    </section>
+  </main>
+  <script>
+    const key = window.__CC_API_KEY__;
+    function apiFetch(url) {
+      const headers = key && !key.startsWith("__CC_API_KEY") ? { "X-API-Key": key } : {};
+      return fetch(url, { headers });
+    }
+    function show(id){document.getElementById(id).classList.remove("hidden");}
+    function hide(id){document.getElementById(id).classList.add("hidden");}
+    function setError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.remove("hidden");}
+    function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+    async function resolveGuid(input) {
+      if (/[0-9a-f]{8}-[0-9a-f]{4}/i.test(input)) return input;
+      const resp = await apiFetch(`/api/search?q=${encodeURIComponent(input)}&field=number&limit=1`);
+      const data = await resp.json();
+      return data.results?.[0]?.guid ?? null;
+    }
+
+    document.getElementById("history-load").addEventListener("click", async () => {
+      const input = document.getElementById("history-guid").value.trim();
+      if (!input) return;
+      hide("history-empty-result"); hide("history-empty"); hide("history-error");
+      const out = document.getElementById("history-content");
+      out.innerHTML = "<p>Loading…</p>";
+      try {
+        const guid = await resolveGuid(input);
+        if (!guid) { out.innerHTML = ""; show("history-empty-result"); return; }
+        const resp = await apiFetch(`/api/history/${encodeURIComponent(guid)}`);
+        if (resp.status === 404) { out.innerHTML = ""; show("history-empty-result"); return; }
+        const data = await resp.json();
+        if (!resp.ok) { out.innerHTML = ""; setError("history-error", data.error || `Request failed (${resp.status})`); return; }
+        let html = `<h3>§ ${esc(data.number)}</h3><p>${esc(data.rawHistory ?? "")}</p>`;
+        if (data.entries?.length) {
+          html += '<table><thead><tr><th>Ordinance</th><th>Action</th><th>Year</th></tr></thead><tbody>';
+          for (const e of data.entries) html += `<tr><td>${esc(e.ordinance)}</td><td>${esc(e.action)}</td><td>${esc(e.date ?? "—")}</td></tr>`;
+          html += "</tbody></table>";
+        } else {
+          html += '<p class="empty-state">This section carries no parsed history entries.</p>';
+        }
+        out.innerHTML = html;
+      } catch { out.innerHTML = ""; setError("history-error", "Failed to reach /api/history"); }
+    });
+
+    document.getElementById("compare-run").addEventListener("click", async () => {
+      const in1 = document.getElementById("compare-guid1").value.trim();
+      const in2 = document.getElementById("compare-guid2").value.trim();
+      if (!in1 || !in2) return;
+      hide("compare-empty"); hide("compare-error");
+      const out = document.getElementById("compare-result");
+      out.innerHTML = "<p>Comparing…</p>";
+      try {
+        const g1 = await resolveGuid(in1);
+        const g2 = await resolveGuid(in2);
+        if (!g1 || !g2) { out.innerHTML = ""; show("compare-empty"); return; }
+        const resp = await apiFetch(`/api/compare?guid1=${encodeURIComponent(g1)}&guid2=${encodeURIComponent(g2)}`);
+        const data = await resp.json();
+        if (!resp.ok) { out.innerHTML = ""; setError("compare-error", data.error || `Request failed (${resp.status})`); return; }
+        const pct = (data.similarity * 100).toFixed(1);
+        out.innerHTML =
+          `<p>Similarity <span class="metric">${pct}%</span> · word delta <span class="metric">${data.wordCountDelta > 0 ? "+" : ""}${data.wordCountDelta}</span></p>` +
+          `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">` +
+          `<div><h5>Only in § ${esc(data.number1)}</h5><div class="only">${esc(data.onlyInFirst.slice(0,20).join("\n"))}</div></div>` +
+          `<div><h5>Only in § ${esc(data.number2)}</h5><div class="only">${esc(data.onlyInSecond.slice(0,20).join("\n"))}</div></div></div>`;
+      } catch { document.getElementById("compare-result").innerHTML = ""; setError("compare-error", "Failed to reach /api/compare"); }
+    });
+
+    document.getElementById("similar-run").addEventListener("click", async () => {
+      const input = document.getElementById("similar-guid").value.trim();
+      const limit = parseInt(document.getElementById("similar-limit").value, 10) || 10;
+      if (!input) return;
+      hide("similar-empty-result"); hide("similar-error");
+      const out = document.getElementById("similar-result");
+      out.innerHTML = "<p>Searching…</p>";
+      try {
+        const guid = await resolveGuid(input);
+        if (!guid) { out.innerHTML = ""; show("similar-empty-result"); return; }
+        const resp = await apiFetch(`/api/similar/${encodeURIComponent(guid)}?limit=${limit}`);
+        const data = await resp.json();
+        if (!resp.ok) { out.innerHTML = ""; setError("similar-error", data.error || `Request failed (${resp.status})`); return; }
+        if (!data.results?.length) { out.innerHTML = ""; show("similar-empty-result"); return; }
+        let html = '<table><thead><tr><th>Section</th><th>Score</th><th>Why</th></tr></thead><tbody>';
+        for (const r of data.results) html += `<tr><td>${esc(r.section?.number ?? r.section?.guid)}</td><td>${Number(r.score ?? 0).toFixed(2)}</td><td>${esc(r.reason)}</td></tr>`;
+        out.innerHTML = html + "</tbody></table>";
+      } catch { out.innerHTML = ""; setError("similar-error", "Failed to reach /api/similar"); }
+    });
+  </script>
+</body>
+</html>

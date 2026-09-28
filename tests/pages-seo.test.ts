@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "fs/promises";
+import { readFileSync } from "fs";
 import { join } from "path";
 import {
   PAGES_GEO_VIEW_PLACEHOLDER,
@@ -77,6 +78,111 @@ describe("pages SEO discoverability", () => {
     const geoIntel = buildPagesGeoIntel();
     const rendered = embedPagesGeoView(`<div>${PAGES_GEO_VIEW_PLACEHOLDER}</div>`, geoIntel.view);
     expect(rendered).toContain('data-geo-view-schema="crescent-city-geo-view/v1"');
+  });
+});
+
+describe("every published page carries a complete SEO surface", () => {
+  // The homepage had canonical, Open Graph, Twitter and JSON-LD; the other
+  // seven content pages had only a title and a description. For a public civic
+  // site that is not a cosmetic gap: without a canonical URL a search engine may
+  // treat near-duplicate pages as duplicates and index the wrong one, and
+  // without Open Graph a shared link renders as bare text with no title,
+  // description or image.
+  const ORIGIN = "https://quadruplicate.org";
+  const SITE = "The Quadruplicate";
+
+  const staticPage = (name: string): string =>
+    readFileSync(join(import.meta.dir, `../src/pages/static/${name}.html`), "utf8");
+  // `PAGES_STATIC_PAGES` is the export list; the sitemap and the artifact must
+  // agree, so derive the page set from it rather than restating seven names.
+
+  const allPages = ["index", ...PAGES_STATIC_PAGES.map(p => p.file.replace(/\.html$/, ""))];
+
+  for (const name of allPages) {
+    test(`${name}.html declares a self-referencing canonical URL`, () => {
+      const html = staticPage(name);
+      const canonical = html.match(/<link rel="canonical" href="([^"]+)">/)?.[1];
+      expect(canonical).toBeDefined();
+      // Self-referencing is the whole point: a canonical pointing somewhere
+      // other than the page's own address de-indexes the page it names.
+      const expected = name === "index" ? `${ORIGIN}/` : `${ORIGIN}/${name}.html`;
+      expect(canonical).toBe(expected);
+      expect(html).toContain(`property="og:url" content="${expected}"`);
+    });
+
+    test(`${name}.html carries the Open Graph and Twitter properties`, () => {
+      const html = staticPage(name);
+      for (const property of ["og:type", "og:site_name", "og:title", "og:description", "og:url", "og:image", "og:image:alt"]) {
+        expect(`${name} ${property}`).toBe(`${name} ${property}`);
+        expect(html).toContain(`property="${property}"`);
+      }
+      expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+      for (const property of ["twitter:title", "twitter:description", "twitter:image"]) {
+        expect(`${name} ${property}`).toBe(`${name} ${property}`);
+        expect(html).toContain(`name="${property}"`);
+      }
+      expect(html).toContain(`property="og:site_name" content="${SITE}"`);
+    });
+
+    test(`${name}.html has parseable JSON-LD naming the page and its publisher`, () => {
+      const html = staticPage(name);
+      const block = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+      expect(block).not.toBeNull();
+      // Must be valid JSON: a malformed block is silently ignored by every
+      // consumer, so the page looks fine and ranks as if it had no structured
+      // data at all.
+      const parsed = JSON.parse(block![1] as string) as Record<string, unknown>;
+      expect(parsed["@context"]).toBe("https://schema.org");
+      expect(typeof parsed["@type"]).toBe("string");
+      expect(parsed.url).toContain(ORIGIN);
+      const publisher = parsed.publisher as Record<string, unknown>;
+      expect(publisher["@type"]).toBe("NewsMediaOrganization");
+      expect(publisher.name).toBe(SITE);
+    });
+
+    test(`${name}.html's social description matches its own meta description`, () => {
+      // A social card that describes something other than the page is a lie in
+      // the one place a reader is deciding whether to click.
+      const html = staticPage(name);
+      const description = html.match(/<meta name="description" content="([^"]*)"\s*>/)?.[1];
+      expect(description).toBeDefined();
+      const og = html.match(/property="og:description" content="([^"]*)"/)?.[1];
+      const tw = html.match(/name="twitter:description" content="([^"]*)"/)?.[1];
+      expect(og).toBe(description);
+      expect(tw).toBe(description);
+    });
+
+    test(`${name}.html's social title matches its own <title>`, () => {
+      const html = staticPage(name);
+      const title = html.match(/<title>([^<]*)<\/title>/)?.[1]?.trim();
+      expect(title).toBeDefined();
+      const og = html.match(/property="og:title" content="([^"]*)"/)?.[1];
+      const tw = html.match(/name="twitter:title" content="([^"]*)"/)?.[1];
+      const alt = html.match(/property="og:image:alt" content="([^"]*)"/)?.[1];
+      expect(og).toBe(title);
+      expect(tw).toBe(title);
+      expect(alt).toBe(title);
+    });
+  }
+
+  test("the canonical URLs are unique across pages, so none shadows another", () => {
+    const canonicals = allPages.map(name => staticPage(name).match(/<link rel="canonical" href="([^"]+)">/)?.[1]);
+    expect(new Set(canonicals).size).toBe(canonicals.length);
+  });
+
+  test("the code page advertises a SearchAction matching its own query parameter", () => {
+    // A SearchAction whose template names a parameter the page does not read
+    // sends searchers to a page that ignores their query.
+    const html = staticPage("code");
+    const block = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+    const parsed = JSON.parse(block![1] as string) as Record<string, unknown>;
+    const action = parsed.potentialAction as Record<string, unknown> | undefined;
+    expect(action?.["@type"]).toBe("SearchAction");
+    const target = action?.target as Record<string, unknown>;
+    expect(String(target.urlTemplate)).toContain("q={search_term_string}");
+    // And the page must actually read `q`.
+    const source = readFileSync(join(import.meta.dir, "../src/pages/static/code.html"), "utf8");
+    expect(source).toMatch(/searchParams\.get\("q"\)|[?&]q=/);
   });
 });
 

@@ -183,7 +183,55 @@ untouched. Full narrative in `CHANGELOG.md`.
 - ⏸ **New monitors (permits/dredging/fuel) and marine expansion (PacFIN/AIS)**
   need live-source connectors and an owner decision on data budgets.
 
-### Open
+### CI, SEO, and a reverted optimization (2026-09-28)
+
+Worked the infrastructure the earlier passes touched only indirectly.
+
+- ✅ **Pull requests are gated.** The authoritative release gate ran only on
+  `push: main` and a weekly schedule, in the publish job — so a regression could
+  be merged and the first signal was the publish failing *after* the change was
+  on main. `.github/workflows/pr-gate.yml` runs the offline contract checks
+  (OpenAPI route table, `$ref` resolution, source-health roster, alert-type enum,
+  manuscript contracts, geo contract sync, typecheck) plus the tests a change
+  could plausibly affect.
+- ✅ **A fast path that is fast because it is honest.** `--only=contracts` is a
+  MODE OF THE GATE, not a second implementation, so a check added to one is
+  present in the other; it names everything it skipped and says in its own
+  output that it is not a full pass. The affected-test selector maps changed
+  files to tests by the module each test IMPORTS, not by filename similarity,
+  and falls back to the full suite whenever the answer is not bounded —
+  including when it would otherwise select zero tests, which would turn the job
+  into a green light verifying nothing.
+- ✅ **The weekly job stopped restating the monitor roster.** It ran eight
+  hand-written `bun run alerts:<x>` steps against a roster of fifteen, so seven
+  monitors — including the marine forecast and the USCG broadcasts — were never
+  smoke-tested in CI. `scripts/ci-monitor-smoke.ts` delegates to the real runner
+  and reports each monitor's own verdict from the source-health artifact. A
+  degraded live feed is reported, not enforced: failing the build on someone
+  else's downtime is how a safety net gets ignored. Its first live run reported
+  15/15 monitors and caught a real gap (CAL FIRE timed out).
+- ✅ **Bun is pinned in all three workflows**, to one shared version. `latest`
+  meant a Bun release could break any job with no change to this repository.
+- ✅ **SEO: all eight published pages now carry a full surface.** Only the
+  homepage had a canonical URL, Open Graph, Twitter cards, or JSON-LD; the other
+  seven had a title and a description. For a public civic site that is not
+  cosmetic — without a canonical, a search engine may treat near-duplicate
+  pages as duplicates and index the wrong one, and without Open Graph a shared
+  link renders as bare text. Every page's title, description, and social tags
+  are now derived from the page's OWN `<title>` and `meta description` and
+  asserted to agree, so they cannot drift from what the page says. Adding the
+  check surfaced two pre-existing homepage inconsistencies: an `og:description`
+  that described something different from the `meta description`, and no
+  `og:image:alt`.
+- ⚠️ **A 2x gate speedup was implemented, measured, and reverted.** Running the
+  suite once with `--coverage` and deriving both the test result and the
+  coverage floor from that output looked like an obvious win. It makes the gate
+  FAIL: instrumentation compounds across a whole run, not per file, and six
+  tests blow through per-test timeouts that were tuned against the
+  uninstrumented run (`tests/bounded-jsonl.test.ts`: 102ms → 155,885ms). Every
+  failure was a timeout and none was real. The two-run design is load-bearing,
+  the measurement is recorded at the call site, and a test asserts it stays.
+
 
 Item-level tracking lives in [TODO.md](../TODO.md), which holds the
 reconciled open set with acceptance criteria — this section no longer

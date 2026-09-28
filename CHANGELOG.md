@@ -11,6 +11,61 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### CI, SEO, and a reverted optimization (2026-09-28)
+
+- **Pull requests are gated for the first time.** The authoritative release gate
+  ran only on `push: main` and a weekly schedule, inside the publish job — so a
+  regression could be merged, and the first thing to notice was the publish
+  failing *after* the change was already on main, or nothing at all.
+  `.github/workflows/pr-gate.yml` runs the offline contract checks (OpenAPI route
+  table, `$ref` resolution, source-health roster, alert-type enum, manuscript
+  contracts, geo contract sync, typecheck) plus the affected tests.
+- **`bun run validate --only=contracts`** is a MODE OF THE GATE rather than a
+  second implementation, so a check added to one is present in the other. It
+  names what it skipped and states in its own output that it is not a full
+  release-gate pass — a fast path that reads like a full one is worse than none.
+- **`scripts/ci-affected-tests.ts`** selects tests by the module each test
+  IMPORTS, not by filename similarity: a change to `src/utils.ts` is covered by
+  tests whose own filenames did not change. It falls back to the full suite
+  whenever the answer is not bounded — shared infrastructure, a non-source
+  change, an unreadable diff, or a selection that would come to zero tests,
+  which would otherwise be a green light that verifies nothing.
+- **`scripts/ci-monitor-smoke.ts`** replaces eight hand-written
+  `bun run alerts:<x>` steps in the weekly workflow. Those had silently fallen
+  behind the roster: seven monitors, including the marine forecast and the USCG
+  broadcasts, were never smoke-tested in CI. The script delegates to the real
+  runner rather than re-enumerating the batch — its first draft built a
+  key-to-filename map, which is a second roster copy that does not even follow
+  from the key (`tsunami` lives in `noaa_tsunami.ts`) and would have drifted the
+  same way. Degraded live feeds are reported, not enforced. First live run:
+  15/15 monitors reported, with a real gap caught (CAL FIRE timed out).
+- **Bun is pinned in all three workflows to one shared version.** `latest` meant
+  a Bun release could break any job with no change to this repository.
+- **`tests/ci-config.test.ts`** makes all of the above checkable. Workflows are
+  configuration, so nothing typechecked them and nothing failed when they
+  drifted. It asserts the pin, that the weekly job does not restate the monitor
+  list, that the PR job runs the contract checks, and that the gate keeps its
+  two-run suite. It strips YAML comments first, because these files carry
+  comments quoting the very patterns being asserted on.
+- **SEO: all eight published pages carry a full surface.** Only the homepage had
+  a canonical URL, Open Graph, Twitter cards, or JSON-LD. Each page's title,
+  description, and social tags are derived from that page's OWN `<title>` and
+  `meta description`, and asserted to agree — so they cannot drift from what the
+  page actually says. The check surfaced two pre-existing homepage
+  inconsistencies: an `og:description` that described something different from
+  the `meta description`, and a missing `og:image:alt`. The `code` page's
+  `SearchAction` is asserted to name a query parameter that page really reads.
+  A negative control (deleting a canonical) confirmed the test fails when it
+  should.
+- **A 2x gate speedup was implemented, measured, and reverted.** Running the
+  suite once with `--coverage` — deriving both the test result and the coverage
+  floor from one output — made the gate FAIL. Coverage instrumentation compounds
+  across a whole run rather than per file: `tests/bounded-jsonl.test.ts` went
+  from 102ms to 155,885ms, and `tests/analytics-backend.test.ts` hit its
+  300s hard timeout. Six failures, every one a timeout, none real. The two-run
+  design is load-bearing; the measurement is recorded at the call site and a
+  test asserts it stays.
+
 ### Open items closed: per-article indexing, roster coverage, contract cross-checks, cross-reference links (2026-09-28)
 
 Works the open backlog. Two items were already blocked on an owner decision

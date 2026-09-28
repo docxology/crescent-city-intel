@@ -1,0 +1,106 @@
+name: Pull Request Gate
+
+# Why this exists
+#
+# The authoritative release gate (`bun run validate`) ran only on `push: main`
+# and on a weekly schedule, in the Pages publish job. Nothing checked a pull
+# request. So a regression could be merged, and the first thing to notice was
+# either the Monday publish failing — after the change was already on main — or
+# nothing at all. The gate was authoritative and unenforced at the only moment
+# enforcement is cheap.
+#
+# This job is deliberately FAST and deliberately NARROWER than the full gate:
+#
+#  - Fast: the deterministic suite is the bulk of the runtime, so the changed
+#    tests run when they are determinable, and the whole suite when they are
+#    not. Typecheck and the contract checks always run because they are seconds.
+#  - Narrower: the artifact-shape checks that need a populated `output/` tree
+#    (the generated-artifact envelopes, the coverage floor against the live
+#    corpus) are left to the publish job, which has a real corpus. Duplicating a
+#    3-minute run here to re-check the same thing later buys nothing.
+#
+# The contract checks that DO run are the ones that cannot be satisfied by a
+# populated corpus: the OpenAPI route table, the $ref resolution, the source-
+# health roster, and the alert-type enum.
+
+on:
+  pull_request:
+    branches: [main]
+  # Also run for branch pushes so a contributor pushing to a fork-hosted branch
+  # gets the same signal without opening a PR first.
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Fast gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Pinned. `bun-version: latest` meant a Bun release could break CI with no
+      # change to this repository, which is the worst possible time to find out.
+      BUN_VERSION: "1.4.2"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history so `git diff` against the merge base can decide which
+          # tests to run. Shallow clones make the base unresolvable, which
+          # silently degrades the job to "run everything".
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Contract checks
+        # Route table, $ref resolution, source-health roster, alert-type enum,
+        # manuscript contracts, geo contract sync, whitespace. All offline and
+        # all in seconds; these are the checks most likely to catch a bad PR and
+        # least likely to be false-positive.
+        run: bun run src/release_gate.ts --only=contracts
+
+      - name: Determine affected test files
+        id: affected
+        run: |
+          # Map changed source files to the tests that could plausibly cover
+          # them. Deliberately coarse: a wrong guess costs a few seconds, and a
+          # missed guess costs a red build, so the mapping errs toward "run it".
+          BASE=$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null || echo HEAD~1)
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE" HEAD > /tmp/changed.txt || true
+          {
+            echo "changed<<EOF"
+            cat /tmp/changed.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          COUNT=$(grep -c . /tmp/changed.txt || true)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests for changed areas
+        if: steps.affected.outputs.count != '0'
+        env:
+          CHANGED: ${{ steps.affected.outputs.changed }}
+        run: bun run scripts/ci-affected-tests.ts
+
+      - name: Run the full suite when the affected set is indeterminate
+        # No usable diff base, or a change to shared wiring (paths, release
+        # gate, types, constants) where "affected" is not a bounded question.
+        if: steps.affected.outputs.count == '0'
+        run: bun test tests/ --timeout 30000

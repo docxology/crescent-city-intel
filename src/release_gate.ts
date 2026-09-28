@@ -14,7 +14,7 @@ import { describeDrift, diffTrees, isUnchanged, snapshotTree } from "./shared/ou
  * coverage floor, and generated-history sanity. Invoked by the thin
  * orchestrator scripts/validate.ts; throws on the first failed check.
  */
-export async function runReleaseGate(): Promise<void> {
+export async function runReleaseGate(options: { only?: "contracts" | "all" } = {}): Promise<void> {
   type Check = { name: string; args: string[] };
 
   function run(check: Check): void {
@@ -24,6 +24,25 @@ export async function runReleaseGate(): Promise<void> {
       throw new Error(`${check.name} failed with exit code ${result.exitCode}`);
     }
   }
+
+  /**
+   * `contracts` stops after the offline contract checks: the ones that cannot be
+   * satisfied or unsatisfied by whether `output/` happens to be populated.
+   *
+   * This exists for the pull-request CI job, which needs the route table, $ref
+   * resolution, source-health roster and alert-type enum checked on every change
+   * — but must not spend three minutes on the suite and the coverage floor that
+   * the publish job re-runs against a real corpus. It is a MODE OF THIS GATE,
+   * not a second implementation: a check added here is picked up by both, which
+   * is the point. Anything that would be skipped by `--only=contracts` is named
+   * at the end so nobody mistakes it for a full pass.
+   */
+  const contractsOnly = options.only === "contracts";
+  const SKIPPED_BY_CONTRACTS_MODE = [
+    "Deterministic test suite + coverage floor",
+    "output-corpus fence",
+    "generated Pages artifact check",
+  ];
 
   const root = process.cwd();
   const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as { version: string };
@@ -303,6 +322,33 @@ export async function runReleaseGate(): Promise<void> {
   // from a reported result.
   const outputTree = join(root, "output");
   const outputBefore = await snapshotTree(outputTree);
+
+  if (contractsOnly) {
+    console.log("\nContract-only mode: stopping before the suite, which the publish job runs against a real corpus.");
+    for (const skipped of SKIPPED_BY_CONTRACTS_MODE) console.log(`  skipped: ${skipped}`);
+    console.log("Contract checks passed (this is NOT a full release-gate pass).");
+    return;
+  }
+
+  // TWO suite runs, and the duplication is load-bearing. Do not "fix" it.
+  //
+  // It is tempting to run the suite once with `--coverage` and derive both the
+  // test result and the coverage table from that one output, halving the gate's
+  // wall time. Measured: that makes the gate FAIL. Coverage instrumentation
+  // compounds across a whole run rather than per file — a single file is fine
+  // under `--coverage` (tests/bounded-jsonl.test.ts: 102ms plain, 61ms covered),
+  // but with all 139 files instrumented at once the I/O-bound and
+  // analytics-heavy tests blow through the per-test timeouts, which were tuned
+  // against the uninstrumented run:
+  //
+  //   tests/bounded-jsonl.test.ts      102ms  ->  155,885ms
+  //   tests/analytics-backend.test.ts  (54s)   ->  300,001ms (hard timeout)
+  //
+  // Six tests failed, every one a timeout, none real. The alternative — raising
+  // the per-test timeouts to accommodate instrumentation — would make the two
+  // runs' timings mean different things and would mask genuine hangs. So the
+  // plain run decides pass/fail, the covered run supplies the floor, and the
+  // cost is paid knowingly.
   run({ name: "Deterministic test suite", args: ["bun", "test", "tests/", "--timeout", "30000"] });
   {
     console.log("\n== Output-corpus fence ==");
@@ -331,11 +377,11 @@ export async function runReleaseGate(): Promise<void> {
     if (!summary) {
       throw new Error("Coverage floor: could not parse the coverage summary line (expected 'All files | lines | branches |')");
     }
-    const linesPct = Number(summary[1]);
-    const branchPct = Number(summary[2]);
     if (cov.exitCode !== 0) {
       throw new Error(`Coverage floor: the coverage test run itself failed (exit ${cov.exitCode}).`);
     }
+    const linesPct = Number(summary[1]);
+    const branchPct = Number(summary[2]);
     if (!Number.isFinite(linesPct) || linesPct < floor) {
       throw new Error(`Coverage floor: line coverage ${linesPct}% is below the ${floor}% floor (branches: ${branchPct}%).`);
     }

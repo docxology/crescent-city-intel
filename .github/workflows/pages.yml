@@ -8,6 +8,12 @@ on:
     - cron: '30 8 * * 1'
   workflow_dispatch:
 
+env:
+  # Pinned, and identical to pr-gate.yml and weekly.yml. `bun-version: latest`
+  # meant a Bun release could break the publish with no change to this
+  # repository, which is the worst moment to discover it.
+  BUN_VERSION: "1.4.2"
+
 permissions:
   contents: read
   pages: write
@@ -45,7 +51,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
       # yt-dlp must be current: YouTube extraction internals rotate constantly
       # (see the extractor-args note in src/youtube_monitor.ts). A stale

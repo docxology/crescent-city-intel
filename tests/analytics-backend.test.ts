@@ -40,7 +40,16 @@ describe("cross-surface analytics backend", () => {
 
     expect(fingerprints.repeat).toBe(fingerprints.first);
     expect(fingerprints.changed).not.toBe(fingerprints.first);
-  }, 300000);
+    // Cost note, measured 2026-09-28: this test builds THREE full analytics
+    // overviews over the real corpus (~65s each, ~196s total) because the
+    // property under test needs two identical builds and one differing one.
+    // The 300s ceiling it used to carry left almost no headroom — under full-
+    // suite parallelism this test hit exactly 300,001ms and failed, while
+    // passing in isolation. That is a pre-existing fragility, not a regression,
+    // and the honest fix is to make the overview cheaper over a small fixture
+    // corpus rather than to keep raising the number; until then the margin
+    // below is what stands between a loaded machine and a red build.
+  }, 480000);
 
   test("handles a partially indexed embedding set without undefined clusters", () => {
     const result = kmeans([[1, 2]], 6);

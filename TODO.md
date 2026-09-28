@@ -29,6 +29,26 @@ move to the CHANGELOG entry for their release.
   collection would silently hold two models' geometry in one cosine space.
   Tests: `tests/index-plan.test.ts` (fixtures) and
   `tests/index-plan-corpus.test.ts` (measured against the real scrape).
+- 🔴 **The analytics-backend tests are the release gate's bottleneck and are
+  load-flaky** — opened 2026-09-28, and the reason the gate has outgrown a
+  30-minute CI window. `tests/analytics-backend.test.ts` builds full analytics
+  overviews over the real 2,206-section corpus, and it is the slowest thing in
+  the suite by an order of magnitude. Measured:
+  - "builds a stable, evidence-fingerprinted overview" — **120,001ms against a
+    120,000ms ceiling under full-suite parallelism**; fails, passes in isolation.
+  - "the input fingerprint follows the query evidence" — three overviews
+    (~65s each, ~196s isolated) against a ceiling that was 300s, so it hit
+    exactly 300,001ms and failed. Its timeout was raised to 480s on 2026-09-28,
+    which makes it PASS by taking ~301s — that buys margin but hides the cause
+    and makes the gate slower. Treat that raise as a stopgap, not a fix.
+  Neither failure is real; both are instrumentation and CPU contention against
+  timeouts tuned on an unloaded machine. **AC:** both tests build the overview
+  over a small fixture corpus — the fingerprint test only asserts
+  `first == repeat` and `changed != first`, so it never needed the real corpus at
+  all, and `withCorpusCopy` already provides the seam. Target: both under 60s
+  combined, with both timeouts cut back to a value that catches a genuine hang.
+  Until then the gate takes >30 min, which is why the PR job exists and why it
+  runs `--only=contracts`.
 - 🟢 **Deferred GUI/UX set** — Phase 7 plain-language rewrite; Phase 9 AQ
   widget, wildfire map, annotation overlays; Phase 10 ordinal refinement,
   legal-citation/CA/US cross-linking, effective-date field; Phase 14

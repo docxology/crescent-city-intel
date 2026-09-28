@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Quadruplicate — Docs &amp; Modules Dashboard</title>
+  <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
+  <style>
+    body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
+    header{background:#c41e1e;color:#fff;padding:18px 24px}
+    header h1{margin:0;font-size:1.4rem}
+    header .sub{opacity:.85;font-size:.85rem}
+    nav{padding:8px 24px;border-bottom:1px solid #ddd}
+    nav a{color:#c41e1e;text-decoration:none;margin-right:12px}
+    main{padding:16px 24px;max-width:1100px;margin:0 auto}
+    .summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+    .stat{border:1px solid #ddd;border-radius:6px;padding:10px 16px;min-width:120px}
+    .stat b{display:block;font-size:1.5rem}
+    table{border-collapse:collapse;width:100%;margin-bottom:24px}
+    th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:.9rem}
+    th{background:#f2f2f2}
+    code{background:#f2f2f2;padding:1px 4px;border-radius:3px;font-size:.85rem}
+    .ok{color:#15803d}.miss{color:#b91c1c;font-weight:bold}
+    .empty-state,.error-state{border:1px dashed #999;border-radius:8px;padding:24px;text-align:center;color:#555;margin:24px 0}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>The Quadruplicate — Docs &amp; Modules Dashboard</h1>
+    <div class="sub">Derived live from the source tree and docs surfaces — counts are computed, never restated</div>
+  </header>
+  <nav>
+    <a href="/">GUI</a>
+    <a href="/docs.html">API Docs</a>
+    <a href="/structured-queries.html">Structured Queries</a>
+  </nav>
+  <main>
+    <div id="dashboard-loading"><p>Loading module roster…</p></div>
+    <div id="dashboard-empty-state" class="empty-state hidden">
+      <p><strong>No modules found.</strong></p>
+      <p>The backing source tree is absent, so there is no roster to show. This dashboard derives its rows from the repository itself — run it from a checkout containing <code>src/</code>.</p>
+    </div>
+    <div id="dashboard-error-state" class="error-state hidden">
+      <p><strong>Dashboard unavailable.</strong></p>
+      <p id="dashboard-error-detail">The docs dashboard endpoint could not be reached. If this instance requires an API key, open this page from a trusted local session.</p>
+    </div>
+    <div id="dashboard-content" class="hidden">
+      <div class="summary" id="dashboard-summary"></div>
+      <h2>Modules</h2>
+      <p id="dashboard-roster-empty" class="empty-state hidden">No source modules are documented yet — the docs roster is empty.</p>
+      <table id="modules-table"><thead><tr><th>Module</th><th>Documented in</th></tr></thead><tbody id="modules-body"></tbody></table>
+      <h2>Docs surfaces</h2>
+      <table><thead><tr><th>Docs file</th><th>Modules named</th><th>Stale references</th></tr></thead><tbody id="surfaces-body"></tbody></table>
+    </div>
+  </main>
+  <script>
+    const key = window.__CC_API_KEY__;
+    function apiFetch(url) {
+      const headers = key && !key.startsWith("__CC_API_KEY") ? { "X-API-Key": key } : {};
+      return fetch(url, { headers });
+    }
+    function show(id) { document.getElementById(id).classList.remove("hidden"); }
+    function hide(id) { document.getElementById(id).classList.add("hidden"); }
+    async function load() {
+      try {
+        const resp = await apiFetch("/api/docs/modules");
+        if (!resp.ok) { hide("dashboard-loading"); show("dashboard-error-state"); return; }
+        const data = await resp.json();
+        hide("dashboard-loading");
+        if (data.empty) { show("dashboard-empty-state"); return; }
+        const s = data.counts;
+        document.getElementById("dashboard-summary").innerHTML =
+          `<div class="stat"><b>${s.modules}</b>modules in src/</div>` +
+          `<div class="stat"><b>${s.documented}</b>documented</div>` +
+          `<div class="stat ${s.undocumented ? 'miss' : 'ok'}"><b>${s.undocumented}</b>undocumented</div>` +
+          `<div class="stat"><b>${s.docsSurfaces}</b>docs surfaces</div>`;
+        const tbody = document.getElementById("modules-body");
+        for (const m of data.modules) {
+          const docs = m.documentedBy.length
+            ? m.documentedBy.map(d => `<code>${d}</code>`).join(" ")
+            : '<span class="miss">not documented</span>';
+          tbody.insertAdjacentHTML("beforeend", `<tr><td><code>${m.file}</code></td><td>${docs}</td></tr>`);
+        }
+        if (data.modules.length === 0) show("dashboard-roster-empty");
+        const surfaces = document.getElementById("surfaces-body");
+        for (const d of data.docsSurfaces) {
+          const missing = d.missingFiles.length
+            ? `<span class="miss">${d.missingFiles.length}</span>`
+            : '<span class="ok">0</span>';
+          surfaces.insertAdjacentHTML("beforeend", `<tr><td><code>${d.file}</code></td><td>${d.namesModules}</td><td>${missing}</td></tr>`);
+        }
+        show("dashboard-content");
+      } catch {
+        hide("dashboard-loading");
+        show("dashboard-error-state");
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

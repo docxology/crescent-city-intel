@@ -66,7 +66,19 @@ export async function maybeCompress(res: Response, acceptEncoding: string | null
  * pre-fix behavior (protected panels 401, public ones work), not a leaked key.
  */
 export async function serveIndexHtml(socketIp: string | undefined): Promise<Response> {
-  const raw = await Bun.file(`${STATIC_DIR}index.html`).text();
+  return serveStaticHtmlWithKey("index.html", socketIp);
+}
+
+/**
+ * Serve a static page with the same loopback-only API-key injection as
+ * serveIndexHtml. Used by the Phase 14 pages (docs-dashboard,
+ * structured-queries), whose panels call API-key-protected endpoints: on
+ * loopback the injected key makes the happy path work, and a remote
+ * requester gets the placeholder left unsubstituted — the page then shows
+ * its explicit error/empty state instead of a leaked key.
+ */
+export async function serveStaticHtmlWithKey(fileName: string, socketIp: string | undefined): Promise<Response> {
+  const raw = await Bun.file(`${STATIC_DIR}${fileName}`).text();
   const key = isTrustedLocalIp(socketIp ?? "unknown") ? getPrimaryApiKey() : "";
   const html = raw.replace("__CC_API_KEY_INJECT__", key);
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -119,6 +131,10 @@ const server = Bun.serve({
     if (url.pathname === "/" || url.pathname === "/index.html") {
       return serveIndexHtml(socketIp);
     }
+    // Phase 14 pages — served like index.html so their panels get the
+    // loopback API key injected (their endpoints are key-protected).
+    if (url.pathname === "/docs-dashboard.html") return serveStaticHtmlWithKey("docs-dashboard.html", socketIp);
+    if (url.pathname === "/structured-queries.html") return serveStaticHtmlWithKey("structured-queries.html", socketIp);
     // Sanitize pathname to prevent directory traversal (e.g. /../../../etc/passwd).
     // decodeURIComponent normalizes percent-encoded sequences like %2e%2e%2f → ../.
     // Then resolve relative to STATIC_DIR and require the result to stay within it.

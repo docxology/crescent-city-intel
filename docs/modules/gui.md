@@ -291,3 +291,7 @@ state, never a throw.
   `composite`, `monitors[]`, `hazardSummary[]`, `freshness`). Renders a
   composite-level badge plus per-monitor status chips. Empty state: "Live
   hazard observations unavailable (route not live yet)."
+
+## `src/browser_smoke.ts` — Real-Browser Smoke Test
+
+Boots the actual GUI server and drives it with Playwright Chromium: page load, tab switching, search, and alert-panel render checks against the real static assets. Not part of the deterministic suite (requires a browser); run via `bun run test:browser`.

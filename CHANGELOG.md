@@ -59,6 +59,11 @@ rewritten surface's explicit empty state (TODO.md Deferred GUI/UX set AC).
 - Every surface ships with an explicit empty state, locked by string-contract
   tests in `tests/gui-phase14.test.ts` (page markup, route wiring, derivation
   empty-state fixture, and a real-repo stale-reference control).
+- The dashboard immediately paid for itself: its first render showed 13 of 101
+  modules undocumented (the Pages gate engines, `insights.ts`, `index_plan.ts`,
+  `output_fence.ts`, and others), all now covered in `docs/modules/*.md` —
+  101/101 documented, 0 stale references, with the `docs/modules/AGENTS.md`
+  inventory updated to match.
 
 ### Five new intelligence monitors: permits, dredging, fuel, PacFIN, AIS (2026-09-28)
 

@@ -121,3 +121,7 @@ envelope, single-run `delta: null`, delta signs + bucket averages, and
 order-insensitive latest/previous selection.
 
 Run with: `bun test tests/readability-history.test.ts`.
+
+## `src/lifeos_bridge.ts` — LifeOS / Pulse Bridge
+
+Builds the LocalIntelligence digest consumed by the Pulse LOCAL tab from this platform's real outputs (news digests, meetings, alert history, code stats); invoked by `bun run lifeos:bridge`. Tests: `tests/lifeos-bridge.test.ts`.

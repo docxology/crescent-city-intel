@@ -189,3 +189,7 @@ climate-environment) and carries flood + sea-level policy the prior consumers
 (RISK/BAYES/ACT) receive as defaults.
 
 Run with: `bun run test` (suite) or `bun test tests/geo-intel.test.ts`.
+
+## `src/domains/scholarly_context.ts` — Scholarly Cross-Reference
+
+Maps manuscript chapters to geo-intelligence domains and geographic features so a feature or domain viewed on quadruplicate.org links to the corresponding chapter anchor in the peer-reviewed history of Crescent City (DOI 10.5281/zenodo.20286171).

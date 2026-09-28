@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Quadruplicate — Ordinals, Citations &amp; Effective Dates</title>
+  <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
+  <style>
+    body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
+    header{background:#c41e1e;color:#fff;padding:18px 24px}
+    header h1{margin:0;font-size:1.4rem}
+    header .sub{opacity:.85;font-size:.85rem}
+    nav{padding:8px 24px;border-bottom:1px solid #ddd}
+    nav a{color:#c41e1e;text-decoration:none;margin-right:12px}
+    main{padding:16px 24px;max-width:1200px;margin:0 auto}
+    section{margin-bottom:40px}
+    h2{border-bottom:2px solid #c41e1e;padding-bottom:4px}
+    button{background:#c41e1e;color:#fff;border:none;border-radius:4px;padding:8px 16px;cursor:pointer}
+    button:disabled{opacity:.5;cursor:default}
+    table{border-collapse:collapse;margin-top:10px;width:100%}
+    th,td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:.88rem;vertical-align:top}
+    th{background:#f2f2f2}
+    .empty-state{border:1px dashed #999;border-radius:8px;padding:16px;color:#555;margin-top:10px}
+    .hidden{display:none}
+    .error-state{color:#b91c1c;margin-top:10px;font-weight:bold}
+    .metric{font-size:1.3rem;font-weight:bold}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:10px}
+    .card{border:1px solid #e5e5e5;border-radius:8px;padding:10px 14px}
+    .card h4{margin:0;font-size:.8rem;color:#666;font-weight:normal}
+    a.xlink{color:#1d4ed8}
+    .missing{color:#b45309;font-family:monospace}
+    .nodate{color:#777;font-style:italic}
+    input{padding:6px 8px;border:1px solid #999;border-radius:4px;min-width:280px;font-family:inherit}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ordinals, Citations &amp; Effective Dates</h1>
+    <div class="sub">Phase 10 surfaces — numbering-sequence refinement, legal-citation cross-linking, and the derived effective-date field</div>
+  </header>
+  <nav>
+    <a href="/">GUI</a>
+    <a href="/docs.html">API Docs</a>
+    <a href="/docs-dashboard.html">Docs &amp; Modules</a>
+    <a href="/structured-queries.html">Structured Queries</a>
+  </nav>
+  <main>
+    <section id="ordinals-section">
+      <h2>Ordinal sequences</h2>
+      <p style="color:#555;margin-bottom:6px">Each title's chapter numbering read as a sequence: which chapter ordinals exist, which are missing between two present ones, and which segments do not parse as ordinals at all. A segment that does not parse is reported, never coerced.</p>
+      <button id="ordinals-load">Load ordinal report</button>
+      <div id="ordinals-empty" class="empty-state"><p>No ordinal report loaded yet. Press Load — the numbering audit appears here. A scrape with no sections shows an explicit "nothing to audit" state, never a fabricated sequence.</p></div>
+      <div id="ordinals-empty-result" class="empty-state hidden"><p>No sections to audit: this edition of the corpus carries no section numbers, so there is no numbering sequence to refine.</p></div>
+      <div id="ordinals-error" class="error-state hidden"></div>
+      <div id="ordinals-content"></div>
+    </section>
+
+    <section id="crosslinks-section">
+      <h2>Legal-citation cross-links</h2>
+      <p style="color:#555;margin-bottom:6px">California-code and U.S.-code citations found in the corpus, each resolved to its canonical official text when one exists. A citation with no stable target is listed unlinked — it is never pointed at a guessed URL.</p>
+      <button id="crosslinks-load">Load citation cross-links</button>
+      <div id="crosslinks-empty" class="empty-state"><p>No cross-link report loaded yet. Press Load — every citation found in the code's prose appears here with its link (or its explicit no-link state).</p></div>
+      <div id="crosslinks-empty-result" class="empty-state hidden"><p>No legal citations were found in this edition of the corpus, so there is nothing to cross-link.</p></div>
+      <div id="crosslinks-error" class="error-state hidden"></div>
+      <div id="crosslinks-content"></div>
+    </section>
+
+    <section id="effective-section">
+      <h2>Effective dates</h2>
+      <p style="color:#555;margin-bottom:6px">The most recent year in each section's legislative-history line — the year the section last took effect as written. Sections whose history carries no parseable year show <span class="nodate">no effective date on record</span>; a date is never guessed from an ordinance number.</p>
+      <label for="effective-guid">Section GUID (optional)</label><br>
+      <input id="effective-guid" placeholder="Leave empty for the corpus-wide report">
+      <button id="effective-load">Load effective dates</button>
+      <div id="effective-empty" class="empty-state"><p>No effective-date report loaded yet. Press Load — sections with their derived effective years appear here. Leave the GUID empty for the corpus-wide report.</p></div>
+      <div id="effective-empty-result" class="empty-state hidden"><p>No effective dates on record: the history lines in this slice carry no parseable years.</p></div>
+      <div id="effective-error" class="error-state hidden"></div>
+      <div id="effective-content"></div>
+    </section>
+  </main>
+  <script>
+    const key = window.__CC_API_KEY__;
+    function apiFetch(url) {
+      const headers = key && !key.startsWith("__CC_API_KEY") ? { "X-API-Key": key } : {};
+      return fetch(url, { headers });
+    }
+    function show(id){document.getElementById(id).classList.remove("hidden");}
+    function hide(id){document.getElementById(id).classList.add("hidden");}
+    function setError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.remove("hidden");}
+    function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+    document.getElementById("ordinals-load").addEventListener("click", async () => {
+      hide("ordinals-empty"); hide("ordinals-empty-result"); hide("ordinals-error");
+      const out = document.getElementById("ordinals-content");
+      out.innerHTML = "<p>Loading…</p>";
+      try {
+        const resp = await apiFetch("/api/ordinals?limit=200");
+        const data = await resp.json();
+        if (!resp.ok) { out.innerHTML = ""; setError("ordinals-error", data.error || `Request failed (${resp.status})`); return; }
+        if (data.empty || !data.sequences?.length) { out.innerHTML = ""; show("ordinals-empty-result"); return; }
+        let html = `<div class="grid">`
+          + `<div class="card"><h4>Sections scanned</h4><div class="metric">${data.summary.sectionsScanned}</div></div>`
+          + `<div class="card"><h4>Titles</h4><div class="metric">${data.summary.titles}</div></div>`
+          + `<div class="card"><h4>Missing ordinals</h4><div class="metric">${data.summary.totalGaps}</div></div>`
+          + `<div class="card"><h4>Unparseable segments</h4><div class="metric">${data.summary.totalUnparseable}</div></div>`
+          + `</div>`;
+        html += '<table><thead><tr><th>Title</th><th>Chapters</th><th>Missing between</th><th>Unparseable</th><th>Density</th></tr></thead><tbody>';
+        for (const seq of data.sequences) {
+          const gaps = seq.gaps.length
+            ? seq.gaps.slice(0, 12).map(g => `<span class="missing">${esc(g.missing)}</span>`).join(", ") + (seq.gaps.length > 12 ? ` … (+${seq.gaps.length - 12} more)` : "")
+            : '<span style="color:#15803d">dense</span>';
+          html += `<tr><td>${esc(seq.title)}</td><td>${seq.ordinals.length}</td><td>${gaps}</td><td>${esc(seq.unparseable.join(", ") || "—")}</td><td>${(seq.density * 100).toFixed(0)}%</td></tr>`;
+        }
+        html += "</tbody></table>";
+        if (data.truncated) html += '<p style="color:#555;font-size:12px;margin-top:8px">List bounded at 200 titles; the summary reports the true totals.</p>';
+        out.innerHTML = html;
+      } catch { out.innerHTML = ""; setError("ordinals-error", "Failed to reach /api/ordinals"); }
+    });
+
+    document.getElementById("crosslinks-load").addEventListener("click", async () => {
+      hide("crosslinks-empty"); hide("crosslinks-empty-result"); hide("crosslinks-error");
+      const out = document.getElementById("crosslinks-content");
+      out.innerHTML = "<p>Loading…</p>";
+      try {
+        const resp = await apiFetch("/api/citations/index?limit=500");
+        const data = await resp.json();
+        if (!resp.ok) { out.innerHTML = ""; setError("crosslinks-error", data.error || `Request failed (${resp.status})`); return; }
+        if (data.empty || !data.crosslinks?.length) { out.innerHTML = ""; show("crosslinks-empty-result"); return; }
+        let html = `<div class="grid">`
+          + `<div class="card"><h4>Citations found</h4><div class="metric">${data.summary.citationsFound}</div></div>`
+          + `<div class="card"><h4>Linked to official text</h4><div class="metric">${data.summary.linkableCitations}</div></div>`
+          + `<div class="card"><h4>No stable target</h4><div class="metric">${data.summary.unlinkedCitations}</div></div>`
+          + `<div class="card"><h4>Distinct codes cited</h4><div class="metric">${data.summary.distinctTargets.length}</div></div>`
+          + `</div>`;
+        html += '<p style="font-size:12px;color:#555">Codes cited: ' + data.summary.distinctTargets.map(esc).join(" · ") + "</p>";
+        html += '<table><thead><tr><th>Section</th><th>Citation</th><th>Target</th><th>Link</th></tr></thead><tbody>';
+        for (const row of data.crosslinks) {
+          const link = row.href
+            ? `<a class="xlink" href="${esc(row.href)}" target="_blank" rel="noopener noreferrer">official text ↗</a>`
+            : '<span class="nodate">no stable target — unlinked</span>';
+          const internal = row.internalGuid
+            ? ` · <a class="xlink" href="/?section=${encodeURIComponent(row.internalGuid)}">in-corpus section</a>`
+            : "";
+          html += `<tr><td>&sect; ${esc(row.fromNumber)}</td><td>${esc(row.citation)}</td><td>${esc(row.targetLabel || row.type)}</td><td>${link}${internal}</td></tr>`;
+        }
+        html += "</tbody></table>";
+        if (data.truncated) html += '<p style="color:#555;font-size:12px;margin-top:8px">List bounded at 500 rows; the summary reports the true totals.</p>';
+        out.innerHTML = html;
+      } catch { out.innerHTML = ""; setError("crosslinks-error", "Failed to reach /api/citations/index"); }
+    });
+
+    document.getElementById("effective-load").addEventListener("click", async () => {
+      hide("effective-empty"); hide("effective-empty-result"); hide("effective-error");
+      const out = document.getElementById("effective-content");
+      out.innerHTML = "<p>Loading…</p>";
+      const guid = document.getElementById("effective-guid").value.trim();
+      try {
+        const resp = await apiFetch("/api/effective-dates?limit=500" + (guid ? `&guid=${encodeURIComponent(guid)}` : ""));
+        const data = await resp.json();
+        if (!resp.ok) { out.innerHTML = ""; setError("effective-error", data.error || `Request failed (${resp.status})`); return; }
+        if (!data.sections?.length) { out.innerHTML = ""; show("effective-empty-result"); return; }
+        let html = `<div class="grid">`
+          + `<div class="card"><h4>Sections scanned</h4><div class="metric">${data.summary.sectionsScanned}</div></div>`
+          + `<div class="card"><h4>With an effective year</h4><div class="metric">${data.summary.sectionsWithDate}</div></div>`
+          + `<div class="card"><h4>No date on record</h4><div class="metric">${data.summary.sectionsWithoutDate}</div></div>`
+          + `<div class="card"><h4>Year range</h4><div class="metric" style="font-size:18px">${data.summary.earliestYear ?? "—"}–${data.summary.latestYear ?? "—"}</div></div>`
+          + `</div>`;
+        html += '<table><thead><tr><th>Section</th><th>Effective year</th><th>Most recent action</th><th>History line</th></tr></thead><tbody>';
+        for (const row of data.sections) {
+          const year = row.effectiveYear === null
+            ? '<span class="nodate">no effective date on record</span>'
+            : `<strong>${row.effectiveYear}</strong>`;
+          const action = row.effectiveYear === null ? "—" : `${esc(row.ordinance ?? "")} ${esc(row.action ?? "")}`;
+          html += `<tr><td>&sect; ${esc(row.sectionNumber)}</td><td>${year}</td><td>${action}</td><td style="font-size:.8rem;color:#555">${esc(row.derivedFrom || "—")}</td></tr>`;
+        }
+        html += "</tbody></table>";
+        if (data.truncated) html += '<p style="color:#555;font-size:12px;margin-top:8px">List bounded at 500 rows; the summary reports the true totals.</p>';
+        out.innerHTML = html;
+      } catch { out.innerHTML = ""; setError("effective-error", "Failed to reach /api/effective-dates"); }
+    });
+  </script>
+</body>
+</html>

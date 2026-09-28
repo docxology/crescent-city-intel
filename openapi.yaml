@@ -1937,6 +1937,170 @@ paths:
       summary: Detect municipal code numbering gaps
       responses:
         '200': { description: Ordinal gap report, content: { application/json: { schema: { type: object } } } }
+  /api/ordinals:
+    get:
+      summary: Refined ordinal-sequence report
+      description: >-
+        Phase 10 ordinal-sequence refinement. Per-title chapter ordinals
+        classified as numeric, suffixed ("730-R"), or non-numeric — an
+        unparseable segment is reported, never coerced — with gaps computed
+        strictly between present ordinal values and per-title sequence
+        density. Deterministic and offline; a corpus with no sections yields
+        an explicit empty report (`empty: true`). The narrower legacy
+        /api/ordinal-check keeps its published shape.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        '200':
+          description: Refined ordinal report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  empty: { type: boolean }
+                  summary:
+                    type: object
+                    properties:
+                      sectionsScanned: { type: integer }
+                      titles: { type: integer }
+                      totalGaps: { type: integer }
+                      totalUnparseable: { type: integer }
+                      sparsestTitle: { type: string, nullable: true }
+                  sequences:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title: { type: string }
+                        ordinals:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              raw: { type: string }
+                              kind: { type: string, enum: [numeric, suffixed, non-numeric] }
+                              value: { type: integer, nullable: true }
+                              suffix: { type: string, nullable: true }
+                        gaps:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              missing: { type: string }
+                              after: { type: string, nullable: true }
+                              before: { type: string }
+                        unparseable: { type: array, items: { type: string } }
+                        density: { type: number }
+                  truncated: { type: boolean }
+  /api/citations/index:
+    get:
+      summary: Corpus-wide legal-citation cross-links
+      description: >-
+        Phase 10 legal-citation cross-linking. Every California-code and
+        U.S.C. citation in section prose resolved to its canonical official
+        URL (leginfo.legislature.ca.gov / law.cornell.edu); a citation with no
+        stable target (case law, ordinance references, malformed captures) is
+        reported with `href: null` — never linked speculatively. Citations
+        naming a section of this corpus also carry its guid, resolved by the
+        same dot-boundary rule as /api/cross-refs/validate.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 2000, default: 500 }
+      responses:
+        '200':
+          description: Cross-link report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  empty: { type: boolean }
+                  summary:
+                    type: object
+                    properties:
+                      sectionsScanned: { type: integer }
+                      citationsFound: { type: integer }
+                      linkableCitations: { type: integer }
+                      unlinkedCitations: { type: integer }
+                      distinctTargets: { type: array, items: { type: string } }
+                  crosslinks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        citation: { type: string }
+                        type: { type: string, enum: [ca-code, federal, case-law, ordinance] }
+                        href: { type: string, nullable: true }
+                        targetLabel: { type: string, nullable: true }
+                        internalGuid: { type: string, nullable: true }
+                        fromGuid: { type: string }
+                        fromNumber: { type: string }
+                  truncated: { type: boolean }
+  /api/effective-dates:
+    get:
+      summary: Derived effective-date field
+      description: >-
+        Phase 10 effective-date field: the most recent year in each section's
+        legislative-history line, derived via extractOrdinanceAmendments —
+        never fabricated. A section whose history carries no parseable year is
+        an explicit `effectiveYear: null` ("no effective date on record").
+        ?guid= narrows to one section; an unknown guid is a 400.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 3000, default: 500 }
+        - name: guid
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Effective-date report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schemaVersion: { type: string }
+                  generatedAt: { type: string }
+                  empty: { type: boolean }
+                  summary:
+                    type: object
+                    properties:
+                      sectionsScanned: { type: integer }
+                      sectionsWithDate: { type: integer }
+                      sectionsWithoutDate: { type: integer }
+                      earliestYear: { type: integer, nullable: true }
+                      latestYear: { type: integer, nullable: true }
+                  sections:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        guid: { type: string }
+                        sectionNumber: { type: string }
+                        effectiveYear: { type: integer, nullable: true }
+                        ordinance: { type: string, nullable: true }
+                        action: { type: string, nullable: true }
+                        derivedFrom: { type: string }
+                  truncated: { type: boolean }
+        '400':
+          description: Unknown section guid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/ordinance/chronology:
     get:
       summary: Ordinance chronology and legislative lineage

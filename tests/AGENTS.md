@@ -34,6 +34,7 @@ bun test --watch      # Watch mode
 | `gui-server.test.ts` | `src/gui/server.ts` — trusted local API-key injection boundary |
 | `gui-plain-language.test.ts` | Phase 7 plain-language rewrite: user-facing GUI copy strings, empty states, and jargon bans across `src/gui/static/` |
 | `gui-phase14.test.ts` | Phase 14 GUI surfaces — docs/modules dashboard + structured-query pages: explicit empty states, derivation contracts, route wiring |
+| `gui-phase10.test.ts` | Phase 10 GUI surfaces — ordinal-sequence refinement, legal-citation cross-linking, effective-date field: explicit empty states, derivation contracts (incl. no-fabrication), route + spec wiring |
 | `embeddings.test.ts` | `src/llm/embeddings.ts` — deterministic chunking |
 | `export.test.ts` | `src/export.ts` — CSV, Markdown, and filename safety |
 | `content*.test.ts` | `src/content.ts` — HTML extraction, readability, fixtures, and SHA-256 |

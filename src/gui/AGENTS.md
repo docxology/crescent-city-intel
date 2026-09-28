@@ -16,8 +16,12 @@ Lightweight Bun HTTP server serving a single-page application for browsing, sear
 | `analytics.ts` | Code statistics, PCA projection, K-means clustering | `tests/analytics.test.ts` |
 | `alert_trends.ts` | Pure UTC-day alert trend buckets + heatmap intensity for the Alerts panel | `tests/alert-trends.test.ts` |
 | `docs_dashboard.ts` | Pure docs/modules dashboard derivation: module roster + docs-surface sync status computed from the tree (`GET /api/docs/modules`) | `tests/gui-phase14.test.ts` |
+| `ordinal_refinement.ts` | Phase 10 ordinal-sequence refinement: per-title chapter ordinals classified numeric/suffixed/non-numeric, gaps, density (`GET /api/ordinals`) | `tests/gui-phase10.test.ts` |
+| `legal_crosslinks.ts` | Phase 10 legal-citation cross-linking: CA-code/U.S.C. citations → canonical official URLs, null when no stable target (`GET /api/citations/index`) | `tests/gui-phase10.test.ts` |
+| `effective_dates.ts` | Phase 10 effective-date field: most recent year from each section's real history line, null when unparseable (`GET /api/effective-dates`) | `tests/gui-phase10.test.ts` |
 | `static/docs-dashboard.html` | Phase 14 dashboard page at `/docs-dashboard.html` (roster + sync status, explicit empty state) | `tests/gui-phase14.test.ts` |
 | `static/structured-queries.html` | Phase 14 structured-query page at `/structured-queries.html` (history / compare / similar, explicit empty states) | `tests/gui-phase14.test.ts` |
+| `static/phase10-legal.html` | Phase 10 page at `/phase10-legal.html` (ordinal refinement, citation cross-links, effective dates; explicit empty states) | `tests/gui-phase10.test.ts` |
 | `static/` | `index.html` (SPA markup shell: dark/light theme, TOC, search, analytics, chat), `docs.html` (API docs at `/api/docs`), and `assets/` — `gui.css` + `virtual-list.js` + `modules/*.js` extracted verbatim from the former inline `<style>`/`<script>` (v2.7.0), loaded by classic `<link>`/`<script src>` tags in the original execution order | `tests/gui-chat-contract.test.ts`, `tests/gui-interactivity.test.ts`, `tests/corpus-intelligence-routes.test.ts`, `tests/pages-theme.test.ts` |
 
 ## Key Patterns

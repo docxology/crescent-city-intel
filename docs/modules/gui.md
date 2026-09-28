@@ -157,6 +157,73 @@ endpoint wiring, and server serving).
 
 ---
 
+## `src/gui/ordinal_refinement.ts` — Ordinal-Sequence Refinement (Phase 10)
+
+Pure, offline derivation behind `GET /api/ordinals` and the
+`/phase10-legal.html` page (Phase 10 "ordinal-sequence refinement"). Each
+title's chapter ordinals are classified as `numeric`, `suffixed`
+(`"04-R"` — a real post-adoption insertion slot sharing its base number with
+the plain form), or `non-numeric`; gaps are computed strictly between present
+ordinal VALUES (a suffix family is one slot, never a gap of 1..R−1), missing
+ordinals are formatted with their neighbours' zero-padding, and unparseable
+segments are REPORTED rather than coerced to NaN. The narrower legacy
+`GET /api/ordinal-check` keeps its published shape.
+
+Tests: `tests/gui-phase10.test.ts` (classification/gap fixtures, zero-padding,
+real-corpus determinism, empty-report state, route + spec wiring).
+
+---
+
+## `src/gui/legal_crosslinks.ts` — Legal-Citation Cross-Linking (Phase 10)
+
+Pure corpus sweep behind `GET /api/citations/index` and the
+`/phase10-legal.html` page. Every California-code and U.S.C. citation the
+legal parser finds in section prose is resolved to its canonical official
+URL (`leginfo.legislature.ca.gov` for the California codes, via a fixed
+code-name → `lawCode` mapping; `law.cornell.edu` for the U.S. Code). The
+honesty rule: a citation with no stable target — case law, ordinance
+references, a malformed capture like "(42 U.S.C. Section 12101 et seq.)"
+parsed with a junk section — reports `href: null` and is never linked
+to a guessed URL. Citations naming a section of this corpus also carry its
+guid, resolved by the same dot-boundary rule the cross-ref validator uses.
+
+Tests: `tests/gui-phase10.test.ts` (canonical URLs, junk-section negative,
+unknown-code negative, corpus-wide sweep asserting only the two canonical
+hosts appear in hrefs, empty state, route ordering vs `/api/citations/{guid}`).
+
+---
+
+## `src/gui/effective_dates.ts` — Effective-Date Field (Phase 10)
+
+The Phase 10 effective-date field, behind `GET /api/effective-dates` and the
+`/phase10-legal.html` page. It derives each section's effective year from
+its OWN history line via `legal_parser.extractOrdinanceAmendments`: the most
+recent year in the parsed amendment trail, with the ordinance and action that
+carried it. A section whose history carries no parseable year is an explicit
+`effectiveYear: null` — rendered as "no effective date on record", never
+guessed from an ordinance number or the scrape date. The corpus report
+partitions sections with/without a date and bounds the year range to what is
+actually on record.
+
+Tests: `tests/gui-phase10.test.ts` (derivation, no-fabrication negatives,
+corpus partition + year-range bound, route + spec wiring, unknown-guid 400).
+
+---
+
+## `src/gui/static/phase10-legal.html` — Phase 10 Page
+
+A dedicated static page at `/phase10-legal.html` for the three Phase 10
+surfaces: ordinal sequences (`/api/ordinals`), legal-citation cross-links
+(`/api/citations/index`), and effective dates (`/api/effective-dates`).
+Each panel carries an explicit empty state on load and on empty data, plus a
+distinct error state; the page is served with the same loopback-only API-key
+injection as `index.html` (see `server.ts`'s `serveStaticHtmlWithKey`).
+
+Tests: `tests/gui-phase10.test.ts` (string contracts on the empty states,
+endpoint wiring, and server serving).
+
+---
+
 ## `src/gui/alert_trends.ts` — Alert Trend Aggregation
 
 Pure UTC-day aggregation for the local GUI's compact per-type trend and

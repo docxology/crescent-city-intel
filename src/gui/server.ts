@@ -135,6 +135,9 @@ const server = Bun.serve({
     // loopback API key injected (their endpoints are key-protected).
     if (url.pathname === "/docs-dashboard.html") return serveStaticHtmlWithKey("docs-dashboard.html", socketIp);
     if (url.pathname === "/structured-queries.html") return serveStaticHtmlWithKey("structured-queries.html", socketIp);
+    // Phase 10 page — same loopback key injection: its panels call
+    // key-protected endpoints and must show their error state, not a leaked key.
+    if (url.pathname === "/phase10-legal.html") return serveStaticHtmlWithKey("phase10-legal.html", socketIp);
     // Sanitize pathname to prevent directory traversal (e.g. /../../../etc/passwd).
     // decodeURIComponent normalizes percent-encoded sequences like %2e%2e%2f → ../.
     // Then resolve relative to STATIC_DIR and require the result to stay within it.

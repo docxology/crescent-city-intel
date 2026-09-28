@@ -1397,6 +1397,27 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
+  // GET /api/citations/index?limit= — corpus-wide legal-citation cross-links
+  //
+  // Phase 10 legal-citation cross-linking: every CA-code / U.S.C. citation in
+  // the corpus resolved to its canonical official URL (null when the citation
+  // has no stable target — reported, never linked speculatively), plus the
+  // internal guid when the citation names a section of this corpus. The
+  // exact-prefix check runs BEFORE the /api/citations/{guid} matcher below,
+  // or that matcher would claim "index" as a guid.
+  if (path === "/api/citations/index") {
+    try {
+      const { buildLegalCrosslinks } = await import("./legal_crosslinks.js");
+      const sections = await loadAllSections();
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(2000, Math.max(1, parseInt(limitParam, 10) || 500)) : 500;
+      const report = buildLegalCrosslinks(sections, { limit });
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Citation cross-linking failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
   // GET /api/citations/:guid — extract legal citations from a section
   const citationsMatch = path.match(/^\/api\/citations\/([a-zA-Z0-9_-]+)$/);
   if (citationsMatch) {
@@ -1720,6 +1741,46 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json(report);
     } catch (err: any) {
       return json({ error: `Ordinance chronology failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/ordinals?limit= — refined ordinal-sequence report
+  //
+  // Phase 10 "ordinal-sequence refinement": the chapter-level ordinal
+  // analysis /api/ordinal-check predates (numeric/suffixed/non-numeric
+  // classification, per-chapter gap walks, explicit outliers). The old
+  // endpoint keeps its published shape; this is the refined report.
+  if (path === "/api/ordinals") {
+    try {
+      const { buildOrdinalRefinement } = await import("./ordinal_refinement.js");
+      const sections = await loadAllSections();
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(500, Math.max(1, parseInt(limitParam, 10) || 100)) : 100;
+      const report = buildOrdinalRefinement(sections, { limit });
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Ordinal refinement failed: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // GET /api/effective-dates?limit=&guid= — derived effective-date field
+  //
+  // Phase 10 effective-date field: the most recent year in each section's
+  // real history line (null when none parses — an explicit empty state, never
+  // a fabricated date). ?guid= narrows to one section.
+  if (path === "/api/effective-dates") {
+    try {
+      const { buildEffectiveDatesReport } = await import("./effective_dates.js");
+      const sections = await loadAllSections();
+      const guidFilter = url.searchParams.get("guid");
+      const scoped = guidFilter ? sections.filter((s) => s.guid === guidFilter) : sections;
+      if (guidFilter && scoped.length === 0) return json({ error: "Unknown section guid" }, 400);
+      const limitParam = url.searchParams.get("limit");
+      const limit = limitParam !== null ? Math.min(3000, Math.max(1, parseInt(limitParam, 10) || 500)) : 500;
+      const report = buildEffectiveDatesReport(scoped, { limit });
+      return json(report);
+    } catch (err: any) {
+      return json({ error: `Effective dates failed: ${publicApiDetail(err.message)}` }, 500);
     }
   }
 

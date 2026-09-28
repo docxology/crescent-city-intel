@@ -140,7 +140,9 @@ llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   provider.ts                   # Explicit Ollama/OpenRouter chat-provider selection
   ollama.ts                     # Ollama API wrapper
   chroma.ts                     # ChromaDB client
-  embeddings.ts                 # Chunking + indexing pipeline
+  embeddings.ts                 # Chunking + per-article incremental indexing into ChromaDB
+  index_plan.ts                 # Pure per-article index planner: what to re-embed, what to delete,
+                                #   and when a full re-embed is mandatory (model/chunking change)
   rag.ts                        # RAG pipeline (embed -> retrieve -> generate)
   streaming_rag.ts              # Provider-native SSE streaming RAG
   openrouter.ts                 # OpenRouter chat/stream client with per-run request cap

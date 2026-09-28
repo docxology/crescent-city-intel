@@ -652,8 +652,17 @@ const SEVERITY_ORDER: Record<AlertSeverity, number> = {
  * mis-report. Immediate life-safety and same-day-disruption sources lead;
  * chronic background conditions (drought, air quality, tides) come last
  * because they are the ones most likely to sit at WARNING for weeks.
+ *
+ * Unlike the rosters, this list is NOT derived from `MONITOR_KEYS` and cannot
+ * be: the order encodes a judgement about consequence, which no mechanical
+ * derivation carries. What IS mechanical is the invariant it must satisfy —
+ * every monitor appears exactly once — so it is exported and
+ * `tests/alert-source-roster.test.ts` asserts coverage. That converts "somebody
+ * remember to append the new monitor here" from a silent behaviour change (an
+ * unlisted monitor sorts last, which is usually benign but is never deliberate)
+ * into a test failure.
  */
-const MONITOR_PRIORITY: readonly string[] = [
+export const MONITOR_PRIORITY: readonly string[] = [
   "tsunami",      // highest consequence, rare
   "earthquake",   // sudden, life-safety
   "wildfire",     // evacuation orders
@@ -666,10 +675,35 @@ const MONITOR_PRIORITY: readonly string[] = [
   "tides",        // chronic, but flood-relevant at the extremes
   "smoke",        // air quality
   "fishing",      // seasonal economic impact
-  "airQuality",
+  "airQuality",   // NB: camelCase — see SEVERITY_MONITOR_KEYS
   "drought",      // multi-year background state
   "uscg",         // Broadcast Notice to Mariners; advisory-class at most
 ];
+
+/**
+ * The keys of the `monitors` record, which is the vocabulary the priority
+ * lookup actually receives.
+ *
+ * Exported so `tests/alert-source-roster.test.ts` can assert the priority list
+ * against the consumer rather than against `MONITOR_KEYS`. They are NOT the
+ * same vocabulary: `MONITOR_KEYS` says `airquality` and this record says
+ * `airQuality`, because the composite input field is camelCase while every
+ * monitor key, history directory and health-record name is lowercase. The two
+ * spellings have always agreed in practice, so the mismatch was invisible —
+ * but a priority list written against either vocabulary silently demotes air
+ * quality to LAST rank, which is a behaviour change nobody would notice in
+ * review. Naming the mismatch here is what makes it a checkable fact.
+ */
+export const SEVERITY_MONITOR_KEYS: readonly string[] = [
+  "tsunami", "earthquake", "weather", "tides", "fishing", "airQuality", "wildfire",
+  "marine", "drought", "psps", "smoke", "roads", "schools", "marinezone", "uscg",
+];
+
+/** Rank of a monitor in `MONITOR_PRIORITY`; unknown names sort last. */
+export function priorityRank(name: string): number {
+  const index = MONITOR_PRIORITY.indexOf(name);
+  return index === -1 ? MONITOR_PRIORITY.length : index;
+}
 
 /**
  * Marine zone forecast input (NWS CWF PZZ450, src/alerts/nws_marine.ts).
@@ -823,8 +857,7 @@ export function computeAlertSeverity(
 
   for (const [name, status] of Object.entries(monitors)) {
     const level = SEVERITY_ORDER[status.level];
-    const priority = MONITOR_PRIORITY.indexOf(name);
-    const rank = priority === -1 ? MONITOR_PRIORITY.length : priority;
+    const rank = priorityRank(name);
     if (level > SEVERITY_ORDER[topLevel] || (level === SEVERITY_ORDER[topLevel] && level > 0 && rank < topPriority)) {
       topLevel = status.level;
       topReason = `${name.charAt(0).toUpperCase() + name.slice(1)}: ${status.summary}`;

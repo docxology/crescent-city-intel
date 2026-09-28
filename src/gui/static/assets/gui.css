@@ -357,6 +357,22 @@
       color: var(--text-secondary);
     }
 
+    /* Cross-reference citation links (§ 8.04.010) in section prose. Use the
+       muted text colour, not --accent: the accent is the newspaper red used for
+       headings and chrome, and a link in that red reads as emphasis rather than
+       navigation. Dotted underline marks it as navigational without competing
+       with the section's own prose. */
+    .section-text a.xref {
+      color: var(--text-primary, inherit);
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      cursor: pointer;
+    }
+
+    .section-text a.xref:hover {
+      text-decoration-style: solid;
+    }
+
     .article-sections {
       margin-top: 24px;
     }

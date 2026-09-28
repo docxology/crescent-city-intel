@@ -11,6 +11,103 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Open items closed: per-article indexing, roster coverage, contract cross-checks, cross-reference links (2026-09-28)
+
+Works the open backlog. Two items were already blocked on an owner decision
+(new monitors — permits/dredging/fuel; marine expansion — PacFIN/AIS — both need
+live-source connectors plus a data-budget call) and are untouched.
+
+#### Per-article incremental indexing
+
+- **`src/llm/index_plan.ts`** — a pure, offline planner for what to re-embed.
+  `indexAllSections` skipped the rebuild only when the WHOLE-corpus chunk
+  fingerprint was unchanged, so any single changed article re-embedded all 3,105
+  chunks of the municipal code. Measured on the real corpus (238 articles):
+  a one-article edit now re-embeds that article's chunks only — **131 at worst,
+  4.2% of the corpus** — and an untouched corpus is a no-op.
+- **The unit of work is the article** because a re-scrape rewrites an article's
+  sections as a group and chunk ids are already namespaced per section.
+- **`configSignature` over the embedding model and chunking parameters.** This is
+  a correctness matter, not a performance one: a per-article fingerprint records
+  only that the *text* is unchanged, so without the signature a model swap would
+  be a silent no-op and the collection would end up holding two models' geometry
+  in one cosine space. A chunk-size change invalidates for the same reason — it
+  changes what a chunk *is*.
+- A schema-1 manifest (the pre-per-article format) is honoured as a full re-embed
+  and its chunk ids are not trusted for deletion. The manifest is written only
+  after every chunk succeeds, so a failed run leaves the previous state intact.
+- The planner is separate from execution precisely so this is testable without a
+  live embedder or vector store: `tests/index-plan.test.ts` (fixtures) and
+  `tests/index-plan-corpus.test.ts` (the real scrape, which also pins the
+  no-op and the model-swap behaviour).
+
+#### Monitor roster coverage
+
+- **`MONITOR_PRIORITY` is exported and asserted for coverage.** It is the one
+  roster that cannot be derived — its order encodes a judgement about consequence
+  that no mechanical rule carries — so the check is membership, plus its first
+  and last entries, plus "no unknown key ranks last". An unlisted monitor sorted
+  LAST: usually benign, never deliberate.
+- **The check found a live vocabulary mismatch.** The composite's `monitors`
+  record spells air quality `airQuality` where every monitor key, history
+  directory and health-record name says `airquality`. Benign today, because the
+  priority list and the record agreed on the camelCase spelling — but a list
+  written against either vocabulary silently demotes air quality to last rank.
+  `SEVERITY_MONITOR_KEYS` now names the record's vocabulary, `priorityRank()` is
+  the single lookup, and a test proves the two vocabularies describe the same set
+  modulo one *declared* alias.
+
+#### Contract cross-checks
+
+- **`tests/geo-observations-contract.test.ts`** — the envelope was stated three
+  times (the TS interface, the Pages validator's hand-written checks, the inline
+  OpenAPI response schema) with nothing proving they agreed. The test reads the
+  OpenAPI property list out of the spec, compares it to a real built envelope,
+  asserts the validator accepts that envelope, and asserts blanking any
+  published property is an error. A negative control (deleting `hazardSummary`
+  from the spec) confirmed the check fails when it should — an earlier draft
+  passed **vacuously** on an empty extraction, which is why the extractor now
+  throws rather than returning an empty list.
+- **`tests/docs-sync.test.ts`** — asserts `docs/architecture.md`'s prose monitor
+  count against `MONITOR_KEYS`, checks every monitor is named, and pins the
+  per-directory `AGENTS.md` files. It found a real gap: the diagram named modules
+  (`ndbc_marine.ts`) but not the source-health names an operator sees on the
+  dashboard ("NDBC Marine"). A module→key→name→path mapping is now stated there,
+  along with the note that the composite record uses a third spelling for air
+  quality.
+- **`docs/api-reference.md` now says what it is.** It is a module-export
+  reference, not a route catalogue, and it never said so — a reader who found a
+  route absent from it could reasonably conclude the route did not exist. It now
+  points at `openapi.yaml` as the authority; a test asserts it never advertises a
+  route the spec does not publish, and another asserts its route rows stay a
+  small minority of the surface so nobody "fixes" it by pasting the route table
+  in. The TODO's premise that this file should carry a route inventory is not
+  satisfiable without creating a third hand-maintained copy of a table the
+  release gate already proves against the implementation.
+
+#### Cross-reference hyperlinking (Phase 2 of the deferred GUI/UX set)
+
+- **`src/gui/static/assets/modules/15-cross-ref-links.js`** turns section
+  citations in the SPA's section prose into in-app links. 853 across the real
+  corpus.
+- **A citation to a section the client has not seen stays plain text.** The
+  index of known section numbers is built from article payloads as they load, so
+  coverage grows with use. Linking speculatively would send a reader to a 404,
+  and one broken link teaches a reader to distrust every link.
+- **The citation shape is `N.NN.NNN` (three segments), and that is measured, not
+  assumed.** Over all 2,206 scraped sections, requiring three or more segments
+  keeps **100% recall of the 486 real citations** while cutting candidate false
+  positives from 810 to 111 — precision 37.5% → 81.4%. The rejected two-segment
+  forms are decimals in ordinary prose ("7.5", "853.5", "29.447"), and every one
+  of the 111 remaining rejects is a TRUE negative: a citation into a different
+  code ("4.04.070") or a deep subsection form absent here ("8.20.020.3").
+- **Two bugs the first draft shipped, both caught by the tests before it left
+  this branch.** The marker had to be matched in *escaped* form — `escapeHtml`
+  turns `§` into `&#167;`, so a pattern matching the raw character would never
+  fire in the browser. And this corpus contains no `§` in section prose at all,
+  so every one of those 853 links comes from the *bare* number form; requiring
+  either a marker or a leading space would have produced nothing.
+
 ### Analytics coverage, severity tiers, and monitor tiles (2026-09-27)
 
 Closes the six-family analytics gap left open by the previous pass, and fixes

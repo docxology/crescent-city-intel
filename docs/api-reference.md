@@ -2,6 +2,18 @@
 
 Complete reference for all exported functions, interfaces, and constants.
 
+> **This is a module reference, not a route catalogue.** It documents what each
+> module exports. The HTTP surface is specified in
+> [`openapi.yaml`](../openapi.yaml) — 65 paths, and the only authority for a
+> route's shape, parameters, and response schema. `bun run validate` proves the
+> spec and the implementation agree in both directions, so if a route is not in
+> `openapi.yaml` it does not exist, and if it is in `openapi.yaml` it is served
+> regardless of whether it appears below. Route rows do appear here where a
+> module's exports are routes, but their presence or absence says nothing about
+> whether the route exists. `GET /api/openapi.yaml` serves the live spec, and
+> `tests/docs-sync.test.ts` asserts this file never advertises a route the spec
+> does not publish.
+
 ## Constants (`src/constants.ts`)
 
 | Constant | Type | Default |
@@ -275,8 +287,19 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `getStats` | `chroma.ts` | `() → Promise<{count, name}>` | Collection stats |
 | `isChromaRunning` | `chroma.ts` | `() → Promise<boolean>` | ChromaDB health check |
 | `isIndexed` | `embeddings.ts` | `() → Promise<boolean>` | Check if collection has documents |
-| `indexAllSections` | `embeddings.ts` | `() → Promise<void>` | Chunk + embed + store all sections |
+| `indexAllSections` | `embeddings.ts` | `() → Promise<void>` | Chunk, embed, and store every section — **per-article incremental**: only articles whose chunk fingerprint moved are re-embedded, and stale chunks are deleted first |
 | `ragQuery` | `rag.ts` | `(userQuestion) → Promise<RagResponse>` | Full RAG pipeline |
+
+**From `src/llm/index_plan.ts`** (pure; no filesystem, network, or vector store):
+
+| Export | Signature | Description |
+| :--- | :--- | :--- |
+| `planIncrementalIndex` | `(articles, previous, configSignature, existingIds?) → IndexPlan` | Which articles to re-embed, which chunk ids to delete, and whether a full re-embed is mandatory. Derived from per-article fingerprints plus a `configSignature` covering the embedding model and chunking parameters |
+| `buildIndexManifest` | `({articles, configSignature, embeddingModel, source, generatedAt?}) → Promise<IndexManifest>` | Schema-2 manifest carrying the per-article map, the corpus fingerprint, and the config signature |
+| `chunksForArticle` | `(section, chunkText) → PlannedChunk[]` | One section's chunks, ids namespaced `guid_index`, metadata carrying section and article identity |
+| `fingerprintChunks` | `(chunks) => Promise<string>` | SHA-256 over a chunk set's ids and texts |
+| `indexConfigSignature` | `({embeddingModel, chunkSize, chunkOverlap}) → string` | The signature that decides whether stored vectors are still meaningful. A model swap is a **correctness** matter, not a performance one: a per-article fingerprint records only that the *text* is unchanged, so without the signature a model change would be a silent no-op and the collection would hold two models' geometry in one cosine space |
+| `INDEX_MANIFEST_SCHEMA` | `const` | `2` |
 
 ## Curation (`src/curation.ts`)
 

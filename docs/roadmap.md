@@ -157,6 +157,32 @@ onto v2.7.0. Full inventory in `CHANGELOG.md`.
 - ✅ **The release gate verifies every OpenAPI `$ref` resolves** and that the
   published alert-type enum matches `ALERT_TYPES`.
 
+### Open backlog pass (2026-09-28)
+
+Five of the seven open items closed; two need an owner decision and are
+untouched. Full narrative in `CHANGELOG.md`.
+
+- ✅ **Per-article incremental re-embedding** (`src/llm/index_plan.ts`) — a
+  one-article edit re-embeds that article's chunks, 131 at worst, instead of
+  all 3,105. The plan is pure and offline-testable, and carries a
+  `configSignature` so an embedding-model swap still forces a full re-embed:
+  without it, per-article fingerprints would match and the collection would hold
+  two models' geometry in one cosine space.
+- ✅ **Monitor rosters derived, not restated** — `MONITOR_PRIORITY` exported and
+  coverage-asserted. That found a live vocabulary mismatch: the composite's
+  `monitors` record spells air quality `airQuality` where every other roster says
+  `airquality`, and the two only agreed by coincidence.
+- ✅ **The geo-observations envelope is cross-checked** across its three
+  statements (TS interface, Pages validator, OpenAPI schema).
+- ✅ **Docs say what they are** — `architecture.md` gained a module→key→name
+  mapping, and `api-reference.md` now states that it is a module reference and
+  points at the spec for routes.
+- ✅ **Cross-reference hyperlinking in section prose** (Phase 2 of the GUI set) —
+  853 links across the corpus, at 100% recall of real citations and 81.4%
+  precision, with unknown targets left as plain text rather than linked to a 404.
+- ⏸ **New monitors (permits/dredging/fuel) and marine expansion (PacFIN/AIS)**
+  need live-source connectors and an owner decision on data budgets.
+
 ### Open
 
 Item-level tracking lives in [TODO.md](../TODO.md), which holds the

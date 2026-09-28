@@ -52,6 +52,9 @@
 
     // Init
     async function init() {
+      // One delegated listener for citation links, installed before the first
+      // render so a click on a link in the very first article is handled.
+      ccInitCrossRefLinks();
       await loadToc();
       await loadStats();
     }
@@ -216,6 +219,11 @@
         const article = await resp.json();
         activeGuid = guid;
 
+        // Teach the cross-reference linker which section numbers exist. A
+        // citation is only linked once the client has actually seen its target,
+        // so a reader never clicks a link to a section that is not there.
+        ccRememberArticleSections(article);
+
         let html = `<div class="section-header">
           <h2>${article.number ? article.number + ": " : ""}${article.title}</h2>
         </div>`;
@@ -224,7 +232,7 @@
         for (const s of article.sections) {
           html += `<div class="article-section" id="section-${s.guid}">
             <h3>${s.number}: ${s.title}</h3>
-            <div class="section-text">${escapeHtml(s.text)}</div>
+            <div class="section-text">${ccLinkifyCrossRefs(escapeHtml(s.text))}</div>
             ${s.history ? `<div class="section-history">${escapeHtml(s.history)}</div>` : ""}
             <button class="summarize-btn" onclick="summarizeSection('${s.guid}', this)" data-number="${escapeHtml(s.number)}" data-title="${escapeHtml(s.title)}">✨ Summarize</button>
             <div id="summary-${s.guid}"></div>
@@ -273,7 +281,7 @@
             </div>
           </div>
           <div class="section-body">
-            <div class="section-text">${escapeHtml(section.text)}</div>
+            <div class="section-text">${ccLinkifyCrossRefs(escapeHtml(section.text))}</div>
             ${section.history ? `<div class="section-history">${escapeHtml(section.history)}</div>` : ""}
             <button class="summarize-btn" onclick="summarizeSection('${guid}', this)" data-number="${escapeHtml(section.number)}" data-title="${escapeHtml(section.title)}">✨ Summarize</button>
             <div id="summary-${guid}"></div>

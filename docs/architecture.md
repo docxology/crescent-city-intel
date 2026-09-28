@@ -60,6 +60,40 @@ Real-Time Intelligence Layer (15 monitors: 8 core + 7 extended):
 │  severity.ts       15-monitor composite│
 └──────────────────────────────────────┘
 
+Each monitor is published under a `source` name in
+`output/alerts/source-health.json`, and that name — not the module filename — is
+what the GUI tiles, the heatmap rows, the coverage percentages and the pages
+dashboard display. The two vocabularies are easy to confuse, so the mapping is
+stated here rather than left to be inferred:
+
+| Module | `MONITOR_KEYS` key | Source-health name | Output |
+| :--- | :--- | :--- | :--- |
+| `noaa_tsunami.ts` | `tsunami` | NOAA Tsunami | `output/alerts/tsunami/` |
+| `usgs_earthquake.ts` | `earthquake` | USGS Earthquake | `output/alerts/earthquake/` |
+| `nws_weather.ts` | `weather` | NWS Weather | `output/alerts/weather/` |
+| `epa_airnow.ts` | `airquality` | EPA AirNow | `output/alerts/airquality/` |
+| `calfire_wildfire.ts` | `wildfire` | CAL FIRE Wildfire | `output/alerts/wildfire/` |
+| `ndbc_marine.ts` | `marine` | NDBC Marine | `output/alerts/marine/` |
+| `nws_marine.ts` | `marinezone` | NWS Marine Forecast | `output/alerts/marinezone/` |
+| `noaa_tides.ts` | `tides` | NOAA Tides | `output/tides/` |
+| `cdfw_fishing.ts` | `fishing` | CDFW Fishing | `output/fishing/` |
+| `usdm_drought.ts` | `drought` | USDM Drought | `output/alerts/drought/` |
+| `pge_psps.ts` | `psps` | PG&E PSPS | `output/alerts/psps/` |
+| `hrrr_smoke.ts` | `smoke` | HRRR Smoke | `output/alerts/smoke/` |
+| `caltrans_roads.ts` | `roads` | Caltrans Roads | `output/alerts/roads/` |
+| `dusd_schools.ts` | `schools` | DUSD Schools | `output/alerts/schools/` |
+| `uscg_broadcasts.ts` | `uscg` | USCG Broadcast Notice to Mariners | `output/alerts/uscg/` |
+
+Two monitors write outside `output/alerts/`: tides and fishing, which keep their
+own top-level directories because their history predates the alerts layout. A
+third vocabulary exists in the composite's `monitors` record, which spells air
+quality `airQuality` (camelCase) where everything else says `airquality`;
+`SEVERITY_MONITOR_KEYS` in `src/alerts/severity.ts` names it and
+`tests/alert-source-roster.test.ts` asserts all three agree.
+
+`MONITOR_KEYS` in `src/alerts/composite.ts` is the canonical roster. Every other
+list derives from it or is asserted against it — see `src/alerts/AGENTS.md`.
+
 Structured Query + Legal Analysis (v2.0):
 ┌──────────────────────────────────────┐
 │ structured_queries.ts                │

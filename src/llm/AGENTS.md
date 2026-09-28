@@ -15,7 +15,8 @@ streaming and explicit provider/freshness diagnostics.
 | `openrouter.ts` | OpenRouter chat, native SSE, rate cap, and non-generative preflight | `tests/llm-openrouter.test.ts` |
 | `provider.ts` | Explicit selected chat-provider routing and model/preflight metadata | `tests/llm-provider.test.ts`, `tests/llm-openrouter.test.ts` |
 | `chroma.ts` | ChromaDB client wrapper (add, query, stats) | Manual only (requires ChromaDB) |
-| `embeddings.ts` | Chunking pipeline + bulk indexing into ChromaDB | `tests/embeddings.test.ts` |
+| `embeddings.ts` | Chunking pipeline + per-article incremental indexing into ChromaDB | `tests/embeddings.test.ts`, `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts` |
+| `index_plan.ts` | Pure per-article index planner: what to re-embed, what to delete, and when a full re-embed is mandatory | `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts` |
 | `rag.ts` | RAG pipeline: Ollama embedding → query ChromaDB → configured-provider chat | Manual only |
 | `streaming_rag.ts` | Provider-native SSE streaming RAG with citations and cancellation | Manual only |
 | `index.ts` | CLI entry point: `index`, `chat`, `query`, `status` commands | Manual only |
@@ -28,7 +29,23 @@ streaming and explicit provider/freshness diagnostics.
 ## Key Patterns
 
 - `llmConfig` object centralizes all tunable parameters (URLs, model names, chunk size, overlap, topK).
-- `indexAllSections()` uses a content fingerprint and removes stale chunks before skipping an unchanged index.
+- **Incremental indexing is per ARTICLE, not per corpus.** `index_plan.ts` holds
+  the decision logic and is pure — no filesystem, no network, no vector store —
+  so it is testable with fixtures. `indexAllSections()` delegates to it.
+  - The unit of work is the article because a re-scrape rewrites an article's
+    sections as a group, and chunk ids are already namespaced per section.
+  - On this corpus (238 articles, 3,105 chunks) a single-article edit re-embeds
+    that article's chunks only — 131 at worst, 4.2% — where the previous
+    whole-corpus fingerprint re-embedded all 3,105.
+  - `configSignature` covers the embedding model and the chunking parameters.
+    **A model swap is a correctness matter, not a performance one:** a
+    per-article fingerprint only records that the *text* is unchanged, so
+    without the signature a model change would be a silent no-op and the
+    collection would hold two models' geometry in one cosine space.
+  - A schema-1 manifest (the pre-per-article format) is honoured as a full
+    re-embed, and its chunk ids are not trusted for deletion.
+  - The manifest is written only after every chunk succeeds, so a failed run
+    leaves the previous state intact and the next run redoes the work.
 - `ragQuery()` returns both the answer text and source documents with relevance scores, plus query ID, context fingerprint, grounding flag, and provider/model lineage.
 - `checkChatProvider()` verifies the selected chat provider; OpenRouter uses a
   bounded `/models` preflight without consuming a chat completion, while Ollama

@@ -80,6 +80,49 @@ describe("the 14-monitor roster", () => {
     expect([...ALERT_TYPES]).toEqual([...order]);
   });
 
+  test("MONITOR_PRIORITY covers the severity record exactly once", async () => {
+    // The one roster that cannot be derived, because its order encodes a
+    // judgement about consequence rather than a mechanical fact. The coverage
+    // invariant is mechanical though, and an unlisted monitor sorts LAST — which
+    // is usually benign but is never deliberate, so it should fail here instead
+    // of quietly changing which monitor wins the headline slot.
+    //
+    // Asserted against SEVERITY_MONITOR_KEYS, not MONITOR_KEYS: the priority
+    // lookup receives the `monitors` record's keys, and that vocabulary differs
+    // from the monitor-key vocabulary in exactly one place (`airQuality` vs
+    // `airquality`). Checking against the wrong one is how the list silently
+    // demotes air quality to last rank.
+    const { MONITOR_PRIORITY, SEVERITY_MONITOR_KEYS, priorityRank } = await import("../src/alerts/severity.ts");
+    expect([...MONITOR_PRIORITY].sort()).toEqual([...SEVERITY_MONITOR_KEYS].sort());
+    // No duplicates, which would make the second entry's rank unreachable.
+    expect(new Set(MONITOR_PRIORITY).size).toBe(SEVERITY_MONITOR_KEYS.length);
+    // Every record key resolves to a real rank, never the "unknown, last" one.
+    for (const key of SEVERITY_MONITOR_KEYS) {
+      expect(`${key} rank ${priorityRank(key)}`).not.toBe(`${key} rank ${MONITOR_PRIORITY.length}`);
+    }
+    // Life-safety first and chronic background last: the ordering is the feature,
+    // so pin its two ends rather than only its membership.
+    expect(MONITOR_PRIORITY[0]).toBe("tsunami");
+    expect(MONITOR_PRIORITY).toContain("schools");
+    for (const chronic of ["drought", "airQuality", "fishing"]) {
+      expect(MONITOR_PRIORITY.indexOf(chronic)).toBeGreaterThan(MONITOR_PRIORITY.indexOf("schools"));
+    }
+  });
+
+  test("the severity record and the monitor-key roster name the same monitors", async () => {
+    // The two vocabularies differ in SPELLING for air quality. Assert they
+    // describe the same set modulo that one alias, so a real divergence (a
+    // monitor renamed on one side only) cannot hide inside the alias.
+    const { SEVERITY_MONITOR_KEYS } = await import("../src/alerts/severity.ts");
+    const ALIAS: Record<string, string> = { airQuality: "airquality" };
+    const normalized = SEVERITY_MONITOR_KEYS.map(key => ALIAS[key] ?? key).sort();
+    expect(normalized).toEqual([...MONITOR_KEYS].sort());
+    // And every key that needed an alias is declared, so the alias table cannot
+    // grow a second, undocumented entry.
+    const unaliased = SEVERITY_MONITOR_KEYS.filter(key => !MONITOR_KEYS.includes(key));
+    expect([...unaliased].sort()).toEqual(Object.keys(ALIAS).sort());
+  });
+
   test("the GUI source map names the runner's own sources, one per type", async () => {
     // ALERT_SOURCE_BY_TYPE's values must BE the `source` fields in
     // output/alerts/source-health.json. It is a hand-maintained map (the GUI

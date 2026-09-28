@@ -2197,16 +2197,19 @@ components:
       in: path
       required: true
       description: >-
-        One of the 14 alert-monitor families. All fourteen are analysed: the
+        One of the 15 alert-monitor families. All fifteen are analysed: the
         eight hazard-core monitors (tsunami, earthquake, weather, airquality,
-        wildfire, marine, tides, fishing) and the six extended civic monitors
-        (marinezone, drought, psps, smoke, roads, schools). A type with no
+        wildfire, marine, tides, fishing) and the seven extended monitors
+        (marinezone, drought, psps, smoke, roads, schools, uscg). A type with no
         recorded history is still a valid type and returns an empty page.
+        `bun run validate` asserts this enum equals `ALERT_TYPES`, so a monitor
+        cannot be added to the roster while this contract still advertises the
+        old set.
       schema:
         type: string
         enum:
           [tsunami, earthquake, weather, airquality, wildfire, marine, marinezone,
-           tides, fishing, drought, psps, smoke, roads, schools]
+           tides, fishing, drought, psps, smoke, roads, schools, uscg]
   schemas:
     TocItem:
       type: object

@@ -135,6 +135,13 @@ describe("the deterministic suite is not the only check on the alert roster", ()
 
   test("the alerts directory still holds one subdirectory per monitor key", () => {
     // Disk-level confirmation that the roster and the artifact tree agree.
+    //
+    // A monitor is allowed to be ABSENT: `output/` is a build artifact, and a
+    // monitor added but not yet run on this host legitimately has no directory
+    // yet. What must not happen is the inverse — a directory that no key claims,
+    // which is how a renamed or retired monitor leaves an orphan nobody notices.
+    // Asserting the forward direction instead made this test fail the moment
+    // `uscg` was added, before its first run.
     let dirs: string[] = [];
     try {
       dirs = readdirSync(join(root, "output", "alerts"), { withFileTypes: true })
@@ -143,9 +150,9 @@ describe("the deterministic suite is not the only check on the alert roster", ()
     } catch {
       return; // no corpus on this host; the pure-module tests cover the contract
     }
-    for (const source of CORRELATION_SOURCES) {
-      if (source === "fishing" || source === "tides") continue;
-      expect(dirs).toContain(source);
-    }
+    const claimed = new Set<string>(CORRELATION_SOURCES);
+    // `composite` holds the derived severity report, not a monitor's own output.
+    const orphans = dirs.filter(dir => dir !== "composite" && !claimed.has(dir));
+    expect(`unclaimed alert directories: ${orphans.join(", ")}`).toBe("unclaimed alert directories: ");
   });
 });

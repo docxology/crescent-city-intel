@@ -19,7 +19,7 @@ bill of health. Suite: 1451 pass / 0 fail.
 
 #### Added
 
-- **All 14 alert families are analysed.** `ALERT_TYPES` covered 8 of the 14
+- **Every alert family is analysed.** `ALERT_TYPES` covered 8 of the 14
   monitors, so road closures, school closures, PSPS, smoke plumes, drought
   transitions and the coastal-waters forecast never appeared in
   `/api/alerts/timeline`, `typeStats`, the GUI heatmap, the insight brief, the
@@ -35,7 +35,8 @@ bill of health. Suite: 1451 pass / 0 fail.
 - **The heatmap has 14 rows**; the browser smoke derives its expected shape from
   `ALERT_TYPES` and `ALERT_TREND_DAYS` rather than hardcoding `8x14`, so a
   six-row heatmap that dropped the civic monitors can no longer pass.
-- **The SPA's hand-written monitor and icon maps cover all 14**, asserted
+- **The SPA's hand-written monitor and icon maps cover every monitor** (14 at
+  the time; 15 once v2.7.0 added USCG broadcasts), asserted
   against the roster — that HTML cannot import it, so those copies were the
   drift risk.
 - **`openapi.yaml` documents the 14-member type enum** and moves `typeParam` to a
@@ -76,7 +77,8 @@ bill of health. Suite: 1451 pass / 0 fail.
   monitor because 'e' sorts after 'c' — so once any M4+ event was recorded, the
   single-event wrapper (no `level`, no `summary`) was rendered instead of
   `current.json`. Now prefers `current.json` explicitly.
-- **`GET /api/monitor/alerts` served 8 of 14 monitors** and read cwd-relative
+- **`GET /api/monitor/alerts` served 8 of the 14 monitors it predated** and read
+  cwd-relative
   paths. Now derived from `MONITOR_KEYS` and resolved through `outputRoot()`.
 
 #### Changed
@@ -91,7 +93,8 @@ bill of health. Suite: 1451 pass / 0 fail.
 
 ### Correctness pass: false-safety signals, roster drift, determinism (2026-09-26)
 
-A review of all 14 alert monitors and the corpus-intelligence layer. The
+A review of the alert monitors (14 at the time; v2.7.0 later added USCG
+broadcasts as #15) and the corpus-intelligence layer. The
 recurring theme: an outage or an unusual input produced a *plausible but wrong*
 answer — a clean bill of health where there should have been a gap, a value
 read from the wrong field, or a report that was not reproducible. Also fixes a
@@ -188,7 +191,7 @@ crash that made every live alert run fail.
   AirFire, and QuickMap all now 404 or serve an SPA shell).
 - **`CORRELATION_SOURCES` omitted `marinezone`**, which does write
   `history.jsonl` — under-reporting `sourcesScanned` and meaning the
-  `weather-marine` pair read the buoy monitor only. Now scans all 14.
+  `weather-marine` pair read the buoy monitor only. Now scans every monitor.
 - **`EXTENDED_MONITOR_SPECS` named two fields that do not exist**
   (`smoke.forecast` vs `forecasts`, `schools.items` vs `events`), so both
   reported `itemCount: 0` forever and were classified `empty` — which counts as
@@ -332,7 +335,7 @@ health. Replayed onto v2.7.0, which added the USCG broadcast monitor (#15).
 
 #### Added
 
-- **All 15 alert families are analysed.** `ALERT_TYPES` covered 8 of the 14
+- **Every alert family is analysed.** `ALERT_TYPES` covered 8 of the 14
   monitors, so road closures, school closures, PSPS, smoke plumes, drought
   transitions and the coastal-waters forecast never appeared in
   `/api/alerts/timeline`, `typeStats`, the GUI heatmap, the insight brief, the
@@ -377,8 +380,8 @@ health. Replayed onto v2.7.0, which added the USCG broadcast monitor (#15).
   monitor because 'e' sorts after 'c' — so once any M4+ event was recorded, the
   single-event wrapper (no `level`, no `summary`) was rendered instead of
   `current.json`.
-- **`GET /api/monitor/alerts` served 8 of 14 monitors** and read cwd-relative
-  paths. Now derived from `MONITOR_KEYS` and resolved through `outputRoot()`.
+- **`GET /api/monitor/alerts` served 8 of the 14 monitors it predated** and read
+  cwd-relative paths. Now derived from `MONITOR_KEYS` and resolved through `outputRoot()`.
 - **Health records named three dead endpoints.** PG&E's exported JSON constant
   404s, AirFire's 404s, and QuickMap's serves an SPA shell; the health `url`
   now names the endpoint each monitor actually calls.

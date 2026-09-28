@@ -133,7 +133,6 @@ describe("extended monitors reach the composite severity", () => {
     expect(advisory.monitors.uscg.level).toBe("WATCH");
     expect(advisory.monitors.uscg.availability).toBeUndefined();
   });
-  });
 });
 
 describe("the mapping is honest about what the monitors reported", () => {

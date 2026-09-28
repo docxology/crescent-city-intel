@@ -134,6 +134,7 @@ gui/                            # Bun.serve HTTP server (port 3000)
   semantic_search.ts            # Chroma vector search with BM25 fallback
   analytics.ts                  # PCA, K-Means, word loadings
   alert_trends.ts               # Per-type trend bars + all-monitor heatmap
+  annotations.ts                # Bounded JSON wildfire-map annotation store (GET/POST/DELETE /api/annotations)
   static/index.html             # Single-page app (no framework)
 llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   config.ts                     # LLM configuration

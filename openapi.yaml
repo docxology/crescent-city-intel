@@ -1591,6 +1591,67 @@ paths:
                   reason: {type: string}
         '404': {description: No composite severity data available}
 
+  /api/annotations:
+    get:
+      summary: Wildfire-map annotations
+      description: User-anchored notes over the wildfire distance-band map, persisted in a bounded JSON artifact (oldest-first eviction past the 200-note bound).
+      operationId: listAnnotations
+      tags: [Alerts]
+      responses:
+        '200':
+          description: Annotation list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  surface: {type: string}
+                  count: {type: integer}
+                  total: {type: integer}
+                  droppedPastBound: {type: integer}
+                  annotations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: string}
+                        surface: {type: string}
+                        x: {type: number}
+                        y: {type: number}
+                        text: {type: string}
+                        createdAt: {type: string, format: date-time}
+    post:
+      summary: Anchor a note to the wildfire map
+      operationId: addAnnotation
+      tags: [Alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [x, y, text]
+              properties:
+                x: {type: number, description: Percent of canvas width (0-100)}
+                y: {type: number, description: Percent of canvas height (0-100)}
+                text: {type: string, maxLength: 500}
+      responses:
+        '201': {description: Annotation stored}
+        '400': {description: Invalid annotation payload}
+    delete:
+      summary: Remove one annotation by id
+      operationId: deleteAnnotation
+      tags: [Alerts]
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200': {description: Annotation removed}
+        '400': {description: Missing or malformed id}
+        '404': {description: Unknown annotation id}
+
   /api/chat/stream:
     post:
       summary: Streaming RAG chat (SSE)

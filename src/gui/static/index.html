@@ -121,6 +121,40 @@
           <p style="color:var(--text-muted, #888);">Loading correlations…</p>
         </div>
       </section>
+      <section class="alert-trends-shell" aria-labelledby="aq-widget-title" id="aq-widget">
+        <div class="alert-trends-header">
+          <div>
+            <h3 id="aq-widget-title">Air Quality</h3>
+            <p>Current EPA AirNow AQI for Crescent City (ZIP 95531), with the recent recorded trend.</p>
+          </div>
+        </div>
+        <div id="aq-widget-content" role="region" aria-label="Air quality widget" aria-live="polite">
+          <p style="color:var(--text-muted, #888);">Loading air quality…</p>
+        </div>
+      </section>
+      <section class="alert-trends-shell" aria-labelledby="wildfire-map-title" id="wildfire-map-section">
+        <div class="alert-trends-header">
+          <div>
+            <h3 id="wildfire-map-title">Wildfire map</h3>
+            <p>CAL FIRE incidents placed by real distance from Crescent City. The bearing angle is layout only — the source data carries distance, not a geographic coordinate.</p>
+          </div>
+        </div>
+        <div id="wildfire-map-content" role="region" aria-label="Wildfire incident map" aria-live="polite">
+          <p style="color:var(--text-muted, #888);">Loading wildfire map…</p>
+        </div>
+        <div id="wildfire-annotations">
+          <div class="alert-trends-header" style="margin-top:12px">
+            <div><h4 id="wildfire-annotations-title" style="margin:0;">Map annotations</h4>
+            <p>Click a point on the map, write a note, and save. Notes are stored server-side, capped at 200 (oldest dropped first).</p></div>
+          </div>
+          <form id="annotation-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="text" id="annotation-text" placeholder="Note text (click the map first to place the anchor)" maxlength="500" style="flex:1;min-width:220px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;">
+            <button class="btn" id="annotation-save" type="submit">Save note</button>
+          </form>
+          <p id="annotation-place-indicator" role="status" aria-live="polite" style="color:var(--text-muted, #888);margin:0.4rem 0 0 0;"></p>
+          <div id="annotation-list"></div>
+        </div>
+      </section>
       <h3 style="margin:1.5rem 0 0.5rem 0;">📈 Alert Timeline</h3>
       <div id="alert-timeline-content">
         <p style="color:var(--text-muted, #888);">Loading...</p>
@@ -379,6 +413,7 @@
   <script src="assets/modules/130-readability.js"></script>
   <script src="assets/modules/100-overlay-tabs.js"></script>
   <script src="assets/modules/140-fuzzy-keys.js"></script>
+<script src="assets/modules/145-phase9-hazards.js"></script>
 </body>
 
 </html>

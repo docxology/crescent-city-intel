@@ -11,6 +11,7 @@ Lightweight Bun HTTP server serving a single-page application for browsing, sear
 | `server.ts` | `Bun.serve()` entry point on port 3000 | Manual only |
 | `routes.ts` | API route handler (`/api/toc`, `/api/search`, `/api/article/:guid`, etc.) | `tests/routes.test.ts` |
 | `search.ts` | In-memory full-text search engine over sections | `tests/search.test.ts` |
+| `annotations.ts` | Bounded JSON wildfire-map annotation store (GET/POST/DELETE `/api/annotations`) | `tests/phase9-hazard-surfaces.test.ts` |
 | `semantic_search.ts` | Ollama-embed + ChromaDB semantic search with BM25 fallback (`/api/search/semantic`) | `tests/semantic-search.test.ts` |
 | `analytics.ts` | Code statistics, PCA projection, K-means clustering | `tests/analytics.test.ts` |
 | `alert_trends.ts` | Pure UTC-day alert trend buckets + heatmap intensity for the Alerts panel | `tests/alert-trends.test.ts` |

@@ -6,7 +6,7 @@ and nothing fails when it drifts.
 
 | Workflow | Trigger | Job | What it decides |
 | :--- | :--- | :--- | :--- |
-| `pr-gate.yml` | `pull_request` to main, non-main pushes, manual | Fast gate | Whether a change may merge. Offline contract checks + affected tests. |
+| `pr-gate.yml` | `pull_request` to main, manual | Fast gate | Whether a change may merge. Offline contract checks + affected tests. Deliberately no push trigger: same-repo branch pushes with an open PR already fire `pull_request`, so a push trigger double-runs the gate per commit. |
 | `pages.yml` | `push` to main, weekly, manual | Publish | Whether the public snapshot may ship. Runs the FULL release gate. |
 | `weekly.yml` | weekly, manual | Health check / verify / scrape | The intelligence cycle. |
 

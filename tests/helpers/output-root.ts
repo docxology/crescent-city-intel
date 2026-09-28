@@ -113,8 +113,21 @@ export async function beginCorpusCopy(options: { seed?: boolean } = {}): Promise
     // hook timeouts (2026-08-31). The cache is refreshed once per process
     // when the source's newest mtime moves ahead of the cached snapshot.
     if (!corpusCacheRoot) await ensureCorpusCache(source);
-    if (corpusCacheRoot) await cp(corpusCacheRoot, root, { recursive: true });
-    else await cp(source, root, { recursive: true });
+    if (corpusCacheRoot) {
+      // The cache dir is shared with concurrent suite processes (CI lanes,
+      // sibling worktrees), and any of them may prune a stamp dir between our
+      // cache selection and this copy. A vanished cache is a cache miss, not
+      // a failure: fall back to a direct copy and clear the stale pointer so
+      // the next caller rebuilds it.
+      try {
+        await cp(corpusCacheRoot, root, { recursive: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        corpusCacheRoot = null;
+        corpusCacheStamp = "";
+        await cp(source, root, { recursive: true });
+      }
+    } else await cp(source, root, { recursive: true });
   }
   previousEnv = process.env.CC_OUTPUT_DIR;
   process.env.CC_OUTPUT_DIR = root;

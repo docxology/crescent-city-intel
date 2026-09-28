@@ -949,6 +949,53 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
   }
 
+  // ─── Phase 9: wildfire-map annotations ──────────────────────
+
+  // GET /api/annotations — persisted wildfire-map annotation notes
+  if (path === "/api/annotations" && req?.method !== "POST" && req?.method !== "DELETE") {
+    try {
+      const { readAnnotationStore } = await import("./annotations.js");
+      const store = readAnnotationStore();
+      return json({
+        surface: "wildfire-map",
+        count: store.annotations.length,
+        total: store.annotations.length,
+        droppedPastBound: store.droppedPastBound,
+        annotations: store.annotations,
+      });
+    } catch (err: any) {
+      return json({ error: `Failed to read annotations: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // POST /api/annotations — anchor a note to the wildfire map
+  if (path === "/api/annotations" && req?.method === "POST") {
+    try {
+      const { validateAnnotationInput, addAnnotation } = await import("./annotations.js");
+      const body = await req.json().catch(() => null);
+      const validated = validateAnnotationInput(body);
+      if (!validated.ok) return json({ error: validated.error }, 400);
+      const annotation = await addAnnotation(validated.value);
+      return json({ annotation }, 201);
+    } catch (err: any) {
+      return json({ error: `Failed to save annotation: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
+  // DELETE /api/annotations?id=... — remove one annotation
+  if (path === "/api/annotations" && req?.method === "DELETE") {
+    try {
+      const id = url.searchParams.get("id") ?? "";
+      const { isWellFormedAnnotationId, deleteAnnotation } = await import("./annotations.js");
+      if (!isWellFormedAnnotationId(id)) return json({ error: "A valid annotation id is required" }, 400);
+      const removed = await deleteAnnotation(id);
+      if (!removed) return json({ error: `No annotation with id "${id}"` }, 404);
+      return json({ removed: true, id });
+    } catch (err: any) {
+      return json({ error: `Failed to delete annotation: ${publicApiDetail(err.message)}` }, 500);
+    }
+  }
+
   // GET /api/openapi.yaml — OpenAPI specification
   if (path === "/api/openapi.yaml") {
     try {

@@ -26,11 +26,14 @@ name: Pull Request Gate
 on:
   pull_request:
     branches: [main]
-  # Also run for branch pushes so a contributor pushing to a fork-hosted branch
-  # gets the same signal without opening a PR first.
-  push:
-    branches-ignore: [main]
   workflow_dispatch:
+
+# Why there is no push trigger here: GitHub fires `pull_request` for pushes to
+# same-repo branches that have an open PR, so a push trigger on non-main
+# branches DOUBLE-RUNS the gate for every PR update — two full runs for one
+# commit (observed 2026-09-28: runs 36493022313 + 36493083346 for one push).
+# A branch pushed without a PR yet is unmerged-by-definition, so nothing
+# merges un-gated; opening the PR runs the gate.
 
 permissions:
   contents: read

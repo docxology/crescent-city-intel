@@ -295,3 +295,11 @@ state, never a throw.
 ## `src/browser_smoke.ts` — Real-Browser Smoke Test
 
 Boots the actual GUI server and drives it with Playwright Chromium: page load, tab switching, search, and alert-panel render checks against the real static assets. Not part of the deterministic suite (requires a browser); run via `bun run test:browser`.
+
+## `src/gui/annotations.ts` — Map Annotation Persistence (Phase 9)
+
+User-anchored map annotations for the wildfire map's distance bands: notes are
+persisted server-side in a bounded JSON artifact under `output/state/`
+(`annotations.json`, written atomically), following the bounded-storage
+precedent of `readability_history.ts`. Browser side lives in
+`gui/static/assets/modules/145-phase9-hazards.js`.

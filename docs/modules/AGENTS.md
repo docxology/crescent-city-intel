@@ -12,7 +12,7 @@ Per-module documentation. Each file covers one logical component of the system.
 | `verification.md` | `verify.ts` |
 | `export.md` | `export.ts` |
 | `pages.md` | `pages_snapshot.ts`, `pages_css.ts`, `pages_scan.ts`, `pages_validation.ts`, `pages_seed.ts`, `scripts/export-pages.ts`, `scripts/validate-pages.ts` |
-| `gui.md` | `gui/server.ts`, `gui/routes.ts`, `gui/docs_dashboard.ts`, `gui/search.ts`, `gui/semantic_search.ts`, `gui/analytics.ts`, `gui/browser_smoke.ts`, `gui/static/index.html` |
+| `gui.md` | `gui/server.ts`, `gui/routes.ts`, `gui/docs_dashboard.ts`, `gui/annotations.ts`, `gui/search.ts`, `gui/semantic_search.ts`, `gui/analytics.ts`, `gui/browser_smoke.ts`, `gui/static/index.html` |
 | `llm.md` | `llm/config.ts`, `llm/provider.ts`, `llm/ollama.ts`, `llm/openrouter.ts`, `llm/chroma.ts`, `llm/embeddings.ts`, `llm/index_plan.ts`, `llm/rag.ts`, `llm/streaming_rag.ts`, `llm/index.ts` |
 | `shared.md` | `shared/paths.ts`, `shared/source_health.ts`, `shared/data.ts`, `shared/idempotency.ts`, `shared/orchestration.ts`, `shared/output_fence.ts`, `shared/porter_stem.ts`, `shared/readability.ts`, `shared/fuzzy.ts` |
 | `logger.md` | `logger.ts` |

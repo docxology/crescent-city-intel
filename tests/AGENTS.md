@@ -32,6 +32,7 @@ bun test --watch      # Watch mode
 | `manuscript.test.ts` | `src/manuscript_variables.ts` — publication values derive from the analytics envelope |
 | `routes*.test.ts` | `src/gui/routes.ts` — route contracts and real server integration |
 | `gui-server.test.ts` | `src/gui/server.ts` — trusted local API-key injection boundary |
+| `gui-plain-language.test.ts` | Phase 7 plain-language rewrite: user-facing GUI copy strings, empty states, and jargon bans across `src/gui/static/` |
 | `embeddings.test.ts` | `src/llm/embeddings.ts` — deterministic chunking |
 | `export.test.ts` | `src/export.ts` — CSV, Markdown, and filename safety |
 | `content*.test.ts` | `src/content.ts` — HTML extraction, readability, fixtures, and SHA-256 |

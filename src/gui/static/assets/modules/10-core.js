@@ -65,7 +65,7 @@
         tocData = await resp.json();
         renderToc(tocData, tocTree, 0);
       } catch (e) {
-        tocTree.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">Failed to load TOC. Run the scraper first.</div>';
+        tocTree.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">Could not load the table of contents. Run the scraper first (bun run scrape).</div>';
       }
     }
 
@@ -75,7 +75,7 @@
         const stats = await resp.json();
         document.getElementById("stat-articles").textContent = `Articles: ${stats.articleCount}`;
         document.getElementById("stat-sections").textContent = `Sections: ${stats.sectionCount}`;
-        document.getElementById("stat-toc").textContent = `TOC nodes: ${stats.tocNodeCount}`;
+        document.getElementById("stat-toc").textContent = `Contents headings: ${stats.tocNodeCount}`;
         // Populate welcome cards
         const wa = document.getElementById("welcome-articles");
         const ws = document.getElementById("welcome-sections");
@@ -129,7 +129,7 @@
         if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
         const overview = await response.json();
         const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 4) : [];
-        target.innerHTML = `<strong>${escapeHtml(overview.headline || 'Current analytical signal')}</strong><div style="margin-top:6px">${escapeHtml(overview.summary || '')}</div><div style="margin-top:8px;font-size:11px;color:var(--text-secondary)">${escapeHtml(overview.llm?.status === 'ok' ? `LLM summary · ${overview.llm.provider}/${overview.llm.model}` : `Deterministic summary · LLM ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)}</li>`).join('')}</ul>` : ''}`;
+        target.innerHTML = `<strong>${escapeHtml(overview.headline || 'Current analytical signal')}</strong><div style="margin-top:6px">${escapeHtml(overview.summary || '')}</div><div style="margin-top:8px;font-size:11px;color:var(--text-secondary)">${escapeHtml(overview.llm?.status === 'ok' ? `AI summary · ${overview.llm.provider}/${overview.llm.model}` : `Computed summary · AI provider ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)}</li>`).join('')}</ul>` : ''}`;
       } catch (error) {
         target.innerHTML = `<strong>Analytical overview unavailable.</strong><div style="margin-top:6px;color:var(--text-secondary)">${escapeHtml(error.message || error)}</div>`;
       }

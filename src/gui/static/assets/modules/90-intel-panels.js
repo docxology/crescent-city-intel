@@ -78,7 +78,7 @@
           + '<div class="intel-card"><h4>Components</h4><div class="metric">' + summary.components + '</div><span style="font-size:11px;color:var(--text-secondary)">largest ' + summary.largestComponentSize + '</span></div>'
           + '<div class="intel-card"><h4>Isolated</h4><div class="metric">' + summary.isolatedNodes + '</div></div>'
           + '<div class="intel-card"><h4>Mutual pairs</h4><div class="metric">' + summary.reciprocalPairs + '</div></div>'
-          + '<div class="intel-card"><h4>Dangling citations</h4><div class="metric" style="color:#ef4444">' + summary.unresolvedCitations + '</div><span style="font-size:11px;color:var(--text-secondary)">' + summary.distinctUnresolvedTargets + ' distinct target(s)</span></div>'
+          + '<div class="intel-card"><h4>Citations pointing nowhere</h4><div class="metric" style="color:#ef4444">' + summary.unresolvedCitations + '</div><span style="font-size:11px;color:var(--text-secondary)">' + summary.distinctUnresolvedTargets + ' distinct target(s)</span></div>'
           + '<div class="intel-card"><h4>Self-references</h4><div class="metric">' + summary.selfReferences + '</div><span style="font-size:11px;color:var(--text-secondary)">counted, never edged</span></div>'
           + '</div>';
         if (data.focus) {
@@ -90,7 +90,7 @@
         html += '<h4 style="margin:20px 0 8px">Authorities — most cited by other sections</h4>' + degreeTable(data.authorities.slice(0, 15), 'Cited by');
         html += '<h4 style="margin:20px 0 8px">Hubs — cite the most other sections</h4>' + degreeTable(data.hubs.slice(0, 15), 'Cites');
         if (data.unresolved.length > 0) {
-          html += '<h4 style="margin:20px 0 8px">Dangling citations</h4><table class="intel-table"><thead><tr><th>In section</th><th>Citation</th><th>Names</th><th>Times</th></tr></thead><tbody>';
+          html += '<h4 style="margin:20px 0 8px">Citations pointing nowhere</h4><table class="intel-table"><thead><tr><th>In section</th><th>Citation</th><th>Names</th><th>Times</th></tr></thead><tbody>';
           for (const u of data.unresolved.slice(0, 15)) {
             html += '<tr><td>&sect;&nbsp;' + escapeHtml(u.fromNumber) + '</td><td>' + escapeHtml(u.citation) + '</td><td>' + escapeHtml(u.target) + '</td><td>' + u.count + '</td></tr>';
           }
@@ -116,11 +116,11 @@
         const summary = data.summary;
         let html = '<div class="intel-grid" style="margin-bottom:16px">'
           + '<div class="intel-card"><h4>Sections scanned</h4><div class="metric">' + summary.sectionsScanned + '</div></div>'
-          + '<div class="intel-card"><h4>Indexed tokens</h4><div class="metric">' + summary.totalTokens.toLocaleString() + '</div></div>'
+          + '<div class="intel-card"><h4>Words counted</h4><div class="metric">' + summary.totalTokens.toLocaleString() + '</div></div>'
           + '<div class="intel-card"><h4>Distinct terms</h4><div class="metric">' + summary.distinctTerms.toLocaleString() + '</div></div>'
           + '<div class="intel-card"><h4>Used once only</h4><div class="metric">' + summary.hapaxCount.toLocaleString() + '</div></div>'
-          + '<div class="intel-card"><h4>Type/token ratio</h4><div class="metric">' + summary.typeTokenRatio.toFixed(4) + '</div></div>'
-          + '<div class="intel-card"><h4>Tokens per section</h4><div class="metric">' + summary.meanTokensPerSection + '</div></div>'
+          + '<div class="intel-card"><h4>Word variety</h4><div class="metric">' + summary.typeTokenRatio.toFixed(4) + '</div></div>'
+          + '<div class="intel-card"><h4>Avg words per section</h4><div class="metric">' + summary.meanTokensPerSection + '</div></div>'
           + '</div>';
         const maxCount = data.topByFrequency[0] ? data.topByFrequency[0].count : 1;
         html += '<h4 style="margin:16px 0 8px">Most frequent terms</h4><table class="intel-table"><thead><tr><th>Term</th><th>Count</th><th>In sections</th><th></th></tr></thead><tbody>';
@@ -130,7 +130,7 @@
             + '<td style="width:40%"><div style="height:8px;border-radius:4px;background:var(--accent);opacity:.6;width:' + width + '%"></div></td></tr>';
         }
         html += '</tbody></table>';
-        html += '<h4 style="margin:20px 0 8px">Most distinctive terms (tf&middot;idf)</h4><table class="intel-table"><thead><tr><th>Term</th><th>Salience</th><th>Count</th><th>In sections</th></tr></thead><tbody>';
+        html += '<h4 style="margin:20px 0 8px">Most distinctive terms (salience)</h4><table class="intel-table"><thead><tr><th>Term</th><th>Salience</th><th>Count</th><th>In sections</th></tr></thead><tbody>';
         for (const term of data.topBySalience) {
           html += '<tr><td>' + escapeHtml(term.surface) + '</td><td>' + term.salience.toFixed(1) + '</td><td>' + term.count + '</td><td>' + term.documentFrequency + '</td></tr>';
         }

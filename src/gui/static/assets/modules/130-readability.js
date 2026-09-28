@@ -7,7 +7,7 @@
       const el = document.getElementById('readability-content');
       try {
         const resp = await apiFetch('/api/readability');
-        if (!resp.ok) { el.innerHTML = '<p style="color:var(--text-secondary)">No readability data. Run: bun run readability</p>'; return; }
+        if (!resp.ok) { el.innerHTML = '<p style="color:var(--text-secondary)">No readability scores yet. Run: bun run readability</p>'; return; }
         const data = await resp.json();
         let html = '';
         // Actual /api/readability shape: { totalSections, scored, averageGradeLevel, hardestSections, easiestSections, allScores? }
@@ -32,8 +32,8 @@
             html += '</tbody></table>';
           }
         }
-        el.innerHTML = html || '<p style="color:var(--text-secondary)">No readability data</p>';
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load readability</p>'; }
+        el.innerHTML = html || '<p style="color:var(--text-secondary)">No readability scores yet.</p>';
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load readability scores.</p>'; }
     }
 
     // ─ Readability history trend (additive; wave-2 endpoint) ────────
@@ -96,7 +96,7 @@
           html += ` \u00b7 30-day delta <span style="color:${data.trend.delta >= 0 ? '#22c55e' : '#ef4444'}">${data.trend.delta >= 0 ? '+' : ''}${data.trend.delta.toFixed(1)}</span>`;
         }
         html += '</p>';
-        html += '<table class="intel-table"><thead><tr><th>Run</th><th>Flesch ease</th><th>Gunning fog</th></tr></thead><tbody>';
+        html += '<table class="intel-table"><thead><tr><th>Run</th><th>Reading ease</th><th>Reading fog</th></tr></thead><tbody>';
         for (const entry of entries) html += readabilityHistoryRow(entry);
         html += '</tbody></table>';
         html += readabilityHistoryTrendSvg(data?.trend);

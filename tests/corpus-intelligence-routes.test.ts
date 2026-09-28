@@ -7,14 +7,33 @@
  * CONTRACT (shape, bounds, honest degradation) rather than specific counts —
  * the counts belong to the pure-module tests, which use fixtures.
  */
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { handleApiRoute, _resetInsightsCache } from "../src/gui/routes.ts";
+import { reloadSearch } from "../src/gui/search.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
+import { beginSeedCorpus, endCorpusCopy } from "./helpers/output-root.ts";
 import { SECTION_GRAPH_SCHEMA } from "../src/section_graph.ts";
 import { WORD_FREQUENCY_SCHEMA } from "../src/word_frequency.ts";
 import { SECTION_LONGEVITY_SCHEMA } from "../src/section_longevity.ts";
 
 const base = "http://localhost:3000";
 const get = (path: string) => handleApiRoute(new URL(base + path));
+
+// The graph/insights routes read the real scraped corpus, which is gitignored;
+// on a clean clone (and in CI) `output/` is empty and the corpus-resolving
+// assertions failed against nothing. Seed the REAL tracked pages-data
+// municipal code through the CC_OUTPUT_DIR seam so the contract is
+// corpus-independent without fabricating data.
+beforeAll(async () => {
+  await beginSeedCorpus();
+  invalidateSectionsCache();
+  await reloadSearch();
+});
+afterAll(async () => {
+  await endCorpusCopy();
+  invalidateSectionsCache();
+  await reloadSearch();
+});
 
 describe("GET /api/sections/graph", () => {
   test("returns a bounded graph envelope with a self-consistent summary", async () => {

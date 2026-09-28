@@ -13,7 +13,8 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
+import { beginSeedCorpus, endCorpusCopy } from "./helpers/output-root.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
 
 const html = readFileSync(join(process.cwd(), "src", "gui", "static", "index.html"), "utf-8");
 const routes = readFileSync(join(process.cwd(), "src", "gui", "routes.ts"), "utf-8");
@@ -76,18 +77,20 @@ describe("string-contract tests: annotation store module", () => {
   });
 });
 
-describe("route tests: /api/annotations (real handler, corpus-copy output root)", () => {
+describe("route tests: /api/annotations (real handler, tracked-seed corpus root)", () => {
   const BASE = "http://localhost:3000";
 
   beforeAll(async () => {
-    // Seeded copy of the real corpus, not an empty tree: under full-suite
-    // parallelism another file may build its BM25 index inside this window,
-    // and an empty redirected root would read as a zero-section corpus.
-    await beginCorpusCopy();
+    // Tracked-seed corpus (pages-data/crescent-city-code.json), not a local-output
+    // copy: corpus-independent, and seeding invalidates the shared section cache
+    // so concurrent BM25 consumers never read a stale redirected root.
+    await beginSeedCorpus();
+    invalidateSectionsCache();
   });
 
   afterAll(async () => {
     await endCorpusCopy();
+    invalidateSectionsCache();
   });
 
   async function call(method: string, path: string, body?: unknown): Promise<Response> {

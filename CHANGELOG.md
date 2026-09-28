@@ -11,6 +11,36 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 7 — plain-language rewrite of the GUI (2026-09-28)
+
+- The GUI's user-facing copy was rewritten so a Crescent City resident — not a
+civic-data engineer — can read the interface. Internal stack names and
+statistical jargon no longer appear in end-user copy: “RAG-powered assistant”
+and “Requires Ollama + LLM module” became plain descriptions of what the chat
+needs (“optional AI helper service”); alert-state legend chips (“Calm: explicit
+level”, “Empty: checked, no match”, “Stale”, “Zero cells”) became plain states
+(“All clear — checked, nothing found”, “Out of date”, “Could not be reached”);
+“uniform-rate expectation” became “more often than chance”; correlation copy
+now states the cadence caveat in words; “Embedding Space — PCA Projection”
+became “Topic Map — How Sections Relate (PCA)” with “% var” → “% of variation”
+and “vectors” → “sections mapped”; “Top PC{n} Word Loadings” became “Top Words
+for PC{n}”; tf·idf formulas dropped in favor of a plain salience sentence;
+section inputs ask for “Section ID” instead of “GUID”; the stale “8-Monitor
+Alert Dashboard” heading (wrong since monitor #9) became “Live Safety Alerts”
+and the API-explorer descriptions say 15 monitors; “Dangling citations” became
+“Citations pointing nowhere”; the sources panel now leads with “Where our
+information comes from” and states that “not checked” is an explicit gap.
+- Every rewritten surface carries an explicit empty state. Newly added:
+glossary initial (“Definitions load when this tab opens”), glossary no-match
+(“No definitions match that search.”), compare-result and history-content
+instructions for the untouched panels, a next-attempt hint on empty search
+(“Try fewer words, or a section number like 12.04”), and no-yet phrasing for
+the report/curated/overview/timeline empty states. Response shapes, routes,
+and layout logic are unchanged.
+- Tests: `tests/gui-plain-language.test.ts` — string contracts pinning the new
+copy per surface, banning the retired jargon strings, and asserting each
+rewritten surface's explicit empty state (TODO.md Deferred GUI/UX set AC).
+
 ### The analytics-overview tests stop being the gate's bottleneck (2026-09-28)
 
 - `getCodeStats` reads every article through `loadAllArticles()`, so each

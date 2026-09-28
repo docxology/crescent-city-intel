@@ -122,7 +122,7 @@
         if (data.error) {
           answerText.innerHTML = `<span style="color:#f97316">${data.error}</span>`;
         } else {
-          answerText.innerHTML = marked.parse(data.answer || "No response");
+          answerText.innerHTML = marked.parse(data.answer || "No answer was returned.");
           if (data.answer) chatHistory.push({ role: "assistant", content: data.answer });
           if (data.sources && data.sources.length > 0) {
             const sourcesDiv = document.createElement("details");
@@ -152,7 +152,7 @@
         }
         const errDiv = document.createElement("div");
         errDiv.className = "chat-msg system";
-        errDiv.textContent = "Failed to connect to chat service";
+        errDiv.textContent = "Could not reach the chat helper. Check that the optional AI service is running.";
         chatMessages.appendChild(errDiv);
       }
       chatCancel.disabled = true;

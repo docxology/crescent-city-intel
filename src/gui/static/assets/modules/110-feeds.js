@@ -15,8 +15,8 @@
         let html = '';
         if (overview) {
           const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 8) : [];
-          html += `<div class="intel-card" style="grid-column:1/-1"><h4>${escapeHtml(overview.headline || 'Current analytical signal')}</h4><p style="line-height:1.55">${escapeHtml(overview.summary || '')}</p><div class="label">${escapeHtml(overview.llm?.status === 'ok' ? `LLM summary · ${overview.llm.provider}/${overview.llm.model}` : `Deterministic summary · LLM ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)} <span class="label">Next: ${escapeHtml(signal.nextStep)}</span></li>`).join('')}</ul>` : '<div class="label">No warning signals were recorded.</div>'}</div>`;
-          html += `<div class="intel-card"><h4>Code sections</h4><div class="metric">${overview.metrics.code.sections}</div><div class="label">${overview.metrics.code.articles} articles · ${overview.metrics.code.words} words</div></div><div class="intel-card"><h4>LLM briefs</h4><div class="metric">${overview.metrics.content.curated}</div><div class="label">source-grounded items</div></div><div class="intel-card"><h4>Alert events</h4><div class="metric">${overview.metrics.alerts.totalEvents}</div><div class="label">historical monitor events</div></div><div class="intel-card"><h4>Source gaps</h4><div class="metric">${overview.metrics.sources.missing}</div><div class="label">unavailable or stale</div></div>`;
+          html += `<div class="intel-card" style="grid-column:1/-1"><h4>${escapeHtml(overview.headline || 'Current analytical signal')}</h4><p style="line-height:1.55">${escapeHtml(overview.summary || '')}</p><div class="label">${escapeHtml(overview.llm?.status === 'ok' ? `AI summary · ${overview.llm.provider}/${overview.llm.model}` : `Computed summary · AI provider ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)} <span class="label">Next: ${escapeHtml(signal.nextStep)}</span></li>`).join('')}</ul>` : '<div class="label">No warning signals were recorded.</div>'}</div>`;
+          html += `<div class="intel-card"><h4>Code sections</h4><div class="metric">${overview.metrics.code.sections}</div><div class="label">${overview.metrics.code.articles} articles · ${overview.metrics.code.words} words</div></div><div class="intel-card"><h4>AI briefs</h4><div class="metric">${overview.metrics.content.curated}</div><div class="label">source-grounded items</div></div><div class="intel-card"><h4>Alert events</h4><div class="metric">${overview.metrics.alerts.totalEvents}</div><div class="label">historical monitor events</div></div><div class="intel-card"><h4>Source gaps</h4><div class="metric">${overview.metrics.sources.missing}</div><div class="label">unavailable or stale</div></div>`;
         }
         if (health) {
           html += `<div class="intel-card"><h4>System Status</h4><div class="metric">${health.status === 'ok' ? '✅' : '⚠️'}</div><div class="label">Health</div></div>`;
@@ -54,9 +54,9 @@
         }
         html += `<div class="intel-card"><h4>API Contract</h4><div class="metric">v2.5.1</div><div class="label">OpenAPI 3.0.3 · run validate</div></div>`;
         html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.5.1</div><div class="label">deterministic gate: bun run validate</div></div>`;
-        grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available</p>';
+        grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available yet.</p>';
       } catch (err) {
-        grid.innerHTML = '<p style="color:var(--text-secondary)">Failed to load overview</p>';
+        grid.innerHTML = '<p style="color:var(--text-secondary)">Could not load the overview.</p>';
       }
     }
 
@@ -78,7 +78,7 @@
           }
           html += '</tbody></table>';
         } else {
-          html += '<p style="color:var(--text-secondary)">No alert events recorded. Run: bun run alerts</p>';
+          html += '<p style="color:var(--text-secondary)">No alert events recorded yet. Run: bun run alerts</p>';
         }
         // Recent events
         if (data.mostRecentAlert) {
@@ -87,7 +87,7 @@
           html += `<div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary)"><strong>Most Recent Alert:</strong> <span class="intel-badge badge-blue">${escapeHtml(alertTrendText(r.type, 40) || 'unknown')}</span> ${escapeHtml(description)} — ${escapeHtml(alertTrendTimestamp(r.timestamp))}</div>`;
         }
         el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load alert timeline</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the alert timeline.</p>'; }
     }
 
     // ─ Search Analytics ─
@@ -117,7 +117,7 @@
         const data = await apiFetch('/api/glossary').then(r => r.json());
         glossaryData = data.entries || [];
         renderGlossary('');
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load glossary</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the glossary.</p>'; }
     }
     function renderGlossary(filter) {
       const el = document.getElementById('glossary-content');
@@ -142,6 +142,10 @@
         return;
       }
       destroyGlossaryVirtualList();
+      if (filtered.length === 0) {
+        el.innerHTML = html + '<p style="color:var(--text-secondary)">No definitions match that search.</p>';
+        return;
+      }
       html += '<table class="intel-table"><thead><tr><th>Term</th><th>Definition</th><th>Section</th></tr></thead><tbody>';
       for (const g of filtered.slice(0, 200)) {
         html += `<tr><td><strong>${g.term}</strong></td><td>${g.definition.substring(0,200)}</td><td>${g.sectionNumber}</td></tr>`;
@@ -179,7 +183,7 @@
           html += '</tbody></table>';
         }
         el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to validate cross-references</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not validate cross-references.</p>'; }
     }
 
     // ─ Legislative History ─
@@ -198,7 +202,7 @@
           html += '</tbody></table>';
         }
         el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load history</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load history.</p>'; }
     });
 
     // ─ Compare Sections ─
@@ -219,7 +223,7 @@
         </div>`;
         html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><h5>Only in § ${data.number1}</h5><div class="compare-text">${data.onlyInFirst.slice(0,20).join('<br>')}</div></div><div><h5>Only in § ${data.number2}</h5><div class="compare-text">${data.onlyInSecond.slice(0,20).join('<br>')}</div></div></div>`;
         el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to compare</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not compare those sections.</p>'; }
     });
 
     // ─ Monthly Report ─
@@ -227,10 +231,10 @@
       const el = document.getElementById('report-content');
       try {
         const resp = await apiFetch('/api/report/latest');
-        if (resp.status === 404) { el.innerHTML = '<p style="color:var(--text-secondary)">No reports generated. Run: bun run report</p>'; return; }
+        if (resp.status === 404) { el.innerHTML = '<p style="color:var(--text-secondary)">No monthly report has been generated yet. Run: bun run report to create one.</p>'; return; }
         const md = await resp.text();
         el.innerHTML = marked.parse(md);
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load report</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the monthly report.</p>'; }
     }
 
     // ─ Curated Feed ─
@@ -249,7 +253,7 @@
         const resp = await apiFetch('/api/curated?limit=50');
         const data = await resp.json();
         if (!data.items || data.items.length === 0) {
-          el.innerHTML = '<p style="color:var(--text-secondary)">' + escapeHtmlAttr(data.error || 'No curated items yet. Run: bun run curate') + '</p>';
+          el.innerHTML = '<p style="color:var(--text-secondary)">' + escapeHtmlAttr(data.error || 'No curated items yet. Run: bun run curate to refresh.') + '</p>';
           return;
         }
         let html = '';
@@ -264,7 +268,7 @@
             + '</div>';
         }
         el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load curated feed</p>'; }
+      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the curated feed.</p>'; }
     }
 
     // ─ API Explorer ─
@@ -274,26 +278,26 @@
       {method:'GET', path:'/api/toc', desc:'Table of contents tree'},
       {method:'GET', path:'/api/stats', desc:'Code statistics'},
       {method:'GET', path:'/api/stats/count', desc:'Lightweight section count'},
-      {method:'GET', path:'/api/search?q=zoning', desc:'BM25 search with fuzzy fallback'},
+      {method:'GET', path:'/api/search?q=zoning', desc:'Full-text search with typo tolerance'},
       {method:'GET', path:'/api/sections', desc:'Hierarchical section listing'},
       {method:'GET', path:'/api/domains', desc:'12 intelligence domains'},
       {method:'GET', path:'/api/domains/coverage', desc:'Domain coverage metrics'},
-      {method:'GET', path:'/api/readability', desc:'Flesch-Kincaid + Gunning Fog scores'},
+      {method:'GET', path:'/api/readability', desc:'Reading-difficulty scores (Flesch-Kincaid, Gunning Fog)'},
       {method:'GET', path:'/api/monitor/status', desc:'Code change detection status'},
-      {method:'GET', path:'/api/monitor/alerts', desc:'8-monitor alert aggregation + composite'},
+      {method:'GET', path:'/api/monitor/alerts', desc:'15-monitor alert aggregation + composite'},
       {method:'GET', path:'/api/alerts/timeline', desc:'Unified alert event timeline'},
       {method:'GET', path:'/api/alerts/recent?limit=10', desc:'Recent alert events'},
-      {method:'GET', path:'/api/alerts/airquality', desc:'Current EPA AQI'},
+      {method:'GET', path:'/api/alerts/airquality', desc:'Current EPA air-quality index (AQI)'},
       {method:'GET', path:'/api/alerts/wildfire', desc:'Current CAL FIRE incidents'},
       {method:'GET', path:'/api/alerts/marine', desc:'Current NDBC buoy data'},
-      {method:'GET', path:'/api/alerts/composite', desc:'8-monitor composite severity'},
+      {method:'GET', path:'/api/alerts/composite', desc:'15-monitor composite severity'},
       {method:'GET', path:'/api/glossary', desc:'Definition glossary from code corpus'},
       {method:'GET', path:'/api/cross-refs/validate', desc:'Cross-reference validation'},
       {method:'GET', path:'/api/search/analytics', desc:'Search term analytics'},
       {method:'GET', path:'/api/report/latest', desc:'Monthly civic health report (Markdown)'},
       {method:'GET', path:'/api/report/latest.json', desc:'Machine-readable report metadata'},
       {method:'GET', path:'/api/curation/status', desc:'LLM curation provider and retry metadata'},
-      {method:'POST', path:'/api/chat/stream', desc:'Streaming RAG chat (SSE)'},
+      {method:'POST', path:'/api/chat/stream', desc:'Streaming chat answers (server-sent events)'},
       {method:'GET', path:'/api/fuzzy?q=harbr', desc:'Fuzzy search suggestions'},
       {method:'GET', path:'/api/openapi.yaml', desc:'OpenAPI 3.0.3 spec'},
     ];

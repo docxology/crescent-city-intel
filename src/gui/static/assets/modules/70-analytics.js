@@ -30,7 +30,7 @@
         html += '</div>';
 
         // PCA scatter
-        html += '<div class="analytics-section"><h3>Embedding Space — PCA Projection</h3>';
+        html += '<div class="analytics-section"><h3>Topic Map — How Sections Relate (PCA)</h3>';
         html += '<div class="chart-container pca-wrapper"><canvas id="chart-pca" height="500"></canvas>';
         // PCA Scatter Plot controls
         html += `<div class="pc-controls">
@@ -46,7 +46,7 @@
             <label for="pca-color">Color by:</label>
             <select id="pca-color">
               <option value="title" selected>Title Group</option>
-              <option value="cluster">Cluster (K-Means)</option>
+              <option value="cluster">Grouped by similarity (K-Means)</option>
             </select>
           </div>
         </div>`;
@@ -57,13 +57,13 @@
 
         // Word loadings selector + container
         html += `<div class="pc-selector" style="margin-top: 32px">
-          <label for="loadings-pc">Show loadings for:</label>
+          <label for="loadings-pc">Show top words for:</label>
           <select id="loadings-pc">${generatePcOptions(0, 10)}</select>
         </div>`;
         html += '<div class="loadings-grid" id="word-loadings-container"></div>';
 
         // Biplot: words in PC1/PC2 space
-        html += '<div class="biplot-container"><h4 style="margin:16px 0 8px;color:var(--accent)">Word Biplot — Terms in PC1/PC2 Space</h4>';
+        html += '<div class="biplot-container"><h4 style="margin:16px 0 8px;color:var(--accent)">Word Biplot — Terms Driving the Two Axes</h4>';
         html += '<div class="chart-container"><canvas id="chart-biplot" height="400"></canvas></div></div>';
         html += '</div>';
 
@@ -187,7 +187,7 @@
           return;
         }
         if (!data.points || data.points.length === 0) {
-          info.textContent = 'No embeddings indexed yet. Run "bun run index" first.';
+          info.textContent = 'No topic map yet — the code has not been indexed. Run: bun run index.';
           return;
         }
         pcaPoints = data.points;
@@ -196,7 +196,7 @@
         const yIdx = parseInt(document.getElementById('pca-y')?.value || '1');
 
         const totalVar = _cachedVariance.reduce((a, b) => a + b, 0) || 1;
-        info.innerHTML = `${data.totalVectors} vectors • PC${xIdx + 1}: ${((data.variance[xIdx] / totalVar) * 100).toFixed(1)}% var • PC${yIdx + 1}: ${((data.variance[yIdx] / totalVar) * 100).toFixed(1)}% var`;
+        info.innerHTML = `${data.totalVectors} sections mapped • PC${xIdx + 1}: ${((data.variance[xIdx] / totalVar) * 100).toFixed(1)}% of variation • PC${yIdx + 1}: ${((data.variance[yIdx] / totalVar) * 100).toFixed(1)}% of variation`;
 
         drawPCA(xIdx, yIdx);
         buildPCALegend();
@@ -219,7 +219,7 @@
         }
       } catch (err) {
         console.error(err);
-        info.textContent = `⚠️ Failed to load embeddings: ${err.message}`;
+        info.textContent = `⚠️ Could not load the topic map: ${err.message}`;
       }
     }
 
@@ -233,7 +233,7 @@
         // Update info text
         const info = document.getElementById('pca-info');
         const totalVar = _cachedVariance.reduce((a, b) => a + b, 0) || 1;
-        info.innerHTML = `${pcaPoints.length} points • PC${xIdx + 1}: ${((_cachedVariance[xIdx] / totalVar) * 100).toFixed(1)}% var • PC${yIdx + 1}: ${((_cachedVariance[yIdx] / totalVar) * 100).toFixed(1)}% var`;
+        info.innerHTML = `${pcaPoints.length} sections mapped • PC${xIdx + 1}: ${((_cachedVariance[xIdx] / totalVar) * 100).toFixed(1)}% of variation • PC${yIdx + 1}: ${((_cachedVariance[yIdx] / totalVar) * 100).toFixed(1)}% of variation`;
       }
     }
 
@@ -375,7 +375,7 @@
         .sort((a, b) => Math.abs(b.val) - Math.abs(a.val))
         .slice(0, 15);
 
-      const title = `📊 Top PC${pcIndex + 1} Word Loadings`;
+      const title = `📊 Top Words for PC${pcIndex + 1}`;
       const maxVal = Math.max(...sorted.map(d => Math.abs(d.val)), 0.01);
 
       let html = `<div><h4 style="margin:16px 0 8px;color:var(--accent)">${title}</h4>`;

@@ -17,7 +17,7 @@
           const data = await resp.json();
           if (data.results.length === 0) {
             destroySearchVirtualList();
-            searchResults.innerHTML = '<div class="search-result">No results found</div>';
+            searchResults.innerHTML = '<div class="search-result">No matching sections found. Try fewer words, or a section number like 12.04.</div>';
           } else {
             renderSearchResults(data.results);
           }

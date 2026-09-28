@@ -220,9 +220,9 @@
         : row.status === 'empty'
           ? 'source checked successfully with no matching items'
           : row.status === 'stale'
-            ? 'source data is stale'
+            ? 'source data is out of date'
             : row.status === 'unavailable'
-              ? 'source unavailable' : 'source health unknown';
+              ? 'source could not be reached' : 'source health unknown';
       const mostRecent = row.mostRecentAt ? `Most recent sampled event: ${alertTrendTimestamp(row.mostRecentAt)}.` : 'No sampled event timestamp.';
       const bars = row.buckets.map(bucket => {
         const height = bucket.count === 0 ? 2 : Math.max(8, Math.round((bucket.count / Math.max(1, selectedMax)) * 76));
@@ -318,11 +318,11 @@
         const data = await apiFetch('/api/alerts/correlation').then(r => r.json());
         const pairs = Array.isArray(data.pairs) ? data.pairs : [];
         if (pairs.length === 0) {
-          root.innerHTML = '<p style="color:var(--text-muted, #888);">No correlation pairs configured.</p>';
+          root.innerHTML = '<p style="color:var(--text-muted, #888);">No correlation pairs are being tracked yet.</p>';
         } else {
           const rows = pairs.map(p => {
             const observed = `${p.observedPairs} pair${p.observedPairs === 1 ? '' : 's'}`;
-            const lift = p.lift === null ? '–' : `${p.lift}× uniform-rate expectation`;
+            const lift = p.lift === null ? '–' : `${p.lift}× more often than chance`;
             const lag = p.medianLagMinutes === null ? '–' : `${p.medianLagMinutes} min median lag`;
             const cadence = p.cadenceSensitive ? ' · <span style="color:#b45309">cadence-sensitive</span>' : '';
             const sample = p.samples && p.samples[0]
@@ -411,7 +411,7 @@ ${sample}
           } else {
             html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333); opacity:0.5;">`;
             html += `<div style="font-size:0.9rem;">${icon} <strong>${type}</strong></div>`;
-            html += `<div style="font-size:0.75rem; color:var(--text-muted, #888);">No data</div>`;
+            html += `<div style="font-size:0.75rem; color:var(--text-muted, #888);">No data yet</div>`;
             html += '</div>';
           }
         }
@@ -434,8 +434,8 @@ ${sample}
           html += '</div>';
         }
 
-        container.innerHTML = html || '<p style="color:var(--text-muted, #888);">No alert data available. Run: bun run alerts</p>';
+        container.innerHTML = html || '<p style="color:var(--text-muted, #888);">No alert data available yet. Run: bun run alerts</p>';
       } catch (err) {
-        container.innerHTML = '<p style="color:#f97316;">Failed to load alerts. Is the GUI running?</p>';
+        container.innerHTML = '<p style="color:#f97316;">Could not load alerts. Is the server running?</p>';
       }
     }

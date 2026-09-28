@@ -128,6 +128,16 @@ export const ALERT_TYPE_DOMAINS: Record<AlertType, string[]> = {
   // A Broadcast Notice to Mariners is a navigational hazard, so it attributes
   // to the harbour/marine domain like the other mooring and channel products.
   uscg: ["harbor-marine-operations"],
+  // The 2026-09-28 expansion monitors: permit activity is building-code
+  // compliance and construction demand, harbor marine-construction and AIS
+  // traffic are harbour/marine, fuel is an emergency-resilience economic
+  // signal, and PacFIN is the fisheries data network behind the fishing
+  // monitor's domain. Domain ids are the civic vocabulary in domains.ts.
+  permits: ["public-safety", "business-development"],
+  dredging: ["harbor-marine-operations"],
+  fuel: ["public-safety"],
+  pacfin: ["harbor-marine-operations"],
+  ais: ["harbor-marine-operations"],
 };
 
 interface AlertTimelineEntry extends Record<string, unknown> {

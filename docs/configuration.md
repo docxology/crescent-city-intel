@@ -112,6 +112,8 @@ for `/api/chat`, `/api/summarize`, and `/api/analytics/embeddings`. The
 | `ndbc_marine.ts` | `WAVE_HEIGHT_WATCH_FT` | `10` | Wave height threshold for WATCH severity |
 | `ndbc_marine.ts` | `WIND_SPEED_WARNING_KT` | `34` | Wind speed threshold for WARNING (gale force) |
 | `ndbc_marine.ts` | `WIND_SPEED_WATCH_KT` | `22` | Wind speed threshold for WATCH |
+| `ais.ts` | `AIS_FEED_URL` | `https://meri.digitraffic.fi/api/ais/v1/locations` | Open-AIS FeatureCollection feed (keyless default; point at a US-waters provider for local coverage) |
+| `pacfin.ts` | `PACFIN_SESSION_COOKIE` | _(none)_ | Optional PacFIN session credential; without it the monitor reads only the public report catalog and landing figures stay unavailable |
 
 ## Example: Override Multiple Settings
 

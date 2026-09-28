@@ -41,6 +41,46 @@ and layout logic are unchanged.
 copy per surface, banning the retired jargon strings, and asserting each
 rewritten surface's explicit empty state (TODO.md Deferred GUI/UX set AC).
 
+### Five new intelligence monitors: permits, dredging, fuel, PacFIN, AIS (2026-09-28)
+
+- The two remaining TODO open items closed in one roster-consistent PR: 🔴
+  "New monitors: permits, dredging, fuel" and 🟡 "Marine expansion: PacFIN
+  landing data + AIS vessel tracking". The alert roster is now **20 monitors**
+  (8 core + 12 extended), appended to `MONITOR_KEYS` so every derived roster
+  (`EXTENDED_MONITOR_SPECS`, `ALERT_TYPES`, `CORRELATION_SOURCES`,
+  `EXPECTED_SOURCE_HEALTH`, the OpenAPI enum, the SPA's hand-written maps)
+  followed by derivation rather than restatement.
+- **Permits (#16)** watches the City's MyGov public portal permit catalog
+  (keyless, server-rendered). The issued-permit register is login-gated, so
+  the monitor says so and reads only the public catalog, diffed through the
+  shared `IdempotencyStore` — first observation is a baseline, never an alarm.
+- **Dredging (#17)** reads the Harbor District sitemap (no RSS exists;
+  `wp-json` and `/feed/` are disabled) with a dredging-first keyword tier and
+  a marine-construction tier, windowed on `lastmod`.
+- **Fuel (#18)** reads the EIA weekly California retail gasoline table
+  (series `EMM_EPM0_PTE_SCA_DPG`, keyless) and reports only OBSERVED weekly
+  values — the 2026-09-26/27 doctrine in practice: the statewide average is
+  labeled statewide, and no forecast is manufactured. ADVISORY on a >15%
+  spike above the trailing 8-week median.
+- **PacFIN (#19)** parses the publicly embedded report-tree JSON of the
+  PacFIN APEX dashboard (76 public reports) and watches it for changes.
+  Landing FIGURES require PacFIN credentials, so `landingDataAvailable` is
+  `false` and no catch total is ever fabricated — the marine pair's
+  "absent data is an explicit empty state" criterion, applied.
+- **AIS (#20)** reads any open-AIS FeatureCollection feed (`AIS_FEED_URL`,
+  defaulting to the keyless digitraffic feed) and filters positions to the
+  Del Norte watch box. US-coast AIS needs a credentialed provider, so until
+  one is configured the monitor reports `coversDelNorteWaters: false` and an
+  explicit empty local box over real upstream data.
+- Every parser is fixture-tested against a real capture (2026-09-28: MyGov
+  page, harbor sitemap, EIA page, PacFIN dashboard, 50 real AIS positions)
+  and has a negative control: empty / garbage / wrong-format bodies THROW,
+  so extraction drift is a loud `unavailable` health record, never a silent
+  "nothing new".
+- New tests: `tests/new-monitors.test.ts` (fixture + honesty + negative
+  controls) and the extended-monitor-definitions suite widened from 7 to 12
+  specs asserted against the real report interfaces.
+
 ### The analytics-overview tests stop being the gate's bottleneck (2026-09-28)
 
 - `getCodeStats` reads every article through `loadAllArticles()`, so each

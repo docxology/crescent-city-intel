@@ -8,7 +8,7 @@ import type {
   FlatSection,
   MonitorReport,
 } from "../types.js";
-import { paths } from "./paths.js";
+import { paths, outputRoot } from "./paths.js";
 import { createLogger } from "../logger.js";
 
 const logger = createLogger("data");
@@ -18,6 +18,10 @@ const logger = createLogger("data");
 /** Cache entry for all sections (60 second TTL) */
 let _sectionsCache: FlatSection[] | null = null;
 let _sectionsCacheTs = 0;
+/** The artifact root the cached sections were read from: a test that redirects
+ * CC_OUTPUT_DIR to a corpus copy mid-process must never be served the other
+ * root's sections through this cache. */
+let _sectionsCacheRoot = "";
 /** In-flight load promise — prevents concurrent callers from duplicating work. */
 let _sectionsLoad: Promise<FlatSection[]> | null = null;
 const SECTIONS_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -26,6 +30,7 @@ const SECTIONS_CACHE_TTL_MS = 60_000; // 60 seconds
 export function invalidateSectionsCache(): void {
   _sectionsCache = null;
   _sectionsCacheTs = 0;
+  _sectionsCacheRoot = "";
 }
 
 // ─── Core loaders ────────────────────────────────────────────────
@@ -99,7 +104,11 @@ export async function loadAllArticles(): Promise<ArticlePage[]> {
  * Concurrent callers share a single in-flight load. */
 export async function loadAllSections(): Promise<FlatSection[]> {
   const now = Date.now();
-  if (_sectionsCache && now - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
+  const root = outputRoot();
+  // A cached read is only valid for the artifact root it came from: tests
+  // redirect CC_OUTPUT_DIR to a corpus copy mid-process, and serving the other
+  // root's sections here would quietly score queries against the wrong corpus.
+  if (_sectionsCache && _sectionsCacheRoot === root && now - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
     return _sectionsCache;
   }
   if (_sectionsLoad) return _sectionsLoad;
@@ -123,6 +132,7 @@ export async function loadAllSections(): Promise<FlatSection[]> {
       }
       _sectionsCache = sections;
       _sectionsCacheTs = Date.now();
+      _sectionsCacheRoot = root;
       return sections;
     } finally {
       _sectionsLoad = null;

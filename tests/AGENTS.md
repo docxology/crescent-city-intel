@@ -45,6 +45,7 @@ bun test --watch      # Watch mode
 | `curation.test.ts` | `src/curation.ts` — grounding, provider degradation, and domain tags |
 | `alerts*.test.ts` | `src/alerts/*` — monitor contracts, severity, AQI, wildfire, marine |
 | `ndbc-parser.test.ts` | `src/alerts/ndbc_marine.ts` — line parsing, units, and severity |
+| `new-monitors.test.ts` | `src/alerts/{permits,dredging,fuel,pacfin,ais}.ts` — the five 2026-09-28 expansion monitors over real captured fixtures, with per-monitor negative controls |
 | `run-alerts.test.ts` | `scripts/run-alerts.ts` — real report-to-severity mappings |
 | `comprehensive-edges.test.ts` | Cross-module boundary and edge cases |
 | `scraper_utils.test.ts` | `src/scraper_utils.ts` — TOC/artifact validation, retry, and manifest utilities |

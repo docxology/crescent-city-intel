@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html class="no-js  page-1000 app-PR550501" lang="en-us" >
+<head>
+  <meta http-equiv="x-ua-compatible" content="IE=edge" />
+  <meta charset="utf-8"> 
+  <title>Reports Dashboard</title>
+  <link rel="stylesheet" href="/i241/app_ui/css/Core.min.css?v=24.1.4" type="text/css" />
+<link rel="stylesheet" href="/i241/app_ui/css/Theme-Standard.min.css?v=24.1.4" type="text/css" />
+<link rel="stylesheet" href="r/pacfin/501/files/plugin/2769165799288411760/v363/css/spinkit.min.css" type="text/css" />
+<link rel="stylesheet" href="r/pacfin/501/files/plugin/2769165799288411760/v363/css/spinkit-aop.min.css" type="text/css" />
+<link rel="stylesheet" href="r/pacfin/501/files/plugin/2769165799288411760/v363/css/aop.min.css" type="text/css" />
+
+  <link rel="stylesheet" href="/i241/libraries/font-apex/2.3/css/font-apex.min.css?v=24.1.4" type="text/css" />
+<link rel="stylesheet" href="/i241/themes/theme_42/1.4/css/Core.min.css?v=24.1.4" type="text/css" />
+
+  
+  <link rel="stylesheet" href="r/pacfin/501/files/theme/42/v65/49819748414900785.css" type="text/css" />
+
+  <link rel="stylesheet" href="r/pacfin/501/files/static/v151/reports.css" type="text/css" />
+<link rel="stylesheet" href="r/pacfin/501/files/static/v151/reports-2.css" type="text/css" />
+<link rel="stylesheet" href="r/pacfin/501/files/static/v151/freeze-headers.css" type="text/css" />
+
+  <style type="text/css">
+/* For report tooltips (on this page ONLY) */
+.ui-widget-shadow {
+    opacity: 1 !important;
+    filter: alpha(opacity=100) !important;
+}
+.ui-tooltip {
+    max-width: 500px !important;
+}
+
+/* Page specific item level CSS */
+#P1000_SEARCH_CONTAINER .t-Form-labelContainer {
+    display: none;
+}
+#P1000_SEARCH {
+    padding-right: 25px;
+}
+.t-Card-desc {
+    min-height: 10rem !important;
+}
+#welcome-message .t-Region-body {
+    max-width: 695px;
+}
+h1 {
+    font-size: 15px;
+    font-weight: bold;
+}
+.image-row > img {
+    height: 110px;
+    padding: 5px;
+}
+ul#agency-list {
+    margin-left: 20px;
+}
+</style>
+
+  <link rel="icon" href="/i241/favicon.ico" /><link rel="apple-touch-icon" href="/i241/favicon-180x180.png" />
+  
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Pragma" content="no-cache" /><meta http-equiv="Expires" content="-1" /><meta http-equiv="Cache-Control" content="no-cache" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body class="t-PageBody t-PageBody--hideLeft no-anim   apex-top-nav apex-icons-fontapex apex-theme-vita-pacfin"   id="t_PageBody">
+<a href="#main" id="t_Body_skipToContent">Skip to Main Content</a>
+<form role="none" action="wwv_flow.accept?p_context=501:1000:20541287497231" method="post" name="wwv_flow" id="wwvFlowForm" data-oj-binding-provider="none" novalidate >
+<input type="hidden" name="p_flow_id" value="501" id="pFlowId" /><input type="hidden" name="p_flow_step_id" value="1000" id="pFlowStepId" /><input type="hidden" name="p_instance" value="20541287497231" id="pInstance" /><input type="hidden" name="p_page_submission_id" value="MTQxODM0MzgwMjQ2MTU5MjA5OTY4NzUyMDk4ODY1MTk1MDQyNjUy&#x2F;bgnxN7JQIk0B32GmNlOtHZluweBR1W2scbsll62FiRV3VHodxjU5wQKCo-WtRVylUrDPUQq62njXAcQA71wRYQ" id="pPageSubmissionId" /><input type="hidden" name="p_request" value="" id="pRequest" /><input type="hidden" name="p_reload_on_submit" value="A" id="pReloadOnSubmit" /><input type="hidden" value="501&#x3A;1000&#x3A;20541287497231" id="pContext" /><input type="hidden" value="141834380246159209968752098865195042652" id="pSalt" />
+<header class="t-Header" id="t_Header">
+  
+  <div class="t-Header-branding" role="banner">
+    <div class="t-Header-controls">
+      <button class="t-Button t-Button--icon t-Button--header t-Button--headerTree" aria-label="Expand / Collapse Navigation" title="Expand / Collapse Navigation" id="t_Button_navControl" type="button"><span class="t-Header-controlsIcon" aria-hidden="true"></span></button>
+    </div>
+    <div class="t-Header-logo">
+      <a href="f?p=501:1000:20541287497231:::::" class="t-Header-logo-link"><img src="r&#x2F;pacfin&#x2F;501&#x2F;files&#x2F;static&#x2F;v151&#x2F;pacfin.png" alt="" class="apex-logo-img" /><span class="apex-logo-text">Pacific Fisheries Information Network</span></a>
+    </div>
+    <div class="t-Header-navBar"><ul class="t-NavigationBar " id="113603636875832317"><li class="t-NavigationBar-item ">
+  <a class="t-Button t-Button--icon t-Button--header t-Button--navBar" href="javascript:void(0);">
+    <span class="t-Icon fa&#x20;fa-alert"></span><span class="t-Button-label">Alerts</span><span class="t-Button-badge">0</span>
+  </a>
+</li><li class="t-NavigationBar-item is-active show-spinner">
+  <a class="t-Button t-Button--icon t-Button--header t-Button--navBar" href="f?p=501:1000:20541287497231:::::">
+      <span class="t-Icon fa&#x20;fa-tachometer"></span><span class="t-Button-label">Dashboard</span><span class="t-Button-badge"></span>
+  </a>
+</li><li class="t-NavigationBar-item nav-search">
+  <a class="t-Button t-Button--icon t-Button--header t-Button--navBar" href="javascript:apex.navigation.dialog('f?p=501:1002:20541287497231\u0026p_dialog_cs=Odp-GlkrRyrLf7DrLEh-WGnmvQyRNo7wQAwTv_pv44maD73rhkU3j7X6PuQmB5vJHdtwVY657lyO0Mkg-Knrcw',{title:'Reports Search',height:'600',width:'800',maxWidth:'960',modal:true,dialog:null},'t-Dialog-page--standard '+'',apex.gPageContext$);">
+    <span class="t-Icon fa&#x20;fa-search"></span><span class="t-Button-label">Search</span><span class="t-Button-badge"></span>
+  </a>
+</li><li class="t-NavigationBar-item ">
+  <button class="t-Button t-Button--icon t-Button t-Button--header t-Button--navBar js-menuButton" type="button" id="L51658678136736337" data-menu="menu_L51658678136736337">
+      <span class="t-Icon fa&#x20;fa-question"></span><span class="t-Button-label">Help</span><span class="t-Button-badge"></span><span class="a-Icon icon-down-arrow"></span>
+  </button><div class="t-NavigationBar-menu" style="display: none" id="menu_L51658678136736337"><ul><li data-current="false" data-icon="fa&#x20;fa-info-circle"><a href="javascript:apex.navigation.dialog('f?p=501:1003:20541287497231\u0026p_dialog_cs=XHhkM5-Yu5Axzs6iDbSdp692DxVjW_BezrRU1BVwQbYHJe5IkmZ-_pASdgj8nP_0YtykscQOIpLXI5Q54sL_GQ',{title:'About',height:'500',width:'600',maxWidth:'960',modal:true,dialog:null},'t-Dialog-page--standard '+'',apex.gPageContext$);">About</a></li></ul></div></li><li class="t-NavigationBar-item ">
+  <button class="t-Button t-Button--icon t-Button t-Button--header t-Button--navBar js-menuButton" type="button" id="L5366286947837119" data-menu="menu_L5366286947837119">
+      <span class="t-Icon fa&#x20;fa-user"></span><span class="t-Button-label">Public</span><span class="t-Button-badge"></span><span class="a-Icon icon-down-arrow"></span>
+  </button><div class="t-NavigationBar-menu" style="display: none" id="menu_L5366286947837119"><ul><li data-current="false" data-icon="fa&#x20;fa-sign-in"><a href="f?p=501:1005:20541287497231:::::">Login</a></li></ul></div></li></ul></div>
+  </div>
+  <div class="t-Header-nav"></div>
+</header><div class="t-Body">
+  
+  <div class="t-Body-main">
+    <div class="t-Body-title" id="t_Body_title"><div class="t-HeroRegion " id="R113741322277198617" >
+  <div class="t-HeroRegion-wrap">
+    <div class="t-HeroRegion-col t-HeroRegion-col--left"><span class="t-HeroRegion-icon t-Icon fa&#x20;fa-tachometer"></span></div>
+    <div class="t-HeroRegion-col t-HeroRegion-col--content">
+      <h1 class="t-HeroRegion-title">Reports Dashboard</h1>
+      Locate and execute reports from the available list.
+    </div>
+    <div class="t-HeroRegion-col t-HeroRegion-col--right"><div class="t-HeroRegion-form"></div><div class="t-HeroRegion-buttons"></div></div>
+  </div>
+</div></div>
+    <div class="t-Body-content" id="t_Body_content">
+      <main id="main" class="t-Body-mainContent">
+        <span id="APEX_SUCCESS_MESSAGE" data-template-id="48193024505122145_S" class="apex-page-success u-hidden"></span><span id="APEX_ERROR_MESSAGE" data-template-id="48193024505122145_E" class="apex-page-error u-hidden"></span>
+        <div class="t-Body-fullContent"></div>
+        <div class="t-Body-contentInner"><div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div class="t-Region t-Region--carousel t-Region--showCarouselControls t-Region--hiddenOverflow" id="R46025188850683642" style="display:none">
+ <div class="t-Region-header">
+  <div class="t-Region-headerItems t-Region-headerItems--title">
+    <span class="t-Region-headerIcon"><span class="t-Icon " aria-hidden="true"></span></span>
+    <h2 class="t-Region-title" id="R46025188850683642_heading">Hidden Carousel Region</h2>
+  </div>
+  <div class="t-Region-headerItems t-Region-headerItems--buttons"><span class="js-maximizeButtonContainer"></span></div>
+ </div>
+ <div class="t-Region-bodyWrap">
+   <div class="t-Region-buttons t-Region-buttons--top">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+   <div class="t-Region-body">
+     This region exists on the global page so the Alerts carousel will work properly.
+   <div class="t-Region-carouselRegions">
+     
+   </div>
+   </div>
+   <div class="t-Region-buttons t-Region-buttons--bottom">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+ </div>
+</div></div>
+</div><div class="row">
+<div class="col col-12 apex-col-auto" ><div class="t-Region t-Region--removeHeader t-Region--noUI t-Region--scrollBody" id="R154868762230758808" >
+ <div class="t-Region-header">
+  <div class="t-Region-headerItems t-Region-headerItems--title">
+    <span class="t-Region-headerIcon"><span class="t-Icon " aria-hidden="true"></span></span>
+    <h2 class="t-Region-title" id="R154868762230758808_heading">Portal Tiles</h2>
+  </div>
+  <div class="t-Region-headerItems t-Region-headerItems--buttons"><span class="js-maximizeButtonContainer"></span></div>
+ </div>
+ <div class="t-Region-bodyWrap">
+   <div class="t-Region-buttons t-Region-buttons--top">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+   <div class="t-Region-body">
+     <ul class="t-Cards t-Cards--featured force-fa-lg t-Cards--displayIcons t-Cards--spanHorizontally t-Cards--hideBody t-Cards--animRaiseCard"><li class="t-Cards-item is-active ">
+  <div class="t-Card">
+    <a href="f?p=501:2001:20541287497231:::::" class="t-Card-wrap" >
+      <div class="t-Card-icon u-color "><span class="t-Icon fa&#x20;fa-anchor"><span class="t-Card-initials" role="presentation"></span></span></div>
+      <div class="t-Card-titleWrap"><h3 class="t-Card-title">HMS SAFE Portal</h3><h4 class="t-Card-subtitle"></h4></div>
+      <div class="t-Card-body">
+        <div class="t-Card-desc"></div>
+        <div class="t-Card-info"></div>
+      </div>
+      <span class="t-Card-colorFill u-color "></span>
+    </a>
+  </div>
+</li><li class="t-Cards-item is-active ">
+  <div class="t-Card">
+    <a href="f?p=501:2101:20541287497231:::::" class="t-Card-wrap" >
+      <div class="t-Card-icon u-color "><span class="t-Icon fa&#x20;fa-anchor"><span class="t-Card-initials" role="presentation"></span></span></div>
+      <div class="t-Card-titleWrap"><h3 class="t-Card-title">CPS SAFE Portal</h3><h4 class="t-Card-subtitle"></h4></div>
+      <div class="t-Card-body">
+        <div class="t-Card-desc"></div>
+        <div class="t-Card-info"></div>
+      </div>
+      <span class="t-Card-colorFill u-color "></span>
+    </a>
+  </div>
+</li><li class="t-Cards-item is-active ">
+  <div class="t-Card">
+    <a href="f?p=501:3001:20541287497231:::::" class="t-Card-wrap" >
+      <div class="t-Card-icon u-color "><span class="t-Icon fa&#x20;fa-anchor"><span class="t-Card-initials" role="presentation"></span></span></div>
+      <div class="t-Card-titleWrap"><h3 class="t-Card-title">Entanglement Gear Guide</h3><h4 class="t-Card-subtitle"></h4></div>
+      <div class="t-Card-body">
+        <div class="t-Card-desc"></div>
+        <div class="t-Card-info"></div>
+      </div>
+      <span class="t-Card-colorFill u-color "></span>
+    </a>
+  </div>
+</li><li class="t-Cards-item is-active ">
+  <div class="t-Card">
+    <a href="f?p=501:5001:20541287497231:::::" class="t-Card-wrap" >
+      <div class="t-Card-icon u-color "><span class="t-Icon fa&#x20;fa-anchor"><span class="t-Card-initials" role="presentation"></span></span></div>
+      <div class="t-Card-titleWrap"><h3 class="t-Card-title">HMS Exempted Fishing Permits</h3><h4 class="t-Card-subtitle"></h4></div>
+      <div class="t-Card-body">
+        <div class="t-Card-desc"></div>
+        <div class="t-Card-info"></div>
+      </div>
+      <span class="t-Card-colorFill u-color "></span>
+    </a>
+  </div>
+</li><li class="t-Cards-item is-active ">
+  <div class="t-Card">
+    <a href="f?p=501:2201:20541287497231:::::" class="t-Card-wrap" >
+      <div class="t-Card-icon u-color "><span class="t-Icon fa&#x20;fa-anchor"><span class="t-Card-initials" role="presentation"></span></span></div>
+      <div class="t-Card-titleWrap"><h3 class="t-Card-title">FEM Portal</h3><h4 class="t-Card-subtitle"></h4></div>
+      <div class="t-Card-body">
+        <div class="t-Card-desc"></div>
+        <div class="t-Card-info"></div>
+      </div>
+      <span class="t-Card-colorFill u-color "></span>
+    </a>
+  </div>
+</li><li class="t-Cards-item is-active ">
+  <div class="t-Card">
+    <a href="f?p=501:2315:20541287497231:::::" class="t-Card-wrap" >
+      <div class="t-Card-icon u-color "><span class="t-Icon fa&#x20;fa-anchor"><span class="t-Card-initials" role="presentation"></span></span></div>
+      <div class="t-Card-titleWrap"><h3 class="t-Card-title">Groundfish SAFE Portal</h3><h4 class="t-Card-subtitle"></h4></div>
+      <div class="t-Card-body">
+        <div class="t-Card-desc"></div>
+        <div class="t-Card-info"></div>
+      </div>
+      <span class="t-Card-colorFill u-color "></span>
+    </a>
+  </div>
+</li></ul>
+     
+   </div>
+   <div class="t-Region-buttons t-Region-buttons--bottom">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+ </div>
+</div>
+</div>
+</div><div class="row">
+<div class="col col-6 apex-col-auto" ><div class="t-Region t-Region--removeHeader t-Region--scrollBody" id="tree-region" >
+ <div class="t-Region-header">
+  <div class="t-Region-headerItems t-Region-headerItems--title">
+    <span class="t-Region-headerIcon"><span class="t-Icon " aria-hidden="true"></span></span>
+    <h2 class="t-Region-title" id="tree-region_heading">Report Tree</h2>
+  </div>
+  <div class="t-Region-headerItems t-Region-headerItems--buttons"><span class="js-maximizeButtonContainer"></span></div>
+ </div>
+ <div class="t-Region-bodyWrap">
+   <div class="t-Region-buttons t-Region-buttons--top">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+   <div class="t-Region-body">
+     <div id="reports-list" aria-label="Report&#x20;Tree"></div>
+<script type="text/javascript">
+var gTree113745064627198654Data = 
+{
+"showRoot":false
+,"navigation":true
+,"hasIdentity":true
+,"data":{
+"id":"root0"
+,"label":"root"
+,"children":[
+{
+"id":"1"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"All Species Reports (ALL)"
+,"children":[
+{
+"id":"2"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at sea observer data. This report includes all U.S catch areas including the Puget Sound, and other inland areas where marine fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"ALL001 - ALL001 WOC All Species"
+,"link":"f?p=501:1:20541287497231:INITIAL::::"
+}
+,{
+"id":"3"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at sea observer data. This report includes all U.S catch areas including the Puget Sound, and other inland areas where marine fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"ALL002 - ALL002 WOC All Species by Gear"
+,"link":"f?p=501:2:20541287497231:INITIAL::::"
+}
+,{
+"id":"18"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at sea observer data. This report includes all U.S catch areas including the Puget Sound, and other inland areas where marine fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"ALL003 - ALL003 WOC All Species by INPFC Area"
+,"link":"f?p=501:3:20541287497231:INITIAL::::"
+}
+,{
+"id":"24"
+,"tooltip":"This report was generated using state agency fish ticket data from the PacFIN comprehensive fish ticket table and includes all West Coast catch areas including the Puget Sound, Columbia River and other inland areas where marine fish are caught. Canadian and Alaskan catches have been excluded. Reported groundfish catches have species and area composition samples applied. At-sea catches are estimates from on board samplers. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"ALL004 - ALL004 WOC All Species by Agency"
+,"link":"f?p=501:4:20541287497231:INITIAL::::"
+}
+,{
+"id":"25"
+,"tooltip":"This report was generated using state agency fish ticket data from the PacFIN comprehensive fish ticket table. This report includes all U.S West Coast catch areas including the Puget Sound and other inland areas where marine fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"ALL005 - ALL005 WOC All Species by Port Group"
+,"link":"f?p=501:5:20541287497231:INITIAL::::"
+}
+,{
+"id":"16"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data. This report includes all U.S West Coast catch areas including the Puget Sound and other inland areas where marine fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealer have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"ALL006 - ALL006 WOC All Species by Month"
+,"link":"f?p=501:6:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"4"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"IFQ Reports"
+,"children":[
+{
+"id":"82"
+,"tooltip":"This report was generated using NORPAC at-Sea observer data and shoreside landings from the PacFIN comprehensive fish ticket table. Shoreside commercial landings are derived using the following criteria: (1) IFQ landing, (2) participation group is commercial, (3) gear is mid-water trawl and (4) round pounds of whiting is \u0026gt;= 50% of the total vessel-day-gear landings. Both at-sea and shoreside catch are in round metric tons except for prohibited and protected species, which are reported as the number of fish caught. The numbers of fish for salmon and Pacific halibut are taken directly from the electronic tickets.\r\n\r\nIn-season data is subject to revisions."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"IFQ001 - IFQ001 Targeted Pacific Whiting Report"
+,"link":"f?p=501:202:20541287497231:INITIAL::::"
+}
+,{
+"id":"168"
+,"tooltip":"Shoreside and at-sea landings of Chinook and Coho salmon by IFQ subsector. Data comes from fish tickets, eTix, NORPAC and WCGOP in season salmon estimates. Currently electronic monitoring (EM) discards are not included in this report. Salmon are mandatory retention for EM vessels, so at-sea discards should be minimal.\r\n\u0026lt;br\u0026gt;\u0026lt;br\u0026gt;\r\nThreshold values are set for each sector (whiting and non-whiting). There are not individual thresholds for each subsector. The \u0026#x27;Total\u0026#x27; catch to date and % of threshold shows the sector\u0026#x27;s catch and percentage. For subsectors there is no unique threshold, the threshold is what is for the whole sector. For subsectors the % of threshold represents that subsector contribution to the sectors threshold. The summed catch of all subsectors within a sector must be less than the sectors threshold. These are shown in the total row.\r\n\u0026lt;br\u0026gt;\u0026lt;br\u0026gt;\r\nThe commercial subsectors must have 3 or more vessels and dealers with landings to be reported. If a point is confidential the total landings are converted to nulls and the \u0026#x27;CONF\u0026#x27; flag is set to 1. The sector total rows have a 1 in the \u0026#x27;CONF\u0026#x27; column if any subsectors are withheld from the total due to confidentiality.\r\n\u0026lt;br\u0026gt;\r\n\u0026lt;br\u0026gt;\r\nAt the end of each year the West Coast Groundfish Observer Program (WCGOP) takes the in-season estimates and creates final estimates for salmon bycatch. Please see the report at \u0026lt;a href=https:\u0026#x2F;\u0026#x2F;doi.org\u0026#x2F;10.25923\u0026#x2F;qpg8-1573 target=\u0026quot;_blank\u0026quot; rel=\u0026quot;noopener\u0026quot;\u0026gt; WCGOP Observed and Estimated Salmon Bycatch\u0026lt;\u0026#x2F;a\u0026gt; to see the estimated final bycatch numbers."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"IFQ021 - IFQ021 Combined Sector Salmon Bycatch ESA Report"
+,"link":"f?p=501:282:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"5"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Coastal Pelagic Species Reports (CPS)"
+,"children":[
+{
+"id":"169"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table. This report includes all U.S catch areas including the Puget Sound, and other inland areas where coastal pelagic fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CPS001 - CPS001 CPS Landings by Quarter"
+,"link":"f?p=501:301:20541287497231:INITIAL::::"
+}
+,{
+"id":"48"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table. This report includes all U.S catch areas including the Puget Sound, and other inland areas where coastal pelagic fish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality. All data are provisional and subject to revision."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CPS002 - CPS002 CPS Landings by Management Season"
+,"link":"f?p=501:302:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"242"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"CPSSAFE Reports"
+,"children":[
+{
+"id":"243"
+,"tooltip":"A summary of inflation-adjusted ex-vessel revenue and landings (metric tons) to U.S. West Coast ports of CPS species by year. Use the Filter button to select applicable YEARS values. See the Information button for an explanation of the source data and business rules."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CPSSAFE001 - CPSSAFE001 Landings \u0026 Revenue by Year \u0026 Species"
+,"link":"f?p=501:361:20541287497231:INITIAL::::"
+}
+,{
+"id":"244"
+,"tooltip":"A summary of inflation-adjusted ex-vessel revenue and landings (metric tons) to U.S. West Coast ports of CPS species by year and gear group. Use the Filter button to select applicable YEARS values. See the Information button for an explanation of the source data and business rules."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CPSSAFE002 - CPSSAFE002 - Landings \u0026 Revenue by Gear Group"
+,"link":"f?p=501:362:20541287497231:INITIAL::::"
+}
+,{
+"id":"245"
+,"tooltip":"A summary of vessel and dealer participation in the CPS fisheries. Use the Filter button to select applicable YEARS values. See the Information button for an explanation of the source data and business rules."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CPSSAFE006 - CPSSAFE006 - Participant Count by year"
+,"link":"f?p=501:366:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"6"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Crab Reports (CRAB)"
+,"children":[
+{
+"id":"28"
+,"tooltip":"This report was generated using the PacFIN comprehensive fish ticket table and includes all catch areas including Puget Sound, Alaska, and possibly Canadian catch areas.  Reported catches have species and area comps applied."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CRAB001 - CRAB001 Dungeness Crab Landings by Month"
+,"link":"f?p=501:401:20541287497231:INITIAL::::"
+}
+,{
+"id":"40"
+,"tooltip":"This report was generated using the PacFIN comprehensive fish ticket table and includes all catch areas including Puget Sound, Alaska, and possibly Canadian catch areas.  Reported catches have species and area comps applied."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CRAB002 - CRAB002 Dungeness Crab Landings by Port"
+,"link":"f?p=501:402:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"188"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Protected Resources Division"
+,"children":[
+{
+"id":"189"
+,"tooltip":"The NOAA Protected Resources Division tracks and classifies all U.S. \r\nfisheries and their level of interaction with marine mammals. \r\nIn accordance with the Marine Mammal Protection Act, the estimated number of participants \r\nin each of these classified fisheries, is provided along with the species \r\nor stock that might be incidentally killed or injured through that fishing activity. \r\nParticipant counts are available for 2015 - present."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"PRD001 - PRD001 - List of Fisheries"
+,"link":"f?p=501:551:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"8"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Groundfish Reports (GMT)"
+,"children":[
+{
+"id":"9"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data.. This report includes all U.S catch areas including the Puget Sound, and other inland areas where groundfish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT001 - GMT001 Groundfish Landings by INPFC Area"
+,"link":"f?p=501:501:20541287497231:INITIAL::::"
+}
+,{
+"id":"17"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data.. This report includes all U.S catch areas including the Puget Sound, and other inland areas where groundfish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT002 - GMT002 Groundfish Landings by Reporting Source"
+,"link":"f?p=501:502:20541287497231:INITIAL::::"
+}
+,{
+"id":"19"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data.. This report includes all U.S catch areas including the Puget Sound, and other inland areas where groundfish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT003 - GMT003 Groundfish Landings by Month"
+,"link":"f?p=501:503:20541287497231:INITIAL::::"
+}
+,{
+"id":"20"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data.. This report includes all U.S catch areas including the Puget Sound, and other inland areas where groundfish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT004 - GMT004 Groundfish Landings by Gear"
+,"link":"f?p=501:504:20541287497231:INITIAL::::"
+}
+,{
+"id":"21"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data.. This report includes all U.S catch areas including the Puget Sound, and other inland areas where groundfish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT005 - GMT005 Groundfish Landings by Port Group"
+,"link":"f?p=501:505:20541287497231:INITIAL::::"
+}
+,{
+"id":"22"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table and at-sea observer data.. This report includes all U.S catch areas including the Puget Sound, and other inland areas where groundfish are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. On board observers did not distinguish between retained and discarded catch prior to 1997, so at-sea data prior to 1997 is not included. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT006 - GMT006 Sablefish Landings by INPFC Area and Month"
+,"link":"f?p=501:506:20541287497231:INITIAL::::"
+}
+,{
+"id":"229"
+,"tooltip":"This report offers the latest estimates of total mortality of all groundfish stock species and complexes caught on the West Coast within the management jurisdiction of the Pacific Fishery Management Council. The estimates encompass shorebased commercial and tribal landings, as well as catch from both the at-sea whiting fishery and marine recreational fishing. Mortality estimates for shoreside landings include at-sea discards from the Groundfish Expanded Mortality Multiyear (GEMM) report. In instances where GEMM discard estimates are unavailable for the most recent years, a three-year moving average of these discards is employed. Data sources include PacFIN\u0026#x27;s Comprehensive Fish Ticket dataset, PacFIN\u0026#x27;s Comprehensive NPAC dataset (at-sea whiting), RecFIN\u0026#x27;s comprehensive recreational catch dataset, PSMFC\u0026#x2019;s E-tix, GEMM report, and ODFW and CDFW nearshore fixed gear discard estimates. User documentation (\u0026lt;a href=\u0026quot;https:\u0026#x2F;\u0026#x2F;apex.psmfc.org\u0026#x2F;pacfin\u0026#x2F;pacfin\u0026#x2F;r\u0026#x2F;501\u0026#x2F;files\u0026#x2F;static\u0026#x2F;v137\u0026#x2F;Groundfish_Scorecard_User_Reference.pdf\u0026quot; target=\u0026quot;_blank\u0026quot;\u0026gt;here).\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT00701 - GMT007-01 Scorecard of Groundfish Stock Species and Complexes 2.0"
+,"link":"f?p=501:50701:20541287497231:INITIAL::::"
+}
+,{
+"id":"136"
+,"tooltip":"Draft 2023 and 2024 groundfish harvest specifications under default and alternative harvest control rules."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT008 - GMT008 - Draft Annual Groundfish Harvest Specifications"
+,"link":"f?p=501:530:20541287497231:INITIAL::::"
+}
+,{
+"id":"137"
+,"tooltip":"Preliminary preferred annual set asides for groundfish."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT009 - GMT009 - Draft Annual Set-Asides"
+,"link":"f?p=501:531:20541287497231:INITIAL::::"
+}
+,{
+"id":"138"
+,"tooltip":"Preliminary preferred annual Trawl\u0026#x2F;non-trawl allocations."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT010 - GMT010 - Draft Annual Trawl\/Non-Trawl Allocations"
+,"link":"f?p=501:532:20541287497231:INITIAL::::"
+}
+,{
+"id":"139"
+,"tooltip":"Preliminary preferred annual further allocations."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT011 - GMT011 - Draft Annual Further Allocations"
+,"link":"f?p=501:533:20541287497231:INITIAL::::"
+}
+,{
+"id":"140"
+,"tooltip":"Preliminary preferred annual harvest specifications for northern sablefish."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT012 - GMT012 - Draft Annual N. Sablefish Specifications"
+,"link":"f?p=501:534:20541287497231:INITIAL::::"
+}
+,{
+"id":"141"
+,"tooltip":"Preliminary preferred annual specifications for southern sablefish."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT013 - GMT013 - Draft Annual S. Sablefish Specifications"
+,"link":"f?p=501:535:20541287497231:INITIAL::::"
+}
+,{
+"id":"166"
+,"tooltip":"Final Harvest Specifications. Use the Filter button to select different years and report views."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT015 - GMT015 - Final Specifications"
+,"link":"f?p=501:5301:20541287497231:INITIAL::::"
+}
+,{
+"id":"167"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GMT016 - GMT016 - Stock Summary"
+,"link":"f?p=501:5302:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"10"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Highly Migratory Species Reports (HMS)"
+,"children":[
+{
+"id":"39"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table. Data that involve fewer than three vessels or dealers per state and per year have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMS001 - HMS001 Commercial HMS Landings by Year"
+,"link":"f?p=501:601:20541287497231:INITIAL::::"
+}
+,{
+"id":"26"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table. This report includes all U.S catch areas including the Puget Sound, and other inland areas where albacore are caught. Canadian and Alaskan catches have been excluded. Shoreside reported catches have species and area composition samples applied. Data that involve fewer than three vessels or dealers have been withheld to preserve confidentiality."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMS003 - HMS003 Albacore Landings by Port"
+,"link":"f?p=501:603:20541287497231:INITIAL::::"
+}
+,{
+"id":"44"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table. All data are provisional and subject to revision."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMS004 - HMS004 Landings of All Species by HMS Fishery"
+,"link":"f?p=501:604:20541287497231:INITIAL::::"
+}
+,{
+"id":"45"
+,"tooltip":"This report was generated using the state agency fish ticket data from the PacFIN comprehensive fish ticket table. All data are provisional and subject to revision."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMS005 - HMS005 Landings of HMS Species by All Fisheries"
+,"link":"f?p=501:605:20541287497231:INITIAL::::"
+}
+,{
+"id":"124"
+,"tooltip":"In season landings for HMS species. Data that involve fewer than three vessels or dealers per year have been withheld to preserve confidentiality. The confidential flag is set to 1 if data was withheld for confidentiality. The 5 year average uses the current date to report the average landings up to the current month and day over the previous 5 years.\r\n\r\nClick the \u0026#x27;Report\u0026#x27; or \u0026#x27;Chart\u0026#x27; button bellow to switch between the two. On the \u0026#x27;Report\u0026#x27; screen you will see a drop down box to choose between the \u0026#x27;Landing by Species\u0026#x27; or the \u0026#x27;Landing by Fishery\u0026#x27; reports. On the chart tab, click the filter button on the top right portion of the screen, and select the species you want displayed. \r\n\r\nIn-season data is preliminary and is subject to revisions."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMS006 - HMS006 In Season HMS Landings"
+,"link":"f?p=501:660:20541287497231:INITIAL::::"
+}
+,{
+"id":"156"
+,"tooltip":"A summary of HMS fleet participation (total reported revenue or landings) for vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS and HMS FLEET (default is NP Albacore Troll). See the Information button for an explanation of source data and business rules. Use Report Selector below to choose the  landings or revenue view (default is revenue).\r\n\r\n\r\nClick here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMS007 - HMS007- Cross Participation of HMS Fleets Landing to U.S. West Coast Ports by Fishery"
+,"link":"f?p=501:607:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"204"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"HMS SAFE Reports"
+,"children":[
+{
+"id":"205"
+,"tooltip":"A summary of HMS total reported inflation-adjusted ex-vessel revenue or landings (metric tons) to U.S. West Coast ports. Use the Filter button to select YEARS and SPECIES GROUPS. See the Information button for an explanation of source data and business rules. Use Report Selector below to choose the landings or revenue view. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE001 - HMSSAFE001 - West Coast Commercial Landings of HMS"
+,"link":"f?p=501:621:20541287497231:INITIAL::::"
+}
+,{
+"id":"226"
+,"tooltip":"A summary of total reported HMS inflation-adjusted ex-vessel revenue or landings (metric tons) for West Coast Albacore Surface Hook and Line vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS and AGENCY CODE. See the Information button for an explanation of source data and business rules. Use Report Selector below to choose the landings or revenue view. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE002 - HMSSAFE002 - West Coast Albacore Surface Hook and Line"
+,"link":"f?p=501:622:20541287497231:INITIAL::::"
+}
+,{
+"id":"207"
+,"tooltip":"A summary of total reported HMS inflation-adjusted ex-vessel revenue or landings (metric tons) by California large mesh drift gillnet (DGN) vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS and SPECIES GROUPS. See the Information button for an explanation of source data and business rules. Use Report Selector below to choose the landings or revenue view. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE003 - HMSSAFE003 - West Coast Drift Gillnet"
+,"link":"f?p=501:623:20541287497231:INITIAL::::"
+}
+,{
+"id":"208"
+,"tooltip":"A summary of HMS West Coast Harpoon (total reported revenue or landings) for vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE004 - HMSSAFE004 - West Coast Harpoon"
+,"link":"f?p=501:624:20541287497231:INITIAL::::"
+}
+,{
+"id":"209"
+,"tooltip":"A summary of HMS West Coast Purse Seine (total reported revenue or landings) for vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Use Report Selector below to choose the landings or revenue view. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE005 - HMSSAFE005 - West Coast Purse Seine"
+,"link":"f?p=501:625:20541287497231:INITIAL::::"
+}
+,{
+"id":"210"
+,"tooltip":"A summary of Pelagic Longline (total reported revenue or landings) landings by U.S. vessels (Hawaii- and West Coast-based) to West Coast ports. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Use Report Selector below to choose the landings or revenue view (default is revenue). Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE006 - HMSSAFE006 - West Coast Pelagic Longline"
+,"link":"f?p=501:626:20541287497231:INITIAL::::"
+}
+,{
+"id":"211"
+,"tooltip":"A summary of Monthly Commercial Landings (total reported revenue or landings) for vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE007 - HMSSAFE007 - Monthly Commercial Landings by Year"
+,"link":"f?p=501:627:20541287497231:INITIAL::::"
+}
+,{
+"id":"212"
+,"tooltip":"Annual commercial landings (number, weight in round mt) and inflation adjusted ex-vessel revenue by port groups (+ state) and fishery, last 3 years by fishery. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE008 - HMSSAFE008 - Annual Commercial Landings"
+,"link":"f?p=501:628:20541287497231:INITIAL::::"
+}
+,{
+"id":"213"
+,"tooltip":"Average nominal price-per pound by species and fishery, last three years by species and fishery. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE009 - HMSSAFE009 - Average Nominal Price by Species and Fishery"
+,"link":"f?p=501:629:20541287497231:INITIAL::::"
+}
+,{
+"id":"214"
+,"tooltip":"Landings (round mt) and real (inflation adjusted) ex-vessel revenue by management group. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE010 - HMSSAFE010 - Landings and Revenue by Management Group"
+,"link":"f?p=501:630:20541287497231:INITIAL::::"
+}
+,{
+"id":"250"
+,"tooltip":"A summary of HMS West Coast Deep Set Buoy Gear(total reported revenue or landings) for vessels landing to U.S. West Coast ports. Use the Filter button to select YEARS. See the Information button for an explanation of source data and business rules. Click here for \u0026lt;a href=\u0026#x27;f?p=501:826:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;HMS Fleet Descriptions\u0026lt;\u0026#x2F;a\u0026gt; or \u0026lt;a href=\u0026#x27;f?p=501:824:APP_SESSION:INITIAL\u0026#x27; target=\u0026#x27;_blank\u0026#x27;\u0026gt;PacFIN Management Group Codes\u0026lt;\u0026#x2F;a\u0026gt;"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"HMSSAFE012 - HMSSAFE012 - West Coast Deep Set Buoy Gear"
+,"link":"f?p=501:636:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"12"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Code Listings"
+,"children":[
+{
+"id":"13"
+,"tooltip":"Alphabetical Listing of Gears - Ordered by Gear Code"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE004 - PacFIN Gear Code List - Alphabetical"
+,"link":"f?p=501:804:20541287497231:INITIAL::::"
+}
+,{
+"id":"14"
+,"tooltip":"Alphabetical Listing of Species - Ordered by Species Code"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE010 - PacFIN Species Code List - Alphabetical"
+,"link":"f?p=501:810:20541287497231:INITIAL::::"
+}
+,{
+"id":"15"
+,"tooltip":"Hierarchical Listing of Species"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE011 - PacFIN Species Code List - Hierarchical"
+,"link":"f?p=501:811:20541287497231:INITIAL::::"
+}
+,{
+"id":"110"
+,"tooltip":"Port codes used in the PacFIN database. Ports are sorted alphabetically by the PacFIN port code."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE015 - PacFIN Port Code List - Alphabetical"
+,"link":"f?p=501:815:20541287497231:INITIAL::::"
+}
+,{
+"id":"111"
+,"tooltip":"Catch area codes and descriptions ports in the PacFIN database. Catch areas are sorted alphabetically by catch area code."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE017 - PacFIN Catch Area Code List - Alphabetical"
+,"link":"f?p=501:817:20541287497231:INITIAL::::"
+}
+,{
+"id":"125"
+,"tooltip":"Codes and descriptions for condition used in the PacFIN database.\r\nCodes are ordered by alphabetically by condition code."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE019 - PacFIN Condition Codes"
+,"link":"f?p=501:819:20541287497231:INITIAL::::"
+}
+,{
+"id":"126"
+,"tooltip":"Codes and descriptions for disposition used in the PacFIN database.\r\nCodes are ordered by alphabetically by disposition code."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE020 - PacFIN Disposition Codes"
+,"link":"f?p=501:820:20541287497231:INITIAL::::"
+}
+,{
+"id":"127"
+,"tooltip":"Codes and descriptions for product use that are used in the PacFIN database. Codes are ordered by alphabetically by product use code."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE021 - PacFIN Product Use Codes"
+,"link":"f?p=501:821:20541287497231:INITIAL::::"
+}
+,{
+"id":"129"
+,"tooltip":"Codes and descriptions for grades used in the PacFIN database.\r\nCodes are ordered by alphabetically by grade code. Grade is frequently a synonym for size."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE023 - PacFIN Grade Codes"
+,"link":"f?p=501:823:20541287497231:INITIAL::::"
+}
+,{
+"id":"161"
+,"tooltip":"A report of the PacFIN management group codes and descriptions"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE024 - PacFIN Management Group Code"
+,"link":"f?p=501:824:20541287497231:INITIAL::::"
+}
+,{
+"id":"146"
+,"tooltip":"A report of the HMS fishery codes descriptions and targeted species."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"CODE026 - HMS Fishery Codes"
+,"link":"f?p=501:826:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"69"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Metadata and Documentation"
+,"children":[
+{
+"id":"70"
+,"tooltip":"This report is used to provide users with the most recent upload dates of the agency fish tickets in PacFIN. The 90% complete dates are temporarily removed from the report because the impact of the COVID-19 on the traditional fishery analytics is currently under review by PacFIN staff."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"META001 - Fish Tickets Completeness Report"
+,"link":"f?p=501:901:20541287497231:INITIAL::::"
+}
+,{
+"id":"238"
+,"tooltip":"The report provides an overview of cumulative monthly fishery landing trends, by comparing the total landed weight (mtons), number of landings, and number of fishing vessels to the values of the past 5 years. \r\n\r\nFor current year, the report uses e-tickets to supplement the agency fish ticket data feeds that have lagged by days or even weeks."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"META002 - Fish Tickets Trend Report"
+,"link":"f?p=501:911:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"283"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"Groundfish SAFE Reports"
+,"children":[
+{
+"id":"285"
+,"tooltip":"Commercial Landings by Fishery provides landings and revenue data (non-tribal) including At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE001 - GSAFE001 - Commercial Landings by Fishery"
+,"link":"f?p=501:2301:20541287497231:INITIAL::::"
+}
+,{
+"id":"286"
+,"tooltip":"Commercial Landings by Species provides landings and revenue data (non-tribal) excluding At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE003 - GSAFE003- Commercial Landings by Species"
+,"link":"f?p=501:2302:20541287497231:INITIAL::::"
+}
+,{
+"id":"294"
+,"tooltip":"Commercial Landings IOPAC provides engagement and dependence data (non-tribal) excluding At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE005 - GSAFE005 - Commercial Landings IOPAC - Port Engagement\/Dependence"
+,"link":"f?p=501:2310:20541287497231:INITIAL::::"
+}
+,{
+"id":"287"
+,"tooltip":"Commercial Landings by Fisheries and Species revenue and landings data (non-tribal) including At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE006 - GSAFE006 - Commercial Landings by Fisheries and Species"
+,"link":"f?p=501:2303:20541287497231:INITIAL::::"
+}
+,{
+"id":"288"
+,"tooltip":"Commercial Landings by Fisheries by Month revenue and landings data (non-tribal) including At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE007 - GSAFE007 - Commercial Landings by Fisheries by Month"
+,"link":"f?p=501:2304:20541287497231:INITIAL::::"
+}
+,{
+"id":"289"
+,"tooltip":"Commercial Landings Total revenue and landings data (non-tribal) excluding At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE008 - GSAFE008 - Commercial Landings Totals"
+,"link":"f?p=501:2305:20541287497231:INITIAL::::"
+}
+,{
+"id":"290"
+,"tooltip":"Commercial Landings by Fishery and IOPAC revenue and landings data (non-tribal) including At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE009 - GSAFE009 - Commercial Landings by Fishery and IOPAC"
+,"link":"f?p=501:2306:20541287497231:INITIAL::::"
+}
+,{
+"id":"291"
+,"tooltip":"Commercial Landings by Species and IOPAC revenue and landings data (non-tribal) excluding At-sea Whiting"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE010 - GSAFE010 - Commerical Landings by Species and IOPAC"
+,"link":"f?p=501:2307:20541287497231:INITIAL::::"
+}
+,{
+"id":"292"
+,"tooltip":"RecFIN Modes by state, all ports. Data from RecFIN."
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE011 - GSAFE011 - Recreational Fisheries"
+,"link":"f?p=501:2308:20541287497231:INITIAL::::"
+}
+,{
+"id":"293"
+,"tooltip":"Harvest Specifications, Allocations, and Attainment data for the groundfish ACLs"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE013 - GSAFE013 - Harvest Specifications, Allocations, and Attainment"
+,"link":"f?p=501:2309:20541287497231:INITIAL::::"
+}
+,{
+"id":"295"
+,"tooltip":"Sablefish Attainment"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE014 - GSAFE014 - Sablefish Attainment"
+,"link":"f?p=501:2311:20541287497231:INITIAL::::"
+}
+,{
+"id":"306"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"GSAFE019 - GSAFE019 - Commercial Landings by Stock\/Complex"
+,"link":"f?p=501:2312:20541287497231:INITIAL::::"
+}
+]
+}
+,{
+"id":"170"
+,"icon":"fa fa-folder reports-icon grey-icon"
+,"label":"West Coast Regional Observer Program (WCROP)"
+,"children":[
+{
+"id":"199"
+,"tooltip":"WCROP506 DSBG Summary Reports"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"WCROP106 - WCROP106 DSBG Summary Reports"
+,"link":"f?p=501:1541:20541287497231:INITIAL::::"
+}
+,{
+"id":"200"
+,"tooltip":"WCROP507 DGN Summary Reports"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"WCROP107 - WCROP107 DGN Summary Reports"
+,"link":"f?p=501:1542:20541287497231:INITIAL::::"
+}
+,{
+"id":"201"
+,"tooltip":"WCROP508 SETNET Summary Reports"
+,"icon":"fa fa-file-text reports-icon blue-icon"
+,"label":"WCROP108 - WCROP108 SETNET Summary Reports"
+,"link":"f?p=501:1543:20541287497231:INITIAL::::"
+}
+]
+}
+]
+}
+}
+;
+</script>
+
+     
+   </div>
+   <div class="t-Region-buttons t-Region-buttons--bottom">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+ </div>
+</div>
+</div><div class="col col-6 apex-col-auto" ><div class="t-Region t-Region--removeHeader t-Region--scrollBody" id="R117442820469482512" >
+ <div class="t-Region-header">
+  <div class="t-Region-headerItems t-Region-headerItems--title">
+    <span class="t-Region-headerIcon"><span class="t-Icon " aria-hidden="true"></span></span>
+    <h2 class="t-Region-title" id="R117442820469482512_heading">Welcome Message</h2>
+  </div>
+  <div class="t-Region-headerItems t-Region-headerItems--buttons"><span class="js-maximizeButtonContainer"></span></div>
+ </div>
+ <div class="t-Region-bodyWrap">
+   <div class="t-Region-buttons t-Region-buttons--top">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+   <div class="t-Region-body">
+     <h1>Welcome to the Pacific Fisheries Information Network (PacFIN) APEX reporting system</h1>
+<p>The nation’s first regional fisheries data network, PacFIN is a joint federal and state data collection and information management project.  Cooperative agency and industry partners supply data from commercial fisheries off the coasts of Washington, Oregon and California.  PacFIN combines the collected information in order to provide accurate estimates of commercial catch and value for the West Coast.  Member agencies include: </p>
+
+<ul id ="agency-list">
+  <li> California Department of Fish & Wildlife (CDFW)</li>
+  <li> Oregon Department of Fish & Wildlife (ODFW)</li>
+  <li> Washington Department of Fish & Wildlife (WDFW)</li>
+  <li> National Oceanic and Atmospheric Administration (NOAA)</li>
+  <li> Pacific States Marine Fisheries Commission (PSMFC)</li>
+  <li> Pacific Fisheries Management Council (PFMC)</li>
+</ul>
+
+<p class="image-row">
+  <img src="r/pacfin/501/files/static/v151/CDFW.png"/>
+  <img src="r/pacfin/501/files/static/v151/ODFW.png"/>
+  <img src="r/pacfin/501/files/static/v151/WDFW.png"/>
+  <img src="r/pacfin/501/files/static/v151/NOAA.png"/>
+  <img src="r/pacfin/501/files/static/v151/PSMFC.png"/>
+  <img src="r/pacfin/501/files/static/v151/PFMC.png"/>
+</p>
+     
+   </div>
+   <div class="t-Region-buttons t-Region-buttons--bottom">
+    <div class="t-Region-buttons-left"></div>
+    <div class="t-Region-buttons-right"></div>
+   </div>
+ </div>
+</div>
+</div>
+</div>
+</div></div>
+      </main>
+      <footer class="t-Footer" role="contentinfo">
+        <div class="t-Footer-body">
+          <div class="t-Footer-content"></div>
+          <div class="t-Footer-apex">
+            <div class="t-Footer-version">release 2.0</div>
+            <div class="t-Footer-customize"></div>
+            <span class="u-BuiltWithAPEX">Built with <span class="fa fa-heart" role="img" aria-label="love"></span> using <a rel="noopener noreferrer" href="https://apex.oracle.com/" target="_blank" aria-describedby="apex_new_window_txt">Oracle APEX<span id="apex_new_window_txt" aria-hidden="true">(opens in new window)</span></a></span>
+          </div>
+        </div>
+        <div class="t-Footer-top">
+          <a href="#top" class="t-Footer-topButton" id="t_Footer_topButton"><span class="a-Icon icon-up-chevron"></span></a>
+        </div>
+      </footer>
+    </div>
+  </div>
+  <div class="t-Body-actions" id="t_Body_actions">
+    <button class="t-Body-actionsToggle" aria-label="Expand / Collapse Side Column" title="Expand / Collapse Side Column" id="t_Button_rightControlButton" type="button"><span class="t-Body-actionsControlsIcon" aria-hidden="true"></span></button>
+    <div class="t-Body-actionsContent" role="complementary"></div>
+  </div>
+</div>
+<div class="t-Body-inlineDialogs"><div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div id="R7564819020568545_parent">
+<div id="R7564819020568545"  class="t-DialogRegion js-modal js-draggable js-resizable js-dialog-size480x320 js-regionDialog"  style="display:none" title="Logout Confirmation">
+  <div class="t-DialogRegion-wrap">
+    <div class="t-DialogRegion-bodyWrapperOut"><div class="t-DialogRegion-bodyWrapperIn"><div class="t-DialogRegion-body"><div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div class="t-Alert t-Alert--horizontal t-Alert--defaultIcons t-Alert--info" id="R7564904011568546" >
+  <div class="t-Alert-wrap">
+    <div class="t-Alert-icon">
+      <span class="t-Icon "></span>
+    </div>
+    <div class="t-Alert-content">
+      <div class="t-Alert-header">
+        <h2 class="t-Alert-title" id="R7564904011568546_heading">Are You Sure?</h2>
+      </div>
+      <div class="t-Alert-body">You will be logged out of the system.</div>
+    </div>
+    <div class="t-Alert-buttons"></div>
+  </div>
+</div></div>
+</div>
+</div></div></div></div>
+    <div class="t-DialogRegion-buttons">
+       <div class="t-ButtonRegion t-ButtonRegion--dialogRegion">
+         <div class="t-ButtonRegion-wrap">
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--left"><div class="t-ButtonRegion-buttons"><button onclick="void(0);" class="t-Button " type="button"  id="B7565198577568548"><span class="t-Button-label">Close</span></button></div></div>
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--right"><div class="t-ButtonRegion-buttons"><button class="t-Button t-Button--icon t-Button--iconLeft t-Button--hot"  onclick="apex.navigation.redirect(&#x27;apex_authentication.logout?p_app_id=501&#x5C;u0026p_session_id=20541287497231&#x27;);" type="button" id="B7565004780568547"><span class="t-Icon t-Icon--left fa&#x20;fa-sign-out" aria-hidden="true"></span><span class="t-Button-label">Logout</span><span class="t-Icon t-Icon--right fa&#x20;fa-sign-out" aria-hidden="true"></span></button></div></div>
+         </div>
+       </div>
+    </div>
+  </div>
+</div>
+</div></div>
+</div><div class="row">
+<div class="col col-12 apex-col-auto" ><div id="alerts_parent">
+<div id="alerts"  class="t-DialogRegion js-modal js-draggable js-resizable js-dialog-size720x480 js-regionDialog"  style="display:none" title="Alerts Dialog">
+  <div class="t-DialogRegion-wrap">
+    <div class="t-DialogRegion-bodyWrapperOut"><div class="t-DialogRegion-bodyWrapperIn"><div class="t-DialogRegion-body"><div id="report_12091375675145208_catch"><span class="nodatafound"></span>
+</div></div></div></div>
+    <div class="t-DialogRegion-buttons">
+       <div class="t-ButtonRegion t-ButtonRegion--dialogRegion">
+         <div class="t-ButtonRegion-wrap">
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--left"><div class="t-ButtonRegion-buttons"><button onclick="void(0);" class="t-Button " type="button"  id="B12092348133145218"><span class="t-Button-label">Close</span></button></div></div>
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--right"><div class="t-ButtonRegion-buttons"></div></div>
+         </div>
+       </div>
+    </div>
+  </div>
+</div>
+</div></div>
+</div><div class="row">
+<div class="col col-12 apex-col-auto" ><div id="R80937973508041045_parent">
+<div id="R80937973508041045"  class="t-DialogRegion  js-modal js-draggable js-resizable js-dialog-autoheight js-dialog-size600x400 js-regionDialog"  style="display:none" title="Download Options">
+  <div class="t-DialogRegion-wrap">
+    <div class="t-DialogRegion-bodyWrapperOut"><div class="t-DialogRegion-bodyWrapperIn"><div class="t-DialogRegion-body"><div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div id="download-report"  class=""><div id="report_78858114817410242_catch"><span class="nodatafound"></span>
+</div></div></div>
+</div><div class="row">
+<div class="col col-12 apex-col-auto" ><div class="t-Alert t-Alert--horizontal t-Alert--defaultIcons t-Alert--info" id="download-started" style="display:none">
+  <div class="t-Alert-wrap">
+    <div class="t-Alert-icon">
+      <span class="t-Icon "></span>
+    </div>
+    <div class="t-Alert-content">
+      <div class="t-Alert-header">
+        <h2 class="t-Alert-title" id="download-started_heading">Download Started</h2>
+      </div>
+      <div class="t-Alert-body">Your download has started and should appear in your browser's download list soon!</div>
+    </div>
+    <div class="t-Alert-buttons"></div>
+  </div>
+</div></div>
+</div>
+</div></div></div></div>
+    <div class="t-DialogRegion-buttons">
+       <div class="t-ButtonRegion t-ButtonRegion--dialogRegion">
+         <div class="t-ButtonRegion-wrap">
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--left"><div class="t-ButtonRegion-buttons"></div></div>
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--right"><div class="t-ButtonRegion-buttons"><button onclick="void(0);" class="t-Button " type="button"  id="B80862255151470801"><span class="t-Button-label">Close</span></button></div></div>
+         </div>
+       </div>
+    </div>
+  </div>
+</div>
+</div></div>
+</div><div class="row">
+<div class="col col-12 apex-col-auto" ><div id="R158687701326846304_parent">
+<div id="R158687701326846304"  class="t-DialogRegion js-dialog-size720x380 js-modal js-draggable js-resizable js-dialog-size480x320 js-regionDialog"  style="display:none" title="Share this Page">
+  <div class="t-DialogRegion-wrap">
+    <div class="t-DialogRegion-bodyWrapperOut"><div class="t-DialogRegion-bodyWrapperIn"><div class="t-DialogRegion-body"><div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div class="t-Alert t-Alert--colorBG t-Alert--horizontal t-Alert--defaultIcons t-Alert--info" id="R158688116648846308" >
+  <div class="t-Alert-wrap">
+    <div class="t-Alert-icon">
+      <span class="t-Icon "></span>
+    </div>
+    <div class="t-Alert-content">
+      <div class="t-Alert-header">
+        <h2 class="t-Alert-title" id="R158688116648846308_heading">Information</h2>
+      </div>
+      <div class="t-Alert-body"><div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div class="t-Form-fieldContainer t-Form-fieldContainer--floatingLabel t-Form-fieldContainer--stretchInputs t-Form-fieldContainer--large apex-item-wrapper apex-item-wrapper--has-initial-value apex-item-wrapper--text-field" id="P0_SHARE_URL_CONTAINER"><div class="t-Form-labelContainer">
+<label for="P0_SHARE_URL" id="P0_SHARE_URL_LABEL" class="t-Form-label">URL with the default view and filters</label>
+</div><div class="t-Form-inputContainer"><div class="t-Form-itemWrapper"><input type="text"  id="P0_SHARE_URL" name="P0_SHARE_URL" class="text_field&#x20;apex-item-text" value="https:&#x2F;&#x2F;reports.psmfc.org&#x2F;pacfin&#x2F;f?p=501:1000:0:INITIAL" size="30"  /><span class="t-Form-itemText t-Form-itemText--post"><button id="copy-btn" class="t-Button t-Button--noLabel t-Button--icon" onclick="void(0);" type="button" style="height:100%">
+    <span class="t-Icon fa fa-clipboard fam-minus" aria-hidden="true" style="font-size:24px"></span>
+</button></span></div><span id="P0_SHARE_URL_error_placeholder" class="a-Form-error" data-template-id="48290553830122207_ET"></span></div></div></div>
+</div>
+</div>Copy one of the links below to share this report page. Unlike the URL in your browser window, the URLs below have been stripped of your current session details. This makes them viable for future use.<div class="container">
+<div class="row">
+<div class="col col-12 apex-col-auto" ><div id="R158688310529846310"  class=""><div class="t-Form-fieldContainer t-Form-fieldContainer--floatingLabel t-Form-fieldContainer--stretchInputs t-Form-fieldContainer--large apex-item-wrapper apex-item-wrapper--text-field js-show-label" style="padding:0px">
+<div class="t-Form-labelContainer">
+<label class="t-Form-label">URL with your view and filter selections</label>
+</div>
+<div class="t-Form-inputContainer">
+<div class="t-Form-itemWrapper">
+<input id="share-filters-url" type="text"class="text_field apex-item-text" readonly="" value="https://reports.psmfc.org/pacfin/f?p=501:1000:0:INITIAL:::P0_SHARE_DISPLAY,P0_SHARE_VIEW,:\\,\\," size="30">
+<span class="t-Form-itemText t-Form-itemText--post">
+<button id="copy-filters-btn" class="t-Button t-Button--noLabel t-Button--icon" onclick="void(0);" type="button" style="height:100%">
+<span class="t-Icon fa fa-clipboard fam-plus" aria-hidden="true" style="font-size:24px"></span>
+</button>
+</span>
+</div>
+</div>
+</div>
+</div></div>
+</div>
+</div></div>
+    </div>
+    <div class="t-Alert-buttons"></div>
+  </div>
+</div></div>
+</div>
+</div></div></div></div>
+    <div class="t-DialogRegion-buttons">
+       <div class="t-ButtonRegion t-ButtonRegion--dialogRegion">
+         <div class="t-ButtonRegion-wrap">
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--left"><div class="t-ButtonRegion-buttons"><button onclick="void(0);" class="t-Button " type="button"  id="B158687842207846305"><span class="t-Button-label">Close</span></button></div></div>
+           <div class="t-ButtonRegion-col t-ButtonRegion-col--right"><div class="t-ButtonRegion-buttons"></div></div>
+         </div>
+       </div>
+    </div>
+  </div>
+</div>
+</div></div>
+</div>
+</div></div><input type="hidden" id="pPageFormRegionChecksums" value="&#x5B;&#x5D;">
+<input type="hidden" id="pPageItemsRowVersion" value="" /><input type="hidden" id="pPageItemsProtected" value="&#x2F;u1yxIjOPjBphksLIzvrKcTpD6DGFY8wd8oxFu7PyfgutDBEiRtaHyE-5w15Je8_3wLCLl0syHK5HFA5U0vvsSw" /></form>
+
+
+<script>
+var apex_img_dir = "\u002Fi241\u002F";
+var apex = {env: {APP_USER: "nobody",APP_ID: "501",APP_PAGE_ID: "1000",APP_SESSION: "20541287497231",APP_FILES: "r\u002Fpacfin\u002F501\u002Ffiles\u002Fstatic\u002Fv151\u002F",WORKSPACE_FILES: "r\u002Fpacfin\u002Ffiles\u002Fstatic\u002Fv3\u002F",APEX_VERSION: "24.1.4",APEX_BASE_VERSION: "24.1"},
+libVersions:{cropperJs:"1.6.1",domPurify:"3.1.2",fontapex:"2.3",fullcalendar:"6.1.11",hammer:"2.0.8",jquery:"3.6.4",jqueryUi:"1.13.2",maplibre:"4.0.1",markedJs:"12.0.1",prismJs:"1.29.0",oraclejet:"16.0.10",tinymce:"6.8.4",turndown:"7.1.3",monacoEditor:"0.47.0",lessJs:"4.2.0"}};
+</script>
+<script src="/i241/libraries/apex/minified/desktop_all.min.js?v=24.1.4"></script>
+<script src="wwv_flow.js_messages?p_app_id=501&p_lang=en-us&p_version=24.1.4-50173830263352"></script>
+<script src="/i241/libraries/apex/minified/legacy_pre18.min.js?v=24.1.4"></script>
+<script src="/i241/libraries/apex/minified/legacy_18.min.js?v=24.1.4"></script>
+<script src="/i241/libraries/jquery-migrate/3.4.1/jquery-migrate.min.js?v=24.1.4"></script>
+
+<script type="text/javascript">
+apex.da.initDaEventList = function(){
+apex.da.gEventList = [
+{"triggeringElementType":"REGION","triggeringRegionId":"tree-region","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"apexafterrefresh","anyActionsFireOnInit":true,actionList:[{"eventResult":true,"executeOnPageInit":true,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"tree-region",javascriptFunction:function() {apex.widget.tree.expand_all(this.affectedElements.find(".tree,.a-TreeView").attr("id"));},"action":"NATIVE_TREE_EXPAND"}]},
+{"triggeringElementType":"JAVASCRIPT_EXPRESSION","triggeringElement": function() {
+return (window
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"resize","anyActionsFireOnInit":true,actionList:[{"eventResult":true,"executeOnPageInit":true,"stopExecutionOnError":true,javascriptFunction:function (){ wh = $(window).height();
+hh = $("#t_Header").height();
+bth = $("#t_Body_title").height();
+fh = $(".t-Footer").height();
+
+bh = wh-hh-bth-fh-24-24;
+$("#tree-region").css("height",bh);
+$("#cards-region").css("height",bh);
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"executionType":"IMMEDIATE","bindEventType":"ready","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ $(".t-Body-actions").hide();
+$(".t-Body-main").css("margin-right","0px");
+$(".t-Body-title").css("right","0px");
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"ITEM","triggeringElement":"P1000_CATEGORY","triggeringConditionType":"JAVASCRIPT_EXPRESSION","triggeringConditionExpression": function() {
+return ($v("P1000_MENU_TYPE") == "CARDS"
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"change","anyActionsFireOnInit":false,actionList:[{"eventResult":false,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"TREE","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"cards-region",javascriptFunction:apex.da.refresh,"action":"NATIVE_REFRESH"}]},
+{"triggeringElementType":"ITEM","triggeringElement":"P1000_TYPE","triggeringConditionType":"JAVASCRIPT_EXPRESSION","triggeringConditionExpression": function() {
+return ($v("P1000_MENU_TYPE") == "CARDS"
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"change","anyActionsFireOnInit":false,actionList:[{"eventResult":false,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"TREE","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"cards-region",javascriptFunction:apex.da.refresh,"action":"NATIVE_REFRESH"}]},
+{"triggeringElementType":"ITEM","triggeringElement":"P1000_SEARCH","triggeringConditionType":"JAVASCRIPT_EXPRESSION","triggeringConditionExpression": function() {
+return (this.browserEvent.which === 13
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"keydown","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ this.browserEvent.preventDefault();
+
+if ($v("P1000_MENU_TYPE") == "TREE") {
+    apex.submit({
+        request: "TREE",
+        showWait: true
+    });
+}
+},"action":"NATIVE_JAVASCRIPT_CODE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"cards-region",javascriptFunction:apex.da.refresh,"action":"NATIVE_REFRESH"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":"#P1000_SEARCH_CONTAINER .clear-search","triggeringConditionType":"JAVASCRIPT_EXPRESSION","triggeringConditionExpression": function() {
+return ($v("P1000_MENU_TYPE") == "CARDS"
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":false,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,"affectedElementsType":"ITEM","affectedElements":"P1000_SEARCH",javascriptFunction:apex.da.setValue,"ajaxIdentifier":"REEgVFlQRX5-MTE3NTE0NzQzODk2Nzg5NzU0\u002FYnvwl0k7LiXmz0Gd3N33MyNkzdwnz9h_jLzozygOj10aOPVz2qMSlbVEAUN9XFM4B-0-gtDooAoJijNo8P21lw","attribute01":"PLSQL_EXPRESSION","attribute09":"Y","attribute11":"sync","action":"NATIVE_SET_VALUE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,"affectedElementsType":"ITEM","affectedElements":"P1000_SEARCH",javascriptFunction:apex.da.setValue,"ajaxIdentifier":"REEgVFlQRX5-MTE0MDkxMDU2NDExMDQ0MTk3\u002F5miPAmCIpUa1kqlseipXAV9XIwKFeOEWl897oKzWzHdF0UNSXjPY36_xpXYlSwOnCKqBwCxa9uuojesc0PXi2w","attribute01":"PLSQL_EXPRESSION","attribute09":"Y","attribute11":"sync","action":"NATIVE_SET_VALUE"},{"eventResult":false,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"TREE","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"cards-region",javascriptFunction:apex.da.refresh,"action":"NATIVE_REFRESH"}]},
+{"executionType":"IMMEDIATE","bindEventType":"ready","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ var bth = $("#t_Body_title").css("height");
+$("#t_Body_content_offset").css("height",bth);
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"cards-button","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ $("#tree-button").removeClass("t-Button--primary");
+$("#cards-button").addClass("t-Button--primary");
+$("#tree-region").hide();
+$("#cards-region").show();
+},"action":"NATIVE_JAVASCRIPT_CODE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,javascriptFunction:apex.da.executePlSqlCode,"ajaxIdentifier":"REEgVFlQRX5-MTE3NTEyMDYwNzI1Nzg5NzI3\u002F9dwUl52ETjiP33kRn9C20hBZ8ZNmQpQZas4GHTRCgbvnDhYIqDgpX0CpAsyG5fgaETRH6FXJMhpabkVOGjT2Dg","attribute02":"#P1000_MENU_TYPE","attribute04":"N","attribute05":"sync","action":"NATIVE_EXECUTE_PLSQL_CODE"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"tree-button","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,javascriptFunction:apex.da.executePlSqlCode,"ajaxIdentifier":"REEgVFlQRX5-MTE3NTEyNTIzNDA4Nzg5NzMy\u002FopRWaTGKxlYC-neij3vXmtCQJqj2Z__jlx0IT4SlQHysj_xbYiAe86B0mzmTqq8FjqeYhGAbgflyfUrc8daK2w","attribute02":"#P1000_MENU_TYPE","attribute04":"N","attribute05":"sync","action":"NATIVE_EXECUTE_PLSQL_CODE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"TREE","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":".t-Header-logo-link, .show-spinner, .t-SearchResults-title \u003E a, #reports-list li \u003E div:has(a), cards-region_cards li","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ apex.widget.waitPopup();
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":"li:has(a):contains(\u0027Login\u0027)","bindType":"live","bindDelegateTo":".t-NavigationBar-menu","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ apex.widget.waitPopup();
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":"li:contains(\u0027Logout\u0027):not(:has(ul))","bindType":"live","bindDelegateTo":".t-NavigationBar-menu","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"R7564819020568545",javascriptFunction:function() {apex.theme.openRegion(this.affectedElements);},"action":"NATIVE_OPEN_REGION"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"B7565198577568548","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"R7564819020568545",javascriptFunction:function() {apex.theme.closeRegion(this.affectedElements);},"action":"NATIVE_CLOSE_REGION"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":"li:has(a):contains(\u0027Alerts\u0027)","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"alerts",javascriptFunction:function() {apex.theme.openRegion(this.affectedElements);},"action":"NATIVE_OPEN_REGION"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"B12092348133145218","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"alerts",javascriptFunction:function() {apex.theme.closeRegion(this.affectedElements);},"action":"NATIVE_CLOSE_REGION"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"display-type-r","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,javascriptFunction:apex.da.executePlSqlCode,"ajaxIdentifier":"REEgVFlQRX5-ODA5MDQxMjE3NTcwMDEzMzQ\u002F4L-E4vSKk_fXelUnjdPAbYz_AW4rRfWyTVmUTljzAJqN6qMNcKnFmHjSINDA-pqvvJHbpTY0Jcobxok8wp8p6g","attribute01":"#P0_REPORT_SELECTOR","attribute02":"#P0_DISPLAY_TYPE,#P0_VIEW_SELECTOR,#P0_AUDIT_TRIGGER","attribute04":"N","attribute05":"sync","action":"NATIVE_EXECUTE_PLSQL_CODE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"DISPLAY","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"display-type-c","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,javascriptFunction:apex.da.executePlSqlCode,"ajaxIdentifier":"REEgVFlQRX5-ODA5MDQ0MTMwNDUwMDEzMzc\u002FzM5tzKupyTmhYPgDdZRinZfKA4kEzqttG9NqxmnryYiNnoq-rMu6dzU5W9lDQh5YJGc0b6ACDaxzdQ0XfrL8sw","attribute01":"#P0_CHART_SELECTOR","attribute02":"#P0_DISPLAY_TYPE,#P0_VIEW_SELECTOR,#P0_AUDIT_TRIGGER","attribute04":"N","attribute05":"sync","action":"NATIVE_EXECUTE_PLSQL_CODE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"DISPLAY","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"display-type-m","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"waitForResult":true,javascriptFunction:apex.da.executePlSqlCode,"ajaxIdentifier":"REEgVFlQRX5-ODA5MDQ3NDMxNzUwMDEzNDA\u002F5Q3SEAFqrioNGOu-oM7x_0vhCT3JtMJWWRE2x2e5vCgVY4dMPf8zAOGvWwSgMP9cTesrIlKpL1Nnj3m0OHYvPw","attribute01":"#P0_MAP_SELECTOR","attribute02":"#P0_DISPLAY_TYPE,#P0_VIEW_SELECTOR,#P0_AUDIT_TRIGGER","attribute04":"N","attribute05":"sync","action":"NATIVE_EXECUTE_PLSQL_CODE"},{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:apex.da.submitPage,"attribute01":"DISPLAY","attribute02":"Y","action":"NATIVE_SUBMIT_PAGE"}]},
+{"triggeringElementType":"JAVASCRIPT_EXPRESSION","triggeringElement": function() {
+return (window
+); },"bindType":"bind","executionType":"IMMEDIATE","bindEventType":"resize","anyActionsFireOnInit":true,actionList:[{"eventResult":true,"executeOnPageInit":true,"stopExecutionOnError":true,javascriptFunction:function (){ // Window Height
+wh = ($(window).height() ? $(window).height() : 0);
+// Header Height
+hh = ($("#t_Header").height() ? $("#t_Header").height() : 0);
+// Page/Report Title Height
+bth = ($("#t_Body_title").height() ? $("#t_Body_title").height() + 1 : 0); // Plus 1 for bottom border
+// Footer Height
+fh = 0;
+// Alerts Region Height
+var arh = 0;
+$("#alerts-region .t-Alert-content").each(function() {
+    ahdr = $(this).find(".t-Alert-header").height();
+    abdy = $(this).find(".t-Alert-body").height();
+    arh = (ahdr + abdy + 50) > arh ? (ahdr + abdy + 50) : arh;
+});
+if (arh > 0) {
+    // Resize Alerts Carousel
+    $("#alerts-region .t-Region-carouselRegions").css("min-height",arh);
+    // Resize Alerts messages
+    $("#alerts-region .t-Alert-wrap").height(arh);
+    // Add 2px for top and bottom region border and 12px for bottom margin
+    arh += 14;
+}
+// Padding, Margin, and Border considerations
+pmb = 12+2+16+12; // 12 padding on top and bottom; 2 for top and bottom border; 16 for bottom margin
+// Report Disclaimer Height (if exists)
+rdh = ($("#report-disclaimer").height() ? $("#report-disclaimer").height() + 14 : 0);
+// View Selector Height (if exists)
+vsh = ($("#view-selector-region").height() ? $("#view-selector-region").height() + 6 : 0);
+// Determine Report Region Height
+bh = wh-hh-bth-fh-pmb-arh-rdh-vsh;
+$("#tree-region").css("height",bh);
+$("#cards-region").css("height",bh);
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"B158687415398846301","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"R158687701326846304",javascriptFunction:function() {apex.theme.openRegion(this.affectedElements);},"action":"NATIVE_OPEN_REGION"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":"#copy-btn","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ $("#P0_SHARE_URL").select();
+document.execCommand("copy");
+apex.message.showPageSuccess("Copied Link to Clipboard (No Filters)!");
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"JQUERY_SELECTOR","triggeringElement":"#copy-filters-btn","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,javascriptFunction:function (){ $("#share-filters-url").select();
+document.execCommand("copy");
+apex.message.showPageSuccess("Copied Link + Filters to Clipboard!");
+},"action":"NATIVE_JAVASCRIPT_CODE"}]},
+{"triggeringElementType":"BUTTON","triggeringButtonId":"B158687842207846305","bindType":"bind","executionType":"IMMEDIATE","bindEventType":"click","anyActionsFireOnInit":false,actionList:[{"eventResult":true,"executeOnPageInit":false,"stopExecutionOnError":true,"affectedElementsType":"REGION","affectedRegionId":"R158687701326846304",javascriptFunction:function() {apex.theme.closeRegion(this.affectedElements);},"action":"NATIVE_CLOSE_REGION"}]}];
+}
+</script>
+
+<script src="/i241/libraries/apex/minified/widget.stickyWidget.min.js?v=24.1.4"></script>
+<script src="/i241/themes/theme_42/1.4/js/theme42.min.js?v=24.1.4"></script>
+
+
+<script src="r/pacfin/501/files/static/v151/setSuperHeaders.js"></script>
+
+  
+
+
+
+
+
+<script src="/i241/libraries/apex/minified/widget.apexTabs.min.js?v=24.1.4"></script>
+<script src="/i241/plugins/com.oracle.apex.carousel/1.1/com.oracle.apex.carousel.min.js?v=24.1.4"></script>
+<script src="/i241/libraries/apex/minified/widget.treeView.min.js?v=24.1.4"></script>
+<script src="/i241/libraries/apex/minified/widget.report.min.js?v=24.1.4"></script>
+
+
+
+<script type="text/javascript">
+apex.jQuery( function() {
+apex.page.init( this, function() {
+try {
+(function(){apex.widget.tree.init('reports-list',gTree113745064627198654Data.data,true,{"showRoot":false,"iconType":"fa","navigation":true,"regionStaticId":"tree-region","nodeHasTooltip":true,"ajaxIdentifier":"UkVHSU9OIFRZUEV-fjExMzc0NTA2NDYyNzE5ODY1NA\u002F_SWfXa9LCVH-nqeuLHpn_D4C-YqqfKpTOik-OQFNNopZvJpgm2AsigWOtEPyQ0v8OvCMjZc5GhMLc4u7j8Klzw","lazyLoading":false});})();
+(function(){apex.widget.report.init("alerts","UkVHSU9OIFRZUEV-fjEyMDkxMzc1Njc1MTQ1MjA4\u002FAoNbvU_ezlpJzC9EtdX-YaTEtqESkVwBmZNZBTy3XSGqrTcAWBlJQDaW719uXHEUZgQzkjCeJNseZ7QeQgCsZQ",{"lazyLoading":false,"internalRegionId":"12091375675145208"});})();
+(function(){apex.widget.report.init("download-report","UkVHSU9OIFRZUEV-fjc4ODU4MTE0ODE3NDEwMjQy\u002F0lESaaw-pA1a2uzJdnDDx2b4AEQBFNMa2Ya_ulRCueTI3bOZZXOrZadWiMCnagM00xlOrmry33Bbe6Ztr0Fzlw",{"lazyLoading":false,"internalRegionId":"78858114817410242"});})();
+} catch(e) {apex.debug.error(e)};
+apex.item.waitForDelayLoadItems().done(function() {
+try {
+(function(){apex.da.initDaEventList();
+apex.da.init();})();
+apex.theme42.initializePage.rightSideCol();
+
+} finally {
+apex.event.trigger(apex.gPageContext$,'apexreadyend');
+};
+});
+});
+});apex.pwa.cleanup( { serviceWorkerPath:'\u002Fpacfin\u002Fr\u002Fpacfin\u002Fpr550501\u002Fsw.js?v=24.1.4-50173830263352\u0026lang=en-us' } );
+</script>
+
+</body>
+</html>

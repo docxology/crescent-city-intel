@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /**
- * scripts/run-alerts.ts — Thin orchestrator: run all 15 alert monitors.
+ * scripts/run-alerts.ts — Thin orchestrator: run all 20 alert monitors (15 base
+ * monitors + the 2026-09-28 permits/dredging/fuel/pacfin/ais expansion).
  *
  * Imports and calls the alert monitoring functions from src/alerts/*, then
  * delegates ALL composite-input shaping and source-health classification to
@@ -40,6 +41,11 @@ import {
 } from "../src/alerts/composite.ts";
 import { runMarineZoneMonitor, getLastMarineZoneError } from "../src/alerts/nws_marine.ts";
 import { runUscgBroadcastMonitor, getLastUscgError } from "../src/alerts/uscg_broadcasts.ts";
+import { runPermitsMonitor, getLastPermitsError } from "../src/alerts/permits.ts";
+import { runDredgingMonitor, getLastDredgingError } from "../src/alerts/dredging.ts";
+import { runFuelMonitor, getLastFuelError } from "../src/alerts/fuel.ts";
+import { runPacfinMonitor, getLastPacfinError } from "../src/alerts/pacfin.ts";
+import { runAisMonitor, getLastAisError } from "../src/alerts/ais.ts";
 import { createLogger } from "../src/logger.ts";
 import { readFile, mkdir, unlink, open, stat } from "fs/promises";
 import { existsSync } from "fs";
@@ -112,7 +118,7 @@ if (import.meta.main) {
 export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
   const releaseLock = await acquireAlertsLock();
   try {
-    logger.info("=== Running All 15 Alert Monitors ===");
+    logger.info("=== Running All 20 Alert Monitors ===");
 
     const monitorErrors = new Map<MonitorKey, string>();
     function runNullableMonitor<T>(
@@ -153,6 +159,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       { key: "roads", run: () => runNullableMonitor("roads", "Caltrans roads", runRoadClosureMonitor, getLastRoadsError) },
       { key: "schools", run: () => runNullableMonitor("schools", "DUSD schools", runSchoolClosureMonitor, getLastSchoolsError) },
       { key: "uscg", run: () => runNullableMonitor("uscg", "USCG broadcasts", runUscgBroadcastMonitor, getLastUscgError) },
+      { key: "permits", run: () => runNullableMonitor("permits", "Permit portal", runPermitsMonitor, getLastPermitsError) },
+      { key: "dredging", run: () => runNullableMonitor("dredging", "Harbor dredging", runDredgingMonitor, getLastDredgingError) },
+      { key: "fuel", run: () => runNullableMonitor("fuel", "EIA fuel price", runFuelMonitor, getLastFuelError) },
+      { key: "pacfin", run: () => runNullableMonitor("pacfin", "PacFIN reports", runPacfinMonitor, getLastPacfinError) },
+      { key: "ais", run: () => runNullableMonitor("ais", "AIS vessel traffic", runAisMonitor, getLastAisError) },
     ];
     if (batch.length !== MONITOR_KEYS.length || batch.some((entry, position) => entry.key !== MONITOR_KEYS[position])) {
       throw new Error(`alert batch does not match MONITOR_KEYS: [${batch.map(entry => entry.key).join(", ")}]`);
@@ -174,7 +185,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     const tidesReport = settledValue("tides") as TideReport | null;
 
     // ─── Compute composite severity ───────────────────────────────────
-    logger.info("Computing 15-monitor composite alert severity...");
+    logger.info("Computing 20-monitor composite alert severity...");
 
     // Remove any prior snapshot when a feed failed this run.
     const currentTypes: MonitorKey[] = ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"];
@@ -214,12 +225,17 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       schools: settledValue("schools"),
       marinezone: settledValue("marinezone"),
       uscg: settledValue("uscg"),
+      permits: settledValue("permits"),
+      dredging: settledValue("dredging"),
+      fuel: settledValue("fuel"),
+      pacfin: settledValue("pacfin"),
+      ais: settledValue("ais"),
     });
-    // The composite severity now takes all fifteen inputs: extendedInput.uscg
-    // (shaped by buildExtendedCompositeInput from the USCG BNM report) feeds
-    // the composite like the other extended monitors. BNM traffic is
-    // informational (CALM/ADVISORY), so it can raise the composite to WATCH
-    // but never manufacture a WARNING on its own.
+    // The composite severity now takes all twenty inputs: the extended
+    // reports (shaped by buildExtendedCompositeInput) feed the composite like
+    // the core monitors. All advisory-class traffic (BNM, permits, harbor
+    // posts, fuel, PacFIN, AIS) can raise the composite to WATCH but never
+    // manufacture a WARNING on its own.
 
     const severityReport = computeAlertSeverity(
       compositeInput.tsunami,
@@ -237,6 +253,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
       extendedInput.schools as Parameters<typeof computeAlertSeverity>[12],
       extendedInput.marinezone as Parameters<typeof computeAlertSeverity>[13],
       extendedInput.uscg as Parameters<typeof computeAlertSeverity>[14],
+      extendedInput.permits as Parameters<typeof computeAlertSeverity>[15],
+      extendedInput.dredging as Parameters<typeof computeAlertSeverity>[16],
+      extendedInput.fuel as Parameters<typeof computeAlertSeverity>[17],
+      extendedInput.pacfin as Parameters<typeof computeAlertSeverity>[18],
+      extendedInput.ais as Parameters<typeof computeAlertSeverity>[19],
     );
 
     logger.info(`Composite alert severity: ${severityReport.level} — ${severityReport.reason}`);
@@ -296,7 +317,7 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
 
     await writeJsonAtomic(paths.alertsHealth, { checkedAt, sources: alertSources });
 
-    logger.info("=== All 15 Alert Monitors Complete ===");
+    logger.info("=== All 20 Alert Monitors Complete ===");
     return alertSources;
   } finally {
     await releaseLock();

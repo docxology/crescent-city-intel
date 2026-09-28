@@ -25,7 +25,7 @@ queries, legal analysis, and civic intelligence domains.
 | [Logger](modules/logger.md) | Structured logging with levels, timestamps, module tags |
 | [Domains](modules/domains.md) | 12 civic intelligence domains with code cross-references |
 | [Monitoring](modules/monitoring.md) | Code change detection, news, and government meeting monitors |
-| [Alerts](modules/alerts.md) | 15 real-time alert monitors + composite severity + alert analytics |
+| [Alerts](modules/alerts.md) | 20 real-time alert monitors + composite severity + alert analytics |
 | [Geo-Intel](modules/geo-intel.md) | Transferable municipality geo-intel contract + tiles-free map-ready feature view |
 | [Geo-Observations](modules/geo-observations.md) | Live hazard-observation envelope for GEO-INFER + the geo contract drift guard |
 | [Readability](modules/readability.md) | Flesch-Kincaid scoring, bounded run history, and trend analytics |

@@ -209,7 +209,7 @@ Worked the infrastructure the earlier passes touched only indirectly.
   and reports each monitor's own verdict from the source-health artifact. A
   degraded live feed is reported, not enforced: failing the build on someone
   else's downtime is how a safety net gets ignored. Its first live run reported
-  15/15 monitors and caught a real gap (CAL FIRE timed out).
+  a full roster (15 at the time) and caught a real gap (CAL FIRE timed out).
 - ✅ **Bun is pinned in all three workflows**, to one shared version. `latest`
   meant a Bun release could break any job with no change to this repository.
 - ✅ **SEO: all eight published pages now carry a full surface.** Only the

@@ -66,6 +66,11 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "DUSD Schools", url: "https://www.dnusd.org/news", monitor: "alerts" },
   { source: "NWS Marine Forecast", url: "https://api.weather.gov/products/types/CWF/locations/EKA", monitor: "alerts" },
   { source: "USCG Broadcast Notice to Mariners", url: "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0", monitor: "alerts" },
+  { source: "Crescent City Permits Portal", url: "https://public.mygov.us/crescent_city_ca/module?module=pi", monitor: "alerts" },
+  { source: "Crescent City Harbor District", url: "https://www.ccharbor.com/sitemap.xml", monitor: "alerts" },
+  { source: "EIA California Fuel", url: "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPM0_PTE_SCA_DPG&f=W", monitor: "alerts" },
+  { source: "PacFIN Reports Dashboard", url: "https://reports.psmfc.org/pacfin/", monitor: "alerts" },
+  { source: "AIS Vessel Traffic", url: "https://meri.digitraffic.fi/api/ais/v1/locations", monitor: "alerts" },
 ];
 
 export function sourceHealth(

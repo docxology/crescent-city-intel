@@ -559,7 +559,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   source_registry.ts    # Canonical online source inventory + bounded discovery probes
   monthly_report.ts     # Monthly civic health report generator
   analytics_backend.ts  # Cross-surface analytics envelope (GUI, pipeline, Pages)
-  alert_analytics.ts    # Unified alert timeline across all 15 monitors + per-type statistics
+  alert_analytics.ts    # Unified alert timeline across all 20 monitors + per-type statistics
   structured_queries.ts # Legislative history, section compare, semantic similarity
   section_graph.ts      # Section dependency graph (citation network)
   section_longevity.ts  # Section age, dormancy, churn
@@ -570,7 +570,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   legal_parser.ts       # Citation extractor, glossary builder, ordinance parser
   manuscript_variables.ts # Durable manuscript variable extraction from analytics
   alerts/
-    severity.ts         # Composite alert severity over all 15 monitor inputs
+    severity.ts         # Composite alert severity over all 20 monitor inputs
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750, 48h predictions)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km, Cascadia)
@@ -616,7 +616,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   pages/static/         # Static dashboard and 404 fallback for Pages
 scripts/
   weekly-check.ts       # Weekly health check orchestrator (all monitors + composite)
-  run-alerts.ts         # Alert monitor runner (15 monitors, all feeding the composite)
+  run-alerts.ts         # Alert monitor runner (20 monitors, all feeding the composite)
   run-monitor.ts        # Change detection runner
   run-news.ts           # News monitor runner (--keywords= CLI flag)
   run-meetings.ts       # Meeting monitor runner
@@ -793,7 +793,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/analytics/embeddings` | GET | PCA projection (requires ChromaDB) |
 | `/api/monitor/status` | GET | Latest monitor report |
 | `/api/monitor/history` | GET | Monitor history JSONL |
-| `/api/monitor/alerts` | GET | Aggregated alert status (all 15 monitors) |
+| `/api/monitor/alerts` | GET | Aggregated alert status (all 20 monitors) |
 | `/api/metadata` | GET | Build, provider, artifact, and source-lineage metadata |
 | `/api/sources` | GET | Canonical source registry, coverage boundaries, and health joins |
 | `/api/sources?format=csv` | GET | Flat downloadable source coverage table |
@@ -858,7 +858,7 @@ All settings support environment variable overrides:
 | 📝 [Logger](docs/modules/logger.md) | Structured logging, LOG_LEVEL |
 | 🧭 [Domains](docs/modules/domains.md) | 12 civic intelligence domains, coverage metrics |
 | 📡 [Monitoring](docs/modules/monitoring.md) | Code change, configured news sources, meetings, YouTube, Triplicate, curation |
-| 🚨 [Alerts](docs/modules/alerts.md) | All 15 monitors with availability-aware severity |
+| 🚨 [Alerts](docs/modules/alerts.md) | All 20 monitors with availability-aware severity |
 | 🌐 [GitHub Pages](docs/modules/pages.md) | Static snapshot export and deployment |
 | 🔐 [API Middleware](docs/modules/api.md) | Sliding-window rate limiting, API key auth |
 

@@ -1,7 +1,7 @@
 # Monitoring Module
 
 Continuous change detection and civic intelligence gathering for Crescent City,
-including the 15-monitor real-time alert family.
+including the 20-monitor real-time alert family.
 
 ## Source discovery registry
 
@@ -256,11 +256,12 @@ bun run src/triplicate_monitor.ts
 The real-time hazard family has its own deep-dive in
 [alerts.md](alerts.md); the count matters here because the source-health
 denominator includes every monitor in the batch. `scripts/run-alerts.ts`
-runs all 15 concurrently (graceful degradation — a failing monitor is a typed
+runs all 20 concurrently (graceful degradation — a failing monitor is a typed
 `unavailable`, never a failed run) and feeds the composite severity:
 **8 core** (tsunami, earthquake, weather, tides, fishing, air quality,
-wildfire, marine) plus **7 extended** (drought, PSPS, smoke, roads, school
-closures, marine forecast, USCG broadcasts).
+wildfire, marine), **7 base extended** (drought, PSPS, smoke, roads, school
+closures, marine forecast, USCG broadcasts), and **5 expansion** (permits,
+dredging, fuel, PacFIN reports, AIS vessel traffic).
 
 | Module | Source | What it monitors | Artifacts |
 | :--- | :--- | :--- | :--- |

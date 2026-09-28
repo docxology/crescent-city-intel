@@ -42,15 +42,17 @@
     // on disk but never appeared here — and the restated copy could not be
     // derived from the roster, so it drifted silently.
     // tests/alert-source-roster.test.ts asserts these maps against MONITOR_KEYS.
-    const ALERT_TREND_TYPES = ['tsunami', 'earthquake', 'weather', 'airquality', 'wildfire', 'marine', 'marinezone', 'tides', 'fishing', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg'];
+    const ALERT_TREND_TYPES = ['tsunami', 'earthquake', 'weather', 'airquality', 'wildfire', 'marine', 'marinezone', 'tides', 'fishing', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg', 'permits', 'dredging', 'fuel', 'pacfin', 'ais'];
     const ALERT_TREND_SOURCE_BY_TYPE = {
       tsunami: 'NOAA Tsunami', earthquake: 'USGS Earthquake', weather: 'NWS Weather',
       airquality: 'EPA AirNow', wildfire: 'CAL FIRE Wildfire', marine: 'NDBC Marine',
       marinezone: 'NWS Marine Forecast', tides: 'NOAA Tides', fishing: 'CDFW Fishing',
       drought: 'USDM Drought', psps: 'PG&E PSPS', smoke: 'HRRR Smoke',
       roads: 'Caltrans Roads', schools: 'DUSD Schools', uscg: 'USCG Broadcast Notice to Mariners',
+      permits: 'Crescent City Permits Portal', dredging: 'Crescent City Harbor District',
+      fuel: 'EIA California Fuel', pacfin: 'PacFIN Reports Dashboard', ais: 'AIS Vessel Traffic',
     };
-    const ALERT_TREND_ICONS = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻' };
+    const ALERT_TREND_ICONS = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻', permits: '📋', dredging: '⚓', fuel: '⛽', pacfin: '🐟', ais: '🚢' };
     const ALERT_TREND_DAY_MS = 24 * 60 * 60 * 1000;
     const ALERT_TREND_WINDOW_DAYS = 14;
     const ALERT_TREND_HISTORY_LIMIT = 500;
@@ -391,8 +393,8 @@ ${sample}
         }
 
         // Per-monitor grid
-        const monitorOrder = ['tsunami', 'earthquake', 'weather', 'tides', 'fishing', 'airquality', 'wildfire', 'marine', 'marinezone', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg'];
-        const monitorIcons = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻' };
+        const monitorOrder = ['tsunami', 'earthquake', 'weather', 'tides', 'fishing', 'airquality', 'wildfire', 'marine', 'marinezone', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg', 'permits', 'dredging', 'fuel', 'pacfin', 'ais'];
+        const monitorIcons = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻', permits: '📋', dredging: '🏗️', fuel: '⛽', pacfin: '🐟', ais: '🚢' };
 
         html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0.5rem; margin-bottom:1rem;">';
         for (const type of monitorOrder) {

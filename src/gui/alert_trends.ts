@@ -42,6 +42,11 @@ export const ALERT_SOURCE_BY_TYPE: Readonly<Record<AlertType, string>> = {
   roads: "Caltrans Roads",
   schools: "DUSD Schools",
   uscg: "USCG Broadcast Notice to Mariners",
+  permits: "Crescent City Permits Portal",
+  dredging: "Crescent City Harbor District",
+  fuel: "EIA California Fuel",
+  pacfin: "PacFIN Reports Dashboard",
+  ais: "AIS Vessel Traffic",
 };
 
 const ALERT_TYPE_SET = new Set<string>(ALERT_TYPES);

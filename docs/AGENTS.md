@@ -28,7 +28,8 @@ Comprehensive project documentation covering architecture, all src/ modules, API
 | `logger.md` | `logger.ts` |
 | `domains.md` | `domains.ts` (12 domains) |
 | `monitoring.md` | `monitor.ts`, `news_monitor.ts`, `gov_meeting_monitor.ts`, `youtube_monitor.ts`, `triplicate_monitor.ts`, `curation.ts`, `monthly_report.ts` |
-| `alerts.md` | All 15 `alerts/` monitors + `alerts/severity.ts`, `alerts/composite.ts`, `alerts/healer.ts`, `alerts/notify.ts`, `alert_analytics.ts` (roster authority: `MONITOR_KEYS` in `alerts/composite.ts`) |
+| `alerts.md` | All 20 `alerts/` monitors + `alerts/severity.ts`, `alerts/composite.ts`, `alerts/healer.ts`, `alerts/notify.ts`, `alert_analytics.ts` (roster authority: `MONITOR_KEYS` in `alerts/composite.ts`) |
+| `expansion-monitors.md` | `alerts/permits.ts`, `alerts/dredging.ts`, `alerts/fuel.ts`, `alerts/pacfin.ts`, `alerts/ais.ts` (monitors #16–#20, shipped 2026-09-28) |
 | `uscg_broadcasts.md` | `alerts/uscg_broadcasts.ts` (monitor #15) |
 | `geo-intel.md` | `geo.ts`, `geo_view.ts` |
 | `geo-observations.md` | `geo_observations.ts`, `scripts/run-geo-observations.ts`, `scripts/check-geo-sync.ts` |

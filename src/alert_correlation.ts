@@ -36,6 +36,7 @@ export const CORRELATION_SCHEMA = "crescent-city-alert-correlations/v1" as const
 export const CORRELATION_SOURCES = [
   "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
   "tides", "fishing", "drought", "psps", "smoke", "roads", "schools", "uscg",
+  "permits", "dredging", "fuel", "pacfin", "ais",
 ] as const;
 export type CorrelationSource = (typeof CORRELATION_SOURCES)[number];
 
@@ -121,6 +122,12 @@ function severityFor(source: CorrelationSource, r: Record<string, unknown>): str
     // The monitor persists `level` (its classified criticality) per broadcast.
     case "uscg": return str(r.level) || "CALM";
     case "psps": return str(r.level) || str(r.severity) || "alert";
+    // The expansion monitors persist `level` (CALM | ADVISORY) per record.
+    case "permits":
+    case "dredging":
+    case "fuel":
+    case "pacfin":
+    case "ais": return str(r.level) || "CALM";
   }
 }
 
@@ -154,6 +161,11 @@ function describe(source: CorrelationSource, r: Record<string, unknown>): string
     case "psps": return str(r.summary) || "PSPS status";
     case "schools": return str(r.summary) || "School status";
     case "uscg": return str(r.summary) || str(r.descriptor) || `USCG broadcast ${str(r.msgId)}`;
+    case "permits": return str(r.summary) || `Permit catalog ${str(r.change) || "update"}`;
+    case "dredging": return str(r.summary) || str(r.title) || "Harbor marine-work post";
+    case "fuel": return str(r.summary) || "Fuel price observation";
+    case "pacfin": return str(r.summary) || "PacFIN catalog update";
+    case "ais": return str(r.summary) || "AIS vessel observation";
   }
 }
 

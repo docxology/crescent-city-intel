@@ -37,6 +37,7 @@ const log = createLogger("alert_analytics");
 export const ALERT_TYPES = [
   "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
   "tides", "fishing", "drought", "psps", "smoke", "roads", "schools", "uscg",
+  "permits", "dredging", "fuel", "pacfin", "ais",
 ] as const;
 export type AlertType = typeof ALERT_TYPES[number];
 

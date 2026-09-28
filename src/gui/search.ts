@@ -18,7 +18,7 @@ import type { FlatSection, SearchResult } from "../types.js";
 import { loadAllSections } from "../shared/data.js";
 import { createLogger } from "../logger.js";
 import { stem } from "../shared/porter_stem.js";
-import { paths } from "../shared/paths.js";
+import { paths, outputRoot } from "../shared/paths.js";
 import { fuzzyCorrect } from "../shared/fuzzy.js";
 import { normalizeSectionNumber } from "../utils.js";
 import { appendFileSync, mkdirSync, existsSync } from "fs";
@@ -120,6 +120,8 @@ function expandSynonyms(token: string): string[] {
 // ─── Index state ─────────────────────────────────────────────────
 let sections: FlatSection[] = [];
 let loaded = false;
+/** The artifact root the loaded index was built over (see initSearch). */
+let loadedRoot = "";
 
 /** Per-section term frequency index: sectionIdx → term → {tf, titleTf, numberMatch} */
 let tfIndex: Array<Map<string, { tf: number; titleTf: number }>> = [];
@@ -246,10 +248,15 @@ function buildIndex(allSections: FlatSection[]): void {
 
 /** Load + index all sections. Idempotent. */
 export async function initSearch(): Promise<void> {
-  if (loaded) return;
+  // The artifact root is part of the index's identity: tests redirect
+  // CC_OUTPUT_DIR to a minimal corpus copy mid-suite, and an index built over
+  // the wrong root must not be served as "loaded" for the real root (or the
+  // reverse). Rebuild whenever the root moved.
+  if (loaded && loadedRoot === outputRoot()) return;
   sections = await loadAllSections();
   buildIndex(sections);
   loaded = true;
+  loadedRoot = outputRoot();
 }
 
 /** Force a reload of the search index (after a re-scrape). */

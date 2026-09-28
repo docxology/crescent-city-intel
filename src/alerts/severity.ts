@@ -1,6 +1,6 @@
 /**
  * Composite alert severity scoring for Crescent City.
- * Aggregates input from all 15 alert monitors and returns a single
+ * Aggregates input from all 20 alert monitors and returns a single
  * standardised composite status: CALM | WATCH | WARNING | EMERGENCY.
  *
  * Rules (applied in MONITOR_PRIORITY order, then tier; the implementation is
@@ -678,6 +678,11 @@ export const MONITOR_PRIORITY: readonly string[] = [
   "airQuality",   // NB: camelCase — see SEVERITY_MONITOR_KEYS
   "drought",      // multi-year background state
   "uscg",         // Broadcast Notice to Mariners; advisory-class at most
+  "permits",      // civic permitting news; advisory-class
+  "dredging",     // harbor marine-construction news; advisory-class
+  "fuel",         // statewide retail price; economic background
+  "pacfin",       // fisheries catalog; advisory-class
+  "ais",          // vessel traffic; advisory-class
 ];
 
 /**
@@ -697,6 +702,7 @@ export const MONITOR_PRIORITY: readonly string[] = [
 export const SEVERITY_MONITOR_KEYS: readonly string[] = [
   "tsunami", "earthquake", "weather", "tides", "fishing", "airQuality", "wildfire",
   "marine", "drought", "psps", "smoke", "roads", "schools", "marinezone", "uscg",
+  "permits", "dredging", "fuel", "pacfin", "ais",
 ];
 
 /** Rank of a monitor in `MONITOR_PRIORITY`; unknown names sort last. */
@@ -803,7 +809,154 @@ function assessUscg(input: UscgBroadcastInput): MonitorStatus {
 }
 
 /**
- * Compute composite alert severity from all 15 monitor inputs.
+ * City permit-portal input (src/alerts/permits.ts). The MyGov public catalog
+ * is informational: catalog changes surface as a visible WATCH, an unchanged
+ * catalog is CALM with the catalog size as scope.
+ */
+export interface PermitsInput {
+  /** Worst classified catalog state: CALM | ADVISORY. */
+  worstLevel: string;
+  /** Published permit application types on the public portal. */
+  catalogSize: number;
+  /** New or edited permit types behind the worst level. */
+  changeCount: number;
+  available: boolean;
+}
+
+function assessPermits(input: PermitsInput): MonitorStatus {
+  if (!input.available) {
+    return { level: "CALM", summary: "Permit portal data unavailable", count: 0, availability: "unavailable" };
+  }
+  const scope = input.catalogSize > 0 ? `${input.catalogSize} permit type(s) published` : "no permit types published";
+  if (input.worstLevel === "ADVISORY") {
+    return { level: "WATCH", summary: `\u{1f7e1} Permit catalog changes (${input.changeCount} changed, ${scope})`, count: input.changeCount };
+  }
+  if (input.worstLevel === "CALM") {
+    return { level: "CALM", summary: `Permit catalog unchanged (${scope})`, count: 0 };
+  }
+  return { level: "WATCH", summary: `Permit portal level "${input.worstLevel}" unrecognized — treat as elevated`, count: input.changeCount };
+}
+
+/**
+ * Harbor dredging input (src/alerts/dredging.ts). Marine-construction posts
+ * on the harbor's public sitemap are advisory-class.
+ */
+export interface DredgingInput {
+  /** Worst classified harbor-post state: CALM | ADVISORY. */
+  worstLevel: string;
+  /** Sitemap URLs scanned. */
+  totalUrls: number;
+  /** In-window dredging / marine-construction posts behind the worst level. */
+  relevantCount: number;
+  available: boolean;
+}
+
+function assessDredging(input: DredgingInput): MonitorStatus {
+  if (!input.available) {
+    return { level: "CALM", summary: "Harbor dredging data unavailable", count: 0, availability: "unavailable" };
+  }
+  const scope = input.totalUrls > 0 ? `${input.totalUrls} harbor URLs scanned` : "no harbor URLs scanned";
+  if (input.worstLevel === "ADVISORY") {
+    return { level: "WATCH", summary: `\u{1f7e1} Harbor marine-work posts (${input.relevantCount} relevant, ${scope})`, count: input.relevantCount };
+  }
+  if (input.worstLevel === "CALM") {
+    return { level: "CALM", summary: `No harbor marine-work posts (${scope})`, count: 0 };
+  }
+  return { level: "WATCH", summary: `Harbor dredging level "${input.worstLevel}" unrecognized — treat as elevated`, count: input.relevantCount };
+}
+
+/**
+ * Fuel-price input (src/alerts/fuel.ts). The observed statewide weekly
+ * average is advisory-class; only a spike above the monitor's own band
+ * raises it. A missing observed week is a gap, never a fabricated price.
+ */
+export interface FuelInput {
+  /** Worst classified price state: CALM | ADVISORY. */
+  worstLevel: string;
+  /** Latest OBSERVED weekly price ($/gal), or null when the feed carried none. */
+  latestPrice: number | null;
+  /** Latest vs trailing median, as a fraction. */
+  deltaVsMedian: number | null;
+  available: boolean;
+}
+
+function assessFuel(input: FuelInput): MonitorStatus {
+  if (!input.available) {
+    return { level: "CALM", summary: "Fuel price data unavailable", count: 0, availability: "unavailable" };
+  }
+  const price = input.latestPrice !== null ? `$${input.latestPrice.toFixed(2)}/gal` : "no observed week";
+  const delta = input.deltaVsMedian !== null ? ` (${input.deltaVsMedian >= 0 ? "+" : ""}${(input.deltaVsMedian * 100).toFixed(1)}% vs median)` : "";
+  if (input.worstLevel === "ADVISORY") {
+    return { level: "WATCH", summary: `\u{1f7e1} Fuel price spike ${price}${delta}`, count: 1 };
+  }
+  if (input.worstLevel === "CALM") {
+    return { level: "CALM", summary: `Fuel price nominal: ${price}${delta}`, count: 0 };
+  }
+  return { level: "WATCH", summary: `Fuel level "${input.worstLevel}" unrecognized — treat as elevated`, count: 1 };
+}
+
+/**
+ * PacFIN input (src/alerts/pacfin.ts). The public report catalog is
+ * informational; landing figures are credential-gated and never read.
+ */
+export interface PacfinInput {
+  /** Worst classified catalog state: CALM | ADVISORY. */
+  worstLevel: string;
+  /** Public reports in the catalog. */
+  reportCount: number;
+  /** New or edited public reports behind the worst level. */
+  changeCount: number;
+  /** False until a credentialed connector reads landing figures. */
+  landingDataAvailable: boolean;
+  available: boolean;
+}
+
+function assessPacfin(input: PacfinInput): MonitorStatus {
+  if (!input.available) {
+    return { level: "CALM", summary: "PacFIN catalog data unavailable", count: 0, availability: "unavailable" };
+  }
+  const gate = input.landingDataAvailable ? "" : "; landings credential-gated";
+  const scope = input.reportCount > 0 ? `${input.reportCount} public report(s)${gate}` : `no public reports${gate}`;
+  if (input.worstLevel === "ADVISORY") {
+    return { level: "WATCH", summary: `\u{1f7e1} PacFIN catalog changes (${input.changeCount} changed, ${scope})`, count: input.changeCount };
+  }
+  if (input.worstLevel === "CALM") {
+    return { level: "CALM", summary: `PacFIN catalog unchanged (${scope})`, count: 0 };
+  }
+  return { level: "WATCH", summary: `PacFIN level "${input.worstLevel}" unrecognized — treat as elevated`, count: input.changeCount };
+}
+
+/**
+ * AIS vessel-traffic input (src/alerts/ais.ts). Vessels inside the Del Norte
+ * watch box are advisory-class context; an empty box is a calm day, not an
+ * outage, and the feed's coverage scope is carried in the monitor itself.
+ */
+export interface AisInput {
+  /** Worst classified vessel state: CALM | ADVISORY. */
+  worstLevel: string;
+  /** Vessels in the upstream feed this run. */
+  vesselsObserved: number;
+  /** Vessels inside the Del Norte watch box behind the worst level. */
+  vesselsInWatchArea: number;
+  available: boolean;
+}
+
+function assessAis(input: AisInput): MonitorStatus {
+  if (!input.available) {
+    return { level: "CALM", summary: "AIS vessel data unavailable", count: 0, availability: "unavailable" };
+  }
+  const scope = `${input.vesselsObserved} vessel(s) in feed`;
+  if (input.worstLevel === "ADVISORY") {
+    return { level: "WATCH", summary: `\u{1f7e1} AIS traffic in the watch box (${input.vesselsInWatchArea} vessel(s), ${scope})`, count: input.vesselsInWatchArea };
+  }
+  if (input.worstLevel === "CALM") {
+    return { level: "CALM", summary: `No AIS vessels in the watch box (${scope})`, count: 0 };
+  }
+  return { level: "WATCH", summary: `AIS level "${input.worstLevel}" unrecognized — treat as elevated`, count: input.vesselsInWatchArea };
+}
+
+/**
+ * Compute composite alert severity from all 20 monitor inputs.
  *
  * @returns AlertSeverityReport with composite level and per-monitor breakdown.
  */
@@ -823,6 +976,11 @@ export function computeAlertSeverity(
   schools: SchoolClosureInput = { status: "OPEN", hasActiveClosure: false, hasActiveDelay: false, eventCount: 0, available: false },
   marinezone: MarineZoneInput = { worstLevel: "CALM", peakWindKt: null, available: false },
   uscg: UscgBroadcastInput = { worstLevel: "CALM", totalBroadcasts: 0, relevantCount: 0, available: false },
+  permits: PermitsInput = { worstLevel: "CALM", catalogSize: 0, changeCount: 0, available: false },
+  dredging: DredgingInput = { worstLevel: "CALM", totalUrls: 0, relevantCount: 0, available: false },
+  fuel: FuelInput = { worstLevel: "CALM", latestPrice: null, deltaVsMedian: null, available: false },
+  pacfin: PacfinInput = { worstLevel: "CALM", reportCount: 0, changeCount: 0, landingDataAvailable: false, available: false },
+  ais: AisInput = { worstLevel: "CALM", vesselsObserved: 0, vesselsInWatchArea: 0, available: false },
 ): AlertSeverityReport {
   const monitors = {
     tsunami: assessTsunami(tsunami),
@@ -840,6 +998,11 @@ export function computeAlertSeverity(
     schools: assessSchools(schools),
     marinezone: assessMarineZone(marinezone),
     uscg: assessUscg(uscg),
+    permits: assessPermits(permits),
+    dredging: assessDredging(dredging),
+    fuel: assessFuel(fuel),
+    pacfin: assessPacfin(pacfin),
+    ais: assessAis(ais),
   };
 
   // Find the highest severity across all monitors.

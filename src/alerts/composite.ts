@@ -29,6 +29,11 @@ import { CALTRANS_ROADS_TEXT_URL } from "./caltrans_roads.js";
 import { DUSD_ALERTS_URL } from "./dusd_schools.js";
 import { NWS_CWF_LIST_URL } from "./nws_marine.js";
 import { USCG_BNM_LIST_URL } from "./uscg_broadcasts.js";
+import { MYGOV_PERMITS_URL } from "./permits.js";
+import { CCHARBOR_SITEMAP_URL } from "./dredging.js";
+import { EIA_CA_RETAIL_GAS_URL } from "./fuel.js";
+import { PACFIN_DASHBOARD_URL } from "./pacfin.js";
+import { DIGITRAFFIC_AIS_URL } from "./ais.js";
 
 /** A single monitor's run outcome + the metadata needed to classify it. */
 /**
@@ -44,6 +49,7 @@ import { USCG_BNM_LIST_URL } from "./uscg_broadcasts.js";
 export const MONITOR_KEYS = [
   "tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "marinezone",
   "tides", "fishing", "drought", "psps", "smoke", "roads", "schools", "uscg",
+  "permits", "dredging", "fuel", "pacfin", "ais",
 ] as const;
 
 export type MonitorKey = typeof MONITOR_KEYS[number];
@@ -56,6 +62,7 @@ export type MonitorKey = typeof MONITOR_KEYS[number];
 export const NULL_ON_FAILURE_MONITORS = new Set<MonitorKey>([
   "airquality", "wildfire", "marine", "marinezone", "tides", "fishing",
   "drought", "psps", "smoke", "roads", "schools", "uscg",
+  "permits", "dredging", "fuel", "pacfin", "ais",
 ]);
 
 export interface AlertMonitorDefinition {
@@ -266,6 +273,11 @@ export function buildExtendedCompositeInput(
     schools?: unknown;
     marinezone?: unknown;
     uscg?: unknown;
+    permits?: unknown;
+    dredging?: unknown;
+    fuel?: unknown;
+    pacfin?: unknown;
+    ais?: unknown;
   },
   now = Date.now(),
 ): Record<string, unknown> {
@@ -276,6 +288,11 @@ export function buildExtendedCompositeInput(
   const schools = asRecord(reports.schools);
   const marinezone = asRecord(reports.marinezone);
   const uscg = asRecord(reports.uscg);
+  const permits = asRecord(reports.permits);
+  const dredging = asRecord(reports.dredging);
+  const fuel = asRecord(reports.fuel);
+  const pacfin = asRecord(reports.pacfin);
+  const ais = asRecord(reports.ais);
   return {
     drought: {
       severity: (drought.compositeSeverity as string) ?? "NONE",
@@ -318,10 +335,41 @@ export function buildExtendedCompositeInput(
       worstLevel: (uscg.worstLevel as string) ?? "CALM",
       available: reports.uscg != null,
     },
+    permits: {
+      catalogSize: typeof permits.catalogSize === "number" ? permits.catalogSize : 0,
+      changeCount: Array.isArray(permits.changedEntries) ? permits.changedEntries.length : 0,
+      worstLevel: (permits.worstLevel as string) ?? "CALM",
+      available: reports.permits != null,
+    },
+    dredging: {
+      totalUrls: typeof dredging.totalUrls === "number" ? dredging.totalUrls : 0,
+      relevantCount: typeof dredging.relevantCount === "number" ? dredging.relevantCount : 0,
+      worstLevel: (dredging.worstLevel as string) ?? "CALM",
+      available: reports.dredging != null,
+    },
+    fuel: {
+      latestPrice: typeof fuel.latest?.pricePerGallon === "number" ? fuel.latest.pricePerGallon : null,
+      deltaVsMedian: typeof fuel.deltaVsMedian === "number" ? fuel.deltaVsMedian : null,
+      worstLevel: (fuel.worstLevel as string) ?? "CALM",
+      available: reports.fuel != null,
+    },
+    pacfin: {
+      reportCount: typeof pacfin.reportCount === "number" ? pacfin.reportCount : 0,
+      changeCount: Array.isArray(pacfin.changedReports) ? pacfin.changedReports.length : 0,
+      landingDataAvailable: pacfin.landingDataAvailable === true,
+      worstLevel: (pacfin.worstLevel as string) ?? "CALM",
+      available: reports.pacfin != null,
+    },
+    ais: {
+      vesselsObserved: typeof ais.vesselsObserved === "number" ? ais.vesselsObserved : 0,
+      vesselsInWatchArea: Array.isArray(ais.vesselsInWatchArea) ? ais.vesselsInWatchArea.length : 0,
+      worstLevel: (ais.worstLevel as string) ?? "CALM",
+      available: reports.ais != null,
+    },
   };
 }
 
-/** The extended monitors (five Phase-12 + the NWS marine forecast + USCG broadcasts), by stable key. */
+/** The extended monitors (five Phase-12 + the NWS marine forecast + USCG broadcasts + the 2026-09-28 civic/marine expansion), by stable key. */
 export type ExtendedMonitorSpec = readonly [
   source: string,
   key: MonitorKey,
@@ -341,6 +389,11 @@ export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
   ["DUSD Schools", "schools", "events", DUSD_ALERTS_URL, "Del Norte USD announcements"],
   ["NWS Marine Forecast", "marinezone", "periods", NWS_CWF_LIST_URL, "NWS Coastal Waters Forecast text product (KEKA CWF, zone PZZ450)"],
   ["USCG Broadcast Notice to Mariners", "uscg", "items", USCG_BNM_LIST_URL, "USCG NAVCEN District 11 Broadcast Notice to Mariners listing"],
+  ["Crescent City Permits Portal", "permits", "permits", MYGOV_PERMITS_URL, "City of Crescent City MyGov public portal permit catalog (module=pi); issued-permit register is login-gated and is NOT read"],
+  ["Crescent City Harbor District", "dredging", "items", CCHARBOR_SITEMAP_URL, "Crescent City Harbor District sitemap.xml with a dredging / marine-construction keyword filter (no RSS exists; wp-json and /feed/ are disabled)"],
+  ["EIA California Fuel", "fuel", "previousWeeks", EIA_CA_RETAIL_GAS_URL, "EIA weekly California all-grades all-formulations retail gasoline price (statewide observed average, not a station-level reading)"],
+  ["PacFIN Reports Dashboard", "pacfin", "reports", PACFIN_DASHBOARD_URL, "PSMFC PacFIN APEX public report catalog (embedded tree JSON); landing figures are credential-gated and are NOT read"],
+  ["AIS Vessel Traffic", "ais", "vesselsInWatchArea", DIGITRAFFIC_AIS_URL, "Open-AIS FeatureCollection feed (AIS_FEED_URL env; default keyless digitraffic) filtered to the Del Norte watch box"],
 ];
 
 /**
@@ -360,7 +413,10 @@ export const CORE_MONITOR_SOURCE_NAMES: readonly string[] = [
   "CDFW Fishing",      // fishing
 ] as const;
 
-/** All 15 alert-monitor source names (8 core + 7 extended), in MONITOR_KEYS order. */
+/**
+ * All alert-monitor source names (8 core + 7 base extended + the five
+ * 2026-09-28 expansion monitors), in MONITOR_KEYS order.
+ */
 export const ALERT_MONITOR_SOURCE_NAMES: readonly string[] = [
   ...CORE_MONITOR_SOURCE_NAMES.slice(0, 6), // tsunami..marine
   ...CORE_MONITOR_SOURCE_NAMES.slice(6),    // tides, fishing

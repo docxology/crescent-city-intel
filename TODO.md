@@ -8,15 +8,26 @@ move to the CHANGELOG entry for their release.
 
 ## Open
 
-- 🔴 **New monitors: permits, dredging, fuel** (USCG broadcasts shipped
-  2026-09-08 as monitor #15; the rest need live-source connectors and an
-  owner decision on data budgets). AC: each monitor wired into the
-  `run-alerts` batch with offline fixture tests and honest source-health
-  states.
-- 🟡 **Marine expansion: PacFIN landing data + AIS vessel tracking** (same
-  live-source/owner-budget prerequisite). AC: bounded fetches with offline
-  fixtures; absent data is an explicit empty state, never a fabricated
-  reading.
+- ✅ **New monitors: permits, dredging, fuel** — **Closed 2026-09-28.** Shipped
+  as monitors #16–#18 with live-source connectors and offline fixture tests:
+  permits reads the City's MyGov public portal permit catalog (the
+  issued-permit register is login-gated and is NOT read — the monitor says
+  so), dredging reads the Harbor District sitemap with a marine-construction
+  keyword filter (no RSS exists on the site), and fuel reads the EIA weekly
+  California retail gasoline table (statewide observed average, explicitly
+  scoped; only observed values are ever reported). All three are wired into
+  the `run-alerts` batch with honest source-health states: a dead or walled
+  source is an `unavailable` record, never an empty success.
+- ✅ **Marine expansion: PacFIN landing data + AIS vessel tracking** —
+  **Closed 2026-09-28.** Monitors #19–#20 with bounded fetches and offline
+  fixtures. PacFIN: the public APEX dashboard's embedded report-tree catalog
+  is parsed and watched (76 public reports); landing figures require PacFIN
+  credentials, so `landingDataAvailable` is `false` and absent landings data
+  is an explicit empty state, never a fabricated catch total. AIS: any
+  open-AIS FeatureCollection feed (`AIS_FEED_URL`; default keyless
+  digitraffic) filtered to the Del Norte watch box — zero local vessels is a
+  legitimate empty state over real upstream data, and a US-waters feed needs
+  a credentialed provider the budget does not include yet.
 - 🟡 **Genuinely per-article incremental re-embedding** — **Closed 2026-09-28.**
   `indexAllSections` skipped the rebuild only when the whole-corpus chunk
   fingerprint was unchanged, so any single changed article re-embedded the entire
@@ -94,7 +105,6 @@ move to the CHANGELOG entry for their release.
   extraction.
 
 ---
-_Open set audited against the implemented tree 2026-09-28. The two items marked
-🔴/🟡 as blocked need live-source connectors plus an owner decision on data
-budgets, so they are untouched. `bun run validate` reports current test and
-contract counts._
+_Open set audited against the implemented tree 2026-09-28. The permits/dredging/
+fuel and marine-expansion items closed the same day (five monitors shipped;
+see CHANGELOG). `bun run validate` reports current test and contract counts._

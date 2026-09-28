@@ -79,7 +79,7 @@ Severity thresholds:
 
 ## Composite 15-Monitor Severity (`src/alerts/severity.ts`)
 
-Aggregates all 15 alert monitors (8 core + 7 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast, USCG broadcasts) into a single composite severity level. The authoritative roster is `MONITOR_KEYS` in `src/alerts/composite.ts`.
+Aggregates all 20 alert monitors (8 core + 12 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast, USCG broadcasts, permits, dredging, fuel, PacFIN reports, AIS vessel traffic) into a single composite severity level. The authoritative roster is `MONITOR_KEYS` in `src/alerts/composite.ts`.
 
 **Priority order**: EMERGENCY > WARNING > WATCH > CALM
 **API endpoint**: `GET /api/alerts/composite`

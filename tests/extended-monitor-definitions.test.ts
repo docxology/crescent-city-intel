@@ -21,6 +21,11 @@ import type { RoadClosureReport } from "../src/alerts/caltrans_roads.ts";
 import type { SchoolClosureReport } from "../src/alerts/dusd_schools.ts";
 import type { MarineZoneForecast } from "../src/alerts/nws_marine.ts";
 import type { UscgBroadcastReport } from "../src/alerts/uscg_broadcasts.ts";
+import type { PermitsReport } from "../src/alerts/permits.ts";
+import type { DredgingReport } from "../src/alerts/dredging.ts";
+import type { FuelReport } from "../src/alerts/fuel.ts";
+import type { PacfinMonitorReport } from "../src/alerts/pacfin.ts";
+import type { AisReport } from "../src/alerts/ais.ts";
 
 function settled<T>(value: T, status: "fulfilled" | "rejected" = "fulfilled"): PromiseSettledResult<T> {
   return status === "fulfilled" ? { status, value } : { status, reason: new Error("boom") };
@@ -54,6 +59,21 @@ function realMarineZone(): MarineZoneForecast {
 function realUscg(): UscgBroadcastReport {
   return { fetchedAt: FIXED, sourceUrl: "https://www.navcen.uscg.gov/", windowDays: 7, totalBroadcasts: 0, items: [], relevantCount: 0, worstLevel: "CALM", summary: "s" };
 }
+function realPermits(): PermitsReport {
+  return { fetchedAt: FIXED, sourceUrl: "https://public.mygov.us/crescent_city_ca/module?module=pi", permits: [{ id: "2108", name: "Over the Counter Permit", category: "Over the Counter Permit", department: "Building Department", description: "d", applyUrl: "", applyRequiresLogin: true }], catalogSize: 1, changedEntries: [], catalogHash: "h", worstLevel: "CALM", summary: "s" };
+}
+function realDredging(): DredgingReport {
+  return { fetchedAt: FIXED, sourceUrl: "https://www.ccharbor.com/sitemap.xml", windowDays: 90, totalUrls: 10, items: [], relevantCount: 0, worstLevel: "CALM", summary: "s" };
+}
+function realFuel(): FuelReport {
+  return { fetchedAt: FIXED, sourceUrl: "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPM0_PTE_SCA_DPG&f=W", latest: { weekOf: FIXED, pricePerGallon: 4.2 }, previousWeeks: [{ weekOf: FIXED, pricePerGallon: 4.1 }], medianPrice: 4.1, deltaVsMedian: 0.02, worstLevel: "CALM", scopeNote: "s", summary: "s" };
+}
+function realPacfin(): PacfinMonitorReport {
+  return { fetchedAt: FIXED, sourceUrl: "https://reports.psmfc.org/pacfin/", reports: [{ id: "2", label: "ALL001 - ALL001 WOC All Species", categoryPath: "All Species Reports (ALL)", tooltip: "t" }], reportCount: 1, changedReports: [], landingDataAvailable: false, limitation: "l", worstLevel: "CALM", summary: "s" };
+}
+function realAis(): AisReport {
+  return { fetchedAt: FIXED, sourceUrl: "https://meri.digitraffic.fi/api/ais/v1/locations", feedName: "digitraffic open AIS", vesselsObserved: 3, vesselsInWatchArea: [], coversDelNorteWaters: false, worstLevel: "CALM", summary: "s" };
+}
 
 const FIXED = "2026-09-26T12:00:00.000Z";
 
@@ -63,12 +83,16 @@ function baseline(): Record<MonitorKey, PromiseSettledResult<unknown>> {
 }
 
 describe("EXTENDED_MONITOR_SPECS", () => {
-  test("covers exactly the seven extended monitors, by key", () => {
+  test("covers exactly the twelve extended monitors, by key", () => {
     // Keys, not positions: a monitor's identity used to be where it sat in the
     // runner's array, restated by hand in five places across three files.
-    expect(EXTENDED_MONITOR_SPECS.map(spec => spec[1])).toEqual(["drought", "psps", "smoke", "roads", "schools", "marinezone", "uscg"]);
+    expect(EXTENDED_MONITOR_SPECS.map(spec => spec[1])).toEqual([
+      "drought", "psps", "smoke", "roads", "schools", "marinezone", "uscg",
+      "permits", "dredging", "fuel", "pacfin", "ais",
+    ]);
     expect(EXTENDED_MONITOR_SPECS.map(spec => spec[0])).toEqual([
       "USDM Drought", "PG&E PSPS", "HRRR Smoke", "Caltrans Roads", "DUSD Schools", "NWS Marine Forecast", "USCG Broadcast Notice to Mariners",
+      "Crescent City Permits Portal", "Crescent City Harbor District", "EIA California Fuel", "PacFIN Reports Dashboard", "AIS Vessel Traffic",
     ]);
     for (const [, key] of EXTENDED_MONITOR_SPECS) expect(MONITOR_KEYS).toContain(key);
   });
@@ -105,6 +129,11 @@ describe("EXTENDED_MONITOR_SPECS", () => {
       schools: () => realSchools(),
       marinezone: () => realMarineZone(),
       uscg: () => realUscg(),
+      permits: () => realPermits(),
+      dredging: () => realDredging(),
+      fuel: () => realFuel(),
+      pacfin: () => realPacfin(),
+      ais: () => realAis(),
     };
     for (const [, key, listField] of EXTENDED_MONITOR_SPECS) {
       const report = reportShapes[key]!() as Record<string, unknown>;
@@ -116,7 +145,7 @@ describe("EXTENDED_MONITOR_SPECS", () => {
 describe("buildExtendedMonitorDefinitions", () => {
   test("a rejected result yields an unavailable-source definition with a null report", () => {
     const defs = buildExtendedMonitorDefinitions(baseline());
-    expect(defs.length).toBe(7);
+    expect(defs.length).toBe(12);
     for (const def of defs) {
       expect(def.report).toBeNull();
       expect(def.itemCount).toBe(0);
@@ -169,7 +198,7 @@ describe("monitor identity survives a change to the batch order", () => {
     results.roads = settled({ incidents: [{ id: 1 }, { id: 2 }, { id: 3 }] });
     results.schools = settled({ events: [{ id: "x" }] });
     const counts = Object.fromEntries(buildExtendedMonitorDefinitions(results).map(def => [def.key, def.itemCount]));
-    expect(counts).toEqual({ drought: 1, psps: 2, smoke: 1, roads: 3, schools: 1, marinezone: 0, uscg: 0 });
+    expect(counts).toEqual({ drought: 1, psps: 2, smoke: 1, roads: 3, schools: 1, marinezone: 0, uscg: 0, permits: 0, dredging: 0, fuel: 0, pacfin: 0, ais: 0 });
   });
 
   test("inserting a monitor cannot shift another monitor's data", () => {

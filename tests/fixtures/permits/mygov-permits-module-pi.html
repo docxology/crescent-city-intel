@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+        <title>City of Crescent City, CA | Public Portal</title>
+        <meta name="description" content="City of Crescent City, CA public portal page.">
+        <meta name="author" content="MyGov">
+        <!-- Google Tag Manager -->
+<script nonce="reGjXPeva4gIGhEl0XKaow==">(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','GTM-T5S5JFS');</script>
+<!-- End Google Tag Manager -->
+        <link href="/assets/css/oac/oac-global.css" rel="stylesheet">
+        <link href="/assets/css/terms_and_privacy/terms_and_privacy_modal.css" rel="stylesheet">
+
+        <link href="/assets/css/oac/search.css" rel="stylesheet">
+        <link href="/assets/css/statuses.css" rel="stylesheet">
+        
+<script nonce="reGjXPeva4gIGhEl0XKaow==">if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==">
+
+    MG = {};
+    MG.loggedUserId = 0;
+    MG.loggedUserRole = '0';
+    MG.loggedUserIsGisManager = 0;
+    MG.GoogleApiKey = "AIzaSyACWJeZ68kyKYdXpdhtJaE1N4YtBV7VvDM";
+    MG.loggedUserSessionIO = '0';
+    MG.isCollaboratorPlatform = 0;
+    MG.isPublicPortal = 1;
+    MG.iCityId = 139;
+    MG.userNotificationLimit = 9;
+    MG.flag_mygovu_notification = 0;
+    MG.calendarsToSync = [];
+    MG.APP_TIME_PERIODS = ["days","months","years"];
+    MG.allowMultipleBrowserTabs = 0;
+    MG.isViteAppRunning = true;
+    MG.mapboxGisToken = 'pk.eyJ1IjoibXlnb3Z1cyIsImEiOiJlT0dzbVVJIn0.aHxZqV3qyHe9OMSnJLonXA';
+</script>
+
+<!-- Vendors -->
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/globalize/0.1.1/globalize.min.js" integrity="sha512-/jX1Yu8mdLYov435VLcAxjnZv9LY6/O8yjaJixeqGTGdpqcya961de8CQY2ucn6SerTMoW6yfIVytGgsp9nVTQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.14.1/jquery-ui.min.js" integrity="sha512-MSOo1aY+3pXCOCdGAYoBZ6YGI0aragoQsg1mKKBHXCYPIWxamwOE7Drh+N5CPgGI5SA9IEKJiPjdfqWFWmZtRA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.6.2/fuse.min.js" integrity="sha512-Nqw1tH3mpavka9cQCc5zWWEZNfIPdOYyQFjlV1NvflEtQ0/XI6ZQ+H/D3YgJdqSUJlMLAPRj/oXlaHCFbFCjoQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/npm/knockout@3.4.2/build/output/knockout-latest.debug.min.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/npm/knockout-fast-foreach@0.6.0/dist/knockout-fast-foreach.min.js" integrity="sha256-LY+ogp1hRZw9xg66Wdlus1HxNmLeZxSMPcbvNLCDs5g=" crossorigin="anonymous"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/knockout.mapping/2.4.1/knockout.mapping.min.js" integrity="sha512-1LyBPWtezbX0LO4X4QzhfZd9jSetVu5W0IFpMV9ecq4lJUQBR6hx8uiNfUI2Aoe7LCF4rK1NV3rY+uil4VJ3QQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/knockout-sortable/1.1.0/knockout-sortable.min.js" integrity="sha512-klcZfdppuNF0b/HaGFm2lIyDELoEjSgjr6epFRnGbHjsKsAQMHnJOz/B5vUHTK41SKR+ecCbAfLSVJdGZPYDug==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/npm/knockout.merge@1.5.8/src/knockout.merge.min.js"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/3.0.5/js.cookie.min.js" integrity="sha512-nlp9/l96/EpjYBx7EP7pGASVXNe80hGhYAUrjeXnu/fyF5Py0/RXav4BBNs7n5Hx1WFhOEOWSAVjGeC3oKxDVQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/blueimp-load-image/2.19.0/load-image.all.min.js" integrity="sha512-9eEXxjEYLM7EQK6WLjlgWcoIhWBX9Q1JZftCXPWnx4IAKGnit7bYYOZa/lF7LWUarzHE/nJBFy4bAM65pETK0g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js" integrity="sha512-tBzZQxySO5q5lqwLWfu8Q+o4VkTcRGOeQGVQ0ueJga4A1RKuzmAu5HXDOXLEjpbKyV7ow9ympVoa6wZLEzRzDg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/gh/AliasIO/Raphael.FreeTransform/raphael.free_transform.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/gh/AliasIO/Raphael.Export/raphael.export.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/gh/dahoo/raphael.dropshadow.js/raphael.dropshadow.js"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js" integrity="sha512-G9dfCJFG3y/Xq8mbbqb5i3FQNVaGl0Fkkw+VPVT3L00gA4k7hyjSGNpAxykwgDw1cfJFlj5tO3XePa+ezjDQyQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.11/jstree.min.js" integrity="sha512-bU6dl4fd2XN3Do3aWypPP2DcKywDyR3YlyszV+rOw9OpglrGyBs6TyTsbglf9umgE+sy+dKm1UHhi07Lv+Vtfg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/masonry/4.2.2/masonry.pkgd.min.js" integrity="sha512-JRlcvSZAXT8+5SQQAvklXGJuxXTouyq8oIMaYERZQasB8SBDHZaUbeASsJWpk0UUrf89DP3/aefPPrlMR1h1yQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.8/cropper.min.js" integrity="sha512-GUPSbEJbXD3rAS/24MH9SYoDuV8stqJeX8BBAzgf+WDwNOKgByP3g5U+gaqM8OXCJUOU026ZZ33u3pWzQ5tarw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/jquery-cropper/1.0.2/jquery-cropper.min.js" integrity="sha512-pL0jfA38iInMLAhM4nmOfnvQQMhDedyIPDmqbQw18Meq5dSsPJf8LTeOjDoCuuN0jR64sCkpABNhWTt8ilfJOA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/quill/2.0.2/quill.min.js" integrity="sha512-1nmY9t9/Iq3JU1fGf0OpNCn6uXMmwC1XYX9a6547vnfcjCY1KvU9TE5e8jHQvXBoEH7hcKLIbbOjneZ8HCeNLA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js" integrity="sha512-K/oyQtMXpxI4+K0W7H25UopjM8pzq0yrVdFdG21Fh5dBe91I40pDd9A4lzNlHPHBIP2cwZuoxaUSX0GJSObvGA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/npm/shortcut-buttons-flatpickr@0.4.0/dist/shortcut-buttons-flatpickr.min.js" integrity="sha256-uWqDZrKvibcbvcwvyFTYcRY/ImjQcFUElmN8mqOEgPM=" crossorigin="anonymous"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/npm/mapbox-gl@0.40.0/dist/mapbox-gl.min.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdn.jsdelivr.net/npm/@mapbox/mapbox-gl-draw@1.1.2/dist/mapbox-gl-draw.min.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/5.1.6/turf.min.js" integrity="sha512-siRTCNQkkHmxAwPkDt8P/TUrtxSBTSxGyD2G+uliEjS7b5uLjAPgQxIwO6JWPaTQ8doAfBHcHPMut84oNdT/2g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" integrity="sha512-a+SUDuwNzXDvz4XrIcXHuCf089/iJAoN4lmrXJg18XnduKK6YlDHNRalv4yd1N40OKI80tFidF+rqTFKGPoWFQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<!-- Utils -->
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/dist/_mgutils-iCNpC1Vb.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/dist/_utils-Z8Vx4L6T.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" type="text/javascript" src="https://svc.webspellchecker.net/spellcheck31/wscbundle/wscbundle.js"></script>
+
+<!-- Plugins -->
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/dist/_plugins--Z3vFlAK.js"></script>
+
+<!-- Socket.io -->
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="/socket.io/socket.io.js"></script>
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==">if (window.module) module = window.module;</script>
+
+<!-- MyGov Files -->
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/dist/_MG-1ejexLm4.js"></script>
+<script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/dist/_singlefiles-FXym1pK1.js" defer></script>
+
+<!-- Vite App -->
+<script type="module" crossorigin src="/assets/dist/vite-app/index-C3_tn3PE.js" nonce="reGjXPeva4gIGhEl0XKaow=="></script>
+<link rel="modulepreload" crossorigin href="/assets/dist/vite-app/rolldown-runtime-Dd_uD5pT.js" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="modulepreload" crossorigin href="/assets/dist/vite-app/vue-good-table-y7KnFpgh.js" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="modulepreload" crossorigin href="/assets/dist/vite-app/tylertech-DMoi9Ikg.js" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="modulepreload" crossorigin href="/assets/dist/vite-app/vendor-evMfxQiS.js" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="modulepreload" crossorigin href="/assets/dist/vite-app/highcharts-TxaKPO7E.js" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="modulepreload" crossorigin href="/assets/dist/vite-app/zipcelx-AEEN0Fw3.js" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="stylesheet" crossorigin href="/assets/dist/vite-app/vue-good-table-t414D4KA.css" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="stylesheet" crossorigin href="/assets/dist/vite-app/vendor-BhCqcmL7.css" nonce="reGjXPeva4gIGhEl0XKaow==">
+<link rel="stylesheet" crossorigin href="/assets/dist/vite-app/index-DQKYpe-3.css" nonce="reGjXPeva4gIGhEl0XKaow==">
+<meta property="csp-nonce" nonce="reGjXPeva4gIGhEl0XKaow==">
+
+
+        <style type="text/css">
+            [v-cloak] { display: none }
+        </style>
+    </head>
+
+    <body class="listing-pi listing-module" id="top-of-the-page" data-account="crescent_city_ca">
+        <!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-T5S5JFS"
+                  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+        <header style="background-image: url('/assets/img/pp/header-bg-pi.jpg?3')" class="inner-pages-header module-header">
+    <div class="header-block module-header mobile-no logo-wrapper js-nav-width-setter" style="background-color: rgba(34,42,150, .7);">
+        <a href="/crescent_city_ca" class="logo-holder">
+            <div class="city-logo header-block-item">
+                                    <img class="js-agency-logo" src="/uploads/oac/139-logo-1586383122.png" alt="City of Crescent City, CA" title="City of Crescent City, CA">
+                                <span class="js-agency-name">Home</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="header-block main-header js-header-background mobile-no module-header-wrapper module-title" style="background-color: rgba(34,42,150, .7);">
+        <div class="">
+            <a href="/crescent_city_ca/module?module=pi" class="header-block-item module-logo-holder">
+                <span class="fs0">pi</span>
+                <div class="module-icon pi"></div>
+            </a>
+            <div class="header-block-item header-module-dropdown-wrapper">
+                <a href="#" class="header-nav-trigger js-nav-trigger">Permits</a>
+            </div>
+        </div>
+
+                <div class="header-block-item">
+            <p>Are you a collaborator?</p>
+            <p>
+                <a href="https://web.mygov.us/authentication/register?city_id=139&redirect_logout=aHR0cDovL3B1YmxpYy5teWdvdi51cy9jcmVzY2VudF9jaXR5X2NhL21vZHVsZT9tb2R1bGU9cGk=">Create Account</a>
+                <a class="ml5" href="https://web.mygov.us/authentication/login/?loginas=collaborator&city_id=139&redirect_logout=aHR0cDovL3B1YmxpYy5teWdvdi51cy9jcmVzY2VudF9jaXR5X2NhL21vZHVsZT9tb2R1bGU9cGk=">Login</a>
+            </p>
+            <p class="js-whats_collaborator_text mtop10 whats-collaborator-trigger" data-collaborator-text="A collaborator works directly online with this agency related to permits, licenses, credentials or as an abatement contractor.">What's a collaborator? <a href="javascript:;" class="whats-collaborator-chevron fs0">Info</a></p>
+        </div>
+            </div>
+
+    <div class="header-block header-spacer mobile-no" style="background-color: rgba(34,42,150, .7);"></div>
+
+    <div class="header-block main-header js-header-background mobile-yes" style="background-color: rgba(34,42,150, .7);">
+        <div class="left">
+            <a href="#" class="mobile-nav js-nav-trigger">&#9776;</a>
+            <span class="js-agency-name">City of Crescent City, CA <span class="module-title">Permits</span></span>
+        </div>
+        <div class="right">
+            <a href="/crescent_city_ca/module?module=pi">
+                <div class="module-icon pi"></div>
+            </a>
+        </div>
+        <div class="clear"></div>
+    </div>
+</header>
+<div class="page-title" style="color: #064648">
+    <h1>Apply For A Permit</h1>
+            <div class="buttons-holder"><a href="/crescent_city_ca/estimate?module=pi" class="button blue">Estimate Fees</a></div>
+    </div>
+<nav class="website-navigation js-website-navigation">
+    <a href="#" class="js-close-website-navigation close-website-navigation">&#x2715;</a>
+    <ul class="navigation-mobile-only mobile-yes">
+        <li><a href="/crescent_city_ca/" class="home-link">HOME</a></li>
+                <li><a href="https://web.mygov.us/authentication/login/?loginas=collaborator&city_id=139&redirect_logout=aHR0cDovL3B1YmxpYy5teWdvdi51cy9jcmVzY2VudF9jaXR5X2NhL21vZHVsZT9tb2R1bGU9cGk=">Collaborator Login</a></li>
+            </ul>
+    <ul class="navigation-modules-listing">
+        <li class="mobile-no"><a href="/crescent_city_ca/" class="home-link ">HOME</a></li>
+                <li>
+                            <a href="/crescent_city_ca/module?module=gis" >
+                    GIS                </a>
+                    </li>
+                <li>
+                            <a href="/crescent_city_ca/templates?module=pi" class="selected">
+                    Permits                </a>
+                    </li>
+                <li>
+                            <a href="/crescent_city_ca/templates?module=rm" >
+                    Requests                </a>
+                    </li>
+                <li>
+                            <a href="/crescent_city_ca/templates?module=reports" >
+                    Reports                </a>
+                    </li>
+                <li>
+                            <a href="/crescent_city_ca/templates?module=ce" >
+                    Code                </a>
+                    </li>
+            </ul>
+
+    <ul class="other-tools-listing">
+        <li><a href="/crescent_city_ca/lookup">Address Lookup</a></li>
+        <li><a href="/crescent_city_ca/knowledge">Knowledge</a></li>
+        <li><a href="/crescent_city_ca/myRequests" class="js-my-requests">My Requests</a></li>
+        <li class="mobile-no"><a href="#download" class="js-pp-modal" data-modal_target="download-modal">Download MyGov</a></li>
+    </ul>
+    <span class="mobile-yes mobile-padding-only"></span>
+</nav>
+
+        <div class="container container-moves-up no-contacts">
+                                                <div class="templates-header-container">
+                        <div class="templates-header-container-only-text">
+                            <h2>The most common permits:</h2>
+                        </div>
+                    </div>
+
+                    
+                    <div class="module-templates">
+                                                    <div class="template-element"
+     data-category="Over the Counter Permit"
+     data-id="2108"
+     data-name="Over the Counter Permit"
+     data-module="pi">
+    <div class="template-wrap">
+        <div class="template-header">
+            <div class="template-title">Over the Counter Permit</div>
+            <div class="template-subtitle">
+                                    <span class="template-category">Over the Counter Permit</span>
+                                                    <span class="template-department">Building Department</span>
+                            </div>
+        </div>
+        <div class="template-description">This application is for all over the counter permits: Minor Electrical, Minor Plumbing, Minor Mechanical, Water Heater Replacement, Window & Door Replacement, Re-Roof, Siding, Rot Repair, Stair Repair etc.</div>
+
+                		            <div class="template-buttons-holder">
+	                <a href="javascript;" class="js-popup-login-options button white">Apply for Permit</a>
+	                	            </div>
+                        </div>
+            
+    </div>
+                                                    <div class="template-element"
+     data-category="Encroachment Permit"
+     data-id="2092"
+     data-name="Encroachment Permit"
+     data-module="pi">
+    <div class="template-wrap">
+        <div class="template-header">
+            <div class="template-title">Encroachment Permit</div>
+            <div class="template-subtitle">
+                                    <span class="template-category">Encroachment Permit</span>
+                                                    <span class="template-department">Building Department</span>
+                            </div>
+        </div>
+        <div class="template-description">This permit is required for any work in the City ROW. Typically City's ROW includes all streets and also extend 10-feet +/- as measured from the face of curb toward private property. If you are working in this zone, you will need an encroachment permit. If you would like an annual encroachment permit covering multiple projects (not typical), or a permit for a project not tied to a specific address please contact City Hall. (707) 464-9506.</div>
+
+                		            <div class="template-buttons-holder">
+	                <a href="javascript;" class="js-popup-login-options button white">Apply for Permit</a>
+	                	            </div>
+                        </div>
+            
+    </div>
+                                                    <div class="template-element"
+     data-category="Commercial Building Permits"
+     data-id="2107"
+     data-name="Building Permit New or Remodel of non-residential or mixed-use properties"
+     data-module="pi">
+    <div class="template-wrap">
+        <div class="template-header">
+            <div class="template-title">Building Permit New or Remodel of non-residential or mixed-use properties</div>
+            <div class="template-subtitle">
+                                    <span class="template-category">Commercial Building Permits</span>
+                                                    <span class="template-department">Building Department</span>
+                            </div>
+        </div>
+        <div class="template-description">This application is for non-residential properties.</div>
+
+                		            <div class="template-buttons-holder has-knowledge">
+	                <a href="javascript;" class="js-popup-login-options button white">Apply for Permit</a>
+	                	                    <a href="#" class="button white ki-trigger">View Knowledge</a>
+	                	            </div>
+                        </div>
+                    <div class="knowledge-holder">
+                                            <div class="knowledge-item">
+                    <strong class="ki-heading">DISABILITY ACCESS REQUIREMENTS AND RESOURCES</strong>
+                    <div class="info">
+                        <p>Notice to Applicants for Business Licenses and  Commercial Building Permits:</p>                    </div>
+                                            <p class="mtop10">Disability Access Requirement and Resources.pdf <a href="https://web.mygov.us/index/shrinkedurl?uuid=4daf782f-3cf7-40f0-89a5-66c69f8cb0cc">Download</a></p>
+                                    </div>
+                                    </div>
+        
+    </div>
+                                                    <div class="template-element"
+     data-category="Residential Building Permits"
+     data-id="2101"
+     data-name="Building Permit New Residential or Residential Remodel"
+     data-module="pi">
+    <div class="template-wrap">
+        <div class="template-header">
+            <div class="template-title">Building Permit New Residential or Residential Remodel</div>
+            <div class="template-subtitle">
+                                    <span class="template-category">Residential Building Permits</span>
+                                                    <span class="template-department">Building Department</span>
+                            </div>
+        </div>
+        <div class="template-description">This application is for new residential or remodel projects.</div>
+
+                		            <div class="template-buttons-holder">
+	                <a href="javascript;" class="js-popup-login-options button white">Apply for Permit</a>
+	                	            </div>
+                        </div>
+            
+    </div>
+                                                    <div class="template-element"
+     data-category="Fence Permit"
+     data-id="1995"
+     data-name="Fence Permits"
+     data-module="pi">
+    <div class="template-wrap">
+        <div class="template-header">
+            <div class="template-title">Fence Permits</div>
+            <div class="template-subtitle">
+                                    <span class="template-category">Fence Permit</span>
+                                                    <span class="template-department">Building Department</span>
+                            </div>
+        </div>
+        <div class="template-description">This permit covers all fences that do not require an encroachment permit. If an encroachment permit is needed, you will need this fence permit and an encroachment permit.</div>
+
+                		            <div class="template-buttons-holder">
+	                <a href="javascript;" class="js-popup-login-options button white">Apply for Permit</a>
+	                	            </div>
+                        </div>
+            
+    </div>
+                                            </div>
+                            
+                        <div class="module-contacts" id="module-contacts">
+                <h2><em>Get in contact with a representative:</em></h2>
+                <div class="contacts-container">
+                    This module has no primary contacts assigned                                    </div>
+            </div>
+            <a href="javascript:;"
+               data-account="crescent_city_ca"
+               data-module="pi"
+               class="js-see-all-contacts see-all-contacts">See all Contacts</a>
+            <div class="address-lookup ">
+    <div class="address-lookup-header">Use the Address Lookup to find all activity at a location.</div>
+    <div class="address-lookup-buttons">
+        <a href="/crescent_city_ca/lookup">
+            <img src="/assets/img/oac/address-lookup-white.png?1" alt="" title="">
+            <span class="lookup">Address Lookup</span>
+        </a>
+        <a href="/crescent_city_ca/knowledge">
+            <img src="/assets/img/oac/knowledge-white.png?1" alt="" title="">
+            <span class="lookup">Knowledge</span>
+        </a>
+                <a class="js-my-requests" href="/crescent_city_ca/myRequests">
+            <img src="/assets/img/oac/address-lookup-white.png?1" alt="" title="">
+            <span class="lookup">My Requests</span>
+        </a>
+                <a href="#download" class="js-pp-modal" data-modal_target="download-modal">
+            <img src="/assets/img/oac/download-app-white.png?1" alt="" title="">
+            <span class="download">Download MyGov</span>
+        </a>
+    </div>
+</div>
+                    </div>
+
+        <div class="js-popup-login-options-content none">
+            <div class="align-center content-popup-login">
+                <div class="login-options-title">
+                    Are you a collaborator?
+                </div>
+                <div class="hbox mtop20">
+                    <a href="https://web.mygov.us/authentication/register?city_id=139&redirect_logout=aHR0cDovL3B1YmxpYy5teWdvdi51cy9jcmVzY2VudF9jaXR5X2NhL21vZHVsZT9tb2R1bGU9cGk=" class="js-create-account button white">Create Account</a>
+                    <a href="https://web.mygov.us/authentication/login/?loginas=collaborator&city_id=139&redirect_logout=aHR0cDovL3B1YmxpYy5teWdvdi51cy9jcmVzY2VudF9jaXR5X2NhL21vZHVsZT9tb2R1bGU9cGk=" class="js-login button white ml5">Login</a>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+    <div>
+        <span class="mygov-mini-logo">Powered by MyGov</span>
+        <span>
+            <a href="#tos" class="js-pp-modal" data-modal_target="pp-terms-of-service-modal">Terms of Use</a> | <a href="#privacy" class="js-pp-modal" data-modal_target="pp-privacy-policy-modal">Privacy</a>
+        </span>
+    </div>
+    <div class="mobile-no">
+        <span>Copyright 2002 - 2026 © MyGov, LLC. All Rights Reserved.</span>
+        <span>September 28, 2026</span>
+    </div>
+    <a href="#top-of-the-page" class="js-scroll-to-id back-to-top-link js-to-top-link cssFadeOut">To Top</a>
+</footer>
+
+<div class="pp-modal-wrapper" data-modal_target="pp-terms-of-service-modal">
+    <div class="pp-modal-opacity js-pp-close-modal"></div>
+    <div class="pp-modal-content-holder">
+        <div class="pp-modal-content-wrapper">
+            <div class="pp-modal-title">
+                <h2>Terms of Service</h2>
+            </div>
+            <div class="pp-modal-content tou-modal">
+                <p>This agreement is between MyGov, LLC, an Oklahoma corporation (<strong>MyGov</strong>), and the user
+                    agreeing to these terms (<strong>User</strong>).</p>
+                <h3>SOFTWARE-AS-A-SERVICE</h3>
+                <p>This agreement provides User access to and usage of an Internet based software service (Service).</p>
+                <h3>USE OF SERVICE</h3>
+                <h4><strong>1) User Responsibilities</strong></h4>
+                <p>User (i) must keep its passwords secure and confidential; (ii) is solely responsible for User data
+                    and all activity in its account in the Service; (iii) must use commercially reasonable efforts to
+                    prevent unauthorized access to its account, and notify MyGov promptly of any such unauthorized
+                    access; and (iv) may use the Service only in accordance with the Service’s Online Help Desk and
+                    applicable law.</p>
+                <h3>DISCLAIMER</h3>
+                <p><strong>MYGOV DISCLAIMS ALL OTHER WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES
+                        OF MERCHANTABILITY, TITLE AND FITNESS FOR A PARTICULAR PURPOSE. WHILE MYGOV TAKES REASONABLE
+                        PHYSICAL, TECHNICAL AND ADMINISTRATIVE MEASURES TO SECURE THE SERVICE, MYGOV DOES NOT GUARANTEE
+                        THAT THE SERVICE CANNOT BE COMPROMISED. CUSTOMER UNDERSTANDS THAT THE SERVICE MAY NOT BE ERROR
+                        FREE, AND USE MAY BE INTERRUPTED.</strong></p>
+                <h3>MUTUAL CONFIDENTIALITY</h3>
+                <h4><strong>1) Definition of Confidential Information</strong></h4>
+                <p>Confidential Information means all non-public information disclosed by a party
+                    (<strong>Discloser</strong>) to the other party (<strong>Recipient</strong>), whether orally or in
+                    writing, that is designated as confidential or that reasonably should be understood to be
+                    confidential given the nature of the information and the circumstances of disclosure (<strong>Confidential
+                        Information</strong>). MyGov’s Confidential Information includes without limitation the Service
+                    (including without limitation the Service user interface design and layout, and pricing
+                    information).</p>
+                <h4><strong>2) Protection of Confidential Information</strong></h4>
+                <p>The Recipient must use the same degree of care that it uses to protect the confidentiality of its own
+                    confidential information (but in no event less than reasonable care) not to disclose or use any
+                    Confidential Information of the Discloser for any purpose outside the scope of this agreement. The
+                    Recipient must make commercially reasonable efforts to limit access to Confidential Information of
+                    Discloser to those of its employees and contractors who need such access for purposes consistent
+                    with this agreement and who have signed confidentiality agreements with Recipient no less
+                    restrictive than the confidentiality terms of this agreement.</p>
+                <h4><strong>3) Exclusions</strong></h4>
+                <p>Confidential Information excludes information that: (i) is or becomes generally known to the public
+                    without breach of any obligation owed to Discloser, (ii) was known to the Recipient prior to its
+                    disclosure by the Discloser without breach of any obligation owed to the Discloser, (iii) is
+                    received from a third party without breach of any obligation owed to Discloser, or (iv) was
+                    independently developed by the Recipient without use or access to the Confidential Information. The
+                    Recipient may disclose Confidential Information to the extent required by law or court order, but
+                    will provide Discloser with advance notice to seek a protective order.</p>
+                <h3>MYGOV PROPERTY</h3>
+                <h4><strong>1) Reservation of Rights</strong></h4>
+                <p>The software, workflow processes, user interface, designs, know-how, and other technologies provided
+                    by MyGov as part of the Service are the proprietary property of MyGov and its licensors, and all
+                    right, title and interest in and to such items, including all associated intellectual property
+                    rights, remain only with MyGov. Customer may not remove or modify any proprietary marking or
+                    restrictive legends in the Service. MyGov reserves all rights unless expressly granted in this
+                    agreement.</p>
+                <h4><strong>2) Restrictions</strong></h4>
+                <p><i>Customer may not</i> (i) sell, resell, rent or lease the Service or use it in a service provider
+                    capacity; (ii) use the Service to store or transmit infringing, unsolicited marketing emails,
+                    libelous, or otherwise objectionable, unlawful or tortious material, or to store or transmit
+                    material in violation of third-party rights; (iii) interfere with or disrupt the integrity or
+                    performance of the Service; (iv) attempt to gain unauthorized access to the Service or their related
+                    systems or networks; (v) reverse engineer the Service; or (vi) access the Service to build a
+                    competitive service or product, or copy any feature, function or graphic for competitive purposes.
+                </p>
+                <h3>TERM AND TERMINATION</h3>
+                <h4><strong>1) Term</strong></h4>
+                <p>This agreement continues until all orders have terminated.</p>
+                <h4><strong>2) Destroy MyGov Property Upon Termination</strong></h4>
+                <p>Upon termination of this agreement for any reason, User must destroy all property of MyGov. Upon
+                    MyGov’s request, User will confirm in writing its compliance with this destruction requirement.</p>
+                <h3>LIABILITY LIMIT</h3>
+                <h4><strong>1) EXCLUSION OF INDIRECT DAMAGES</strong></h4>
+                <p><strong>MyGov is not liable for any indirect, special, incidental or consequential damages arising
+                        out of or related to this agreement (including, without limitation, costs of delay; loss of
+                        data, records or information; and lost profits), even if it knows of the possibility of such
+                        damage or loss.</strong></p>
+                <h4><strong>2) TOTAL LIMIT ON LIABILITY</strong></h4>
+                <p><strong>MyGov’s total liability arising out of or related to this agreement (whether in contract,
+                        tort or otherwise) does not exceed $100 U.S. dollars.</strong></p>
+                <h3>GOVERNING LAW AND FORUM</h3>
+                <p>This agreement is governed by the laws of the State of Oklahoma (without regard to conflicts of law
+                    principles) for any dispute between the parties or relating in any way to the subject matter of this
+                    agreement. Any suit or legal proceeding must be exclusively brought in the federal or state courts
+                    for Pontotoc County, Oklahoma, and Customer submits to this personal jurisdiction and venue. Nothing
+                    in this agreement prevents either party from seeking injunctive relief in a court of competent
+                    jurisdiction. The prevailing party in any litigation is entitled to recover its attorneys’ fees and
+                    costs from the other party.</p>
+                <h3>OTHER TERMS</h3>
+                <h4><strong>1) Entire Agreement and Changes</strong></h4>
+                <p>This agreement and the order constitute the entire agreement between the parties and supersede any
+                    prior or contemporaneous negotiations or agreements, whether oral or written, related to this
+                    subject matter. Customer is not relying on any representation concerning this subject matter, oral
+                    or written, not included in this agreement. No representation, promise or inducement not included in
+                    this agreement is binding. No modification of this agreement is effective unless both parties sign
+                    it, and no
+                    waiver is effective unless the party waiving the right signs a waiver in writing.</p>
+                <h4><strong>2) No Assignment</strong></h4>
+                <p>Neither party may assign or transfer this agreement or an order to a third party, except that this
+                    agreement with all orders may be assigned, without the consent of the other party, as part of a
+                    merger, or sale of substantially all the assets, of a party.</p>
+                <h4><strong>3) Independent Contractors</strong></h4>
+                <p>The parties are independent contractors with respect to each other.</p>
+                <h4><strong>4) Enforceability and Force Majeure</strong></h4>
+                <p>If any term of this agreement is invalid or unenforceable, the other terms remain in effect. Except
+                    for the payment of monies, neither party is liable for events beyond its reasonable control,
+                    including, without limitation force majeure&nbsp;events.</p>
+                <h4><strong>5) Money Damages Insufficient</strong></h4>
+                <p>Any breach by a party of this agreement or violation of the other party’s intellectual property
+                    rights could cause irreparable injury or harm to the other party. The other party may seek a court
+                    order to stop any breach or avoid any future breach.</p>
+                <h4><strong>6) Survival of Terms</strong></h4>
+                <p>Any terms that by their nature survive termination of this agreement, for a party to assert its
+                    rights and receive the protections of this agreement, will survive.</p>
+            </div>
+            <a href="#" class="js-pp-close-modal pp-close-modal-absolute">&times;</a>
+        </div>
+    </div>
+</div>
+<div class="pp-modal-wrapper" data-modal_target="pp-privacy-policy-modal">
+    <div class="pp-modal-opacity js-pp-close-modal"></div>
+    <div class="pp-modal-content-holder">
+        <div class="pp-modal-content-wrapper">
+            <div class="pp-modal-title">
+                <h2>Privacy Policy</h2>
+            </div>
+            <div class="pp-modal-content privacy-modal">
+                <h3>Scope</h3>
+                <p>MyGov takes your privacy seriously. This policy explains how MyGov collects, uses and protects
+                    Information submitted and collected as part of its web-based service and generally on its website
+                    (together, the <strong>Website</strong>).</p>
+                <p><strong>Information</strong> <i>means</i> information that determines the identity of an individual.
+                </p>
+                <h3>Collection</h3>
+                <p><strong>Registration Data:</strong> When registering on our Website you will provide Information
+                    (such as, company name, individual name, address, phone number and email address).</p>
+                <p><strong>Cookies:</strong> Our servers may retain information in cookies about your session when you
+                    enter and use our Website.</p>
+                <h3>Uses</h3>
+                <p><strong>Use of Information:</strong> We will use Information to provide our service, provide support,
+                    and to improve our Website.</p>
+                <p><strong>Cookies:</strong> We use cookies and other collected information to improve and further
+                    develop our Website, to keep your session active and to customize your experience. The cookies are
+                    stored on your computer. You can delete them or reject them, but if you do you cannot use our
+                    service.</p>
+                <p><strong>Aggregate Non-Identifiable Information:</strong> We use aggregate non-identifiable
+                    information to improve our Website.</p>
+                <p><strong>Server Logs:</strong> Our server logs record system information when you view our Website.
+                </p>
+                <p><strong>Email Marketing:</strong> You may receive marketing emails from us. You can always
+                    ‘unsubscribe‘ or ‘opt-out’ of those emails within the body of the email.</p>
+                <p><strong>Service Providers:</strong> We do not disclose Information to third parties, except to
+                    certain service providers:</p>
+                <ul class="with-bullets">
+                    <li>credit card processors,</li>
+                    <li>Google Analytics,</li>
+                    <li>Digicert,</li>
+                    <li>Rackspace, and</li>
+                    <li>other contractors providing services on our behalf.</li>
+                </ul>
+                <h3>Disclosure and Sharing</h3>
+                <p><strong>Legal Requirements:</strong> We may be required by law to disclose your Information, and we
+                    will try to take steps to limit any such disclosure.</p>
+                <p><strong>Change of Ownership:</strong> If we are acquired or otherwise sell our business, we will
+                    transfer all of the Information to the successor entity. We will try to notify you of any change in
+                    ownership or sale by either posting it on our site or by emailing you (at the email address in the
+                    system).</p>
+                <h3>Other Terms</h3>
+                <p><strong>Application of this Policy:</strong> By registering on our Website, you agree to comply with
+                    the terms of this Privacy Policy and that we may process your Information.</p>
+                <p><strong>Industry Standard Security:</strong> While we use industry standard security measures to
+                    protect against the loss, misuse and alteration of the information under our control, there is no
+                    guaranty that our service cannot be compromised.</p>
+                <p><strong>Privacy Complaints:</strong></p>
+                <ul>
+                    <li><strong>Contact Us First (Please):</strong> If you have a dispute or complaint about privacy
+                        practices, please contact us and we will do our best to resolve it!
+                    </li>
+                    <li><strong>Contact:</strong> support@mygov.us</li>
+                    <li><strong>Physical Address:</strong>
+                        <table class="address-table">
+                            <tbody>
+                            <tr>
+                                <td>MyGov, LLC</td>
+                            </tr>
+                            <tr>
+                                <td>P.O. Box 1192</td>
+                            </tr>
+                            <tr>
+                                <td>Ada, OK 74821</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </li>
+                </ul>
+                <p><strong>Links to Third Party Sites:</strong> Our websites may contain links to other sites and
+                    services, which are owned and controlled by others. These websites have their own policies regarding
+                    privacy, and you should review those policies.</p>
+                <p><strong>Revisions to this Policy:</strong> We may change this policy at any time. Notice of any
+                    significant revision will be called out on this website for a period of time.</p>
+            </div>
+            <a href="#" class="js-pp-close-modal pp-close-modal-absolute">&times;</a>
+        </div>
+    </div>
+</div>
+<div class="pp-modal-wrapper download-modal" data-modal_target="download-modal">
+    <div class="pp-modal-opacity js-pp-close-modal"></div>
+    <div class="pp-modal-content-holder">
+        <div class="pp-modal-content-wrapper">
+            <div class="pp-modal-title">
+                <h2>Download MyGov Application</h2>
+            </div>
+            <div class="pp-modal-content">
+                <h3>Use the buttons below to download the MyGov Application. This allows you to work online with a participating
+                    agency as a Collaborator / Contractor or as an Agency User.</h3>
+                <h3><b>Choose Your Platform:</b></h3>
+
+                <div class="downloads">
+                    <div>
+                        <div class="win"></div>
+                        <div class="download-text">Windows</div>
+                        <div class="download-text"><a href="/uploads/setup-win32.exe">32-bit</a> | <a
+                                href="/uploads/setup-win64.exe">64-bit</a></div>
+                    </div>
+                    <div>
+                        <div class="mac"></div>
+                        <div class="download-text">Mac</div>
+                        <div class="download-text"><a href="/uploads/MyGov.pkg">OS X</a></div>
+                    </div>
+                </div>
+
+                <div class="pp-form-row download-copyright">
+                    <span>Copyright 2002 - 2026 © MyGov, LLC. All Rights Reserved.</span>
+                </div>
+            </div>
+            <a href="#" class="js-pp-close-modal pp-close-modal-absolute">×</a>
+        </div>
+    </div>
+</div>
+
+
+<div class="pp-modal-wrapper download-modal" data-modal_target="pp-report-modal">
+    <div class="pp-modal-opacity js-pp-close-modal"></div>
+    <div class="pp-modal-content-holder">
+        <div class="pp-modal-content-wrapper">
+            <div class="pp-modal-title">
+                <h2>Subscribe to Report</h2>
+            </div>
+            <div class="pp-modal-content pp-report-modal">
+                <form>
+                    <h3>Complete this form to subscribe to the report <span class="pp-report-title">Report Title</span></h3>
+                    <div class="pp-form-row required">
+                        <input type="email" name="email" placeholder="Enter Email Address" required aria-label="Enter Email Address">
+                    </div>
+                    <div class="pp-form-row required">
+                        <input type="text" name="name" placeholder="Enter Your Name" required aria-label="Enter Your Name">
+                    </div>
+                    <div class="pp-form-row required">
+                        <label>I have read and I agree with the <a href="#tos">terms and conditions</a> <input type="checkbox" required name="pp-report-tac" aria-label="Agree to Terms & Conditions"></label>
+                    </div>
+                    <input type="hidden" name="template_id" class="pp-report-id">
+                    <input type="hidden" name="module" value="pi">
+                    <div class="pp-form-row">
+                        <a href="#" class="js-pp-close-modal pp-close-modal left">Cancel</a>
+                        <input type="submit" value="SUBSCRIBE" class="js-pp-submit-form right" aria-label="Subscribe">
+                    </div>
+                </form>
+                <div class="form-reply none">
+                    <h3>AAAAAA</h3>
+                </div>
+            </div>
+            <a href="#" class="js-pp-close-modal pp-close-modal-absolute">×</a>
+        </div>
+    </div>
+</div>
+
+
+<script nonce="reGjXPeva4gIGhEl0XKaow==" type="text/javascript">
+    if (window.jQuery) {
+        $(() => {
+            $('.back-link').off('click.back').on('click.back', e => {
+                if (e.currentTarget.dataset.preventDefault === 'true') {
+                    return true;
+                }
+
+                window.history.back();
+            });
+        });
+    }
+</script>
+        <script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/js/views/layouts/oac/portal/modules.js"></script>
+        <script nonce="reGjXPeva4gIGhEl0XKaow==" src="/assets/js/views/layouts/oac/portal/index.js"></script>
+    </body>
+</html>

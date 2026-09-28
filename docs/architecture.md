@@ -5,7 +5,7 @@
 The Crescent City Intelligence Platform is a complete pipeline for scraping,
 verifying, exporting, viewing, querying, monitoring, alerting, and analyzing
 the Crescent City, CA municipal code from [ecode360.com](https://ecode360.com/CR4919).
-It includes 15 real-time alert monitors (8 core + 7 extended), 12 civic intelligence domains,
+It includes 20 real-time alert monitors (8 core + 12 extended), 12 civic intelligence domains,
 structured query capabilities, legal citation parsing, fuzzy search,
 streaming RAG, and a comprehensive analytics dashboard.
 
@@ -39,7 +39,7 @@ The static public surface is built separately by `pages_snapshot.ts` from a
 bounded allowlist of generated artifacts. It is deployed by GitHub Actions and
 does not connect to the local GUI API, Ollama, or ChromaDB.
 
-Real-Time Intelligence Layer (15 monitors: 8 core + 7 extended):
+Real-Time Intelligence Layer (20 monitors: 8 core + 12 extended):
 ┌──────────────────────────────────────┐
 │ Alerts                                │
 │  noaa_tsunami.ts    NOAA CAP          │
@@ -57,7 +57,12 @@ Real-Time Intelligence Layer (15 monitors: 8 core + 7 extended):
 │  caltrans_roads.ts Caltrans roads    │
 │  dusd_schools.ts   DUSD closures     │
 │  uscg_broadcasts.ts USCG BNM (D11)   │
-│  severity.ts       15-monitor composite│
+│  permits.ts        MyGov permits     │
+│  dredging.ts       Harbor sitemap    │
+│  fuel.ts           EIA CA retail gas │
+│  pacfin.ts         PacFIN catalog    │
+│  ais.ts            AIS vessel feeds  │
+│  severity.ts       20-monitor composite│
 └──────────────────────────────────────┘
 
 Each monitor is published under a `source` name in
@@ -83,6 +88,11 @@ stated here rather than left to be inferred:
 | `caltrans_roads.ts` | `roads` | Caltrans Roads | `output/alerts/roads/` |
 | `dusd_schools.ts` | `schools` | DUSD Schools | `output/alerts/schools/` |
 | `uscg_broadcasts.ts` | `uscg` | USCG Broadcast Notice to Mariners | `output/alerts/uscg/` |
+| `permits.ts` | `permits` | Crescent City Permits Portal | `output/alerts/permits/` |
+| `dredging.ts` | `dredging` | Crescent City Harbor District | `output/alerts/dredging/` |
+| `fuel.ts` | `fuel` | EIA California Fuel | `output/alerts/fuel/` |
+| `pacfin.ts` | `pacfin` | PacFIN Reports Dashboard | `output/alerts/pacfin/` |
+| `ais.ts` | `ais` | AIS Vessel Traffic | `output/alerts/ais/` |
 
 Two monitors write outside `output/alerts/`: tides and fishing, which keep their
 own top-level directories because their history predates the alerts layout. A

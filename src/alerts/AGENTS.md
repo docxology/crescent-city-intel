@@ -3,7 +3,7 @@
 ## Overview
 
 Real-time alert monitors for natural hazards and environmental conditions
-relevant to Crescent City, CA. **15** independent monitors (8 core + 7
+relevant to Crescent City, CA. **20** independent monitors (8 core + 12
 extended) feed a composite severity scoring system and a unified alert
 analytics timeline.
 
@@ -51,7 +51,12 @@ its own.
 | `caltrans_roads.ts` | `runRoadClosureMonitor()` | `output/alerts/roads/` | `roads.dot.ca.gov` per-route text (QuickMap JSON is the legacy fallback) |
 | `dusd_schools.ts` | `runSchoolClosureMonitor()` | `output/alerts/schools/` | Del Norte USD news/announcements |
 | `uscg_broadcasts.ts` | `runUscgBroadcastMonitor()` | `output/alerts/uscg/` | USCG NAVCEN District 11 Broadcast Notice to Mariners listing |
-| `severity.ts` | `computeAlertSeverity()` | (computed) | Aggregates all 15 monitors (8 core + 7 extended) |
+| `permits.ts` | `runPermitsMonitor()` | `output/alerts/permits/` | City of Crescent City MyGov public portal permit catalog (issued-permit register is login-gated and is NOT read) |
+| `dredging.ts` | `runDredgingMonitor()` | `output/alerts/dredging/` | Crescent City Harbor District sitemap.xml with a dredging / marine-construction keyword filter |
+| `fuel.ts` | `runFuelMonitor()` | `output/alerts/fuel/` | EIA weekly California all-formulations retail gasoline price (statewide observed average) |
+| `pacfin.ts` | `runPacfinMonitor()` | `output/alerts/pacfin/` | PacFIN (PSMFC) public report catalog (embedded APEX tree JSON; landing figures are credential-gated and are NOT read) |
+| `ais.ts` | `runAisMonitor()` | `output/alerts/ais/` | Open-AIS FeatureCollection feed (`AIS_FEED_URL` env; default keyless digitraffic), Del Norte watch-box filter |
+| `severity.ts` | `computeAlertSeverity()` | (computed) | Aggregates all 20 monitors (8 core + 12 extended) |
 | `composite.ts` | `buildCompositeInput()`, `buildExtendedCompositeInput()`, `classifySourceHealth()`, `isFreshReport()` | (computed) | Pure composite-input shaping + source-health classification for `scripts/run-alerts.ts` |
 | `healer.ts` | `runHealingCycle()` | `output/state/healer-state.json` | Per-monitor failure tracking + backoff scheduling |
 | `notify.ts` | `maybeSendSeverityWebhook()` | (webhook) | Optional `ALERT_WEBHOOK_URL` POST on a tier **transition** into WARNING/EMERGENCY |
@@ -62,7 +67,7 @@ its own.
 - **Persistent JSONL history**: all monitors append to `history.jsonl` for alert analytics.
 - **Crescent City relevance filter**: each module filters alerts by `areaDesc` keyword matching and/or bounding-box / point-in-polygon geometry checks.
 - **Severity categorization**: NWS categorizes alerts into `advisory`, `watch`, `warning`; USGS uses magnitude + tsunami flag; AQI uses 6-level classification; wildfire uses evac orders + fire size; marine uses wave/wind thresholds.
-- **Composite severity**: `severity.ts` aggregates all 15 monitors (8 core + 7 extended) into CALM → EMERGENCY; `composite.ts` shapes the per-monitor inputs + classifies source health so the runner stays thin. Ties at the same tier break on `MONITOR_PRIORITY` (tsunami → earthquake → wildfire → weather → marinezone → roads → schools → psps → marine → tides → smoke → fishing → airQuality → drought), not on the `monitors` literal's declaration order — a chronic drought must not take the headline slot ahead of a school closure.
+- **Composite severity**: `severity.ts` aggregates all 20 monitors (8 core + 12 extended) into CALM → EMERGENCY; `composite.ts` shapes the per-monitor inputs + classifies source health so the runner stays thin. Ties at the same tier break on `MONITOR_PRIORITY` (tsunami → earthquake → wildfire → weather → marinezone → roads → schools → psps → marine → tides → smoke → fishing → airQuality → drought → uscg → permits/dredging/fuel/pacfin/ais), not on the `monitors` literal's declaration order — a chronic drought must not take the headline slot ahead of a school closure.
 - **Freshness**: one window for all monitors, `ALERT_FRESHNESS_WINDOW_MS` (default 1 hour). It used to be a hardcoded constant the env could not reach, while the non-alert families had a separate 24-hour one, so a report could be `ok` under one policy and `stale` under the other and the stricter was untunable. The extended monitors were not gated at all, so a day-old drought snapshot scored as current.
 - **High-severity webhook**: `notify.ts` fires `ALERT_WEBHOOK_URL` when the composite *transitions into* WARNING/EMERGENCY (bounded by `ALERT_WEBHOOK_TIMEOUT_MS`); fire-and-forget so a failure never fails an alert run. The last-notified level is persisted at `output/state/alert-webhook-level.json`, so a persistently-WARNING composite notifies **once**, not on every run — a notifier that always fires trains the operator to ignore it. A drop below the threshold clears the memory, so a later rise notifies again.
 - **Healer scope**: `healer.ts` identifies and schedules; `scripts/run-alerts.ts` owns the batch. A monitor in `monitorsRetried` is *eligible for retry* on its backoff window, not already re-run by the healer.
@@ -81,5 +86,10 @@ bun run alerts:wildfire     # calfire_wildfire.ts (v2.0)
 bun run alerts:marine       # ndbc_marine.ts (v2.0)
 bun run alerts:marinezone   # nws_marine.ts (CWF PZZ450)
 bun run alerts:uscg         # uscg_broadcasts.ts
-bun run alerts:all          # all 15 concurrently + composite severity (scripts/run-alerts.ts)
+bun run alerts:permits      # permits.ts (MyGov public portal)
+bun run alerts:dredging     # dredging.ts (harbor sitemap)
+bun run alerts:fuel         # fuel.ts (EIA weekly CA retail gasoline)
+bun run alerts:pacfin       # pacfin.ts (PacFIN public report catalog)
+bun run alerts:ais          # ais.ts (open-AIS feed, watch-box filter)
+bun run alerts:all          # all 20 concurrently + composite severity (scripts/run-alerts.ts)
 ```

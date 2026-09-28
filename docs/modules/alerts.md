@@ -1,7 +1,7 @@
 # Alert Monitors Module
 
 Real-time natural hazard and environmental monitoring for Crescent City, CA.
-15 independent monitors (8 core + 7 extended) feed a composite severity scoring system and
+20 independent monitors (8 core + 12 extended) feed a composite severity scoring system and
 unified alert analytics timeline. Each run also writes the typed
 `output/alerts/source-health.json` artifact so unavailable feeds cannot be
 mistaken for calm readings.
@@ -25,6 +25,11 @@ mistaken for calm readings.
 | 13 | HRRR Smoke | NOAA HMS smoke plumes | `output/alerts/smoke/` | `alerts/hrrr_smoke.ts` |
 | 14 | Caltrans Roads | Caltrans road conditions | `output/alerts/roads/` | `alerts/caltrans_roads.ts` |
 | 15 | DUSD Schools | Del Norte USD closures | `output/alerts/schools/` | `alerts/dusd_schools.ts` |
+| 16 | Crescent City Permits Portal | City MyGov public permit catalog | `output/alerts/permits/` | `alerts/permits.ts` |
+| 17 | Crescent City Harbor District | Harbor sitemap dredging/marine-construction filter | `output/alerts/dredging/` | `alerts/dredging.ts` |
+| 18 | EIA California Fuel | EIA weekly CA all-formulations retail gasoline | `output/alerts/fuel/` | `alerts/fuel.ts` |
+| 19 | PacFIN Reports Dashboard | PSMFC PacFIN public report catalog | `output/alerts/pacfin/` | `alerts/pacfin.ts` |
+| 20 | AIS Vessel Traffic | Open-AIS FeatureCollection feed (Del Norte watch box) | `output/alerts/ais/` | `alerts/ais.ts` |
 
 ---
 
@@ -248,13 +253,13 @@ Fetches real-time marine observations from 3 NDBC buoy stations nearest to Cresc
 
 ## `src/alerts/severity.ts` — Composite alert severity
 
-Aggregates all 15 alert monitors (8 core + 7 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast, USCG broadcasts) into a single composite severity level.
+Aggregates all 20 alert monitors (8 core + 12 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast, USCG broadcasts, permits, dredging, fuel, PacFIN reports, AIS vessel traffic) into a single composite severity level.
 
 ### Exports
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `computeAlertSeverity(...)` | `(15 monitor inputs) → AlertSeverityReport` | Composite severity assessment; an absent monitor is `available: false`, never a calm reading |
+| `computeAlertSeverity(...)` | `(20 monitor inputs) → AlertSeverityReport` | Composite severity assessment; an absent monitor is `available: false`, never a calm reading |
 
 ### Priority Order
 
@@ -319,7 +324,7 @@ a unified chronological timeline with per-type statistics.
 - **Persistent JSONL history**: All monitors append to `history.jsonl` for analytics
 - **In-process deduplication**: Module-level `Set<string>` tracks processed IDs
 - **import.meta.main**: Each file can be run directly via `bun run src/alerts/<file>.ts`
-- **Composite severity**: `run-alerts.ts` runs all 15 monitors and computes the composite from all 15 — the five Phase-12 monitors (drought, PSPS, smoke, roads, schools), the NWS marine forecast (CWF PZZ450), and the USCG broadcasts (BNM District 11) feed it through `buildExtendedCompositeInput`
+- **Composite severity**: `run-alerts.ts` runs all 20 monitors and computes the composite from all 20 — the five Phase-12 monitors (drought, PSPS, smoke, roads, schools), the NWS marine forecast (CWF PZZ450), the USCG broadcasts (BNM District 11), and the 2026-09-28 expansion monitors (permits, dredging, fuel, PacFIN reports, AIS vessel traffic) feed it through `buildExtendedCompositeInput`
 
 ## Running
 
@@ -333,7 +338,7 @@ bun run alerts:airquality   # EPA AirNow (v2.0)
 bun run alerts:wildfire     # CAL FIRE wildfire (v2.0)
 bun run alerts:marine       # NDBC marine buoy (v2.0)
 bun run alerts:marinezone  # NWS CWF marine forecast (PZZ450)
-bun run alerts              # all 15 concurrently + composite severity
+bun run alerts              # all 20 concurrently + composite severity
 ```
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.

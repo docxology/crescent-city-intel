@@ -28,6 +28,7 @@ import {
   EXTENDED_MONITOR_SPECS,
   MONITOR_KEYS,
   NULL_ON_FAILURE_MONITORS,
+  type MonitorKey,
 } from "../src/alerts/composite";
 import { ALERT_TYPES } from "../src/alert_analytics";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health";
@@ -218,9 +219,10 @@ describe("history append (artifact-root seam, tmp dir only)", () => {
 });
 
 describe("monitor wiring contracts (15th monitor)", () => {
-  test("uscg is registered as the last MONITOR_KEY and in the null-on-failure family", () => {
-    expect(MONITOR_KEYS.length).toBe(15);
-    expect(MONITOR_KEYS[MONITOR_KEYS.length - 1]).toBe("uscg");
+  test("uscg is registered in MONITOR_KEYS and in the null-on-failure family", () => {
+    // uscg is no longer the LAST key (the 2026-09-28 expansion monitors were
+    // appended after it), so membership is the contract — not position.
+    expect(MONITOR_KEYS).toContain("uscg");
     expect(NULL_ON_FAILURE_MONITORS.has("uscg")).toBe(true);
   });
 
@@ -240,7 +242,7 @@ describe("monitor wiring contracts (15th monitor)", () => {
     // Default `now` (real clock) keeps fetchedAt inside the freshness window,
     // so the empty item count reads as "empty", not "stale".
     const emptyReport = buildUscgBroadcastReport([]);
-    const monitorErrors = new Map<string, string>();
+    const monitorErrors = new Map<MonitorKey, string>();
 
     const definitions = buildExtendedMonitorDefinitions({ uscg: settled(emptyReport) });
     const emptyHealth = classifySourceHealth(definitions.find(d => d.key === "uscg")!, settled(emptyReport), monitorErrors);

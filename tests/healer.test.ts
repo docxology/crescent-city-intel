@@ -55,12 +55,15 @@ async function cleanState() {
 describe("Healer — getHealerState", () => {
   beforeEach(cleanState);
 
-  test("returns a fresh state with all 15 monitors when no state file exists", async () => {
+  test("returns a fresh state with the full 20-monitor roster when no state file exists", async () => {
     const { getHealerState } = await importHealer();
+    const { ALERT_MONITOR_SOURCE_NAMES } = await import("../src/alerts/composite.ts");
     const state = await getHealerState();
     expect(state).toBeDefined();
     expect(state.lastCycleRun).toBeTruthy();
-    expect(Object.keys(state.monitors).length).toBe(15);
+    // Derive the count from the canonical roster instead of restating it, so
+    // the next monitor added to the batch does not stale-pin this test.
+    expect(Object.keys(state.monitors).length).toBe(ALERT_MONITOR_SOURCE_NAMES.length);
     // Verify all expected monitor keys
     const names = Object.keys(state.monitors).sort();
     expect(names).toContain("NOAA Tsunami");
@@ -97,9 +100,10 @@ describe("Healer — getHealerState", () => {
     await mkdir(join(OUTPUT_DIR, "state"), { recursive: true });
     await writeFile(HEALER_STATE_PATH, "{{{ not json }}}\n");
     const { getHealerState } = await importHealer();
+    const { ALERT_MONITOR_SOURCE_NAMES } = await import("../src/alerts/composite.ts");
     const state = await getHealerState();
     expect(state).toBeDefined();
-    expect(Object.keys(state.monitors).length).toBe(15);
+    expect(Object.keys(state.monitors).length).toBe(ALERT_MONITOR_SOURCE_NAMES.length);
   });
 });
 

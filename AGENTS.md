@@ -4,7 +4,7 @@
 
 A Bun/TypeScript civic-intelligence platform for Crescent City, CA. It scrapes,
 verifies, exports, and queries the municipal code from ecode360.com, monitors
-15 real-time alert streams (8 core + 7 extended incl. USCG broadcasts), provides
+20 real-time alert streams (8 core + 12 extended incl. USCG broadcasts), provides
 RAG chat via Ollama/OpenRouter + Chroma, and publishes a bounded snapshot to
 GitHub Pages at quadruplicate.org. See [README.md](README.md) for the full
 feature map. There is no Python here — the watchdog is `bun`, never `uv`/`pytest`.
@@ -29,11 +29,13 @@ ecode360.com/CR4919
  port 3000  + Chroma  Citations/Glossary
  RAG+SSE    RAG       Cross-refs
         |
-[Intelligence Layer — 15 monitors]
+[Intelligence Layer — 20 monitors]
    8 core: NOAA Tsunami · USGS Earthquake · NWS Weather · NOAA Tides ·
    CDFW Fishing · EPA AirNow · CAL FIRE Wildfire · NDBC Marine
-  7 extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads ·
+  7 base extended: USDM Drought · PG&E PSPS · HRRR Smoke · Caltrans Roads ·
   DUSD Closures · NWS Marine Forecast (CWF PZZ450) · USCG Broadcasts (BNM District 11)
+  5 expansion: Permits (MyGov portal) · Harbor Dredging · EIA CA Fuel ·
+  PacFIN Reports · AIS Vessel Traffic
         |
  [Alert Analytics — unified timeline + per-type stats]
 ```
@@ -90,8 +92,8 @@ pages_scan.ts                   # Pages artifact scanner (links, assets, SEO)
 pages_css.ts                    # Generated Pages stylesheet builder
 pages_validation.ts             # Pages artifact validator (release-gate checks)
 pages_seed.ts                   # Verified municipal-code seed refresh for Pages
-alerts/                         # 15 monitors + composite severity; docs/modules/alerts.md
-  severity.ts                   # Composite alert severity over all 15 monitor inputs
+alerts/                         # 20 monitors + composite severity; docs/modules/alerts.md
+  severity.ts                   # Composite alert severity over all 20 monitor inputs
   noaa_tsunami.ts               # NOAA CAP tsunami warning monitor
   noaa_tides.ts                 # NOAA CO-OPS tides (station 9419750)
   usgs_earthquake.ts            # USGS earthquake monitor (M4.0+, 200 km)
@@ -107,6 +109,11 @@ alerts/                         # 15 monitors + composite severity; docs/modules
   hrrr_smoke.ts                 # NOAA HMS / HRRR smoke plume monitor
   caltrans_roads.ts             # Caltrans road closure and incident monitor
   dusd_schools.ts               # Del Norte USD school closure monitor
+  permits.ts                    # City MyGov public permit-catalog monitor
+  dredging.ts                   # Harbor District dredging/marine-construction monitor
+  fuel.ts                       # EIA weekly California retail gasoline monitor
+  pacfin.ts                     # PacFIN public report-catalog monitor
+  ais.ts                        # Open-AIS vessel-traffic monitor (watch-box filter)
   composite.ts                  # Freshness-gated composite availability across monitors
   healer.ts                     # Per-monitor staleness detection and re-run roster
   notify.ts                     # ALERT_WEBHOOK_URL fire-and-forget severity webhook

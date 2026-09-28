@@ -4,8 +4,27 @@
  * scraped corpus (same dependency pattern as tests/data-loaders.test.ts);
  * zero mocks, zero network.
  */
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
 import { crossReferenceAgendaTopics } from '../src/agenda_crossref';
+import { reloadSearch } from '../src/gui/search';
+import { invalidateSectionsCache } from '../src/shared/data';
+import { beginSeedCorpus, endCorpusCopy } from './helpers/output-root';
+
+// These tests assert real BM25 associations, so they need a populated corpus.
+// The real `output/` corpus is gitignored, so a clean clone (and CI) saw an
+// empty index and every association came back empty — the 2026-09-28 release-
+// gate failures. Seed the REAL tracked pages-data municipal code through the
+// CC_OUTPUT_DIR seam instead: same corpus, present on every checkout.
+beforeAll(async () => {
+  await beginSeedCorpus();
+  invalidateSectionsCache();
+  await reloadSearch();
+});
+afterAll(async () => {
+  await endCorpusCopy();
+  invalidateSectionsCache();
+  await reloadSearch();
+});
 
 describe('crossReferenceAgendaTopics', () => {
   test('associates agenda topics with municipal-code sections via real BM25', async () => {

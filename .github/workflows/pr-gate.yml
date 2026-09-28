@@ -66,6 +66,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # The affected-tests runner falls back to the FULL suite whenever the
+      # changed set is not bounded (e.g. any scripts/ change), and the full
+      # suite includes tests/lane5-render-smoke.test.ts, which launches real
+      # Chromium. The publish workflow (pages.yml) installs it; this job needs
+      # the same step or every PR touching scripts/ fails on a missing browser,
+      # not on a real defect.
+      - name: Install Playwright Chromium (for the render smoke test)
+        run: bunx playwright install --with-deps chromium
+
       - name: Typecheck
         run: bunx tsc --noEmit
 

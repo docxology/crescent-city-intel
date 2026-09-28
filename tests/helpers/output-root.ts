@@ -13,7 +13,7 @@
  * and `scripts/validate.ts` fences the real corpus around the whole suite, so a
  * test that forgets to use them is caught rather than trusted.
  */
-import { cp, mkdir, mkdtemp, readdir, rm, stat } from "fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat } from "fs/promises";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -167,4 +167,37 @@ export async function endCorpusCopy(): Promise<void> {
   const root = activeRoot;
   activeRoot = null;
   await rm(root, { recursive: true, force: true });
+}
+
+/**
+ * File-scoped corpus from the REAL tracked pages seed, not the local `output/`
+ * tree. `beginCorpusCopy` seeds from `output/`, which is gitignored — on a
+ * clean clone or in CI it does not exist, so any test seeded that way silently
+ * saw an empty corpus and corpus-dependent assertions failed (the five
+ * release-gate failures of 2026-09-28). `pages-data/crescent-city-code.json`
+ * is the reviewed, committed municipal-code seed: materializing it into the
+ * redirected root makes the contract corpus-independent without fabricating
+ * data — same ethos as tests/laneD-search-perf.test.ts, which reads the same
+ * seed directly.
+ *
+ * Pair with `endCorpusCopy()` in afterAll (it restores the env and removes the
+ * tree), and rebuild any in-memory index that predates the seeding (e.g.
+ * `reloadSearch()`, `invalidateSectionsCache()`).
+ */
+export async function beginSeedCorpus(): Promise<string> {
+  if (activeRoot) throw new Error("a corpus copy is already active for this test file");
+  const root = await mkdtemp(join(tmpdir(), "cci-seed-corpus-"));
+  const seed = JSON.parse(
+    await readFile(join(process.cwd(), "pages-data", "crescent-city-code.json"), "utf-8"),
+  ) as { articles?: Array<{ guid?: string; title?: string }> };
+  const articlesDir = join(root, "articles");
+  await mkdir(articlesDir, { recursive: true });
+  for (const article of seed.articles ?? []) {
+    if (!article?.guid) continue;
+    await Bun.write(join(articlesDir, `${article.guid}.json`), JSON.stringify(article));
+  }
+  previousEnv = process.env.CC_OUTPUT_DIR;
+  process.env.CC_OUTPUT_DIR = root;
+  activeRoot = root;
+  return root;
 }

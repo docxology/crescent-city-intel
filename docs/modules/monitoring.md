@@ -322,3 +322,7 @@ bun test tests/monitor.test.ts
 bun test tests/news_monitor.test.ts
 bun test tests/gov_meeting_monitor.test.ts
 ```
+
+## `src/insights.ts` — Cross-Artifact Civic Insights
+
+Deterministic trend detection over artifacts already recorded under `output/` (alert histories, news, meetings, YouTube uploads, events calendar). The optional LLM pass only phrases findings the code computed; every failure falls back to a template narrative over the same numbers, and each insight carries evidence source URLs. Served by `GET /api/insights`; CLI `bun run insights`.

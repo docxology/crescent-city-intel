@@ -253,3 +253,7 @@ Cosine similarity over nomic-embed-text vectors; pure core tested with tiny synt
   data-derived numbers and asks it to write connective prose between them. Unavailable provider →
   null and the report omits the Executive Digest section with a warning line (silent fallback;
   the report itself never fails because of the digest).
+
+## `src/llm/index_plan.ts` — Incremental Index Planning
+
+Pure, offline planner that decides what to re-embed: a one-article edit re-embeds only that article's chunks (131 of 3,105 at worst), and a `configSignature` over the embedding model and chunking parameters forces a full re-embed when the model changes — without it, per-article fingerprints would match and one cosine space would hold two models' geometry. Tests: `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts`.

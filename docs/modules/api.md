@@ -52,3 +52,7 @@ const server = Bun.serve({
 
 - Rate limit store is **in-memory** — resets on server restart. For production with multiple instances, replace with a Redis-backed store.
 - API keys are checked by exact string match. Multiple keys can be provided comma-separated in `CRESCENT_CITY_API_KEY`.
+
+## `src/notifications/push.ts` — Desktop Push Notifications
+
+Two graceful-degradation notification paths from the GUI: webhook POST via `ALERT_WEBHOOK_URL` (fire-and-forget) and VAPID web push via `PUSH_PUBLIC_KEY`/`PUSH_PRIVATE_KEY`. Absent env vars disable the path; nothing throws.

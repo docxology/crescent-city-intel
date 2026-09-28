@@ -197,3 +197,7 @@ The monthly civic health report now includes sections for all new alert types:
 - Air Quality (peak AQI, unhealthy days)
 - Wildfire Activity (incident count, evacuation orders)
 - Marine Conditions (peak wave height, wind speed, advisories)
+
+## `src/manuscript_variables.ts` — Manuscript Variables
+
+Publication variables derived from the shared analytics envelope (`analytics_backend.ts`) rather than a second analytics implementation — the manuscript, local GUI, and Pages snapshot stay on one evidence fingerprint. Tests: `tests/manuscript.test.ts`.

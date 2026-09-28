@@ -199,3 +199,11 @@ and that the JSON-LD block parses as JSON with the expected types.
 Coverage is pinned by `tests/pages-seo.test.ts` (metadata presence, JSON-LD
 parse, exporter emission) on top of the general artifact tests in
 `tests/pages_snapshot.test.ts`.
+
+## Pages gate engines (`src/pages_css.ts`, `src/pages_scan.ts`, `src/pages_validation.ts`)
+
+Three offline validators behind `bun run pages:validate`: `pages_css.ts` is the deterministic CSS reader (checks rules a page uses are in stylesheets that page loads, and that rules are syntactically live, not shadowed); `pages_scan.ts` is the lane-0 XSS gate (every `innerHTML =` in an exported page must interpolate through esc()/href() or a provably-safe builder); `pages_validation.ts` carries the release-gate checks for the static snapshot (assets, SEO/JSON-LD, a11y, caching, payload budgets, contrast, calendar honesty, leak gates). All computation lives in these modules; the scripts stay thin CLIs.
+
+## `src/pages_seed.ts` — Verified Seed Refresh
+
+Copies tracked public seed artifacts from a verified output directory into `pages-data/`, gating on the verification report and parsing every file before it is copied. Invoked by `bun run pages:seed`.

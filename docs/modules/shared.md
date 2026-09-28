@@ -122,3 +122,11 @@ bun test tests/shared-paths.test.ts   # 10 tests
 bun test tests/shared-data.test.ts    # 20 tests
 bun test tests/idempotency.test.ts
 ```
+
+## `src/shared/orchestration.ts` — Durable Run Envelopes
+
+Shared orchestration and build metadata helpers: `executePipelineStep()` and `buildPipelineRun()` wrap pipeline steps in durable step/run envelopes over the source-health primitives. Tests: `tests/orchestration.test.ts`.
+
+## `src/shared/output_fence.ts` — The Output Fence
+
+Proof that running the test suite did not modify the real `output/` corpus: the gate snapshots every regular file's size and hash before and after the suite and fails on any drift. `output/` is gitignored, so nothing else would catch a test writing into the artifact tree.

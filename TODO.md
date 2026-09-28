@@ -29,26 +29,7 @@ move to the CHANGELOG entry for their release.
   collection would silently hold two models' geometry in one cosine space.
   Tests: `tests/index-plan.test.ts` (fixtures) and
   `tests/index-plan-corpus.test.ts` (measured against the real scrape).
-- 🔴 **The analytics-backend tests are the release gate's bottleneck and are
-  load-flaky** — opened 2026-09-28, and the reason the gate has outgrown a
-  30-minute CI window. `tests/analytics-backend.test.ts` builds full analytics
-  overviews over the real 2,206-section corpus, and it is the slowest thing in
-  the suite by an order of magnitude. Measured:
-  - "builds a stable, evidence-fingerprinted overview" — **120,001ms against a
-    120,000ms ceiling under full-suite parallelism**; fails, passes in isolation.
-  - "the input fingerprint follows the query evidence" — three overviews
-    (~65s each, ~196s isolated) against a ceiling that was 300s, so it hit
-    exactly 300,001ms and failed. Its timeout was raised to 480s on 2026-09-28,
-    which makes it PASS by taking ~301s — that buys margin but hides the cause
-    and makes the gate slower. Treat that raise as a stopgap, not a fix.
-  Neither failure is real; both are instrumentation and CPU contention against
-  timeouts tuned on an unloaded machine. **AC:** both tests build the overview
-  over a small fixture corpus — the fingerprint test only asserts
-  `first == repeat` and `changed != first`, so it never needed the real corpus at
-  all, and `withCorpusCopy` already provides the seam. Target: both under 60s
-  combined, with both timeouts cut back to a value that catches a genuine hang.
-  Until then the gate takes >30 min, which is why the PR job exists and why it
-  runs `--only=contracts`.
+- 🟢 **Docs: keep the architecture diagram and API reference in sync with
 - 🟢 **Deferred GUI/UX set** — Phase 7 plain-language rewrite; Phase 9 AQ
   widget, wildfire map, annotation overlays; Phase 10 ordinal refinement,
   legal-citation/CA/US cross-linking, effective-date field; Phase 14
@@ -56,6 +37,20 @@ move to the CHANGELOG entry for their release.
   with an explicit empty state and a string-contract (or browser-smoke) test.
   **Cross-reference hyperlinking (Phase 2) shipped 2026-09-28**; the rest are
   unchanged.
+- ✅ **The analytics-backend tests are cheap again** — closed 2026-09-28.
+  `getCodeStats` reads every article through `loadAllArticles()`, and over the
+  real 2,206-section corpus each overview build cost ~65s, so the two overview
+  tests were the suite's bottleneck by an order of magnitude: one missed its
+  120,000ms ceiling under full-suite parallelism and failed while passing in
+  isolation; the other built three overviews (~196s) against a 300s ceiling and
+  also failed. Neither failure was real — both were contention against timeouts
+  tuned on an unloaded machine. Note the failed detour: raising the 300s timeout
+  to 480s made it *worse*, turning a 300s failure into a 480s one.
+  `withMinimalCorpus(articleCount, body)` now seeds everything except
+  `articles/` — which is what the fingerprint is actually computed over — and
+  copies only a handful of articles. Both tests: **196s → 31s**, under the
+  ordinary 30s per-test timeout with no raise. The corpus was never what they
+  asserted; one only checks `first == repeat` and `changed != first`.
 - 🟢 **Docs: keep the architecture diagram and API reference in sync with
   each release.** **Closed 2026-09-28** — partly. `tests/docs-sync.test.ts`
   now asserts `docs/architecture.md`'s prose monitor count against

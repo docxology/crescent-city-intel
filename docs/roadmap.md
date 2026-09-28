@@ -223,6 +223,17 @@ Worked the infrastructure the earlier passes touched only indirectly.
   check surfaced two pre-existing homepage inconsistencies: an `og:description`
   that described something different from the `meta description`, and no
   `og:image:alt`.
+- ✅ **The gate got 4.8× faster, and it was not the coverage optimization.**
+  `getCodeStats` reads every article, so each `buildAnalyticsOverview` cost
+  ~65s over the real 2,206-section corpus, making the two overview tests the
+  suite's bottleneck by an order of magnitude and pushing the gate past 30
+  minutes. Both were load-flaky rather than broken — one hit 120,001ms against a
+  120,000ms ceiling and failed while passing in isolation. The detour is the
+  instructive part: raising that ceiling to 480s made it *worse*, converting a
+  300s failure into a 480s one, and a timeout increase looks exactly like a fix
+  until you measure it. Seeding a minimal corpus instead — everything except
+  `articles/`, which is what the fingerprint is actually computed over — took
+  both tests from **196s to 31s**. Full suite: **864s → 182s**.
 - ⚠️ **A 2x gate speedup was implemented, measured, and reverted.** Running the
   suite once with `--coverage` and deriving both the test result and the
   coverage floor from that output looked like an obvious win. It makes the gate

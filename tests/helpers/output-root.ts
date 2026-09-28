@@ -23,6 +23,54 @@ export async function withCorpusCopy<T>(body: (root: string) => Promise<T>): Pro
   return await withRedirectedRoot(body, { seedFrom: join(process.cwd(), "output") });
 }
 
+/**
+ * Run `body` against a copy of the corpus carrying only `articleCount` articles.
+ *
+ * `withCorpusCopy` copies every article, and `getCodeStats` reads all of them
+ * through `loadAllArticles()`. That made the analytics-overview tests the
+ * slowest thing in the suite by an order of magnitude: one built three full
+ * overviews over the real 2,206-section corpus and missed its timeout under
+ * full-suite parallelism while passing in isolation. Both were timing failures,
+ * never real ones.
+ *
+ * Those tests assert FINGERPRINT properties (`first == repeat`,
+ * `changed != first`) and signal-shape contracts, not corpus statistics — the
+ * real corpus was never what they were checking. A handful of articles produces
+ * the same code-stat shape in a fraction of the time.
+ *
+ * Everything EXCEPT `articles/` is copied in full, because the small artifacts
+ * are what the fingerprint is actually computed over: `search-queries.jsonl`,
+ * the alert and feed source-health records, the curation and pipeline
+ * envelopes. Dropping any of them would change what the test measures rather
+ * than how long it takes.
+ */
+export async function withMinimalCorpus<T>(articleCount: number, body: (root: string) => Promise<T>): Promise<T> {
+  const source = join(process.cwd(), "output");
+  if (!existsSync(source)) return await withEmptyCorpus(body);
+  const root = await mkdtemp(join(tmpdir(), "cci-minimal-"));
+  const previous = process.env.CC_OUTPUT_DIR;
+  try {
+    for (const entry of await readdir(source, { withFileTypes: true })) {
+      if (entry.name === "articles") continue;
+      await cp(join(source, entry.name), join(root, entry.name), { recursive: true });
+    }
+    const articlesDir = join(source, "articles");
+    if (existsSync(articlesDir)) {
+      await mkdir(join(root, "articles"), { recursive: true });
+      const files = (await readdir(articlesDir)).filter(f => f.endsWith(".json")).sort();
+      for (const file of files.slice(0, Math.max(0, articleCount))) {
+        await cp(join(articlesDir, file), join(root, "articles", file));
+      }
+    }
+    process.env.CC_OUTPUT_DIR = root;
+    return await body(root);
+  } finally {
+    if (previous === undefined) delete process.env.CC_OUTPUT_DIR;
+    else process.env.CC_OUTPUT_DIR = previous;
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
 /** Run `body` with the artifact root pointed at an empty tree. */
 export async function withEmptyCorpus<T>(body: (root: string) => Promise<T>): Promise<T> {
   return await withRedirectedRoot(body, {});

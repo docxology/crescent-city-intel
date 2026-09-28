@@ -11,6 +11,30 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### The analytics-overview tests stop being the gate's bottleneck (2026-09-28)
+
+- `getCodeStats` reads every article through `loadAllArticles()`, so each
+  `buildAnalyticsOverview` call cost ~65s over the real 2,206-section corpus.
+  That made `tests/analytics-backend.test.ts` the slowest thing in the suite by
+  an order of magnitude, and both of its overview tests were load-flaky:
+  "builds a stable, evidence-fingerprinted overview" hit 120,001ms against a
+  120,000ms ceiling under full-suite parallelism and failed while passing in
+  isolation; "the input fingerprint follows the query evidence" built three
+  overviews (~196s) against a 300s ceiling and also failed. **Neither failure
+  was real** — both were contention against timeouts tuned on an unloaded
+  machine, and both were what pushed the gate past a 30-minute CI window.
+- A detour worth recording: raising the 300s ceiling to 480s made it *worse*,
+  turning a 300-second failure into a 480-second one. Timeout increases look
+  like fixes and are not.
+- **`withMinimalCorpus(articleCount, body)`** seeds everything except
+  `articles/` — because the small artifacts (`search-queries.jsonl`, the alert
+  and feed source-health records, the curation and pipeline envelopes) are what
+  the fingerprint is actually computed over — and copies only a handful of
+  articles. The corpus was never what these tests asserted: one only checks
+  `first == repeat` and `changed != first`.
+- **Result: 196s → 31s**, under the ordinary 30s per-test timeout, with no
+  timeout raise left in the file.
+
 ### CI, SEO, and a reverted optimization (2026-09-28)
 
 - **Pull requests are gated for the first time.** The authoritative release gate

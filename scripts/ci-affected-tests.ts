@@ -136,8 +136,13 @@ async function runAll(): Promise<void> {
 }
 
 async function runTests(files: string[]): Promise<void> {
+  // `CHANGED` carries repo-relative paths ("tests/foo.test.ts"), and a changed
+  // path is used verbatim as the bun test filter; only a bare test filename
+  // needs the tests/ prefix. Joining unconditionally produced
+  // "tests/tests/foo.test.ts", which matches nothing and fails the run — first
+  // hit by the first PR whose changed set was tests-only.
   const result = Bun.spawnSync(
-    ["bun", "test", ...files.map(f => join("tests", f)), "--timeout", "30000"],
+    ["bun", "test", ...files.map(f => (f.startsWith("tests/") ? f : join("tests", f))), "--timeout", "30000"],
     { cwd: ROOT, stdout: "inherit", stderr: "inherit" },
   );
   process.exit(result.exitCode ?? 1);

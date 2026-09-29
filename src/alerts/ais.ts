@@ -32,11 +32,11 @@ import { createLogger } from "../logger.js";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import {
-  SOURCE_FETCH_TIMEOUT_MS,
   writeJsonAtomic,
   appendBoundedJsonlSync,
 } from "../shared/source_health.js";
 import { outputRoot } from "../shared/paths.js";
+import { boundedFetchText } from "./connector.js";
 
 const logger = createLogger("ais_alert");
 
@@ -199,29 +199,30 @@ export async function appendAisHistory(
   }
 }
 
-const REQUEST_HEADERS = {
+/** digitraffic requires `Accept-Encoding: gzip` (a bare request 406s; verified 2026-09-29). */
+export const AIS_REQUEST_HEADERS = {
   "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
   Accept: "application/json",
+  "Accept-Encoding": "gzip",
 } as const;
+/** Body-size cap for the AIS locations feed (live feed ~56 KB now; vessels scale it). */
+export const AIS_MAX_BYTES = 10_000_000;
 
-/** Bounded fetch with one retry; a second failure throws to the run wrapper. */
-async function fetchFeed(url: string, attempts = 2): Promise<string> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        headers: REQUEST_HEADERS,
-        signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error("AIS feed returned " + response.status + ": " + response.statusText);
-      const text = await response.text();
-      if (!text.trim()) throw new Error("AIS feed returned an empty body");
-      return text;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+/**
+ * The AIS feed is a JSON API, not a crawled web page: digitraffic publishes it
+ * as CC BY 4.0 open data (https://www.digitraffic.fi/en/terms-of-service/), a
+ * published content-use signal that authorizes API consumption regardless of
+ * the site-wide crawl policy, so the robots gate is skipped here on purpose —
+ * and only here. Any alternative AIS_FEED_URL is the operator's declared
+ * authorization for that provider.
+ */
+function fetchAisFeed(url: string): Promise<string> {
+  return boundedFetchText(url, {
+    label: "AIS locations feed",
+    maxBytes: AIS_MAX_BYTES,
+    headers: { ...AIS_REQUEST_HEADERS },
+    skipRobots: true,
+  });
 }
 
 /** Run the monitor: fetch, parse, watch-box filter, persist current.json + deduped history. */
@@ -230,7 +231,7 @@ export async function runAisMonitor(): Promise<AisReport | null> {
   logger.info("Checking AIS vessel traffic (feed: " + feedUrl + ")");
   lastAisError = undefined;
   try {
-    const positions = parseAisLocations(await fetchFeed(feedUrl));
+    const positions = parseAisLocations(await fetchAisFeed(feedUrl));
     const report = buildAisReport(positions, new Date().toISOString(),
       feedUrl === DIGITRAFFIC_AIS_URL ? "digitraffic open AIS" : "configured AIS feed");
 

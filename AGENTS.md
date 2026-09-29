@@ -93,6 +93,9 @@ pages_css.ts                    # Generated Pages stylesheet builder
 pages_validation.ts             # Pages artifact validator (release-gate checks)
 pages_seed.ts                   # Verified municipal-code seed refresh for Pages
 alerts/                         # 20 monitors + composite severity; docs/modules/alerts.md
+  connector.ts                  # Bounded live-fetch layer for the expansion monitors:
+                                #   timeout, streaming size cap, per-host rate limit,
+                                #   robots.txt gate (deny-on-disallow and on 401/403)
   severity.ts                   # Composite alert severity over all 20 monitor inputs
   noaa_tsunami.ts               # NOAA CAP tsunami warning monitor
   noaa_tides.ts                 # NOAA CO-OPS tides (station 9419750)

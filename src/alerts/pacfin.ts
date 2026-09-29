@@ -32,12 +32,12 @@ import { createLogger } from "../logger.js";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import {
-  SOURCE_FETCH_TIMEOUT_MS,
   writeJsonAtomic,
   appendBoundedJsonlSync,
 } from "../shared/source_health.js";
 import { outputRoot } from "../shared/paths.js";
 import { IdempotencyStore, hashContent } from "../shared/idempotency.js";
+import { boundedFetchText } from "./connector.js";
 
 const logger = createLogger("pacfin_alert");
 
@@ -231,25 +231,25 @@ const REQUEST_HEADERS = {
   Accept: "text/html",
 } as const;
 
-/** Bounded fetch with one retry; a second failure throws to the run wrapper. */
-async function fetchTextWithRetry(url: string, attempts = 2): Promise<string> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const cookie = process.env[PACFIN_COOKIE_ENV] ?? "";
-      const response = await fetch(url, {
-        headers: cookie ? { ...REQUEST_HEADERS, Cookie: cookie } : REQUEST_HEADERS,
-        signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error("PacFIN dashboard returned " + response.status + ": " + response.statusText);
-      const text = await response.text();
-      if (!text.trim()) throw new Error("PacFIN dashboard returned an empty page");
-      return text;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+/**
+ * robots.txt posture (checked live 2026-09-29): reports.psmfc.org publishes
+ * `User-agent: * / Disallow: /` — automated retrieval is declined by the
+ * publisher. The connector still runs the bounded fetch through the shared
+ * robots gate so that decision is re-verified each run: if PacFIN ever lifts
+ * the disallow (or grants a data agreement an authorized connector can rely
+ * on), the catalog watch resumes without a code change; today the monitor
+ * degrades to an explicit unavailable-with-reason state instead of scraping
+ * against a published content-use signal.
+ */
+export const PACFIN_MAX_BYTES = 1_000_000;
+
+function fetchPacfinDashboard(): Promise<string> {
+  const cookie = process.env[PACFIN_COOKIE_ENV] ?? "";
+  return boundedFetchText(PACFIN_DASHBOARD_URL, {
+    label: "PacFIN reports dashboard",
+    maxBytes: PACFIN_MAX_BYTES,
+    headers: cookie ? { Cookie: cookie } : undefined,
+  });
 }
 
 /** Run the monitor: fetch, parse the public catalog, diff, persist. */
@@ -257,7 +257,7 @@ export async function runPacfinMonitor(): Promise<PacfinMonitorReport | null> {
   logger.info("Checking PacFIN public report catalog (landing figures stay credential-gated)");
   lastPacfinError = undefined;
   try {
-    const html = await fetchTextWithRetry(PACFIN_DASHBOARD_URL);
+    const html = await fetchPacfinDashboard();
     const reports = parsePacfinReportTree(html);
     const store = new IdempotencyStore(pacfinSeenPath());
     await store.load();

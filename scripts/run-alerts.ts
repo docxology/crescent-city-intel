@@ -107,7 +107,9 @@ async function acquireAlertsLock(): Promise<() => Promise<void>> {
 // Guarded so importing this module (e.g. from a test, to reach the pure
 // functions above) never triggers 8 real monitor runs as a side effect.
 if (import.meta.main) {
-  const health = await runAllAlertMonitors();
+  const onlyFlag = process.argv.find(arg => arg.startsWith("--only="));
+  const only = onlyFlag ? onlyFlag.slice("--only=".length).split(",").map(part => part.trim()) : undefined;
+  const health = await runAllAlertMonitors(only ? { only: only as MonitorKey[] } : undefined);
   if (health.some(source => source.status === "unavailable" || source.status === "stale")) {
     logger.info("Alert monitors completed with coverage gaps; source states are recorded in output/alerts/source-health.json", {
       missingSources: health.filter(source => source.status === "unavailable" || source.status === "stale").map(source => source.source),
@@ -115,7 +117,7 @@ if (import.meta.main) {
   }
 }
 
-export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
+export async function runAllAlertMonitors(options?: { only?: MonitorKey[] }): Promise<SourceHealth[]> {
   const releaseLock = await acquireAlertsLock();
   try {
     logger.info("=== Running All 20 Alert Monitors ===");
@@ -141,6 +143,11 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     }
 
     // Keyed batch: each monitor's identity is its key, not where it sits here.
+    const selectedKeys = options?.only;
+    if (selectedKeys) {
+      const unknown = selectedKeys.filter(key => !MONITOR_KEYS.includes(key));
+      if (unknown.length > 0) throw new Error(`unknown monitor key(s): ${unknown.join(", ")}`);
+    }
     const batch: Array<{ key: MonitorKey; run: () => Promise<unknown> }> = [
       { key: "tsunami", run: () => monitorNOAATsunamiAlerts().catch((err) => { logger.error("NOAA tsunami monitor failed", { error: err.message }); throw err; }) },
       { key: "earthquake", run: () => monitorUSGSEarthquakeAlerts().catch((err) => { logger.error("USGS earthquake monitor failed", { error: err.message }); throw err; }) },
@@ -168,8 +175,9 @@ export async function runAllAlertMonitors(): Promise<SourceHealth[]> {
     if (batch.length !== MONITOR_KEYS.length || batch.some((entry, position) => entry.key !== MONITOR_KEYS[position])) {
       throw new Error(`alert batch does not match MONITOR_KEYS: [${batch.map(entry => entry.key).join(", ")}]`);
     }
-    const settledResults = await Promise.allSettled(batch.map(entry => entry.run()));
-    const resultsByKey = Object.fromEntries(batch.map((entry, position) => [entry.key, settledResults[position]!])) as Record<MonitorKey, PromiseSettledResult<unknown>>;
+    const runnableBatch = selectedKeys ? batch.filter(entry => selectedKeys.includes(entry.key)) : batch;
+    const settledResults = await Promise.allSettled(runnableBatch.map(entry => entry.run()));
+    const resultsByKey = Object.fromEntries(runnableBatch.map((entry, position) => [entry.key, settledResults[position]!])) as Record<MonitorKey, PromiseSettledResult<unknown>>;
 
     /** A monitor's fulfilled value, by key — never by position. */
     const settledValue = (key: MonitorKey): unknown => {

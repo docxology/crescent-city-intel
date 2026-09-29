@@ -29,13 +29,16 @@ import { createLogger } from "../logger.js";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import {
-  SOURCE_FETCH_TIMEOUT_MS,
   writeJsonAtomic,
   appendBoundedJsonlSync,
 } from "../shared/source_health.js";
 import { outputRoot } from "../shared/paths.js";
+import { boundedFetchText } from "./connector.js";
 
 const logger = createLogger("fuel_alert");
+
+/** Body-size cap for the EIA dnav page (live page ~145 KB, 2026-09-29). */
+export const FUEL_MAX_BYTES = 1_000_000;
 
 export const EIA_CA_RETAIL_GAS_URL =
   "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPM0_PTE_SCA_DPG&f=W";
@@ -192,29 +195,12 @@ export async function appendFuelHistory(
   }
 }
 
-const REQUEST_HEADERS = {
-  "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
-  Accept: "text/html",
-} as const;
-
-/** Bounded fetch with one retry; a second failure throws to the run wrapper. */
-async function fetchTextWithRetry(url: string, attempts = 2): Promise<string> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        headers: REQUEST_HEADERS,
-        signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error("EIA returned " + response.status + ": " + response.statusText);
-      const text = await response.text();
-      if (!text.trim()) throw new Error("EIA returned an empty page");
-      return text;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+/** Bounded live fetch through the shared connector. */
+function fetchEiaWeeklyPage(): Promise<string> {
+  return boundedFetchText(EIA_CA_RETAIL_GAS_URL, {
+    label: "EIA weekly price page",
+    maxBytes: FUEL_MAX_BYTES,
+  });
 }
 
 /** Run the monitor: fetch, parse, classify, persist current.json + deduped history. */
@@ -222,7 +208,7 @@ export async function runFuelMonitor(): Promise<FuelReport | null> {
   logger.info("Checking EIA weekly California retail gasoline price");
   lastFuelError = undefined;
   try {
-    const prices = parseEiaWeeklyPrices(await fetchTextWithRetry(EIA_CA_RETAIL_GAS_URL));
+    const prices = parseEiaWeeklyPrices(await fetchEiaWeeklyPage());
     const report = buildFuelReport(prices);
 
     await mkdir(outputDir(), { recursive: true });

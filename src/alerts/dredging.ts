@@ -28,12 +28,12 @@ import { createLogger } from "../logger.js";
 import { mkdir } from "fs/promises";
 import { join } from "path";
 import {
-  SOURCE_FETCH_TIMEOUT_MS,
   writeJsonAtomic,
   appendBoundedJsonlSync,
 } from "../shared/source_health.js";
 import { outputRoot } from "../shared/paths.js";
 import { IdempotencyStore, hashContent } from "../shared/idempotency.js";
+import { boundedFetchText } from "./connector.js";
 
 const logger = createLogger("dredging_alert");
 
@@ -200,30 +200,12 @@ export async function appendDredgingHistory(
   await store.save();
 }
 
-const REQUEST_HEADERS = {
-  "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
-  Accept: "application/xml,text/xml,*/*",
-} as const;
-
-/** Bounded fetch with one retry; a second failure throws to the run wrapper. */
-async function fetchTextWithRetry(url: string, attempts = 2): Promise<string> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        headers: REQUEST_HEADERS,
-        signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error("ccharbor sitemap returned " + response.status + ": " + response.statusText);
-      const text = await response.text();
-      if (!text.trim()) throw new Error("ccharbor sitemap returned an empty body");
-      if (text.length > CCHARBOR_SITEMAP_MAX_BYTES) throw new Error("ccharbor sitemap exceeds the size cap");
-      return text;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+/** Bounded live fetch through the shared connector. The parser's own cap is the second fence. */
+function fetchHarborSitemap(): Promise<string> {
+  return boundedFetchText(CCHARBOR_SITEMAP_URL, {
+    label: "ccharbor sitemap",
+    maxBytes: CCHARBOR_SITEMAP_MAX_BYTES,
+  });
 }
 
 /** Run the monitor: fetch, parse, keyword-filter, persist current.json + deduped history. */
@@ -231,7 +213,7 @@ export async function runDredgingMonitor(): Promise<DredgingReport | null> {
   logger.info("Checking Crescent City Harbor District for dredging / marine-construction posts");
   lastDredgingError = undefined;
   try {
-    const rows = parseHarborSitemap(await fetchTextWithRetry(CCHARBOR_SITEMAP_URL));
+    const rows = parseHarborSitemap(await fetchHarborSitemap());
     const report = buildDredgingReport(rows);
 
     await mkdir(outputDir(), { recursive: true });

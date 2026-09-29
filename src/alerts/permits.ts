@@ -30,14 +30,17 @@ import { mkdir } from "fs/promises";
 import { join } from "path";
 import { computeSha256 } from "../utils.js";
 import {
-  SOURCE_FETCH_TIMEOUT_MS,
   writeJsonAtomic,
   appendBoundedJsonlSync,
 } from "../shared/source_health.js";
 import { outputRoot } from "../shared/paths.js";
 import { IdempotencyStore, hashContent } from "../shared/idempotency.js";
+import { boundedFetchText } from "./connector.js";
 
 const logger = createLogger("permits_alert");
+
+/** Body-size cap for the MyGov module page (live page ~47 KB, 2026-09-29). */
+export const PERMITS_MAX_BYTES = 1_000_000;
 
 export const MYGOV_PERMITS_URL =
   "https://public.mygov.us/crescent_city_ca/module?module=pi";
@@ -220,29 +223,12 @@ export async function appendPermitsHistory(
   }
 }
 
-const REQUEST_HEADERS = {
-  "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)",
-  Accept: "text/html",
-} as const;
-
-/** Bounded fetch with one retry; a second failure throws to the run wrapper. */
-async function fetchTextWithRetry(url: string, attempts = 2): Promise<string> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        headers: REQUEST_HEADERS,
-        signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error("MyGov portal returned " + response.status + ": " + response.statusText);
-      const text = await response.text();
-      if (!text.trim()) throw new Error("MyGov portal returned an empty page");
-      return text;
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+/** Bounded live fetch through the shared connector (rate limit, robots gate, size cap, timeout, one retry). */
+function fetchPermitCatalog(): Promise<string> {
+  return boundedFetchText(MYGOV_PERMITS_URL, {
+    label: "MyGov permit catalog",
+    maxBytes: PERMITS_MAX_BYTES,
+  });
 }
 
 /** Run the monitor: fetch, parse, diff against the shared store, persist. */
@@ -250,7 +236,7 @@ export async function runPermitsMonitor(): Promise<PermitsReport | null> {
   logger.info("Checking City of Crescent City permit portal (MyGov public catalog)");
   lastPermitsError = undefined;
   try {
-    const html = await fetchTextWithRetry(MYGOV_PERMITS_URL);
+    const html = await fetchPermitCatalog();
     const entries = parsePermitCatalog(html);
     const store = new IdempotencyStore(permitsSeenPath());
     await store.load();

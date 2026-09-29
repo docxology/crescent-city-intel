@@ -11,6 +11,48 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Phase 10 GUI surfaces: ordinal refinement, legal-citation cross-linking, effective-date field (2026-09-28)
+
+- **Ordinal-sequence refinement** — `GET /api/ordinals` (new, in the spec) via
+`src/gui/ordinal_refinement.ts` (pure, offline-tested). The narrower
+`GET /api/ordinal-check` keeps its published shape; the refined report
+classifies each title's chapter ordinals as numeric, suffixed ("04-R" — a
+real post-adoption insertion slot sharing its base number with the plain
+form), or non-numeric — an unparseable segment is reported, never coerced to
+NaN — computes gaps strictly between present ordinal values (a suffix family
+is one slot, never a gap of 1..R−1), formats suggested gaps with their
+neighbours' zero-padding, and reports per-title sequence density. Over the
+real corpus: 17 titles, 573 missing chapter ordinals, sparsest title "SR".
+- **Legal-citation cross-linking** — `GET /api/citations/index` (new, in the
+spec) via `src/gui/legal_crosslinks.ts`. Every California-code and U.S.C.
+citation in section prose resolves to its canonical official URL
+(leginfo.legislature.ca.gov for the California codes via a fixed code-name →
+`lawCode` mapping; law.cornell.edu for the U.S. Code), plus the in-corpus guid
+when the citation names a section of this code (resolved by the same
+dot-boundary rule the cross-ref validator uses). The honesty rule, matching
+the Phase 2 linkifier: a citation with no stable target — case law, ordinance
+references, or a malformed capture like "(42 U.S.C. Section 12101 et seq.)"
+whose parsed section is junk — reports `href: null` and is never linked to a
+guessed URL. Over the real corpus: 53 citations, 50 linkable, 3 honestly
+unlinked, across 7 distinct cited codes.
+- **Effective-date field** — `GET /api/effective-dates?guid=` (new, in the
+spec) via `src/gui/effective_dates.ts`. The field is derived, never
+fabricated: the most recent year in the section's own history line through
+`legal_parser.extractOrdinanceAmendments` (whose no-fabrication rule keeps an
+ordinance number from becoming a year), with the carrying ordinance and
+action. No parseable year is an explicit `effectiveYear: null` — rendered as
+"no effective date on record". Over the real corpus: 1,102 sections with a
+derived year, 1,104 explicitly without, years 1976–2026.
+- **Phase 10 page** — `/phase10-legal.html`, served with the same loopback-only
+API-key injection as `index.html`. One panel per surface, each with an explicit
+empty state on load and on empty data plus a distinct error state.
+- Every surface ships with an explicit empty state, locked by string-contract
+tests in `tests/gui-phase10.test.ts` (25 tests: page markup, derivation
+contracts including the no-fabrication negatives, real `handleApiRoute`
+executions over the tracked seed corpus, the route-ordering contract that
+`/api/citations/index` is not claimed by the `/api/citations/{guid}` matcher,
+and route-spec parity).
+
 ### Phase 7 — plain-language rewrite of the GUI (2026-09-28)
 
 - The GUI's user-facing copy was rewritten so a Crescent City resident — not a

@@ -143,9 +143,13 @@ gui/
   analytics.ts                  # PCA, K-Means, word loadings
   alert_trends.ts               # Per-type trend bars + all-monitor heatmap
   annotations.ts                # Bounded JSON wildfire-map annotation store (GET/POST/DELETE /api/annotations)
+  ordinal_refinement.ts         # Phase 10 ordinal-sequence refinement report (GET /api/ordinals)
+  legal_crosslinks.ts           # Phase 10 CA/US legal-citation cross-link builder (GET /api/citations/index)
+  effective_dates.ts            # Phase 10 derived effective-date field (GET /api/effective-dates)
   static/index.html             # Single-page app (no framework)
   static/docs-dashboard.html    # Phase 14 docs/modules dashboard page
   static/structured-queries.html # Phase 14 dedicated structured-query page (history/compare/similar)
+  static/phase10-legal.html     # Phase 10 page (ordinals / citation cross-links / effective dates)
 llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   config.ts                     # LLM configuration
   provider.ts                   # Explicit Ollama/OpenRouter chat-provider selection

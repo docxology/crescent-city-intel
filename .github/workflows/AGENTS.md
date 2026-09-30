@@ -11,6 +11,11 @@ requires its own explicit installation. The fast path calls
 `bun run validate -- --only=contracts`; importing `src/release_gate.ts` alone is
 not a CLI invocation. Its output names all skipped checks.
 
+Both gate modes parse every `.yml` and `.yaml` workflow with Bun YAML and check
+minimum runnable job/step shapes. Use block scalars for shell commands containing
+colon-space text. These local checks do not replace GitHub's workflow compiler
+or establish hosted execution.
+
 Dependency selection uses recursive TypeScript import/re-export/helper closure.
 Configuration/assets/scripts, missing/deleted paths, unresolved/dynamic imports,
 or uncertain mappings run the full suite. Affected selection never means an

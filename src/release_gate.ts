@@ -5,6 +5,7 @@ import { PAGES_STATIC_PAGES, validatePagesHtml } from "./pages_snapshot.js";
 import { getSourceRegistry, sourceRegistryFingerprint, validateSourceRegistry } from "./source_registry.js";
 import { paths } from "./shared/paths.js";
 import { parseCoverageSummary, runFencedCommand } from "./release_checks.js";
+import { validateGithubWorkflows } from "./ci_support.js";
 
 /**
  * Deterministic release gate — every contract check the repository enforces
@@ -45,6 +46,8 @@ export async function runReleaseGate(options: { only?: "contracts" | "all" } = {
   ];
 
   const root = process.cwd();
+  const workflowErrors = validateGithubWorkflows(root);
+  if (workflowErrors.length) throw new Error(`GitHub workflow contract failed: ${workflowErrors.join("; ")}`);
   const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf-8")) as { version: string };
   const openapi = readFileSync(join(root, "openapi.yaml"), "utf-8");
   const readme = readFileSync(join(root, "README.md"), "utf-8");

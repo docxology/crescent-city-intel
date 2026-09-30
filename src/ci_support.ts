@@ -2,6 +2,85 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import ts from "typescript";
 
+function mapping(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function nonemptyText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function textList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.every(nonemptyText);
+}
+
+/** Real YAML syntax and minimum runnable job/step shapes; not GitHub's compiler. */
+export function validateGithubWorkflow(text: string, filename = "workflow"): string[] {
+  let value: unknown;
+  try { value = Bun.YAML.parse(text); }
+  catch (error) { return [`${filename}: invalid YAML: ${error instanceof Error ? error.message : String(error)}`]; }
+  const errors: string[] = [];
+  const fail = (path: string, message: string) => errors.push(`${filename}: ${path} ${message}`);
+  if (!mapping(value)) return [`${filename}: workflow must be a mapping`];
+  if (!(nonemptyText(value.on) || textList(value.on) || (mapping(value.on) && Object.keys(value.on).length > 0))) fail("on", "must declare an event string, list or mapping");
+  if (!mapping(value.jobs) || Object.keys(value.jobs).length === 0) return [...errors, `${filename}: jobs must be a nonempty mapping`];
+  const scalarMap = (candidate: unknown, path: string) => {
+    if (candidate === undefined) return;
+    if (!mapping(candidate) || Object.values(candidate).some(item => !["string", "number", "boolean"].includes(typeof item))) fail(path, "must map names to scalar values");
+  };
+  const optionalText = (candidate: unknown, path: string) => {
+    if (candidate !== undefined && !nonemptyText(candidate)) fail(path, "must be a nonempty string");
+  };
+  const optionalTimeout = (candidate: unknown, path: string) => {
+    if (candidate !== undefined && !(typeof candidate === "number" && Number.isFinite(candidate) && candidate > 0)) fail(path, "must be a positive number");
+  };
+  scalarMap(value.env, "env");
+  for (const [id, job] of Object.entries(value.jobs)) {
+    const path = `jobs.${id}`;
+    if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(id)) fail(path, "has an invalid job ID");
+    if (!mapping(job)) { fail(path, "must be a mapping"); continue; }
+    scalarMap(job.env, `${path}.env`);
+    optionalText(job.name, `${path}.name`);
+    optionalTimeout(job["timeout-minutes"], `${path}.timeout-minutes`);
+    if (job.needs !== undefined) {
+      const needs = nonemptyText(job.needs) ? [job.needs] : textList(job.needs) ? job.needs : [];
+      if (!needs.length) fail(`${path}.needs`, "must be a job ID or nonempty list of job IDs");
+      for (const dependency of needs) if (dependency === id || !Object.hasOwn(value.jobs, dependency)) fail(`${path}.needs`, `references an unknown or self-dependent job ${dependency}`);
+    }
+    // Reusable workflow jobs are runnable via uses, without local steps/runners.
+    if (job.uses !== undefined) {
+      optionalText(job.uses, `${path}.uses`);
+      if (job.steps !== undefined || job["runs-on"] !== undefined) fail(path, "cannot combine reusable uses with steps or runs-on");
+      scalarMap(job.with, `${path}.with`);
+      continue;
+    }
+    const runner = job["runs-on"];
+    const runnerGroup = mapping(runner) && (nonemptyText(runner.group) || nonemptyText(runner.labels) || textList(runner.labels));
+    if (!(nonemptyText(runner) || textList(runner) || runnerGroup)) fail(`${path}.runs-on`, "must declare a runner string, labels or group");
+    if (!Array.isArray(job.steps) || job.steps.length === 0) { fail(`${path}.steps`, "must be a nonempty list"); continue; }
+    for (const [index, step] of job.steps.entries()) {
+      const stepPath = `${path}.steps[${index}]`;
+      if (!mapping(step)) { fail(stepPath, "must be a mapping"); continue; }
+      const hasRun = step.run !== undefined, hasUses = step.uses !== undefined;
+      if (hasRun === hasUses) fail(stepPath, "must declare exactly one of run or uses");
+      if (hasRun && !nonemptyText(step.run)) fail(`${stepPath}.run`, "must be a nonempty string");
+      if (hasUses && !nonemptyText(step.uses)) fail(`${stepPath}.uses`, "must be a nonempty string");
+      for (const key of ["name", "id", "shell", "working-directory"]) optionalText(step[key], `${stepPath}.${key}`);
+      scalarMap(step.env, `${stepPath}.env`);
+      scalarMap(step.with, `${stepPath}.with`);
+      optionalTimeout(step["timeout-minutes"], `${stepPath}.timeout-minutes`);
+    }
+  }
+  return errors;
+}
+
+/** Include every YAML workflow, so a newly added file cannot bypass parsing. */
+export function validateGithubWorkflows(root: string): string[] {
+  const directory = join(root, ".github", "workflows");
+  if (!existsSync(directory)) return [".github/workflows: directory is missing"];
+  const names = readdirSync(directory).filter(name => /\.ya?ml$/i.test(name)).sort();
+  if (!names.length) return [".github/workflows: no YAML workflows found"];
+  return names.flatMap(name => validateGithubWorkflow(readFileSync(join(directory, name), "utf8"), `.github/workflows/${name}`));
+}
+
 export interface TestSelection { full: boolean; files: string[]; reason: string }
 function filesUnder(root: string): string[] {
   if (!existsSync(root)) return [];

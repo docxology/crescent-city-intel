@@ -66,7 +66,8 @@ jobs:
       - name: Real browser render smoke
         env:
           PAGES_SMOKE_DIR: ${{ github.workspace }}/.pages
-        run: bun test tests/lane5-render-smoke.test.ts -t 'lane 5: exported pages render cleanly' --timeout 120000
+        run: |
+          bun test tests/lane5-render-smoke.test.ts -t 'lane 5: exported pages render cleanly' --timeout 120000
       - uses: actions/configure-pages@v5
       - name: Upload the validated unchanged publication
         uses: actions/upload-pages-artifact@v3

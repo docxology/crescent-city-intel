@@ -1,11 +1,11 @@
 {
   "schemaVersion": "crescent-city-release-acceptance/v1",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "date": "2026-09-30",
   "status": "local-verified",
   "baselineCommit": "ed8e909e04a46bf9d65c14e03acdf25f6c3eb7aa",
   "publication": {
-    "evidenceLocation": "GitHub v3.0.0 release, main checks and Pages deployment records",
+    "evidenceLocation": "GitHub v3.0.1 release, main checks and Pages deployment records",
     "boundary": "This file records local acceptance; publication commit identity and live acceptance are recorded externally to avoid a self-referential commit hash."
   },
   "municipal": {
@@ -81,7 +81,7 @@
       "pdf": true,
       "html": true,
       "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
-      "pdfSha256": "685cf991e20fd31d92583250440e22c7e05319c3d2b431ecbfb2635504ff4a8b",
+      "pdfSha256": "d93e5b483bde40610b3c021c132532badab0cd35e4b3927cc54b0fc738fda7e3",
       "htmlSha256": "0fea932c9df236dab4f7aaf10e73b840d92fd7f07a6eb77ac44e17e6acdc6b60"
     },
     "ragBenchmark": {
@@ -107,8 +107,8 @@
       "scope": "Exact final full local publication; final validation and whole-tree privacy guards passed"
     },
     "container": {
-      "image": "cci-release:v3.0.0",
-      "imageSha256": "4d2f416b36dc7dd047dfb7639926de3c4531eab0e3161ca39a63fc3736fbc823",
+      "image": "cci-release:v3.0.1",
+      "imageSha256": "2d07bbda46cc699776b0ecd57bb032f3b589d74263266d3e708447b2df6526d5",
       "healthHttpStatus": 200,
       "scope": "Native Linux GUI with an empty corpus and explicit optional-backend degradation; backend/profile acceptance is separate"
     },
@@ -122,7 +122,7 @@
   },
   "verification": {
     "authoritativeGate": {
-      "passed": 1874,
+      "passed": 1880,
       "failed": 0,
       "optionalLiveTestsSkipped": 2,
       "lineCoveragePercent": 78.81,
@@ -137,6 +137,11 @@
       "exitCode": 0,
       "ownedChildReaped": true,
       "browserShutdownVerified": true
+    },
+    "workflowYaml": {
+      "files": 3,
+      "originalInvalidCommandRejected": true,
+      "scope": "Real YAML parsing and minimum runnable job/step shapes; hosted GitHub compilation remains external acceptance."
     }
   },
   "curation": {

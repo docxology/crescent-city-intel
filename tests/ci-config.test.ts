@@ -3,12 +3,13 @@
  *
  * Offline assertions guard the declared Bun pin, authoritative PR gate and
  * full monitor roster. Configuration agreement is separate from hosted workflow
- * execution and current-source acceptance (TODO.md M22).
+ * execution and current-source acceptance.
  */
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { MONITOR_KEYS } from "../src/alerts/composite.ts";
+import { validateGithubWorkflows } from "../src/ci_support.ts";
 
 const ROOT = process.cwd();
 const readWorkflow = (name: string): string =>
@@ -27,6 +28,22 @@ const workflow = (name: string): string =>
     .filter(line => !/^\s*#/.test(line))
     .join("\n");
 const has = (name: string): boolean => existsSync(join(ROOT, ".github/workflows", name));
+
+describe("actual workflow parser contracts", () => {
+  test("every current YAML workflow parses and declares runnable jobs/steps", () => {
+    expect(validateGithubWorkflows(ROOT)).toEqual([]);
+  });
+  test("the real Pages filter survives YAML parsing as one shell command", () => {
+    const parsed = Bun.YAML.parse(readWorkflow("pages.yml")) as { jobs: { build: { steps: Array<{ name?: string; run?: string }> } } };
+    const render = parsed.jobs.build.steps.find(step => step.name === "Real browser render smoke");
+    expect(render?.run?.trim()).toBe("bun test tests/lane5-render-smoke.test.ts -t 'lane 5: exported pages render cleanly' --timeout 120000");
+  });
+  test("the authoritative gate invokes YAML validation before the contract-mode split", () => {
+    const text = readFileSync(join(ROOT, "src/release_gate.ts"), "utf8");
+    expect(text).toContain("const workflowErrors = validateGithubWorkflows(root)");
+    expect(text.indexOf("const workflowErrors = validateGithubWorkflows(root)")).toBeLessThan(text.indexOf("if (contractsOnly)"));
+  });
+});
 
 describe("Bun is pinned, not floating", () => {
   const pinned = (text: string): boolean => /BUN_VERSION:\s*"[^"]+"/.test(text);

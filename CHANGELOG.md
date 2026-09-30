@@ -9,6 +9,14 @@ Versioned by [Semantic Versioning](https://semver.org/).
 ---
 
 
+## [3.0.1] — 2026-09-30
+
+- Corrected the Pages browser-smoke command to use a YAML block scalar so GitHub
+  can compile the deployment workflow.
+- Added actual workflow YAML parsing to the authoritative release gate, including
+  a regression for the rejected colon-containing command.
+- Retained the v3.0.0 tag and refreshed release metadata for the publication repair.
+
 ## [3.0.0] — 2026-09-30
 
 ### Reliability and refreshed evidence

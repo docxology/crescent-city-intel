@@ -44,7 +44,7 @@ queries, legal analysis, and civic intelligence domains.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.0.1)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.0.2)
 
 ## Updating Docs
 

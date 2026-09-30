@@ -7,7 +7,7 @@
  * chat history, credentials, vector indexes, and Triplicate content are not
  * included; Triplicate metadata remains reference/citation-only.
  */
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, open, readFile, readdir, rm, writeFile } from "fs/promises";
 import { dirname, join, relative, resolve } from "path";
 import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealthStatus, SourceHealthSummary } from "./types.js";
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
@@ -216,6 +216,13 @@ const SOURCE_HEALTH_FILES = [
   "alerts/source-health.json",
 ];
 
+export interface PagesSitemapProvenance {
+  schemaVersion: "crescent-city-sitemap-provenance/v1";
+  /** A checkout's filesystem date is not the source content's change history. */
+  dateOrigin: "exporter-template-filesystem-mtime";
+  templates: Record<string, { sourceSha256: string; bytes: number; mtimeUtcDate: string | null }>;
+}
+
 export interface PagesSnapshot {
   schemaVersion: "1.0.0";
   generatedAt: string;
@@ -227,6 +234,8 @@ export interface PagesSnapshot {
   sourceRegistryFingerprint: string;
   sourceDiscovery: SourceDiscoveryReport | null;
   publication: PublicationReceipt;
+  /** Filled only by the exporter, separately from municipal source custody. */
+  sitemapProvenance: PagesSitemapProvenance | null;
   municipalCode: {
     available: boolean;
     source: string;
@@ -381,7 +390,8 @@ export const PAGES_WEB_MANIFEST = "site.webmanifest";
  * Sitemap covering the canonical root plus the standalone pages.
  *
  * `lastmodByPath` maps a sitemap path ("" for the root, "gui.html", ...) to an
- * honest last-modified date (YYYY-MM-DD) derived from source mtime. When no
+ * recorded filesystem date (YYYY-MM-DD) derived from exporter template mtime.
+ * This is not source content change history. When no
  * mapping is supplied the <lastmod> element is omitted entirely rather than
  * fabricated from the build date: a sitemap must never claim every URL changed
  * today just because the exporter ran (§3.7).
@@ -1646,6 +1656,7 @@ export async function buildPagesSnapshot(
     sourceRegistryFingerprint: registryFingerprint,
     sourceDiscovery: publicSourceDiscovery(sourceDiscovery) as SourceDiscoveryReport | null,
     publication: bundle.receipt,
+    sitemapProvenance: null,
     municipalCode: {
       available: codeAvailable,
       source: MUNICIPAL_CODE_URL,
@@ -1705,12 +1716,23 @@ export async function buildPagesSnapshot(
   return snapshot;
 }
 
-async function copyIfPresent(source: string, destination: string): Promise<boolean> {
-  const value = await readFile(source).catch(() => null);
-  if (value === null) return false;
-  await mkdir(dirname(destination), { recursive: true });
-  await writeFile(destination, value);
-  return true;
+/** Capture the exact bytes consumed by rendering and their actual filesystem date. */
+async function captureSitemapTemplates(): Promise<{ html: Record<string, string>; provenance: PagesSitemapProvenance }> {
+  const html: Record<string, string> = {};
+  const provenance: PagesSitemapProvenance = { schemaVersion: "crescent-city-sitemap-provenance/v1", dateOrigin: "exporter-template-filesystem-mtime", templates: {} };
+  for (const file of ["index.html", ...PAGES_STATIC_PAGES.map(page => page.file)]) {
+    const handle = await open(join(STATIC_DIR, file), "r");
+    try {
+      const before = await handle.stat();
+      if (!before.isFile() || before.size > 2 * 1024 * 1024) throw new Error(`Pages template is not a bounded regular file: ${file}`);
+      const bytes = await handle.readFile();
+      const after = await handle.stat();
+      if (before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || bytes.length !== before.size) throw new Error(`Pages template changed during capture: ${file}`);
+      html[file] = bytes.toString("utf8");
+      provenance.templates[file] = { sourceSha256: publicationHash(bytes), bytes: bytes.length, mtimeUtcDate: Number.isFinite(before.mtimeMs) ? before.mtime.toISOString().slice(0, 10) : null };
+    } finally { await handle.close(); }
+  }
+  return { html, provenance };
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {
@@ -1734,6 +1756,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
+    const templates = await captureSitemapTemplates();
+    snapshot.sitemapProvenance = templates.provenance;
+    assertPublicArtifact(snapshot);
     const editionDate = generatedAt.slice(0, 10);
     // §6.3: shared assets are content-hashed at export so they can be served
     // with normal (effectively immutable) caching — §1.6 unblocked for CSS/JS.
@@ -1763,7 +1788,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
       }
       return html;
     };
-    const indexTemplate = await readFile(join(STATIC_DIR, "index.html"), "utf8");
+    const indexTemplate = templates.html["index.html"]!;
     const faviconHead = buildPagesFaviconHeadHtml();
     // index.html keeps its hand-authored canonical/OG/Twitter head block; the
     // generated head-meta path covers the six standalone pages from the manifest.
@@ -1803,11 +1828,8 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     );
     await writeFile(join(temporary, "404.html"), page404Final, "utf8");
     for (const page of PAGES_STATIC_PAGES) {
-      if (!(await copyIfPresent(join(STATIC_DIR, page.file), join(temporary, page.file)))) {
-        throw new Error(`Pages static page is missing from ${STATIC_DIR}: ${page.file}`);
-      }
       const pagePath = join(temporary, page.file);
-      const pageHtml = await readFile(pagePath, "utf8");
+      const pageHtml = templates.html[page.file]!;
       // Per-page SEO: syndication link, WebPage/CollectionPage, BreadcrumbList,
       // and Dataset JSON-LD injected at export time from the page manifest.
       const chromed = embedPagesHeadMeta(
@@ -1843,15 +1865,10 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     await writeFile(join(temporary, PAGES_WEB_MANIFEST), buildPagesWebManifest(), "utf8");
     files.push(PAGES_OG_IMAGE_PNG, PAGES_APPLE_TOUCH_ICON_PNG, PAGES_FAVICON_ICO, PAGES_FAVICON_SVG, PAGES_WEB_MANIFEST);
 
-    // --- Honest sitemap lastmod (§3.7): derive from source mtime, never the build date ---
+    // Use the captured exporter date; validation never substitutes its own mtime.
     const lastmodByPath: Record<string, string> = {};
-    const sourceFiles: Array<[string, string]> = [["", "index.html"], ...PAGES_STATIC_PAGES.map(page => [page.file, page.file] as [string, string])];
-    for (const [path, filename] of sourceFiles) {
-      try {
-        const stat = await Bun.file(join(STATIC_DIR, filename)).stat();
-        const mtime = stat?.mtime;
-        if (mtime) lastmodByPath[path] = mtime.toISOString().slice(0, 10);
-      } catch { /* omit lastmod rather than fabricate it from the build date */ }
+    for (const [filename, source] of Object.entries(templates.provenance.templates)) {
+      if (source.mtimeUtcDate !== null) lastmodByPath[filename === "index.html" ? "" : filename] = source.mtimeUtcDate;
     }
     await writeFile(join(temporary, PAGES_ROBOTS_TXT), buildPagesRobotsTxt(), "utf8");
     await writeFile(join(temporary, PAGES_SITEMAP_XML), buildPagesSitemapXml(lastmodByPath), "utf8");

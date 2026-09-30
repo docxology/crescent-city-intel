@@ -60,6 +60,7 @@ bun test --watch      # Watch mode
 | `alert_analytics.test.ts` | `src/alert_analytics.ts` — timeline and type statistics |
 | `v2-endpoints*.test.ts` | API endpoint contracts and edge cases |
 | `pages_snapshot.test.ts` | Static export schema, atomic artifact boundaries, and source-health truthfulness |
+| `publication-bundle.test.ts` | Whole-edition custody, interrupted promotion, privacy, and portable hash-bound sitemap provenance with real alternate-checkout timestamps |
 | `middleware*.test.ts` | `src/api/middleware.ts` — authentication and sliding-window limits |
 | `idempotency.test.ts` | `src/shared/idempotency.ts` — atomic persistence and migration |
 | `verify.test.ts` | `src/verify.ts` + `src/shared/data.ts` + coverage |

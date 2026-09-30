@@ -176,8 +176,24 @@ snapshot is discoverable and attributable without any client-side code:
 - **robots.txt** — emitted by `buildPagesRobotsTxt()` in
   `src/pages_snapshot.ts`: an allow-all policy with an explicit sitemap pointer.
 - **sitemap.xml** — emitted by `buildPagesSitemapXml()`: the sitemap-0.9
-  namespace covering the canonical root plus the major anchor sections
-  (`#analytics`, `#code`, `#events`, `#geo`, `#news`, `#meetings`, `#curated`).
+  namespace covering the canonical root and the dedicated pages in
+  `PAGES_STATIC_PAGES`.
+
+Each export records `sitemapProvenance` in `data/snapshot.json`, separately
+from municipal publication input. The bounded receipt names exactly the sitemap
+templates and records their consumed source byte hashes, sizes and captured UTC
+filesystem dates. Its explicit `dateOrigin` is
+`exporter-template-filesystem-mtime`: checkout mtimes are not evidence of source
+content change history. A missing recorded date omits `lastmod`; the build date
+is never substituted.
+
+The publication tree hash binds this saved receipt and the sitemap. Validation
+requires the receipt, matches its hashes to the same template bytes, and checks
+each sitemap date against the recorded valid, nonfuture date. It does not compare
+the validator checkout's mtimes. An identical checkout with different timestamps
+therefore validates; changed source bytes, corrupted provenance or mismatched
+sitemap dates fail. Older exports without this receipt remain unverifiable by
+the current provenance check; validation never invents or rewrites their metadata.
 
 ## Reader experience
 

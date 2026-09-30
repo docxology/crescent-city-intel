@@ -1,11 +1,11 @@
 {
   "schemaVersion": "crescent-city-release-acceptance/v1",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "date": "2026-09-30",
   "status": "local-verified",
   "baselineCommit": "ed8e909e04a46bf9d65c14e03acdf25f6c3eb7aa",
   "publication": {
-    "evidenceLocation": "GitHub v3.0.1 release, main checks and Pages deployment records",
+    "evidenceLocation": "GitHub v3.0.2 release, main checks and Pages deployment records",
     "boundary": "This file records local acceptance; publication commit identity and live acceptance are recorded externally to avoid a self-referential commit hash."
   },
   "municipal": {
@@ -35,7 +35,8 @@
         "alert-city-permits",
         "alert-pacfin-reports",
         "alert-ais-vessels"
-      ]
+      ],
+      "scope": "Producer source-health presence; this does not establish cadence-specific observation freshness for every monitor."
     },
     "coverageGaps": [
       "City and county child pages are inventoried but not yet collected by a dedicated monitor.",
@@ -49,7 +50,8 @@
     "PDF extraction does not establish votes or legal effective dates.",
     "Catalog/statewide records do not establish local regulated-record coverage.",
     "Native temporary backend acceptance does not establish permanent deployment.",
-    "External private consumer state, scheduler installation and push display are separate acceptance."
+    "External private consumer state, scheduler installation and push display are separate acceptance.",
+    "Present source-health and recent fetch times do not establish cadence-specific observation freshness or geographic completeness for every monitor."
   ],
   "runtime": {
     "bun": "1.4.2",
@@ -81,7 +83,7 @@
       "pdf": true,
       "html": true,
       "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
-      "pdfSha256": "d93e5b483bde40610b3c021c132532badab0cd35e4b3927cc54b0fc738fda7e3",
+      "pdfSha256": "3832703809acd2e6d8831db528dea61a60ebb16908ba72839cd0237df2a452aa",
       "htmlSha256": "0fea932c9df236dab4f7aaf10e73b840d92fd7f07a6eb77ac44e17e6acdc6b60"
     },
     "ragBenchmark": {
@@ -104,11 +106,11 @@
         768,
         1440
       ],
-      "scope": "Exact final full local publication; final validation and whole-tree privacy guards passed"
+      "scope": "Exact full local v3.0.2 publication; whole-tree validation and nine real-browser page checks at four viewports passed."
     },
     "container": {
-      "image": "cci-release:v3.0.1",
-      "imageSha256": "2d07bbda46cc699776b0ecd57bb032f3b589d74263266d3e708447b2df6526d5",
+      "image": "cci-release:v3.0.2",
+      "imageSha256": "02897805c2bee529ddecdea2b63a78804206885ac519c10b12a2d09961d2b35e",
       "healthHttpStatus": 200,
       "scope": "Native Linux GUI with an empty corpus and explicit optional-backend degradation; backend/profile acceptance is separate"
     },
@@ -122,11 +124,11 @@
   },
   "verification": {
     "authoritativeGate": {
-      "passed": 1880,
+      "passed": 1882,
       "failed": 0,
       "optionalLiveTestsSkipped": 2,
       "lineCoveragePercent": 78.81,
-      "functionCoveragePercent": 81.11,
+      "functionCoveragePercent": 81.16,
       "outputFencesPassed": true,
       "productionAndTestTypesPassed": true,
       "scope": "Frozen final runtime source with populated fresh municipal corpus in an independent checkout; optional live model behavior verified separately."
@@ -136,12 +138,19 @@
       "result": "ok",
       "exitCode": 0,
       "ownedChildReaped": true,
-      "browserShutdownVerified": true
+      "browserShutdownVerified": true,
+      "scope": "Successful retained run and browser shutdown; whole-run interruption and wedged-browser process reaping remain separate acceptance."
     },
     "workflowYaml": {
       "files": 3,
       "originalInvalidCommandRejected": true,
       "scope": "Real YAML parsing and minimum runnable job/step shapes; hosted GitHub compilation remains external acceptance."
+    },
+    "sitemapPortability": {
+      "independentReview": "GO",
+      "sameBytesDifferentCheckoutMtimesAccepted": true,
+      "corruptProvenanceAndMalformedXmlRejected": true,
+      "legacyArtifactDisposition": "Explicit missing-provenance rejection; no metadata invented or rewritten."
     }
   },
   "curation": {

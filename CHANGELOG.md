@@ -9,6 +9,13 @@ Versioned by [Semantic Versioning](https://semver.org/).
 ---
 
 
+## [3.0.2] — 2026-09-30
+
+- Bound sitemap dates to recorded exporter source metadata and template hashes,
+  so identical source bytes validate across checkouts with different file mtimes.
+- Added portable-artifact regression controls while preserving public privacy,
+  municipal custody and sitemap integrity checks.
+
 ## [3.0.1] — 2026-09-30
 
 - Corrected the Pages browser-smoke command to use a YAML block scalar so GitHub

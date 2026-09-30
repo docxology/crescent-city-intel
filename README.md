@@ -12,7 +12,7 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.0.1-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.0.2-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -651,7 +651,7 @@ docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts 
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v3.0.1)
+openapi.yaml            # OpenAPI 3.0.3 spec (v3.0.2)
 ```
 
 ---
@@ -812,7 +812,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.0.1)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.0.2)
 
 ---
 

@@ -7,6 +7,7 @@
 import { readFile, readdir } from "fs/promises";
 import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
+import { DOMParser } from "@xmldom/xmldom";
 import {
   PAGES_ANALYTICS_ARTIFACT,
   PAGES_APPLE_TOUCH_ICON_PNG,
@@ -38,13 +39,54 @@ import { auditPagesCss, auditStylesheetBraces, type PageCssInput } from "./pages
 import { scanPage } from "./pages_scan.js";
 import type { PagesSnapshot } from "./pages_snapshot.js";
 
+/** Parse every XML node; malformed residual markup cannot evade roster checks. */
+function parseSitemapEntries(xml: string): { entries: Array<{ loc: string; lastmod?: string }>; errors: string[] } {
+  const invalid = () => ({ entries: [], errors: ["sitemap XML has invalid syntax or unsupported shape"] });
+  if (Buffer.byteLength(xml, "utf8") > 64 * 1024 || /<!DOCTYPE\b|<!ENTITY\b/i.test(xml)) return invalid();
+  let diagnostics = false;
+  let document: Document;
+  try { document = new DOMParser({ errorHandler: () => { diagnostics = true; } }).parseFromString(xml, "application/xml"); }
+  catch { return invalid(); }
+  if (diagnostics) return invalid();
+  const namespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
+  const root = document.documentElement;
+  if (!root || root.localName !== "urlset" || root.namespaceURI !== namespace) return invalid();
+  for (const node of Array.from(document.childNodes)) {
+    if (node === root || node.nodeType === 8 || (node.nodeType === 3 && !node.textContent?.trim()) || (node.nodeType === 7 && node.nodeName === "xml")) continue;
+    return invalid();
+  }
+  const elements = (parent: Node): Element[] | null => {
+    const children: Element[] = [];
+    for (const node of Array.from(parent.childNodes)) {
+      if (node.nodeType === 1) children.push(node as Element);
+      else if (node.nodeType !== 8 && !(node.nodeType === 3 && !node.textContent?.trim())) return null;
+    }
+    return children;
+  };
+  const allowedElement = (element: Element, name: string) => element.localName === name && element.namespaceURI === namespace && Array.from(element.attributes).every(attribute => attribute.namespaceURI === "http://www.w3.org/2000/xmlns/");
+  const text = (element: Element): string | null => Array.from(element.childNodes).every(node => [3, 4, 8].includes(node.nodeType)) ? element.textContent?.trim() ?? "" : null;
+  if (!allowedElement(root, "urlset")) return invalid();
+  const urls = elements(root);
+  if (urls === null) return invalid();
+  const entries: Array<{ loc: string; lastmod?: string }> = [];
+  for (const url of urls) {
+    if (!allowedElement(url, "url")) return invalid();
+    const fields = elements(url);
+    if (!fields || fields.length < 1 || fields.length > 2 || !allowedElement(fields[0]!, "loc") || (fields[1] && !allowedElement(fields[1], "lastmod"))) return invalid();
+    const loc = text(fields[0]!); const lastmod = fields[1] ? text(fields[1]) : undefined;
+    if (!loc || lastmod === null) return invalid();
+    entries.push({ loc, ...(lastmod !== undefined ? { lastmod } : {}) });
+  }
+  return { entries, errors: [] };
+}
+
 /**
  * Validate the generated public Pages artifact at `destination` and return the
  * list of contract violations. Pure filesystem reads; no network calls.
  * Invoked by the thin orchestrator scripts/validate-pages.ts, which prints the
  * errors and sets the exit code.
  */
-export async function validatePagesArtifact(destination: string): Promise<string[]> {
+export async function validatePagesArtifact(destination: string, options: { sourceTemplateDir?: string } = {}): Promise<string[]> {
   const errors: string[] = [];
   const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_GEO_OBSERVATIONS_ARTIFACT];
   for (const relative of required) {
@@ -832,28 +874,43 @@ export async function validatePagesArtifact(destination: string): Promise<string
     if (pageHtmlCache.get("404.html")?.includes('name="robots" content="noindex"') === false) {
       errors.push("404.html is missing the noindex meta");
     }
-    // 3.7: honest sitemap lastmod — every lastmod must come from a source mtime,
-    // never the build date. The root URL is always present; pages must match the manifest.
+    // Bind recorded exporter filesystem dates to exact template bytes. Another
+    // checkout may have different mtimes; it must not rewrite the saved receipt.
     const sitemap = await readFile(join(destination, PAGES_SITEMAP_XML), "utf8").catch(() => null);
-    if (sitemap !== null) {
-      const sourceMtimes = new Map<string, string>();
-      for (const file of ["index.html", ...PAGES_STATIC_PAGES.map(page => page.file)]) {
-        try {
-          const stat = await Bun.file(join(resolve(import.meta.dir, "pages/static"), file)).stat();
-          if (stat?.mtime) sourceMtimes.set(file, stat.mtime.toISOString().slice(0, 10));
-        } catch { /* source missing: lastmod must be omitted, not fabricated */ }
-      }
-      const urlEntries = [...sitemap.matchAll(/<url><loc>([^<]+)<\/loc>(<lastmod>([^<]+)<\/lastmod>)?<\/url>/g)];
-      for (const entry of urlEntries) {
-        const loc = entry[1]!;
-        const lastmod = entry[3];
-        const path = loc.replace("https://quadruplicate.org/", "").replace(/^$/, "");
-        const fileKey = path === "" ? "index.html" : path;
-        const expected = sourceMtimes.get(fileKey);
-        if (lastmod === undefined) continue; // omission is honest
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(lastmod)) errors.push(`sitemap lastmod for ${loc} is not a date: ${lastmod}`);
-        if (expected !== undefined && lastmod !== expected) errors.push(`sitemap lastmod for ${loc} does not match the source mtime (fabricated?)`);
-        if (expected === undefined) errors.push(`sitemap lastmod for ${loc} has no matching source mtime (fabricated?)`);
+    const expectedFiles = ["index.html", ...PAGES_STATIC_PAGES.map(page => page.file)];
+    const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+    const provenance: unknown = snapshot?.sitemapProvenance;
+    if (!object(provenance)) errors.push("snapshot sitemap provenance is missing or invalid");
+    else {
+      if (Object.keys(provenance).sort().join() !== "dateOrigin,schemaVersion,templates" || provenance.schemaVersion !== "crescent-city-sitemap-provenance/v1" || provenance.dateOrigin !== "exporter-template-filesystem-mtime") errors.push("snapshot sitemap provenance has an unsupported schema, origin or field");
+      const templates = provenance.templates;
+      if (!object(templates) || Object.keys(templates).sort().join() !== [...expectedFiles].sort().join()) errors.push("snapshot sitemap provenance template membership differs from the page roster");
+      else {
+        const sourceRoot = resolve(options.sourceTemplateDir ?? join(import.meta.dir, "pages/static"));
+        const today = new Date().toISOString().slice(0, 10);
+        for (const file of expectedFiles) {
+          const row = templates[file];
+          if (!object(row) || Object.keys(row).sort().join() !== "bytes,mtimeUtcDate,sourceSha256" || typeof row.sourceSha256 !== "string" || !/^[0-9a-f]{64}$/.test(row.sourceSha256) || !Number.isSafeInteger(row.bytes) || Number(row.bytes) < 1 || Number(row.bytes) > 2 * 1024 * 1024) { errors.push(`sitemap source receipt is invalid: ${file}`); continue; }
+          const date = row.mtimeUtcDate;
+          if (date !== null && (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(`${date}T00:00:00Z`)) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date || date > today)) errors.push(`sitemap source date is invalid or future: ${file}`);
+          const sourceFile = Bun.file(join(sourceRoot, file));
+          if (sourceFile.size > 2 * 1024 * 1024) { errors.push(`sitemap template source exceeds byte limit: ${file}`); continue; }
+          const bytes = await sourceFile.bytes().catch(() => null);
+          if (bytes === null || row.bytes !== bytes.length || row.sourceSha256 !== publicationHash(bytes)) errors.push(`sitemap template source bytes do not match receipt: ${file}`);
+        }
+        if (sitemap !== null) {
+          const parsed = parseSitemapEntries(sitemap);
+          errors.push(...parsed.errors);
+          const entries = parsed.entries;
+          const expectedUrls = expectedFiles.map(file => `https://quadruplicate.org/${file === "index.html" ? "" : file}`);
+          if (entries.length !== expectedUrls.length || new Set(entries.map(entry => entry.loc)).size !== expectedUrls.length || entries.some(entry => !expectedUrls.includes(entry.loc))) errors.push("sitemap URL membership or shape differs from the page roster");
+          for (const entry of entries) {
+            const loc = entry.loc;
+            const filename = loc === "https://quadruplicate.org/" ? "index.html" : loc.replace("https://quadruplicate.org/", "");
+            const row = templates[filename];
+            if (object(row) && entry.lastmod !== (row.mtimeUtcDate ?? undefined)) errors.push(`sitemap lastmod does not match recorded exporter date: ${filename}`);
+          }
+        }
       }
     }
   }

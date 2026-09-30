@@ -51,7 +51,7 @@ prose:
   forbid_skipped_levels: true
 
 bibliography:
-  references_path: "manuscript/references.bib"
+  references_path: "docs/manuscript/references.bib"
   fail_on_missing: true
   fail_on_unused: true
 

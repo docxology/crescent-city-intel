@@ -615,7 +615,7 @@ scripts/
   weekly-check.sh       # Shell entry point for weekly check
 tests/                  # deterministic zero-mock suite; run `bun run validate` for the current count
 docs/                   # Full module documentation suite
-manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
+docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)

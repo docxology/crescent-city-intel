@@ -36,7 +36,7 @@ describe("rate limiter exhaustion", () => {
     expect(body.retryAfter).toBeGreaterThan(0);
   });
 
-  test("bypass paths are never rate limited", async () => {
+  test("probe quota is separate from the ordinary request quota", async () => {
     const baseTime = 1700000000000;
     _testHooks.setNow(baseTime);
 
@@ -123,11 +123,11 @@ describe("resolveIp", () => {
     expect(resolveIp(req, "192.168.1.1")).toBe("192.168.1.1");
   });
 
-  test("prefers x-forwarded-for over socket", () => {
+  test("ignores forwarded headers from untrusted socket", () => {
     const req = new Request("http://localhost/api/search", {
       headers: { "x-forwarded-for": "10.0.0.1" },
     });
-    expect(resolveIp(req, "192.168.1.1")).toBe("10.0.0.1");
+    expect(resolveIp(req, "192.168.1.1")).toBe("192.168.1.1");
   });
 
   test("falls back to unknown when nothing available", () => {

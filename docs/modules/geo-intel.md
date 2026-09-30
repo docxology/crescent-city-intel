@@ -74,7 +74,7 @@ per-municipality; the `schema` string is the caller's spec `id`):
 | `CRESCENT_CITY_ANCHOR` | `MunicipalityAnchor` | Authoritative Crescent City + Del Norte bounds (WGS84) — the default anchor |
 | `getDefaultCrescentSpec()` | `() → MunicipalitySpec` | Current anchor + 12 domains as data (not hardcoded in the builder) |
 | `buildMunicipalityContract(spec)` | `(MunicipalitySpec) → Record<string, unknown>` | **Transferable** pure builder for any city's contract |
-| `buildGeoIntel(domainList?)` | `(IntelligenceDomain[]) → Record<string, unknown>` | Backward-compatible Crescent shorthand (resolves the default spec, delegates to the transferable builder) |
+| `buildGeoIntel(domainList?)` | `(IntelligenceDomain[]) → Record<string, unknown>` | Crescent City default builder (resolves the default spec, delegates to the transferable builder) |
 | `hazardRelevantDomains(surface?)` | `(IntelligenceDomain[]?) → Array<{…}>` | Hazard-tagged subset; moves with the supplied surface (defaults to the in-repo 12) |
 | `geoPaths` | `{ pagesSeed, liveExport }` | `pages-data/geo-intel.json` + `output/geo-intel.json` |
 | `writeGeoIntelExports()` | `() → Promise<string[]>` | Write the default (Crescent) contract to committed seed + live export (guarded) |
@@ -141,14 +141,14 @@ in [geo-observations.md](geo-observations.md); build it with
 `bun run geo:sync-check` (`scripts/check-geo-sync.ts`) is the drift guard over
 the frozen contract: it rebuilds the contract with the pure builder and
 compares the stable fields against `pages-data/geo-intel.json` (exit 1 on
-drift) — no longer manual-only, the drift check now runs inside
+drift). The drift check runs inside
 `bun run validate` via `src/release_gate.ts` — then sha256-compares the
 GEO-INFER-BAYES bundled copy (loud `BUNDLED COPY DRIFT` warning, exit 0, so
-CI decides policy). Its first run
-caught real drift — the 2026-08-24 seed carried 4 hazard-relevant domains
-against 6 in the rebuilt contract. Closed 2026-09-08: the seed was
-regenerated with `bun run geo:intel` and the GEO-INFER-BAYES bundled copy
-was refreshed to byte-identical (consumer tests 43/43 green).
+CI decides policy). Historical seed/consumer refresh evidence belongs in
+[CHANGELOG.md](../../CHANGELOG.md). Record the bundled path and both hashes when
+checking a downstream checkout. Byte identity verifies the static payload;
+runtime acceptance requires a separate invocation of the named consumer with
+its module identity and the exact observation envelope recorded.
 
 ## Geospatial consumers
 
@@ -183,10 +183,10 @@ equality), so composite tags surface their hazard intent: `"flood zone"` matches
 `flood`, `"sea level rise"` matches `sea level`, `"climate adaptation"` matches
 `climate`, and `"tsunami zone"` / `"tsunami drill"` match `tsunami`. Words are
 matched on boundaries so `"stormwater"` does not falsely read as `storm`. With
-the in-repo Crescent surface this flags **4** hazard-relevant domains
-(emergency-management, environmental-protection, event-planning,
-climate-environment) and carries flood + sea-level policy the prior consumers
-(RISK/BAYES/ACT) receive as defaults.
+the in-repo Crescent surface this flags **6** hazard-relevant domains:
+emergency-management, environmental-protection, event-planning,
+tourism-recreation, climate-environment and public-health-safety. The subset
+is derived from the current domain tags rather than a separate fixed list.
 
 Run with: `bun run test` (suite) or `bun test tests/geo-intel.test.ts`.
 

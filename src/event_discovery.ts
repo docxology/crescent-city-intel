@@ -5,7 +5,7 @@
  * candidate StructuredEvent records, reconciles them against the existing
  * deterministic calendar artifact, and emits a discovery artifact.
  *
- * Grounding rules (round 2):
+ * Extraction constraints:
  *  - Every emitted event carries its `sourceUrl`, `sourceName`,
  *    `extractionMethod` ('markup' | 'llm'), and a `confidence` score.
  *  - Dates come only from the feed itself (markup/ICS/RSS) or from an LLM
@@ -21,7 +21,9 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 import * as cheerio from "cheerio";
-import { classify, extractTimeNote as sanitizeTimeNote, MAX_SOURCE_LINKS, parseEventDate } from "./events.js";
+import { outputRoot } from "./shared/paths.js";
+import { boundedHttpFetch, type TransportOptions } from "./shared/transport.js";
+import { classify, extractTimeNote as sanitizeTimeNote, MAX_SOURCE_LINKS, parseEventDate, isCivilDate } from "./events.js";
 import { createLogger } from "./logger.js";
 
 const logger = createLogger("event-discovery");
@@ -72,6 +74,8 @@ export interface DiscoveredEvent {
   extractionMethod: "markup" | "llm";
   /** 0..1 fidelity score: 0.95 ICS markup, 0.9 RSS markup, 0.85 HTML markup, 0.75 LLM completeness assist, 0.55 LLM date resolution. */
   confidence: number;
+  /** Feed publication timestamp is separate from the occurrence date. */
+  publicationAt?: string | null;
 }
 
 export interface DiscoveryArtifact {
@@ -83,6 +87,7 @@ export interface DiscoveryArtifact {
     fetched: number;
     droppedAmbiguous: number;
     droppedUndated: number;
+    droppedUnsupported: number;
     conflictsFlagged: number;
     reconciled: number;
     count: number;
@@ -95,6 +100,7 @@ export interface DiscoveryArtifact {
     httpStatus?: number;
     error?: string;
     eventsFound: number;
+    publishedItems?: Array<{ title: string; url: string; publicationAt: string | null }>;
   }>;
   provenance: {
     groundRules: string[];
@@ -118,14 +124,14 @@ function slug(value: string): string {
 // ---------------------------------------------------------------------------
 
 /** Fetch a URL with a hard timeout; returns raw body text + HTTP status. */
-export async function fetchFeed(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<{ text: string; httpStatus: number }> {
-  const response = await fetch(url, {
+export async function fetchFeed(url: string, timeoutMs = FETCH_TIMEOUT_MS, transport: TransportOptions = {}): Promise<{ text: string; httpStatus: number }> {
+  const response = await boundedHttpFetch(url, { ...transport,
     signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; crescent-city-intel event discovery)",
       Accept: "text/html,application/rss+xml,application/xml,text/calendar,text/plain;q=0.9,*/*;q=0.8",
     },
-    redirect: "follow",
+    maxBytes: 4 * 1024 * 1024,
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return { text: await response.text(), httpStatus: response.status };
@@ -141,6 +147,9 @@ interface IcsVevent {
   location?: string;
   description?: string;
   url?: string;
+  tzid?: string;
+  recurrence?: string;
+  status?: string;
 }
 
 /** Unfold folded ICS continuation lines (RFC 5545 section 3.1). */
@@ -179,11 +188,14 @@ export function parseIcsEvents(text: string): IcsVevent[] {
     if (!current) continue;
     const colonIndex = line.indexOf(":");
     if (colonIndex < 0) continue;
-    const prop = line.slice(0, colonIndex).toUpperCase().split(";")[0];
+    const property = line.slice(0, colonIndex).toUpperCase();
+    const prop = property.split(";")[0];
     const value = line.slice(colonIndex + 1);
     switch (prop) {
       case "SUMMARY": current.summary ??= unescapeIcs(value); break;
-      case "DTSTART": current.dtstart ??= value; break;
+      case "DTSTART": current.dtstart ??= value; current.tzid = line.slice(0, colonIndex).match(/TZID=([^;:]+)/i)?.[1]; break;
+      case "RRULE": current.recurrence = value; break;
+      case "STATUS": current.status = value.toUpperCase(); break;
       case "LOCATION": current.location ??= unescapeIcs(value); break;
       case "DESCRIPTION": current.description ??= unescapeIcs(value); break;
       case "URL": current.url ??= value.trim(); break;
@@ -209,8 +221,10 @@ const ZONED_PARTS = new Intl.DateTimeFormat("en-CA", {
 function icsParts(value: string): { date: string; time: string | null; utc: boolean } | null {
   const match = value.trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
   if (!match) return null;
+  const date = `${match[1]}-${match[2]}-${match[3]}`;
+  if (!isCivilDate(date) || match[4] && (Number(match[4]) > 23 || Number(match[5]) > 59 || Number(match[6] ?? 0) > 59)) return null;
   return {
-    date: `${match[1]}-${match[2]}-${match[3]}`,
+    date,
     time: match[4] ? `${match[4]}:${match[5]}` : null,
     utc: match[7] === "Z",
   };
@@ -234,29 +248,31 @@ function toLocalParts(date: string, time: string): { date: string; time: string 
  * A UTC (`...Z`) stamp is converted into EVENT_TIME_ZONE first, so the date
  * always agrees with the time `icsTimeNote` reports for the same value.
  */
-export function icsDateToIso(value: string): string | null {
+export function icsDateToIso(value: string, tzid?: string): string | null {
+  if (tzid && tzid !== EVENT_TIME_ZONE && tzid !== "UTC") return null;
   const parts = icsParts(value);
   if (!parts) return parseEventDate(value);
-  if (!parts.time || !parts.utc) return parts.date;
+  if (!parts.time || !parts.utc && tzid !== "UTC") return parts.date;
   return toLocalParts(parts.date, parts.time).date;
 }
 
 /**
  * The local clock time an ICS DTSTART names, or null for a date-only value.
- * UTC stamps are converted into EVENT_TIME_ZONE; a value carrying a TZID
- * parameter is already local and is read as written.
+ * UTC stamps and TZID=UTC values are converted into EVENT_TIME_ZONE. Pacific
+ * and floating values retain their local clock time; other TZIDs are refused.
  */
-export function icsTimeNote(icsValue: string): string | null {
+export function icsTimeNote(icsValue: string, tzid?: string): string | null {
+  if (tzid && tzid !== EVENT_TIME_ZONE && tzid !== "UTC") return null;
   const parts = icsParts(icsValue);
   if (!parts?.time) return null;
-  return parts.utc ? toLocalParts(parts.date, parts.time).time : parts.time;
+  return parts.utc || tzid === "UTC" ? toLocalParts(parts.date, parts.time).time : parts.time;
 }
 
 // ---------------------------------------------------------------------------
 // RSS / Atom parsing
 // ---------------------------------------------------------------------------
 
-export interface RssItem { title: string; link: string; pubDate: string | null; description: string }
+export interface RssItem { title: string; link: string; pubDate: string | null; description: string; eventStart: string | null }
 
 /** Parse RSS `<item>` and Atom `<entry>` elements via cheerio XML mode. */
 export function parseRssItems(xml: string): RssItem[] {
@@ -268,7 +284,8 @@ export function parseRssItems(xml: string): RssItem[] {
     const link = item.find("link").first().text().trim() || item.attr("rdf:about")?.trim() || "";
     const pubDate = item.find("pubDate").first().text().trim() || item.find("date").first().text().trim() || null;
     const description = item.find("description").first().text().trim();
-    if (title && /^https?:\/\//i.test(link)) items.push({ title, link, pubDate, description });
+    const eventStart = item.find("startDate, event\\:start, ev\\:startdate").first().text().trim() || null;
+    if (title && /^https?:\/\//i.test(link)) items.push({ title, link, pubDate, description, eventStart });
   });
   $("entry").each((_, el) => {
     const item = $(el);
@@ -277,7 +294,8 @@ export function parseRssItems(xml: string): RssItem[] {
       || item.find("link").first().attr("href")?.trim() || "";
     const pubDate = item.find("updated").first().text().trim() || item.find("published").first().text().trim() || null;
     const description = item.find("content").first().text().trim() || item.find("summary").first().text().trim();
-    if (title && /^https?:\/\//i.test(link)) items.push({ title, link, pubDate, description });
+    const eventStart = item.find("startDate, event\\:start, ev\\:startdate").first().text().trim() || null;
+    if (title && /^https?:\/\//i.test(link)) items.push({ title, link, pubDate, description, eventStart });
   });
   return items;
 }
@@ -394,13 +412,14 @@ export function parseLlmResolution(response: string): LlmResolution | null {
 // Source pipeline
 // ---------------------------------------------------------------------------
 
-export interface DropCounters { droppedAmbiguous: number; droppedUndated: number }
+export interface DropCounters { droppedAmbiguous: number; droppedUndated: number; droppedUnsupported?: number }
 
 export interface SourceResult {
   status: "ok" | "error";
   httpStatus?: number;
   error?: string;
   events: DiscoveredEvent[];
+  publishedItems?: Array<{ title: string; url: string; publicationAt: string | null }>;
 }
 
 /** Fetch + parse one source; degrades to an errored result instead of throwing. */
@@ -527,18 +546,28 @@ export function parseTriplicateCalendar(raw: string): TriplicateCalendarEvent[] 
 export async function discoverFromSource(
   source: EventSourceRecord,
   counters: DropCounters,
-  options: { resolveLlm?: (listingText: string) => Promise<LlmResolution | null> } = {},
+  options: { fixtureOrigin?: string; resolveLlm?: (listingText: string) => Promise<LlmResolution | null> } = {},
 ): Promise<SourceResult> {
   try {
-    const { text, httpStatus } = await fetchFeed(source.url);
+    let transport: TransportOptions = {};
+    if (options.fixtureOrigin) {
+      const fixture = new URL(options.fixtureOrigin);
+      const hostname = fixture.hostname.replace(/^\[|\]$/g, "");
+      if (!["127.0.0.1", "::1"].includes(hostname) || fixture.username || fixture.password || fixture.origin !== new URL(source.url).origin) throw new Error("Fixture origin must exactly match one explicit loopback source origin");
+      transport = { allowPrivateHosts: [hostname], beforeRequest: async target => { if (target.origin !== fixture.origin) throw new Error("Fixture request left its authorized origin"); } };
+    }
+    const { text, httpStatus } = await fetchFeed(source.url, FETCH_TIMEOUT_MS, transport);
 
     if (source.type === "ics") {
-      const resolved: DiscoveredEvent[] = parseIcsEvents(text).map(vevent => ({
+      const resolved: DiscoveredEvent[] = parseIcsEvents(text).filter(vevent => {
+        if (vevent.recurrence || vevent.status === "CANCELLED") { counters.droppedUnsupported = (counters.droppedUnsupported ?? 0) + 1; return false; }
+        return true;
+      }).map(vevent => ({
         title: vevent.summary,
         kind: /meeting|agenda|commission|council/i.test(vevent.summary) ? "government-meeting" : "community-listing",
-        dateStart: icsDateToIso(vevent.dtstart),
+        dateStart: icsDateToIso(vevent.dtstart, vevent.tzid),
         dateAllDay: !/T\d{2}/.test(vevent.dtstart),
-        timeNote: icsTimeNote(vevent.dtstart),
+        timeNote: icsTimeNote(vevent.dtstart, vevent.tzid),
         location: vevent.location ?? null,
         organizer: source.name,
         description: vevent.description ?? "",
@@ -556,16 +585,16 @@ export async function discoverFromSource(
     }
 
     if (source.type === "rss") {
-      const resolved: DiscoveredEvent[] = parseRssItems(text).map(item => {
-        const dateStart = parseEventDate(item.pubDate ?? "");
+      const items = parseRssItems(text);
+      const resolved: DiscoveredEvent[] = items.map(item => {
+        const dateStart = parseEventDate(item.eventStart ?? "");
         return {
           title: item.title,
           kind: "community-listing",
           dateStart,
           dateAllDay: true,
-          // Store the sanitized value, not the raw RFC-2822 pubDate: a publish
-          // stamp is not an event time, and the merge boundary would strip it anyway.
-          timeNote: sanitizeTimeNote(item.pubDate),
+          timeNote: sanitizeTimeNote(item.eventStart),
+          publicationAt: item.pubDate && Number.isFinite(Date.parse(item.pubDate)) ? new Date(item.pubDate).toISOString() : null,
           location: null,
           organizer: source.name,
           description: item.description.replace(/<[^>]*>/g, "").trim(),
@@ -580,7 +609,7 @@ export async function discoverFromSource(
         if (e.dateStart === null) { counters.droppedUndated += 1; return false; }
         return true;
       });
-      return { status: "ok", httpStatus, events: dated.slice(0, MAX_EVENTS_PER_SOURCE) };
+      return { status: "ok", httpStatus, events: dated.slice(0, MAX_EVENTS_PER_SOURCE), publishedItems: items.slice(0, MAX_EVENTS_PER_SOURCE).map(item => ({ title: item.title, url: item.link, publicationAt: item.pubDate && Number.isFinite(Date.parse(item.pubDate)) ? new Date(item.pubDate).toISOString() : null })) };
     }
 
     if (source.strategy === "triplicate-calendar") {
@@ -591,7 +620,7 @@ export async function discoverFromSource(
         : source.url.replace(/\/?$/, "/__data.json");
       let raw: string;
       try {
-        const fetched = await fetchFeed(dataUrl);
+        const fetched = await fetchFeed(dataUrl, FETCH_TIMEOUT_MS, transport);
         raw = fetched.text;
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
@@ -900,7 +929,7 @@ export function loadEventSources(root = process.cwd()): EventSourceRecord[] {
 
 function loadExistingEvents(root: string): ExistingEventRef[] {
   try {
-    const parsed = JSON.parse(readFileSync(join(root, "output", "events", "events.json"), "utf-8")) as { events?: Array<{ title?: unknown; dateStart?: unknown }> };
+    const parsed = JSON.parse(readFileSync(join(root, "events", "events.json"), "utf-8")) as { events?: Array<{ title?: unknown; dateStart?: unknown }> };
     return (parsed.events ?? [])
       .filter(event => typeof event.title === "string")
       .map(event => ({ title: event.title as string, dateStart: typeof event.dateStart === "string" ? event.dateStart : null }));
@@ -944,6 +973,7 @@ export async function buildDiscoveryArtifact(
       fetched: flat.length,
       droppedAmbiguous: counters.droppedAmbiguous,
       droppedUndated: counters.droppedUndated,
+      droppedUnsupported: counters.droppedUnsupported ?? 0,
       conflictsFlagged: reconciliation.conflictsFlagged,
       reconciled: reconciliation.reconciled,
       count: events.length,
@@ -956,6 +986,7 @@ export async function buildDiscoveryArtifact(
       httpStatus: result.httpStatus,
       error: result.error,
       eventsFound: result.events.length,
+      ...("publishedItems" in result && result.publishedItems ? { publishedItems: result.publishedItems } : {}),
     })),
     provenance: {
       groundRules: [
@@ -975,7 +1006,7 @@ if (import.meta.main) {
   buildDiscoveryArtifact()
     .then(async artifact => {
       const { mkdir, writeFile } = await import("fs/promises");
-      const dir = join(process.cwd(), "output", "events");
+      const dir = join(outputRoot(), "events");
       await mkdir(dir, { recursive: true });
       await writeFile(join(dir, "event_discovery.json"), JSON.stringify(artifact, null, 2));
       logger.info(`discovery artifact written: ${artifact.counts.count} events (${artifact.counts.sourcesOk}/${artifact.counts.sourcesOk + artifact.counts.sourcesErrored} sources ok)`);

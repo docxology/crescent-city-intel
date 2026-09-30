@@ -11,15 +11,20 @@ streaming and explicit provider/freshness diagnostics.
 | File | Purpose | Tests |
 |---|---|---|
 | `config.ts` | Centralized LLM/RAG configuration constants | `tests/llm-config.test.ts` |
-| `ollama.ts` | Ollama API wrapper (embeddings, local chat, models, bounded health check) | Manual only (requires Ollama) |
+| `ollama.ts` | Ollama API wrapper (embeddings, local chat, models, bounded health check) | `tests/llm-reliability.test.ts`, `tests/llm-native.acceptance.ts` |
 | `openrouter.ts` | OpenRouter chat, native SSE, rate cap, and non-generative preflight | `tests/llm-openrouter.test.ts` |
 | `provider.ts` | Explicit selected chat-provider routing and model/preflight metadata | `tests/llm-provider.test.ts`, `tests/llm-openrouter.test.ts` |
-| `chroma.ts` | ChromaDB client wrapper (add, query, stats) | Manual only (requires ChromaDB) |
+| `chroma.ts` | Deadline-bound ChromaDB requests and receipt-selected serving collections | `tests/llm-reliability.test.ts`, `tests/llm-native.acceptance.ts` |
 | `embeddings.ts` | Chunking pipeline + per-article incremental indexing into ChromaDB | `tests/embeddings.test.ts`, `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts` |
 | `index_plan.ts` | Pure per-article index planner: what to re-embed, what to delete, and when a full re-embed is mandatory | `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts` |
-| `rag.ts` | RAG pipeline: Ollama embedding → query ChromaDB → configured-provider chat | Manual only |
-| `streaming_rag.ts` | Provider-native SSE streaming RAG with citations and cancellation | Manual only |
+| `rag.ts` | RAG pipeline and explicit citation-identity assessment | `tests/llm-reliability.test.ts`, `tests/llm-boundaries.test.ts` |
+| `streaming_rag.ts` | Provider-native SSE streaming RAG with citations and cancellation | `tests/llm-boundaries.test.ts` |
 | `index.ts` | CLI entry point: `index`, `chat`, `query`, `status` commands | Manual only |
+| `runtime.ts` | Model/vector admission, finite signals, byte caps, and streamed lines | `tests/llm-reliability.test.ts`, `tests/llm-boundaries.test.ts` |
+| `privacy.ts` | Opt-in allowlisted content-free private receipts and deletion | `tests/llm-reliability.test.ts` |
+| `evidence.ts` | Citation identity and unverified/abstained outcomes | `tests/llm-reliability.test.ts`, `tests/rag-benchmark.test.ts` |
+| `benchmark.ts` | Bounded versioned evaluation with corpus/index/model identities | `tests/rag-benchmark.test.ts` |
+| `validate.ts` | Literal quote diagnostics; semantic support and source independence unassessed | `tests/llm-validate.test.ts` |
 
 ## Prerequisites
 
@@ -34,9 +39,8 @@ streaming and explicit provider/freshness diagnostics.
   so it is testable with fixtures. `indexAllSections()` delegates to it.
   - The unit of work is the article because a re-scrape rewrites an article's
     sections as a group, and chunk ids are already namespaced per section.
-  - On this corpus (238 articles, 3,105 chunks) a single-article edit re-embeds
-    that article's chunks only — 131 at worst, 4.2% — where the previous
-    whole-corpus fingerprint re-embedded all 3,105.
+  - A single-article edit re-embeds that article's chunks. Corpus measurements
+    are derived by `tests/index-plan-corpus.test.ts`, not fixed in this guide.
   - `configSignature` covers the embedding model and the chunking parameters.
     **A model swap is a correctness matter, not a performance one:** a
     per-article fingerprint only records that the *text* is unchanged, so
@@ -44,22 +48,29 @@ streaming and explicit provider/freshness diagnostics.
     collection would hold two models' geometry in one cosine space.
   - A schema-1 manifest (the pre-per-article format) is honoured as a full
     re-embed, and its chunk ids are not trusted for deletion.
-  - The manifest is written only after every chunk succeeds, so a failed run
-    leaves the previous state intact and the next run redoes the work.
-- `ragQuery()` returns both the answer text and source documents with relevance scores, plus query ID, context fingerprint, grounding flag, and provider/model lineage.
+  - Reconcile actual stored IDs even when content fingerprints match. Build a
+    separate collection, verify the complete expected ID set, and recheck the
+    source manifest before atomically activating the serving receipt. A failed
+    run retains the prior serving edition.
+- `ragQuery()` returns source records and generation lineage with `grounded:
+  false`. Citation identity is checked; generated answers remain unverified or
+  abstain. Quote matches do not establish semantic support or source independence.
+- Request diagnostics are disabled by default. `CC_QUERY_LOGGING=metadata`
+  enables bounded content-free private receipts, with explicit retention and
+  deletion. Private data never enters public Pages projections.
 - `checkChatProvider()` verifies the selected chat provider; OpenRouter uses a
   bounded `/models` preflight without consuming a chat completion, while Ollama
   uses a bounded `/api/tags` check.
 - `createStreamingRagResponse()` returns a `Response` with `text/event-stream` content type.
 
-## v2.0 New Module: `streaming_rag.ts`
+## `streaming_rag.ts`
 
 Server-Sent Events for provider-native RAG answer streaming.
 
 ### Event Structure
 1. `event: sources` — JSON array of source sections
 2. `event: token` — each token of the generated answer
-3. `event: done` — final metadata (answer, sources, model, latencyMs)
+3. `event: done` — final metadata (answer, sources, model, latencyMs, evidence)
 4. `event: error` — on failure
 
 ### API Endpoint

@@ -1,10 +1,10 @@
 # API Reference
 
-Complete reference for all exported functions, interfaces, and constants.
+Selected reference for exported functions, interfaces, and constants.
 
 > **This is a module reference, not a route catalogue.** It documents what each
 > module exports. The HTTP surface is specified in
-> [`openapi.yaml`](../openapi.yaml) — 65 paths, and the only authority for a
+> [`openapi.yaml`](../openapi.yaml) — the authority for a
 > route's shape, parameters, and response schema. `bun run validate` proves the
 > spec and the implementation agree in both directions, so if a route is not in
 > `openapi.yaml` it does not exist, and if it is in `openapi.yaml` it is served
@@ -75,7 +75,6 @@ Complete reference for all exported functions, interfaces, and constants.
 | Function | Signature | Description |
 | :--- | :--- | :--- |
 | `fetchToc` | `(page: Page) → Promise<TocNode>` | Intercept `/toc/CR4919` API response, return TOC tree |
-| `flattenToc` | `(node: TocNode) → TocNode[]` | Re-exported from `utils.ts` |
 | `getArticlePages` | `(toc: TocNode) → TocNode[]` | All scrapable page nodes |
 | `getSections` | `(toc: TocNode) → TocNode[]` | All leaf section nodes |
 | `tocSummary` | `(toc: TocNode) → string` | Human-readable TOC summary |
@@ -97,7 +96,6 @@ Complete reference for all exported functions, interfaces, and constants.
 | `isTocShapeValid` | `(value: unknown) → value is TocNode` | Reject malformed, duplicate-guid, or section-empty TOC payloads |
 | `isArticleArtifactShapeValid` | `(value: unknown, expectedSectionGuids?, exactSectionGuids?) → boolean` | Validate article JSON shape and expected section coverage before resume-skip |
 | `withRetry` | `(fn, maxRetries?, baseDelayMs?) → Promise<{result, retried, attempts}>` | Exponential-backoff retry wrapper |
-| `isMaintenanceMode` | `(status, url, finalUrl) → boolean` | Detect 503 or unexpected redirects |
 
 ---
 
@@ -118,12 +116,12 @@ Complete reference for all exported functions, interfaces, and constants.
 | :--- | :--- | :--- |
 | `monitorNews` | `() → Promise<NewsItem[]>` | Fetch all RSS feeds, deduplicate, filter, save to `output/news/` |
 | `fetchRSSFeedDetailed` | `(url: string, source: string) → Promise<NewsFeedResult>` | Fetch RSS/Atom and return items plus typed source health |
-| `fetchRSSFeed` | `(url: string, source: string) → Promise<NewsItem[]>` | Fetch and parse a single RSS/Atom feed |
 | `normalizeUrl` | `(url: string) → string` | Stable deduplication key with tracking parameters removed |
-| `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
+| `NewsItem` | `interface` | `{title, link, pubDate, content, source, fetchedAt}` |
 | `SourceHealth` | `interface` | `ok | empty | unavailable | stale` plus timestamps, count, error, provenance, freshness, and duration |
 | `summarizeSourceHealth` | `source_health.ts` | Aggregate present/missing counts, percentage coverage, named gaps, and compatibility alias |
 | `executePipelineStep` | `orchestration.ts` | Capture a stage's status, duration, item count, output paths, and error |
+| `packageVersion` | `shared/orchestration.ts` | Read the shipped package version without Git discovery; unreadable metadata yields `unknown` |
 
 ---
 
@@ -131,10 +129,11 @@ Complete reference for all exported functions, interfaces, and constants.
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `monitorGovMeetings` | `() → Promise<MeetingItem[]>` | Scrape all government meeting sources, save to `output/gov_meetings/` |
-| `fetchGovMeetings` | `(name: string, url: string) → Promise<MeetingItem[]>` | Scrape one meeting source |
-| `saveMeetingItems` | `(items: MeetingItem[]) → Promise<void>` | Persist meeting items to JSON file |
-| `MeetingItem` | `interface` | `{id, title, body, source, url, fetchedAt, hash}` |
+| `monitorGovMeetings` | `() → Promise<GovMeetingItem[]>` | Scrape all government meeting sources, save to `output/gov_meetings/` |
+| `fetchGovMeetingsDetailed` | `(url: string, source: string) → Promise<GovMeetingFetchResult>` | Fetch one source's meeting items plus typed source health |
+| `saveMeetingItems` | `(items: GovMeetingItem[], documentDrift?, dataDir?) → Promise<void>` | Persist meeting items and document drift to JSON file |
+| `GovMeetingItem` | `interface` | `{title, link, date, content, source, fetchedAt, isNew, changed, vote?, docHashes?, voteTable?}` |
+| `GovMeetingFetchResult` | `interface` | `{items, health}` with source-specific meeting items and typed source health |
 
 ---
 
@@ -160,9 +159,6 @@ Complete reference for all exported functions, interfaces, and constants.
 | `getDomainById` | `(id: string) → IntelligenceDomain \| undefined` | Look up domain by ID slug |
 | `getDomainSummaries` | `() → DomainSummary[]` | Lightweight list (no topics) |
 | `searchDomains` | `(query: string) → IntelligenceDomain[]` | Full-text search across domain names, descriptions, tags |
-| `IntelligenceDomain` | `interface` | `{id, name, description, icon, topics, updatedAt}` |
-| `DomainTopic` | `interface` | `{name, description, sources, externalRefs?, tags}` |
-| `DomainSource` | `interface` | `{sectionNumber, relevance}` |
 
 ---
 
@@ -173,7 +169,7 @@ Complete reference for all exported functions, interfaces, and constants.
 | `CRESCENT_CITY_ANCHOR` | `geo.ts` | `MunicipalityAnchor` | Authoritative Crescent City + Del Norte bounds (WGS84) |
 | `getDefaultCrescentSpec()` | `geo.ts` | `() → MunicipalitySpec` | Crescent City anchor + 12 domains as data |
 | `buildMunicipalityContract(spec)` | `geo.ts` | `(MunicipalitySpec) → Record<string, unknown>` | **Transferable** pure builder for any municipality |
-| `buildGeoIntel(domainList?)` | `geo.ts` | `(IntelligenceDomain[]) → Record<string, unknown>` | Legacy Crescent shorthand (delegates to transferable builder) |
+| `buildGeoIntel(domainList?)` | `geo.ts` | `(IntelligenceDomain[]) → Record<string, unknown>` | Crescent City default builder (delegates to transferable builder) |
 | `hazardRelevantDomains(surface?)` | `geo.ts` | `(IntelligenceDomain[]?) → Array<{…}>` | Hazard-tagged subset (word-boundary matching) |
 | `geoPaths` | `geo.ts` | `{ pagesSeed, liveExport }` | `pages-data/geo-intel.json` + `output/geo-intel.json` |
 | `writeGeoIntelExports()` | `geo.ts` | `() → Promise<string[]>` | Write Crescent seed + live export (guarded) |
@@ -191,7 +187,6 @@ Complete reference for all exported functions, interfaces, and constants.
 | `loadArticle` | `data.ts` | `(guid) → Promise<ArticlePage>` | Load single article JSON |
 | `loadAllArticles` | `data.ts` | `() → Promise<ArticlePage[]>` | Load all article JSONs |
 | `loadAllSections` | `data.ts` | `() → Promise<FlatSection[]>` | All sections with article metadata |
-| `searchSections` | `data.ts` | `(query, sections?) → Promise<FlatSection[]>` | Substring search across sections |
 
 ---
 
@@ -206,7 +201,7 @@ Complete reference for all exported functions, interfaces, and constants.
 | `getCodeStats` | `analytics.ts` | `() → Promise<CodeStats>` | Aggregate stats (articles, sections, words) |
 | `getEmbeddingProjection` | `analytics.ts` | `() → Promise<EmbeddingProjection>` | PCA + K-Means projection |
 | `kmeans` | `analytics.ts` | `(data, k, maxIter?) → {centroids, assignments}` | K-Means clustering |
-| `powerIteration` | `analytics.ts` | `(data, dim, _, iterations?) → {vector, eigenvalue}` | Dominant eigenvector via power iteration |
+| `powerIteration` | `analytics.ts` | `(data, dim, iterations?) → {vector, eigenvalue}` | Dominant eigenvector via power iteration |
 | `computeWordLoadings` | `analytics.ts` | `(docs, projections, pcs) → WordLoading[]` | Pearson correlation of terms to PCs |
 | `/api/sources` | `routes.ts` | `GET` | Canonical source registry, automation boundaries, and known health joins |
 | `/api/source-discovery` | `routes.ts` | `GET` | Fingerprinted discovery report, coverage counts, and explicit gaps |
@@ -328,7 +323,7 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `ChatMessage` | LLM chat message (role + content) |
 | `RagSource` | Source citation from RAG retrieval |
 | `RagResponse` | Complete RAG response with answer + sources, query ID, and retrieval/generation lineage |
-| `RagMetadata` | RAG latency, context fingerprint, grounding flag, embedding model, and vector-store metadata |
+| `RagMetadata` | RAG latency, context fingerprint, `grounded: false`, embedding model, and vector-store metadata; citation identity does not establish semantic support |
 | `SourceHealth` | Typed external-source availability/freshness contract |
 | `TitleStats` | Per-title statistics (analytics) |
 | `CodeStats` | Aggregate code statistics (analytics) |
@@ -356,7 +351,7 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | `DomainTopic` | Topic within a domain `{name, description, sources, externalRefs?, tags}` |
 | `DomainSource` | Cross-reference to a municipal code section |
 
-## Round-3 / "proceed-with-all" additions
+## Additional intelligence APIs
 
 **From `src/gui/semantic_search.ts`:**
 
@@ -466,7 +461,7 @@ report. Full modelling notes in `docs/modules/corpus-intelligence.md`.
 | `GET /api/insights?rebuild=1&window=` | Civic insight brief from `src/insights.ts`; serves the persisted report by default (`source: "persisted"`), recomputes on `rebuild=1` or a `window` override (`source: "computed"`). Never triggers LLM narrative polish |
 | `GET /api/llm/models` | Models the configured chat provider can serve, always including the configured default; `status: "unavailable"` when the provider cannot be reached, rather than an error |
 
-## Live hazard observations and readability history (v2.7.0)
+## Live hazard observations and readability history
 
 Two machine-readable surfaces added with the geo-observations and
 readability-history modules. Full modelling notes live in

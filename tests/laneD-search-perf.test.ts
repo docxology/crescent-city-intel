@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { readFile, mkdtemp, mkdir, writeFile, rm } from "fs/promises";
 import { join } from "path";
+import { tmpdir } from "node:os";
+import { writePublicationFixture } from "./helpers/publication-fixture.ts";
+import { publicationHash } from "../src/publication_bundle.ts";
+import type { ArticlePage } from "../src/types.ts";
 import {
   buildPagesCodeSearchIndex,
   exportPagesSnapshot,
@@ -66,11 +70,12 @@ describe("lane D: search quality — scoring contract", () => {
 
 describe("lane D: per-field shards + code-meta artifact", () => {
   test("export emits hashed title/body shards and a tiny code-meta artifact; code.html no longer needs the envelope", async () => {
-    const root = await mkdtemp(join(process.cwd(), ".pages-laned-"));
+    const root = await mkdtemp(join(tmpdir(), "pages-laned-"));
     try {
       await mkdir(join(root, "news"), { recursive: true });
       await writeFile(join(root, "news/source-health.json"), `${JSON.stringify({ sources: [] })}\n`);
-      await writeFile(join(root, "crescent-city-code.json"), `${JSON.stringify(REALISTIC_CODE)}\n`);
+      const articles = REALISTIC_CODE.articles.map((article, index) => ({ ...article, guid: `article-${index}`, number: String(index), sha256: publicationHash(article.title), sections: article.sections.map((section, i) => ({ ...section, guid: `section-${index}-${i}`, history: "" })) })) as unknown as ArticlePage[];
+      await writePublicationFixture(root, "", articles);
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-07-24T01:00:00Z" });
       const snapshot = JSON.parse(await readFile(join(destination, "data/snapshot.json"), "utf8"));

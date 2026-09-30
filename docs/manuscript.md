@@ -27,21 +27,34 @@ Markdown or hand-copy snapshot values into source prose.
 
 ## Rendering with the shared template repository
 
-The project uses the shared template renderer without modifying the template
-checkout. From `/Users/4d/Documents/GitHub/template`, create a temporary link
-only when that path is unused:
+The external template renderer can consume this project through a temporary
+link. Set both paths to existing absolute checkouts; the example refuses to
+replace an existing link or directory:
 
 ~~~bash
-link=/Users/4d/Documents/GitHub/template/projects/working/crescent-city-intel
-ln -s /Users/4d/Documents/GitHub/projects/ongoing/DAF/crescent-city-intel "$link"
-trap 'unlink "$link"' EXIT
-uv run python scripts/pipeline/stage_03_render.py --project working/crescent-city-intel
+CCI_TEMPLATE_CHECKOUT=/path/to/template
+CCI_PROJECT_CHECKOUT=/path/to/crescent-city-intel
+(
+  cd "$CCI_TEMPLATE_CHECKOUT" || exit 1
+  CCI_RENDER_LINK="$PWD/projects/working/crescent-city-intel"
+  if [ -e "$CCI_RENDER_LINK" ] || [ -L "$CCI_RENDER_LINK" ]; then
+    echo "Renderer link already exists; select an unused project slot." >&2
+    exit 1
+  fi
+  mkdir -p "$PWD/projects/working"
+  ln -s "$CCI_PROJECT_CHECKOUT" "$CCI_RENDER_LINK" || exit 1
+  trap 'unlink "$CCI_RENDER_LINK"' EXIT
+  uv run python scripts/pipeline/stage_03_render.py --project working/crescent-city-intel
+)
 ~~~
 
 The renderer invokes `scripts/z_generate_manuscript_variables.py`, which
 delegates to Bun, then compiles `output/manuscript/` into PDF and HTML. The
 link must be removed after the render; the template repository is not a
-project dependency and no template source is changed by this workflow.
+project dependency and no template source is changed by this workflow. Record
+the exact template commit, runtime/toolchain, hydration fingerprint, and actual
+PDF/HTML outputs for each acceptance run. Regenerate and render again when the
+analytics inputs change; a prior compile does not verify the latest metrics.
 
 ## Publication checks
 

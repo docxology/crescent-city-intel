@@ -9,7 +9,86 @@ Versioned by [Semantic Versioning](https://semver.org/).
 ---
 
 
-## [Unreleased]
+## [3.0.0] — 2026-09-30
+
+### Reliability and refreshed evidence
+
+- Refreshed and verified the municipal edition: 245 articles, 2,206 sections,
+  exact source/extraction/export bindings, current TOC and a deterministic
+  live sample. Retain immutable edition inventory, deep-section receipts,
+  quarantine and previous-state rollback instead of accepting loose JSON or
+  mixing partial live and seed files.
+- Inventory all twenty hazard producers in the 48-source registry (34
+  monitored, 14 discovery-only). Refresh news, official City/Planning/Harbor
+  records, public video transcripts, reference-only Triplicate links and
+  community events. Preserve inaccessible sources, catalog boundaries and
+  unestablished local AIS coverage explicitly.
+- Replace invented HMS numeric concentrations/AQI/forecasts with a versioned
+  qualitative observation contract and unknown numeric fields. Preserve
+  source product times and reassess availability without restamping evidence.
+- Add bounded public PDF acquisition and native page-addressable extraction
+  with exact byte/text hashes, offsets and OCR uncertainty; do not infer votes
+  or legal dates from extracted text.
+
+### Runtime, privacy and maintainability
+
+- Enforce structural OpenAPI methods, authentication, finite query/body/history
+  inputs and truthful errors. Use the socket peer plus explicit proxy trust
+  for quota identity, bounded expensive-request admission and private
+  allowlisted operational logs.
+- Share finite transport deadlines, DNS/IP and redirect policy, streaming
+  decoded/wire caps, path-aware robots policy and serialized host reservations.
+  Kill and reap owned subprocess descendants; serialize durable stores and
+  recover abandoned leases with cancellation-aware ownership checks.
+- Stage complete vector indexes with exact owned-ID/config/corpus receipts;
+  preserve the serving collection across failed rebuilds. Share retrieval and
+  provider/model lineage across normal and streaming chat, require one terminal
+  outcome and keep generated answers unverified.
+- Vendor local GUI rendering assets, sanitize resource-bearing HTML/CSS and
+  generated Markdown, compose search filters, cancel superseded requests,
+  guard denied browser storage and provide memory-only API-key entry.
+- Disable query-content retention by default; bound optional private metadata
+  receipts. Publish per-family public DTOs and scan the entire uploaded tree
+  for unsafe URLs, credentials, private paths and unexpected artifacts.
+- Add parent-budget curation journals and exact-lineage retry recovery after
+  an interrupted store commit. Distinguish publication from occurrence dates,
+  unique civic activity from repeated snapshots, and source failures from
+  unavailable optional narrative generation.
+- Move substantive CLI logic into source modules; replace the obsolete launcher
+  with the Bun menu; add qualified module/command inventories and independent
+  strict test typechecking. Retire unused fallback methods and generated test
+  artifacts. Refresh current documentation and remove completed backlog items.
+
+### Release and measured acceptance
+
+- Make Pages selection and promotion recoverable, with one coherent verified
+  bundle, exact input/output-tree receipts and legitimate empty-feed handling.
+- Correct the gate to measure actual line coverage and enforce output fences
+  in both test runs, including failure and timeout. Use conservative transitive
+  affected-test selection and exact-artifact browser smoke before upload.
+- Pin container/runtime configuration and add optional local backend profiles,
+  model/readiness checks and escaped scheduler plans. Native PDF/HTML rendering,
+  local model/vector acceptance, populated GUI journeys and external geo
+  ingestion have distinct receipts in `docs/release-acceptance.json`.
+- Remove quadratic custody replay and an ambiguous Pages scanner regex while
+  preserving guards: measured cold corpus load fell from 23.3 s to 2.2 s;
+  validation of the same generated tree fell from 9.1 s to 0.37 s.
+- Keep unfinished program acceptance explicit in TODO: semantic support and
+  usefulness, comprehensive source validity and ownership, whole-run browser
+  cancellation/recovery, persistent operations, recurrence/trends, reviewed
+  legal lineage and owner-dependent access to additional local records.
+
+### Compatibility changes
+
+- Runtime inputs outside declared bounds now fail with 400; unsupported
+  methods return 405. Forwarded headers require explicitly trusted proxy
+  peers; protected routes need a valid key outside the loopback trust boundary.
+- HMS v2 does not emit heuristic numeric air-quality/forecast values. Event
+  publication dates are separate from occurrence; unknown occurrence stays
+  null. Citation identity and generated text do not imply verified support.
+- Index readiness requires a matching corpus/configuration manifest and actual
+  complete owned IDs. Historical artifacts remain preserved and may require
+  supported migration, explicit quarantine or genuine source refresh.
 
 ### Phase 10 GUI surfaces: ordinal refinement, legal-citation cross-linking, effective-date field (2026-09-28)
 

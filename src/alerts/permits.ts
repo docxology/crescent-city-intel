@@ -2,8 +2,7 @@
 /**
  * City of Crescent City building-permit portal monitor (monitor #16).
  *
- * Roadmap item: the 🔴 TODO "New monitors: permits, dredging, fuel". The City
- * of Crescent City submitts building permits through the MyGov public portal
+ * The City of Crescent City accepts building-permit applications through the MyGov public portal
  * (linked from the Building Department page:
  * https://www.crescentcity.org/departments/building/). The portal's Permits
  * module page (module=pi) is a server-rendered public catalog of the permit

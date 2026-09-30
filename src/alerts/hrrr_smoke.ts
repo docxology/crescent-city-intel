@@ -1,11 +1,13 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
- * HRRR Smoke Forecast Monitor for Crescent City.
+ * NOAA HMS Smoke Plume Monitor for Crescent City.
  *
- * Fetches surface PM2.5 smoke forecast data from NOAA HRRR-Smoke / AirFire
- * for the Crescent City area. Covers the next 48-hour forecast period.
+ * Fetches NOAA HMS smoke-plume maps for the Del Norte area and adapts them
+ * into the SmokeReport shape consumed by the alert layer.
  *
- * API: AirFire HRRR-Smoke CONUS surface smoke (BlueSky / NOAA)
+ * Source: NOAA HMS smoke-polygon products.
  *
  * Usage:
  *   bun run src/alerts/hrrr_smoke.ts
@@ -20,110 +22,70 @@ import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from
 
 const logger = createLogger("hrrr_smoke_alert");
 
-/** BlueSky AirFire HRRR-Smoke surface PM2.5 forecast API (CONUS). */
-export const HRRR_SMOKE_API_URL = "https://airfire.org/data/smoke2/forecast/pm25.nc.json";
-/** Fallback: AirFire's operational HRRR-Smoke surface PM2.5 endpoint. */
-export const HRRR_SMOKE_FALLBACK_URL = "https://airfire.org/data/smoke/forecast/surface/pm25.latest.json";
-
-const CRESCENT_CITY_LAT = 41.7485;
-const CRESCENT_CITY_LNG = -124.2028;
-const SEARCH_RADIUS_KM = 50;
-
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "smoke");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "smoke"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 let lastSmokeError: string | undefined;
 
 export function getLastSmokeError(): string | undefined {
   return lastSmokeError;
 }
 
-export type SmokeLevel = "GOOD" | "MODERATE" | "UNHEALTHY_SENSITIVE" | "UNHEALTHY" | "VERY_UNHEALTHY" | "HAZARDOUS";
-
-export interface SmokeForecast {
-  /** Forecast hour offset from run time */
-  hourOffset: number;
-  /** Forecast timestamp ISO */
-  forecastTime: string;
-  /** Surface PM2.5 concentration (micrograms/m3) */
-  pm25: number | null;
-  /** AQI equivalent based on PM2.5 */
-  aqi: number | null;
-  /** Severity level */
-  level: SmokeLevel;
-}
-
 export interface SmokeReport {
+  schemaVersion: "2.0.0";
+  sourceProduct: "noaa-hms";
+  density: "light" | "moderate" | "heavy" | "none" | "unknown";
+  productDate: string;
+  observedAt: string | null;
+  observationStart: string | null;
+  observationEnd: string | null;
+  fetchedAt: string;
+  checkedAt: string;
+  validUntil: string;
+  plumeCount: number;
   timestamp: string;
-  /** Forecasts over the next 48 hours */
-  forecasts: SmokeForecast[];
-  /** Maximum PM2.5 forecast value */
-  maxPm25: number | null;
-  /** Peak AQI equivalent */
-  peakAqi: number | null;
-  /** Peak severity level */
-  peakLevel: SmokeLevel;
-  /** Whether the report came from primary or fallback source */
-  source: "noaa-hms" | "airfire-primary" | "airfire-fallback";
+  /** HMS supplies no surface-concentration forecasts. */
+  forecasts: [];
+  /** HMS does not measure surface PM2.5. */
+  maxPm25: null;
+  /** HMS does not measure AQI. */
+  peakAqi: null;
+  /** Surface air-quality severity is unknown. */
+  peakLevel: "UNKNOWN";
+  /** Provider of the smoke-plume map. */
+  source: "noaa-hms";
   /** Human-readable summary */
   summary: string;
-  /** Health advisory if PM2.5 exceeds safe levels */
+  /** Product limitation, not an exposure diagnosis. */
   advisory: string | null;
 }
 
-/**
- * PM2.5 breakpoints mapped to the AQI band ceiling they represent.
- *
- * `Math.round(aqi * (pm25 / max))` interpolates a reading up to its own band
- * ceiling, so the open-ended top band cannot use `Infinity`: `x / Infinity` is
- * 0, which reported the top band's `HAZARDOUS` level alongside `peakAqi: 0` — a
- * hazardous plume recorded in analytics as a perfectly clean AQI. The top band
- * is expressed as a wide finite ceiling so interpolation stays monotonic and
- * every reading above 500.4 clamps to the band maximum.
- */
-const PM25_THRESHOLDS = [
-  { max: 12.0, level: "GOOD" as SmokeLevel, aqi: 50 },
-  { max: 35.4, level: "MODERATE" as SmokeLevel, aqi: 100 },
-  { max: 55.4, level: "UNHEALTHY_SENSITIVE" as SmokeLevel, aqi: 150 },
-  { max: 150.4, level: "UNHEALTHY" as SmokeLevel, aqi: 200 },
-  { max: 250.4, level: "VERY_UNHEALTHY" as SmokeLevel, aqi: 300 },
-  { max: 500.4, level: "HAZARDOUS" as SmokeLevel, aqi: 500 },
-];
-
-export function classifyPm25(pm25: number): { level: SmokeLevel; aqi: number } {
-  for (const t of PM25_THRESHOLDS) {
-    if (pm25 <= t.max) return { level: t.level, aqi: Math.round(t.aqi * (pm25 / t.max)) };
-  }
-  return { level: "HAZARDOUS", aqi: 500 };
+/** Historical numeric artifacts retain their original values with an explicit evidence limitation. */
+export function legacySmokeDisplay(value: Record<string, unknown>): { evidence: "legacy-inferred-unverified"; original: Record<string, unknown> } {
+  return { evidence: "legacy-inferred-unverified", original: structuredClone(value) };
 }
-
-export function getSmokeAdvisory(level: SmokeLevel): string | null {
-  const advisories: Record<SmokeLevel, string | null> = {
-    "GOOD": null,
-    "MODERATE": "Air quality is acceptable; unusually sensitive individuals should monitor symptoms.",
-    "UNHEALTHY_SENSITIVE": "Sensitive groups (children, elderly, respiratory conditions) should limit outdoor activity.",
-    "UNHEALTHY": "Everyone may experience health effects; sensitive groups should avoid outdoor exertion.",
-    "VERY_UNHEALTHY": "Health alert: everyone should avoid outdoor exertion. Stay indoors with windows closed.",
-    "HAZARDOUS": "Emergency conditions: everyone should stay indoors. Use air purifiers if available.",
-  };
-  return advisories[level];
-}
-
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const clamped = Math.max(0, Math.min(1, a));
-  return R * 2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
+export function isHmsSmokeReport(value: unknown): value is SmokeReport {
+  if (!value || typeof value !== "object") return false;
+  const report = value as Record<string, unknown>;
+  return report.schemaVersion === "2.0.0" && report.sourceProduct === "noaa-hms" && report.source === "noaa-hms"
+    && ["light", "moderate", "heavy", "none", "unknown"].includes(String(report.density))
+    && typeof report.productDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(report.productDate)
+    && [report.timestamp, report.fetchedAt, report.checkedAt, report.validUntil].every(time => typeof time === "string" && Number.isFinite(Date.parse(time)))
+    && report.timestamp === `${report.productDate}T00:00:00.000Z`
+    && new Date(Date.parse(report.timestamp as string)).toISOString().slice(0, 10) === report.productDate
+    && Date.parse(report.validUntil as string) - Date.parse(report.timestamp as string) === 86_400_000
+    && Date.parse(report.checkedAt as string) >= Date.parse(report.fetchedAt as string)
+    && [report.observedAt, report.observationStart, report.observationEnd].every(time => time === null || typeof time === "string" && Number.isFinite(Date.parse(time)))
+    && report.maxPm25 === null && report.peakAqi === null && report.peakLevel === "UNKNOWN"
+    && Array.isArray(report.forecasts) && report.forecasts.length === 0 && Number.isSafeInteger(report.plumeCount) && Number(report.plumeCount) >= 0
+    && typeof report.summary === "string" && (report.advisory === null || typeof report.advisory === "string");
 }
 
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }
@@ -131,112 +93,15 @@ function loadProcessedIds(): Set<string> {
   return ids;
 }
 
-function appendHistory(forecast: SmokeForecast): void {
-  try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
-    const id = "smoke-" + forecast.hourOffset + "h-" + forecast.forecastTime;
-    const record = JSON.stringify({ id: id, ...forecast, fetchedAt: new Date().toISOString() });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
-  } catch (err) {
-    logger.warn("Failed to append smoke history", { error: String(err) });
-  }
-}
-
-function findNearestGridPoint(grid: any[], lat: number, lng: number): { pm25: number; hourOffset: number } | null {
-  let nearest: { pm25: number; hourOffset: number; distance: number } | null = null;
-  for (const point of grid) {
-    const ptLat = Number(point.lat ?? point.latitude ?? 0);
-    const ptLng = Number(point.lon ?? point.longitude ?? point.lng ?? 0);
-    if (!Number.isFinite(ptLat) || !Number.isFinite(ptLng)) continue;
-    const dist = haversineDistance(lat, lng, ptLat, ptLng);
-    if (dist > SEARCH_RADIUS_KM) continue;
-    const pm25 = Number(point.pm25 ?? point.PM25 ?? point.value ?? 0);
-    if (!Number.isFinite(pm25)) continue;
-    const hourOff = Number(point.hour ?? point.forecastHour ?? point.hourOffset ?? 0);
-    if (nearest && nearest.distance <= dist) continue;
-    nearest = { pm25, hourOffset: hourOff, distance: dist };
-  }
-  return nearest ? { pm25: nearest.pm25, hourOffset: nearest.hourOffset } : null;
-}
-
-async function fetchFromUrl(url: string): Promise<SmokeReport> {
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-  });
-  if (!response.ok) {
-    throw new Error("HRRR smoke endpoint returned " + response.status + ": " + response.statusText);
-  }
-  const payload = await response.json() as any;
-
-  // Try to extract grid/data points
-  const grid = payload?.grid ?? payload?.data ?? payload?.forecasts ?? payload?.points ?? [];
-  const forecasts: SmokeForecast[] = [];
-  const isPrimary = url === HRRR_SMOKE_API_URL;
-
-  if (Array.isArray(grid) && grid.length > 0) {
-    // Try multi-hour: group by hour
-    const hours = new Map<number, number[]>();
-    for (const point of grid) {
-      const ptLat = Number(point.lat ?? point.latitude ?? 0);
-      const ptLng = Number(point.lon ?? point.longitude ?? point.lng ?? 0);
-      if (!Number.isFinite(ptLat) || !Number.isFinite(ptLng)) continue;
-      const dist = haversineDistance(CRESCENT_CITY_LAT, CRESCENT_CITY_LNG, ptLat, ptLng);
-      if (dist > SEARCH_RADIUS_KM) continue;
-      const pm25 = Number(point.pm25 ?? point.PM25 ?? point.value ?? 0);
-      if (!Number.isFinite(pm25)) continue;
-      const hour = Math.round(Number(point.hour ?? point.forecastHour ?? point.hourOffset ?? 0));
-      if (!hours.has(hour)) hours.set(hour, []);
-      hours.get(hour)!.push(pm25);
-    }
-
-    for (const [hour, values] of hours) {
-      const avgPm25 = values.reduce((a, b) => a + b, 0) / values.length;
-      const { level, aqi } = classifyPm25(avgPm25);
-      const forecastTime = new Date(Date.now() + hour * 3600 * 1000).toISOString();
-      forecasts.push({
-        hourOffset: hour,
-        forecastTime,
-        pm25: Math.round(avgPm25 * 10) / 10,
-        aqi,
-        level,
-      });
-    }
-  }
-
-  forecasts.sort((a, b) => a.hourOffset - b.hourOffset);
-
-  const maxForecast = forecasts.length > 0
-    ? forecasts.reduce((a, b) => (a.pm25 ?? 0) > (b.pm25 ?? 0) ? a : b)
-    : null;
-
-  return {
-    timestamp: new Date().toISOString(),
-    forecasts,
-    maxPm25: maxForecast?.pm25 ?? null,
-    peakAqi: maxForecast?.aqi ?? null,
-    peakLevel: maxForecast?.level ?? "GOOD",
-    source: isPrimary ? "airfire-primary" : "airfire-fallback",
-    summary: forecasts.length === 0
-      ? "No HRRR smoke forecast data available for Crescent City area"
-      : "PM2.5 peak: " + (maxForecast?.pm25?.toFixed(1) ?? "N/A") + " ug/m3 (" + (maxForecast?.level ?? "N/A") + "). " +
-        forecasts.length + " forecast hour(s): " +
-        forecasts.map(f => f.hourOffset + "h: " + (f.pm25?.toFixed(1) ?? "N/A") + " (" + f.level + ")").join("; "),
-    advisory: getSmokeAdvisory(maxForecast?.level ?? "GOOD"),
-  };
-}
-
-/** Fetch HRRR smoke forecast for Crescent City area. */
 /**
- * NOAA HMS smoke detection (verified live 2026-08-30). The old AirFire
- * HRRR-smoke JSON endpoints now return 404. HMS publishes daily smoke-plume
+ * NOAA HMS smoke detection (verified live 2026-08-30). HMS publishes daily smoke-plume
  * shapefiles at a date-based URL; we read the polygon bounding boxes plus the
  * DBF Density attribute and count plumes overlapping the Del Norte box.
  */
 export interface HmsSmokeResult {
   mapDate: string;
   plumes: number;
-  maxDensity: "Light" | "Medium" | "Heavy";
+  maxDensity: "Light" | "Medium" | "Heavy" | "Unknown";
 }
 
 export const HMS_SMOKE_URL =
@@ -260,7 +125,7 @@ function zipEntry(zip: Buffer, namePattern: RegExp): Buffer | null {
       const raw = zip.subarray(dataStart, dataStart + compressedSize);
       if (method === 0) return Buffer.from(raw);
       const zlib = require("node:zlib");
-      return Buffer.from(zlib.inflateRawSync(raw));
+      return Buffer.from(zlib.inflateRawSync(raw, { maxOutputLength: 64 * 1024 * 1024 }));
     }
     off = dataStartGuess(off, nameLen, extraLen, compressedSize);
   }
@@ -335,6 +200,7 @@ export async function fetchHmsSmoke(): Promise<HmsSmokeResult | null> {
     let zip: Buffer;
     try {
       const response = await fetch(url, {
+        maxBytes: 32 * 1024 * 1024,
         headers: { Accept: "application/zip" },
         signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
       });
@@ -351,7 +217,7 @@ export async function fetchHmsSmoke(): Promise<HmsSmokeResult | null> {
       const rows = dbfRows(dbf);
       let plumes = 0;
       let maxRank = 0;
-      let maxDensity: HmsSmokeResult["maxDensity"] = "Light";
+      let maxDensity: HmsSmokeResult["maxDensity"] = "Unknown";
       for (let i = 0; i < boxes.length && i < rows.length; i++) {
         const [x0, y0, x1, y1] = boxes[i];
         const overlaps = !(x1 < DN_BOX.lonMin || x0 > DN_BOX.lonMax || y1 < DN_BOX.latMin || y0 > DN_BOX.latMax);
@@ -376,82 +242,47 @@ export async function fetchHmsSmoke(): Promise<HmsSmokeResult | null> {
   return null;
 }
 
-export async function fetchSmokeForecast(): Promise<SmokeReport> {
-  // PRIMARY: NOAA HMS smoke plumes (verified live 2026-08-30). Density maps
-  // onto PM2.5 guidance bands for the report shape consumers already use.
-  const hms = await fetchHmsSmoke();
-  if (hms) {
-    if (hms.plumes === 0) {
-      return {
-        timestamp: new Date().toISOString(),
-        forecasts: [],
-        maxPm25: 0,
-        peakAqi: null,
-        peakLevel: "GOOD",
-        source: "noaa-hms",
-        summary: "No NOAA HMS smoke plumes overlap the Del Norte area (map of " + hms.mapDate + ").",
-        advisory: getSmokeAdvisory("GOOD"),
-      };
-    }
-    // HMS density bands: Light ~ 10-25 ug/m3, Medium ~ 35-80, Heavy ~ 150+.
-    const pm25 = hms.maxDensity === "Heavy" ? 155 : hms.maxDensity === "Medium" ? 55 : 20;
-    const { level, aqi } = classifyPm25(pm25);
-    return {
-      timestamp: new Date().toISOString(),
-      forecasts: [{ hourOffset: 0, forecastTime: new Date().toISOString(), pm25, aqi, level }],
-      maxPm25: pm25,
-      peakAqi: aqi,
-      peakLevel: level,
-      source: "noaa-hms",
-      summary: "NOAA HMS reports " + hms.plumes + " " + hms.maxDensity + "-density smoke plume(s) overlapping the Del Norte area (map of " + hms.mapDate + "). Peak " + level + ".",
-      advisory: getSmokeAdvisory(level),
-    };
-  }
+/** HMS density is a mapped plume observation, never a concentration or forecast. */
+export function buildHmsSmokeReport(hms: HmsSmokeResult, fetchedAt = new Date().toISOString()): SmokeReport {
+  const productDate = `${hms.mapDate.slice(0, 4)}-${hms.mapDate.slice(4, 6)}-${hms.mapDate.slice(6, 8)}`;
+  const timestamp = `${productDate}T00:00:00.000Z`;
+  if (!/^\d{8}$/.test(hms.mapDate) || !Number.isFinite(Date.parse(timestamp)) || new Date(timestamp).toISOString().slice(0, 10) !== productDate) throw new Error("Invalid HMS product date");
+  const density = hms.plumes === 0 ? "none" : hms.maxDensity === "Heavy" ? "heavy" : hms.maxDensity === "Medium" ? "moderate" : hms.maxDensity === "Light" ? "light" : "unknown";
+  const peakLevel = "UNKNOWN" as const;
+  const summary = hms.plumes === 0
+    ? `No mapped HMS plume overlaps Del Norte in product ${productDate}; surface air quality was not measured.`
+    : `HMS product ${productDate} maps ${hms.plumes} ${density}-density plume(s) over Del Norte; surface PM2.5 and AQI are unknown.`;
+  if (!Number.isSafeInteger(hms.plumes) || hms.plumes < 0 || !Number.isFinite(Date.parse(fetchedAt))) throw new Error("Invalid HMS report input");
+  return { schemaVersion: "2.0.0", sourceProduct: "noaa-hms", source: "noaa-hms", density, productDate,
+    timestamp, observedAt: null, observationStart: null, observationEnd: null, fetchedAt, checkedAt: fetchedAt,
+    validUntil: new Date(Date.parse(timestamp) + 86400000).toISOString(), plumeCount: hms.plumes,
+    forecasts: [], maxPm25: null, peakAqi: null, peakLevel, summary,
+    advisory: hms.plumes ? "Mapped smoke may affect the area; consult observed air-quality measurements. HMS does not measure surface exposure." : null };
+}
 
-  // FALLBACK: legacy AirFire HRRR-smoke JSON (404 since ~2026-08; retained for
-  // service restoration without a code change).
-  let primaryError: string | undefined;
-  try {
-    return await fetchFromUrl(HRRR_SMOKE_API_URL);
-  } catch (err) {
-    primaryError = err instanceof Error ? err.message : String(err);
-    logger.warn("HMS unavailable and legacy primary errored; trying legacy fallback", { error: primaryError });
-  }
-  return await fetchFromUrl(HRRR_SMOKE_FALLBACK_URL);
+export async function fetchSmokeForecast(): Promise<SmokeReport> {
+  const hms = await fetchHmsSmoke();
+  if (!hms) throw new Error("NOAA HMS smoke-plume product unavailable or unreadable");
+  return buildHmsSmokeReport(hms);
 }
 
 /** Main monitor entry point */
 export async function runSmokeMonitor(): Promise<SmokeReport | null> {
-  logger.info("Checking HRRR smoke forecast for Crescent City area");
+  logger.info("Checking NOAA HMS smoke plumes for the Del Norte area");
   lastSmokeError = undefined;
 
   try {
     const report = await fetchSmokeForecast();
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, report);
-
-    if (report.forecasts.length > 0) {
-      const processedIds = loadProcessedIds();
-      for (const f of report.forecasts) {
-        const id = "smoke-" + f.hourOffset + "h-" + f.forecastTime;
-        if (!processedIds.has(id)) {
-          appendHistory(f);
-        }
-      }
-    }
-
-    if (report.peakLevel === "HAZARDOUS" || report.peakLevel === "VERY_UNHEALTHY") {
-      logger.warn("SMOKE EMERGENCY: " + report.summary);
-    } else if (report.peakLevel === "UNHEALTHY" || report.peakLevel === "UNHEALTHY_SENSITIVE") {
-      logger.warn("Smoke advisory: " + report.summary);
-    } else {
-      logger.info("Smoke check: " + report.summary);
-    }
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), report);
+    const id = `hms-${report.productDate}-${report.density}-${report.plumeCount}`;
+    if (!loadProcessedIds().has(id)) appendBoundedJsonlSync(HISTORY_FILE(), { id, ...report });
+    logger.info("Smoke product: " + report.summary);
 
     return report;
   } catch (err: any) {
     lastSmokeError = err instanceof Error ? err.message : String(err);
-    logger.error("Failed to fetch smoke forecast data", { error: lastSmokeError });
+    logger.error("Failed to fetch HMS smoke product", { error: lastSmokeError });
     return null;
   }
 }

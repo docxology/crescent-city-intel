@@ -1,152 +1,58 @@
-/** Provider-aware SSE generation for retrieved municipal-code context. */
-import { createLogger } from "../logger.js";
-import type { ChatMessage, RagSource } from "../types.js";
-import { OLLAMA_TIMEOUT_MS } from "../constants.js";
+/** SSE has exactly one success, abstention, error or cancellation terminal. */
+import type { RagSource } from "../types.js";
 import { llmConfig } from "./config.js";
 import { configuredChatModel } from "./provider.js";
-import { streamChat as streamOpenRouterChat } from "./openrouter.js";
+import { streamChat as openrouterStream } from "./openrouter.js";
+import { streamChat as ollamaStream } from "./ollama.js";
 import { computeSha256 } from "../utils.js";
-import { buildChatMessages } from "./rag.js";
-
-const log = createLogger("streaming_rag");
-
-export interface StreamingRagOptions {
-  model?: string;
-  topK?: number;
-  eventField?: string;
-}
+import { buildChatMessages, RAG_SYSTEM_PROMPT } from "./rag.js";
+import { boundedSignal, generationGate, LlmOverloadedError } from "./runtime.js";
+import { assessAnswerEvidence, type EvidenceAssessment } from "./evidence.js";
 
 export interface StreamingRagResult {
-  answer: string;
-  sources: RagSource[];
-  model: string;
-  latencyMs: number;
-  provider: "ollama" | "openrouter";
-  queryId: string;
-  contextFingerprint: string;
-  grounded: boolean;
+  status: "complete" | "abstained";
+  answer: string; sources: RagSource[]; model: string; latencyMs: number;
+  provider: "ollama" | "openrouter"; queryId: string; contextFingerprint: string;
+  grounded: false; evidence: EvidenceAssessment;
 }
 
-function event(encoder: TextEncoder, name: string, data: unknown): Uint8Array {
-  return encoder.encode(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
-}
-
-/**
- * Create an SSE response. Ollama uses its NDJSON stream and OpenRouter uses
- * the provider's native SSE delta stream. Both are cancellation-aware.
- */
-export function createStreamingRagResponse(
-  question: string,
-  retrievedContext: { sources: RagSource[]; context: string },
-  modelOverride?: string,
-  history?: Array<{ role: "user" | "assistant"; content: string }>,
-): Response {
-  const encoder = new TextEncoder();
-  const model = configuredChatModel(modelOverride);
-  const queryId = `rag-stream-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-  const requestAbort = new AbortController();
-
-  const stream = new ReadableStream({
+export function createStreamingRagResponse(question: string, retrievedContext: { sources: RagSource[]; context: string }, modelOverride?: string, history?: Array<{ role: "user" | "assistant"; content: string }>, signal?: AbortSignal): Response {
+  const encoder = new TextEncoder(), abort = new AbortController();
+  const requestSignal = boundedSignal(signal ? AbortSignal.any([signal, abort.signal]) : abort.signal, 120_000);
+  const model = configuredChatModel(modelOverride), queryId = `rag-stream-${crypto.randomUUID()}`;
+  let disconnected = false;
+  const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const startTime = performance.now();
-      const contextFingerprint = await computeSha256(retrievedContext.context);
-      controller.enqueue(event(encoder, "sources", retrievedContext.sources));
-
-      if (retrievedContext.sources.length === 0 || !retrievedContext.context.trim()) {
-        controller.enqueue(event(encoder, "error", { error: "No retrieved context is available" }));
-        controller.close();
-        return;
-      }
-
-      // Instruction part only — the retrieved context is passed separately so
-      // each provider's prompt builder can attach it once under its own
-      // "Context from the municipal code:" heading (avoids triple-wrapping:
-      // the previous code embedded context here AND handed the whole string
-      // to the openrouter builder which wrapped it again).
-      const systemPrompt = "You are a helpful assistant answering questions about the Crescent City, California municipal code. Use only the supplied context. Always cite section numbers when possible. If the context is insufficient, say so.";
-      const contextText = retrievedContext.context;
-      let fullAnswer = "";
-
+      const start = Date.now();
+      let release: (() => void) | undefined, terminal = false;
+      const emit = (name: string, data: unknown) => {
+        if (!disconnected) controller.enqueue(encoder.encode(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`));
+      };
+      const finish = (name: string, data: unknown) => { if (!terminal) { terminal = true; emit(name, data); } };
       try {
-        if (llmConfig.provider === "openrouter") {
-          for await (const token of streamOpenRouterChat(
-            buildChatMessages(question, history),
-            contextText,
-            model,
-            { signal: requestAbort.signal, systemPrompt },
-          )) {
-            fullAnswer += token;
-            controller.enqueue(event(encoder, "token", { token }));
-          }
-        } else {
-          const ollamaResponse = await fetch(`${llmConfig.ollamaUrl}/api/generate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, prompt: `${systemPrompt}\n\nContext:\n${contextText}\n\n${
-              history && history.length ? `Prior conversation:\n${history.map(t => `${t.role}: ${t.content}`).join("\n")}\n\n` : ""
-            }Question: ${question}\n\nAnswer:`, stream: true }),
-            signal: AbortSignal.any([requestAbort.signal, AbortSignal.timeout(OLLAMA_TIMEOUT_MS * 4)]),
-          });
-
-          if (!ollamaResponse.ok || !ollamaResponse.body) {
-            throw new Error(`Ollama streaming request failed (${ollamaResponse.status})`);
-          }
-
-          const reader = ollamaResponse.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() ?? "";
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              try {
-                const chunk = JSON.parse(line) as { response?: string; done?: boolean };
-                if (chunk.response) {
-                  fullAnswer += chunk.response;
-                  controller.enqueue(event(encoder, "token", { token: chunk.response }));
-                }
-              } catch (error) {
-                log.warn("Skipping malformed Ollama stream chunk", { error: String(error) });
-              }
-            }
-          }
+        requestSignal.throwIfAborted();
+        const contextFingerprint = await computeSha256(retrievedContext.context);
+        emit("sources", retrievedContext.sources);
+        if (!retrievedContext.sources.length || !retrievedContext.context.trim()) throw new Error("Missing context");
+        release = await generationGate.acquire(requestSignal);
+        let answer = "";
+        const generate = llmConfig.provider === "openrouter" ? openrouterStream : ollamaStream;
+        for await (const token of generate(buildChatMessages(question, history), retrievedContext.context, model, { signal: requestSignal, systemPrompt: RAG_SYSTEM_PROMPT })) {
+          requestSignal.throwIfAborted(); answer += token; emit("token", { token });
         }
-
-        if (!fullAnswer.trim()) throw new Error(`${llmConfig.provider} returned an empty answer`);
-        const result: StreamingRagResult = {
-          answer: fullAnswer,
-          sources: retrievedContext.sources,
-          model,
-          latencyMs: performance.now() - startTime,
-          provider: llmConfig.provider,
-          queryId,
-          contextFingerprint,
-          grounded: true,
-        };
-        controller.enqueue(event(encoder, "done", result));
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        log.error("Streaming RAG error", { error: message });
-        controller.enqueue(event(encoder, "error", { error: message }));
+        if (!answer.trim()) throw new Error("Empty provider answer");
+        const evidence = assessAnswerEvidence(answer, retrievedContext.sources);
+        const result: StreamingRagResult = { status: evidence.disposition === "abstained" ? "abstained" : "complete", answer: evidence.disposition === "abstained" ? "The retrieved sources do not establish an answer with valid citations. Please inspect the source sections or refine the question." : answer, sources: retrievedContext.sources, model, latencyMs: Date.now() - start, provider: llmConfig.provider, queryId, contextFingerprint, grounded: false, evidence };
+        finish("done", result);
+      } catch (error) {
+        const cancelled = requestSignal.aborted && requestSignal.reason?.name !== "TimeoutError";
+        finish("error", { status: cancelled ? "cancelled" : "failed", code: cancelled ? "cancelled" : error instanceof LlmOverloadedError ? "overloaded" : requestSignal.aborted ? "timeout" : "provider_unavailable", error: cancelled ? "Request cancelled" : "Optional AI service could not complete this answer", queryId });
+      } finally {
+        release?.(); abort.abort();
+        if (!disconnected) controller.close();
       }
-
-      controller.close();
     },
-    cancel(reason) {
-      requestAbort.abort(reason instanceof Error ? reason : new Error(String(reason ?? "stream cancelled")));
-    },
+    cancel() { disconnected = true; abort.abort(new DOMException("Client disconnected", "AbortError")); },
   });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
+  return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", "X-Content-Type-Options": "nosniff" } });
 }

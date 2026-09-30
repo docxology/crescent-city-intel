@@ -47,11 +47,16 @@ state, not a silent fallback.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `getOrCreateCollection` | `() → Promise<Collection>` | Returns singleton collection (cosine similarity). |
-| `addDocuments` | `(docs) → Promise<void>` | Upsert documents with embeddings and metadata. |
-| `query` | `(embedding, topK?) → Promise<{ids, documents, metadatas, distances}>` | Query by embedding vector. |
-| `getStats` | `() → Promise<{count, name}>` | Collection document count and name. |
-| `isChromaRunning` | `() → Promise<boolean>` | Health check via heartbeat. |
+| `servingCollectionName` | `() → Promise<string>` | Read the activated collection from the index receipt, with the configured initial name as fallback. |
+| `getOrCreateCollection` | `(options?) → Promise<Collection>` | Resolve the selected cosine collection with a finite deadline. |
+| `addDocuments` | `(docs, options?) → Promise<void>` | Upsert bounded, equal-length document/vector/metadata batches. |
+| `getDocumentIds` | `(options?) → Promise<string[]>` | Enumerate actual stored IDs, with a bounded collection size. |
+| `query` | `(embedding, topK?, options?) → Promise<{ids, documents, metadatas, distances}>` | Query a selected collection by embedding vector. |
+| `getStats` | `(options?) → Promise<{count, name}>` | Collection document count and name. |
+| `isChromaRunning` | `(timeoutMs?, signal?) → Promise<boolean>` | Bounded health check via heartbeat. |
+
+`VectorOptions` accepts `signal`, `collection`, and `timeoutMs`. Vector requests
+share bounded admission, propagate cancellation, and use a finite request deadline.
 
 ---
 
@@ -59,8 +64,9 @@ state, not a silent fallback.
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `isIndexed` | `() → Promise<boolean>` | Check if collection has documents. |
-| `indexAllSections` | `() → Promise<void>` | Load all sections, fingerprint content, remove stale chunks, embed, and store in ChromaDB. |
+| `isIndexed` | `() → Promise<boolean>` | Check receipt schema/configuration, source manifest identity when present, owned chunk count, and every owned ID in the serving collection. |
+| `indexAllSections` | `(options?) → Promise<void>` | Load one source edition and stage a complete index before activating its receipt. |
+| `indexSections` | `(sections, options?) → Promise<void>` | Index a supplied section set with a total deadline and exclusive writer lease. |
 
 ### Chunking Strategy
 
@@ -68,7 +74,8 @@ state, not a silent fallback.
 - Overlap: 150 characters
 - Each chunk prefixed with `{sectionNumber}: {sectionTitle}`
 - Metadata includes: `sectionGuid`, `sectionNumber`, `sectionTitle`, `articleGuid`, `articleTitle`, `chunkIndex`
-- Batch size: 32 chunks per embedding request, with single-chunk fallback on failure
+- Batch size: 32 chunks per embedding request by default (`EMBED_BATCH_SIZE`)
+- A failed embedding or incomplete staged collection prevents activation and retains the prior serving receipt.
 
 ---
 
@@ -86,7 +93,11 @@ state, not a silent fallback.
 4. **Generate** answer via the configured provider with injected context
 5. **Return** answer + sources (with similarity scores) plus provider/model,
    query ID, context fingerprint, latency, retrieval count, embedding model,
-   Chroma collection, and a `grounded` flag. Empty or malformed retrieval
+   Chroma collection, and `grounded: false`. Citation identity is checked against
+   retrieved municipal records: missing or unknown citations produce an
+   `abstained` disposition, while recognized citations produce
+   `generated-unverified`. Semantic support, source independence, and legal
+   currency are not evaluated. Empty or malformed retrieval
    raises a retryable `NoRetrievedContextError`; it is never returned as a
    successful answer.
 
@@ -130,8 +141,8 @@ and cannot become a curation or embedding input through the public snapshot path
 
 ## `src/llm/provider.ts` — Automatic fallback chain
 
-`chatWithProviderFallback(messages, context?, modelOverride?, options?)` never
-returns without an answer:
+`chatWithProviderFallback(messages, context?, modelOverride?, options?)` tries
+the provider chain under a shared deadline and caller cancellation:
 
 1. **Primary provider** (per `LLM_PROVIDER`) — preflighted via the non-generative
    health check first so a dead endpoint costs no generation timeout.
@@ -140,7 +151,8 @@ returns without an answer:
 3. **Deterministic extract** — when every provider is down, `deterministicExtract`
    returns a clearly labeled extract built ONLY from the supplied retrieved
    context (or an explicit "unable to answer" note when no context exists). It
-   never fabricates content.
+   copies source text rather than generating new claims. A cancelled or expired
+   request throws instead of continuing through the fallback chain.
 
 The result object carries `outcome` (`primary` | `secondary` | `deterministic`),
 `providerUsed`, `model`, and any preflight/error strings for observability.
@@ -169,7 +181,7 @@ prompt/completion tokens (`prompt_eval_count`/`eval_count` or OpenRouter
 counts) into a bounded in-memory window (5000 requests). The GUI server exposes:
 
 ```bash
-curl -s http://localhost:8080/api/llm/usage | jq .
+curl -s http://localhost:3000/api/llm/usage | jq .
 ```
 
 Response shape: `{ schemaVersion, generatedAt, totals: {requests,
@@ -180,57 +192,59 @@ Counters reset on process restart; batch scripts keep their own window per run.
 
 ```bash
 bun test tests/llm-usage-and-fallback.test.ts   # deterministic accounting/parse/fallback tests
-bun test tests/llm-live-integration.test.ts     # live Ollama integration (skips if Ollama down)
-bun run index                                   # refresh RAG index (fingerprint-gated)
+bun run test:llm-native                       # optional real Ollama/Chroma acceptance; requires both services
+bun run index                                # stage and activate a reconciled RAG index
 bun run query "tsunami hazard zone regulations" # end-to-end semantic search check
-ollama pull nomic-embed-text && ollama pull gemma3:4b && ollama pull qwen2.5:3b  # models used locally
+ollama pull nomic-embed-text                   # configured embedding model
+ollama pull gemma3:4b                         # configured local chat model
 ```
-
-RAG verification on this checkout (2026-08-27): index fingerprint unchanged at
-3105 stored chunks over 2206 sections; semantic search for tsunami/flood topics
-returned § 17.84G.050 and related coastal/flood sections as top hits with
-scores ≥ 0.69.
 
 ---
 
-## `src/llm/validate.ts` — Cross-Source Validation (R2)
+## `src/llm/validate.ts` — Literal Quote Diagnostics
 
-Classifies support for a factual claim against independent source snippets:
-`corroborated` / `partial` / `unsupported` / `contradicted`.
+Checks whether proposed quote spans occur in supplied snippets. Every returned
+claim has `verdict: "unassessed"`, `verifiedSupport: false`,
+`semanticSupport: "not-evaluated"`, and `sourceIndependence: "not-evaluated"`.
+The legacy classification names appear only in
+`proposedQuoteClassification`, a diagnostic of proposed labels and quote counts.
 
 | Export | Kind | Description |
 |--------|------|-------------|
-| `validateClaims(claim, snippets)` | async | Provider-backed wrapper: proposes quoted spans via `queryStructured`, then verifies each in code. |
-| `validateEventClaims` | alias | Events-path entry point (same contract as `validateClaims`). |
-| `verifiedBySubstring(span, text)` | pure | The grounding check: literal substring match modulo casing/whitespace/quote glyphs. |
-| `classifySupportFromCounts(supportingSources, contradictingSpans)` | pure | Deterministic thresholds: contradict > 0 wins; ≥2 distinct sources corroborate; 1 = partial; 0 = unsupported. |
-| `buildClaimValidation(...)` | pure | Assembles a `ClaimValidation` from pre-verified span sets. |
+| `validateClaims(claim, snippets)` | async | Ask the provider for proposed quotes, check their literal presence, and return an unassessed claim receipt. |
+| `verifiedBySubstring(span, text)` | pure | Literal substring match modulo casing/whitespace/quote glyphs. |
+| `classifySupportFromCounts(supportingSources, contradictingSpans)` | pure | Compute the proposed quote-label diagnostic; it does not certify claim support. |
+| `buildClaimValidation(...)` | pure | Assemble quote-presence provenance while leaving semantic support unassessed. |
 | `extractQuoteSpans(text)` | pure | Pulls `"..."`-quoted spans from model/snippet text. |
 | `normalizeForSubstringMatch(text)` | pure | Normalization shared by the verifier. |
 
-**Grounding invariant:** the model never gets the final word on quoting. A proposed span
-becomes a verified contributor ONLY after `verifiedBySubstring` confirms it appears literally
-inside one of the supplied snippets. Everything else lands in `rejectedSpans`
-(`reason: "not_found"`) and cannot raise the verdict.
+**Quote-presence invariant:** `verifiedBySubstring` must confirm a proposed span
+appears literally inside a supplied snippet. Nonmatching spans land in
+`rejectedSpans` (`reason: "not_found"`). A matching span still cannot raise the
+claim verdict above `unassessed`.
 
-### Note for the events owner (`src/events.ts` is owned by the events lane this round)
+### Event integration boundary
 
-To wire event-claim validation into extraction: build `CorroborationSnippet[]` from the event's
-independent source URLs (one snippet per distinct source), then
+`src/events.ts` does not call `validateClaims` today. An integration under
+[TODO L03/L07](../../TODO.md) would build `CorroborationSnippet[]` from the
+event's source records (one snippet per distinct URL), then call the canonical
+validator. URL distinctness alone does not establish source independence:
 
 ```ts
-const validation = await validateEventClaims(eventFact.claimText, snippets);
-if (validation.verdict === "corroborated" || validation.verdict === "partial") {
-  // attach validation.provenance + validation.verifiedSpans to the published record
-}
+const validation = await validateClaims(eventFact.claimText, snippets);
+// Retain quote-presence provenance for a separate semantic-support assessment.
+// validation.verdict remains "unassessed"; it cannot authorize publication.
 ```
 
-Unverifiable events should be dropped (verdict `unsupported`) rather than guessed. Keep every
-published claim paired with its `provenance` URLs per the repo grounding invariant.
+Literal quote presence establishes that a span occurs in a supplied snippet;
+it does not prove that the span entails the claim or that sources are
+independent. The diagnostic classifications cannot certify an event as verified.
+Future integration must preserve provenance and evaluate claim support before
+publication; unsupported facts stay unknown rather than guessed.
 
 ---
 
-## `src/llm/dedupe.ts` — Embedding Near-Duplicate Detection (R2)
+## `src/llm/dedupe.ts` — Embedding Near-Duplicate Detection
 
 Cosine similarity over nomic-embed-text vectors; pure core tested with tiny synthetic vectors.
 
@@ -243,12 +257,12 @@ Cosine similarity over nomic-embed-text vectors; pure core tested with tiny synt
 
 ---
 
-## Curation enrichment & Monthly-report executive digest (R2)
+## Curation enrichment & Monthly-report executive digest
 
 - `src/curation.ts`: structured enrichment pass over each curated item — per-item entity/topic
   tags, salience 0..1 with rationale, one-line neutral summary (`CurationEnrichment`). Additive
   optional fields on `CuratedItem`; enrichment failure never blocks or downgrades the record.
-  `CURATION_PROMPT_VERSION` bumped to `2026-08-26-enriched-v3`.
+  `CURATION_PROMPT_VERSION` identifies the prompt in provenance and idempotency receipts.
 - `src/monthly_report.ts`: `generateExecutiveDigest(metrics, monthLabel)` gives the LLM ONLY
   data-derived numbers and asks it to write connective prose between them. Unavailable provider →
   null and the report omits the Executive Digest section with a warning line (silent fallback;
@@ -256,4 +270,37 @@ Cosine similarity over nomic-embed-text vectors; pure core tested with tiny synt
 
 ## `src/llm/index_plan.ts` — Incremental Index Planning
 
-Pure, offline planner that decides what to re-embed: a one-article edit re-embeds only that article's chunks (131 of 3,105 at worst), and a `configSignature` over the embedding model and chunking parameters forces a full re-embed when the model changes — without it, per-article fingerprints would match and one cosine space would hold two models' geometry. Tests: `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts`.
+Pure, offline planner that selects articles to re-embed from their content
+fingerprints. A `configSignature` over the embedding model and chunking
+parameters requests a full re-embed when those settings change. Planning also
+reconciles actual stored IDs: missing owned chunks request repair, removed or
+shrunk articles lose obsolete chunks, and an empty store cannot be treated as
+a no-op merely because its prior fingerprint matches. The executor copies
+unchanged chunks into a separate collection, embeds changed chunks, compares
+the complete expected and actual ID sets, rechecks the source manifest, and
+atomically activates one receipt naming the serving collection. Failure keeps
+the prior serving edition. Same-model transcript chunks can be retained; a
+model/chunking change marks transcript reindexing explicitly.
+
+Tests: `tests/index-plan.test.ts`, `tests/index-plan-corpus.test.ts`, and the
+real local transport fixtures in `tests/llm-reliability.test.ts`. Native backend
+acceptance is a separate run and does not establish answer factuality.
+
+## Runtime, privacy, and evaluation
+
+`src/llm/runtime.ts` bounds model/vector admission, request deadlines, response
+bytes, and streamed lines. Caller cancellation closes the model stream and
+releases admission after the underlying operation settles.
+
+`src/llm/privacy.ts` stores no questions, answers, or conversation history.
+`CC_QUERY_LOGGING=metadata` opts into bounded allowlisted receipts under
+`output/private/`; `CC_QUERY_RETENTION_DAYS` defaults to seven days and is capped
+at thirty. `deletePrivateReceipts()` removes the receipt file under its writer
+lease. These private records are excluded from public Pages projections.
+
+`src/llm/evidence.ts` checks cited section identity against retrieved records,
+with an explicit unverified or abstained disposition. `src/llm/benchmark.ts`
+and `bun run rag:benchmark` evaluate a bounded versioned case set and bind the
+case, corpus, index, model, and collection identities. Listed-ID recall and
+citation/abstention behavior are diagnostics; semantic entailment, independent
+corroboration, legal currency, and general factual accuracy remain unassessed.

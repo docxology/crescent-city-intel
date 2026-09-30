@@ -71,4 +71,21 @@ describe("shipped directory seed", () => {
     expect(roundTripped!.entries.length).toBe(roundTripped!.count);
     expect(roundTripped!.schema).toBe("crescent-city-directory/v1");
   });
+  test("consumer rejects invalid rows, counts, categories and credential-bearing URLs", () => {
+    const artifact = buildDirectoryArtifact("2026-09-30T00:00:00Z", { entries: [VALID_ENTRY] })!;
+    for (const update of [
+      { count: 8 }, { categories: [{ category: "Government", count: 3 }] },
+      { entries: [{ ...VALID_ENTRY, phone: 12 }] }, { entries: [{ ...VALID_ENTRY, source: "https://user:pass@example.com/" }] },
+      { entries: [{ ...VALID_ENTRY, source: "https://example.com/?key=private" }] },
+      { entries: [{ ...VALID_ENTRY, source: "https://example.com/#access_token=private-fixture-token" }] },
+      { entries: [{ ...VALID_ENTRY, source: "https://example.com/#section=1;access_token=private-fixture-token" }] },
+      { entries: [{ ...VALID_ENTRY, source: "https://example.com/#/oauth?credential=private-fixture-token" }] },
+      { entries: [{ ...VALID_ENTRY, source: "https://example.com/#access_token%3Dprivate-fixture-token" }] },
+      { entries: [{ ...VALID_ENTRY, source: "http://127.0.0.2/" }] }, { generatedAt: "2026-02-30" },
+    ]) expect(parseDirectoryArtifact(JSON.stringify({ ...artifact, ...update }))).toBeNull();
+    expect(artifact.entries[0]!.consultedAt).toBeNull();
+    expect(artifact.entries[0]!.reviewedAt).toBeNull();
+    const reviewed = buildDirectoryArtifact("2026-09-30T00:00:00Z", { entries: [{ ...VALID_ENTRY, consultedAt: "2026-08-30", reviewedAt: "2026-09-01" }] })!;
+    expect(reviewed.entries[0]!.reviewedAt).toBe("2026-09-01");
+  });
 });

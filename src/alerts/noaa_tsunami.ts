@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * NOAA Tsunami Warning Integration for Crescent City.
  * Subscribes to NOAA CAP alerts for tsunami warnings, parses alert severity,
@@ -30,15 +32,15 @@ export function classifyTsunamiThreat(event: string): 'warning' | 'watch' | 'adv
 }
 
 // Persistent alert history JSONL path
-const HISTORY_DIR = join(process.cwd(), 'output', 'alerts', 'tsunami');
-const HISTORY_FILE = join(HISTORY_DIR, 'history.jsonl');
+function HISTORY_DIR(): string { return join(outputRoot(), 'alerts', 'tsunami'); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), 'history.jsonl'); }
 
 /** Load processed alert IDs from persistent history to prevent cross-run duplicates */
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, 'utf-8').split('\n').filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), 'utf-8').split('\n').filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip corrupt lines */ }
     }
@@ -49,7 +51,7 @@ function loadProcessedIds(): Set<string> {
 /** Append a tsunami alert to the persistent JSONL history log */
 function appendTsunamiHistory(alert: NOAAAlertProperties, threatLevel: string): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const record = JSON.stringify({
       id: alert.id,
       event: alert.event,
@@ -63,7 +65,7 @@ function appendTsunamiHistory(alert: NOAAAlertProperties, threatLevel: string): 
       areaDesc: alert.areaDesc,
       fetchedAt: new Date().toISOString(),
     });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn('Failed to append tsunami alert history', { error: String(err) });
   }
@@ -226,7 +228,7 @@ export function isCrescentCityRelevant(alert: {
  * Save alert to file for historical tracking
  */
 async function saveAlertToFile(alert: any): Promise<void> {
-  const dataDir = join(process.cwd(), 'output', 'alerts', 'tsunami');
+  const dataDir = join(outputRoot(), 'alerts', 'tsunami');
   await mkdir(dataDir, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -306,7 +308,7 @@ export async function monitorNOAATsunamiAlerts(): Promise<void> {
     logger.info(`Processed ${newAlertsCount} new relevant NOAA tsunami alerts`);
   }
 
-  await mkdir(HISTORY_DIR, { recursive: true });
+  await mkdir(HISTORY_DIR(), { recursive: true });
   // `level`/`summary` are part of this artifact's contract, matching every other
   // monitor's `current.json`. The GUI tile reads `summary ?? level ??
   // 'Data available'` and shows the level (or "OK"), so without them this tile
@@ -322,7 +324,7 @@ export async function monitorNOAATsunamiAlerts(): Promise<void> {
       ? `${watches} active tsunami watch/advisory event(s)`
       : 'No active tsunami alerts for the Crescent City area';
 
-  await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
+  await writeJsonAtomic(join(HISTORY_DIR(), 'current.json'), {
     fetchedAt: new Date().toISOString(),
     alerts,
     alertCount: alerts.length,

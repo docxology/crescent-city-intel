@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The 15th alert monitor. Reads the USCG Navigation Center **Broadcast Notice to
+Reads the USCG Navigation Center **Broadcast Notice to
 Mariners (BNM)** search results for Coast Guard **District 11** (the district
 whose Sector Humboldt Bay covers Crescent City / Del Norte) and extracts the
 notices relevant to the North Coast.

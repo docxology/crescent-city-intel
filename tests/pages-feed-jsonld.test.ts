@@ -14,6 +14,7 @@ import {
 
 function snapshotFixture(overrides: Partial<PagesSnapshot> = {}): PagesSnapshot {
   return {
+    publication: { schemaVersion: "crescent-city-publication-input/v1", editionId: "0".repeat(64), selection: "unavailable", verification: "not-available", reason: "fixture", files: {} },
     schemaVersion: "1.0.0",
     generatedAt: "2026-08-27T12:00:00.000Z",
     repository: "https://github.com/docxology/crescent-city-intel",
@@ -41,7 +42,8 @@ function snapshotFixture(overrides: Partial<PagesSnapshot> = {}): PagesSnapshot 
   } as PagesSnapshot;
 }
 
-function parseBlock(block: string): Record<string, unknown> {
+type JsonLd = Record<string, unknown> & { itemListElement: Array<{ name: string; item: { name: string; location: { name: string }; sameAs: string[] } }>; dataset: Array<Record<string, unknown>> };
+function parseBlock(block: string): JsonLd {
   return JSON.parse(block.replace('<script type="application/ld+json">', "").replace("</script>", ""));
 }
 

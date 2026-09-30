@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * NWS Weather Alert Processing for Crescent City.
  * Monitors National Weather Service alerts for coastal flood, high wind, and storm warnings,
@@ -22,15 +24,15 @@ const CRESCENT_CITY_LAT = 41.7485;
 const CRESCENT_CITY_LNG = -124.2028;
 
 // Persistent alert history JSONL path
-const HISTORY_DIR = join(process.cwd(), 'output', 'alerts', 'weather');
-const HISTORY_FILE = join(HISTORY_DIR, 'history.jsonl');
+function HISTORY_DIR(): string { return join(outputRoot(), 'alerts', 'weather'); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), 'history.jsonl'); }
 
 /** Load processed alert IDs from persistent history to prevent cross-run duplicates */
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, 'utf-8').split('\n').filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), 'utf-8').split('\n').filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip corrupt lines */ }
     }
@@ -41,7 +43,7 @@ function loadProcessedIds(): Set<string> {
 /** Append a new weather alert to the persistent JSONL history log */
 function appendWeatherHistory(alert: any, severityLevel: string): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const record = JSON.stringify({
       id: alert.id,
       event: alert.event,
@@ -55,7 +57,7 @@ function appendWeatherHistory(alert: any, severityLevel: string): void {
       areaDesc: alert.areaDesc,
       fetchedAt: new Date().toISOString(),
     });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn('Failed to append weather alert history', { error: String(err) });
   }
@@ -255,7 +257,7 @@ export function getAlertSeverityLevel(severity: string, certainty: string, urgen
  * Save alert to file for historical tracking
  */
 async function saveAlertToFile(alert: any, severityLevel: 'advisory' | 'watch' | 'warning'): Promise<void> {
-  const dataDir = join(process.cwd(), 'output', 'alerts', 'weather', severityLevel);
+  const dataDir = join(outputRoot(), 'alerts', 'weather', severityLevel);
   await mkdir(dataDir, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -378,8 +380,8 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
       await saveAlertToFile(alert, severityLevel);
 
       // Notifications are handled by the alert pipeline, not per monitor:
-      // scripts/run-alerts.ts scores the 8-monitor composite and fires the
-      // ALERT_WEBHOOK_URL notifier (src/alerts/notify.ts) on WARNING/EMERGENCY,
+      // scripts/run-alerts.ts scores the full monitor roster and fires the
+      // ALERT_WEBHOOK_URL notifier (src/alerts/notify.ts) on a transition into WARNING/EMERGENCY,
       // while dashboards read current.json + history.jsonl. Nothing further to
       // trigger here — this monitor's job is detection + persistence.
     }
@@ -394,7 +396,7 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
       });
     }
 
-    await mkdir(HISTORY_DIR, { recursive: true });
+    await mkdir(HISTORY_DIR(), { recursive: true });
     // Enrich each alert with the computed severityLevel so the composite
     // severity scorer can read the monitor's own advisory/watch/warning tier —
     // the raw CAP `severity` (Minor/Moderate/Severe/Extreme) is NOT the same
@@ -423,7 +425,7 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
         : advisoryOnly > 0
           ? `${advisoryOnly} active NWS Advisory(ies) for Del Norte coastal zone`
           : 'No active NWS alerts for the Del Norte coastal zone (CAZ006)';
-    await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
+    await writeJsonAtomic(join(HISTORY_DIR(), 'current.json'), {
       fetchedAt: new Date().toISOString(),
       alerts: enrichedAlerts,
       redFlagCount,

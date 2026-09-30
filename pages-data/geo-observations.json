@@ -9,147 +9,190 @@
     "latitude": 41.76,
     "longitude": -124.2
   },
-  "generatedAt": "2026-09-08T19:08:21.965Z",
+  "generatedAt": "2026-09-30T23:01:00.149Z",
   "composite": {
     "level": "WARNING",
-    "reason": "Drought: 🔴 Extreme drought (D3): 100.0% severe-extreme",
-    "assessedAt": "2026-09-08T18:59:22.225Z",
-    "hasUnavailableMonitors": false
+    "reason": "Tides: 🔴 Water level 7.0 ft MLLW (significant exceedance)",
+    "assessedAt": "2026-09-30T22:50:00.646Z",
+    "hasUnavailableMonitors": true
   },
   "monitors": [
     {
       "id": "noaa-tsunami",
       "label": "NOAA Tsunami",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7539,
+      "ageMs": 116886,
       "url": "https://api.weather.gov/alerts/active?area=CA"
     },
     {
       "id": "usgs-earthquake",
       "label": "USGS Earthquake",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7539,
+      "ageMs": 117303,
       "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson"
     },
     {
       "id": "nws-weather",
       "label": "NWS Weather",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7539,
+      "ageMs": 117088,
       "url": "https://api.weather.gov/alerts/active?zone=CAZ006"
     },
     {
       "id": "noaa-tides",
       "label": "NOAA Tides",
       "status": "ok",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 72,
-      "ageMs": 7435,
+      "ageMs": 116968,
       "url": "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750"
     },
     {
       "id": "cdfw-fishing",
       "label": "CDFW Fishing",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7229,
+      "ageMs": 116660,
       "url": "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins"
     },
     {
       "id": "epa-airnow",
       "label": "EPA AirNow",
       "status": "ok",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 1,
-      "ageMs": 7287,
+      "ageMs": 117094,
       "url": "https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml"
     },
     {
       "id": "cal-fire-wildfire",
       "label": "CAL FIRE Wildfire",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7406,
+      "ageMs": 117039,
       "url": "https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false"
     },
     {
       "id": "ndbc-marine",
       "label": "NDBC Marine",
       "status": "ok",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 3,
-      "ageMs": 7474,
+      "ageMs": 116352,
       "url": "https://www.ndbc.noaa.gov/data/realtime2/"
     },
     {
       "id": "usdm-drought",
       "label": "USDM Drought",
       "status": "ok",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 1,
-      "ageMs": 7450,
+      "ageMs": 117090,
       "url": "https://usdmdataservices.unl.edu/api/CountyStatistics/GetDSCI?aoi=06015&startdate={START}&enddate={END}&statisticsType=3"
     },
     {
       "id": "pg-e-psps",
       "label": "PG&E PSPS",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 3,
-      "url": "https://pge-psps-updates.us-east-1.linodeobjects.com/psps_events.json"
+      "ageMs": 4,
+      "url": "https://pgealerts.alerts.pge.com/pg-e-partners/psps-events/"
     },
     {
       "id": "hrrr-smoke",
       "label": "HRRR Smoke",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7544,
-      "url": "https://airfire.org/data/smoke2/forecast/pm25.nc.json"
+      "ageMs": 116991,
+      "url": "https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/Shapefile/{Y}/{M}/hms_smoke{YMD}.zip"
     },
     {
       "id": "caltrans-roads",
       "label": "Caltrans Roads",
       "status": "ok",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 2,
-      "ageMs": 7543,
-      "url": "https://quickmap.dot.ca.gov/api/v1/incidents?district=1&format=json&status=active"
+      "ageMs": 117205,
+      "url": "https://roads.dot.ca.gov/?roadnumber="
     },
     {
       "id": "dusd-schools",
       "label": "DUSD Schools",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7478,
+      "ageMs": 117167,
       "url": "https://www.dnusd.org/news"
     },
     {
       "id": "nws-marine-forecast",
       "label": "NWS Marine Forecast",
-      "status": "stale",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
-      "itemCount": 10,
+      "status": "ok",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
+      "itemCount": 11,
+      "ageMs": 116876,
       "url": "https://api.weather.gov/products/types/CWF/locations/EKA"
     },
     {
       "id": "uscg-broadcast-notice-to-mariners",
       "label": "USCG Broadcast Notice to Mariners",
       "status": "empty",
-      "checkedAt": "2026-09-08T18:59:22.226Z",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
       "itemCount": 0,
-      "ageMs": 7107,
+      "ageMs": 116709,
       "url": "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0&date-range={START}--{END}&items_per_page=50"
+    },
+    {
+      "id": "crescent-city-permits-portal",
+      "label": "Crescent City Permits Portal",
+      "status": "unavailable",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
+      "itemCount": 0,
+      "url": "https://public.mygov.us/crescent_city_ca/module?module=pi"
+    },
+    {
+      "id": "crescent-city-harbor-district",
+      "label": "Crescent City Harbor District",
+      "status": "ok",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
+      "itemCount": 1,
+      "ageMs": 112118,
+      "url": "https://www.ccharbor.com/sitemap.xml"
+    },
+    {
+      "id": "eia-california-fuel",
+      "label": "EIA California Fuel",
+      "status": "ok",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
+      "itemCount": 8,
+      "ageMs": 111722,
+      "url": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPM0_PTE_SCA_DPG&f=W"
+    },
+    {
+      "id": "pacfin-reports-dashboard",
+      "label": "PacFIN Reports Dashboard",
+      "status": "unavailable",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
+      "itemCount": 0,
+      "url": "https://reports.psmfc.org/pacfin/"
+    },
+    {
+      "id": "ais-vessel-traffic",
+      "label": "AIS Vessel Traffic",
+      "status": "unavailable",
+      "checkedAt": "2026-09-30T22:50:00.646Z",
+      "itemCount": 0,
+      "url": "https://meri.digitraffic.fi/api/ais/v1/locations"
     }
   ],
   "hazardSummary": [

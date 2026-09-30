@@ -16,7 +16,7 @@ import {
 } from "../src/alerts/composite.ts";
 import type { DroughtReport } from "../src/alerts/usdm_drought.ts";
 import type { PspsReport } from "../src/alerts/pge_psps.ts";
-import type { SmokeReport } from "../src/alerts/hrrr_smoke.ts";
+import { buildHmsSmokeReport, type SmokeReport } from "../src/alerts/hrrr_smoke.ts";
 import type { RoadClosureReport } from "../src/alerts/caltrans_roads.ts";
 import type { SchoolClosureReport } from "../src/alerts/dusd_schools.ts";
 import type { MarineZoneForecast } from "../src/alerts/nws_marine.ts";
@@ -45,7 +45,7 @@ function realPsps(): PspsReport {
   return { timestamp: FIXED, events: [], totalEvents: 0, overallStatus: "NONE", delNorteAffected: false, summary: "s" };
 }
 function realSmoke(): SmokeReport {
-  return { timestamp: FIXED, forecasts: [], maxPm25: null, peakAqi: null, peakLevel: "GOOD", source: "noaa-hms", summary: "s", advisory: null };
+  return buildHmsSmokeReport({ mapDate: FIXED.slice(0, 10).replaceAll("-", ""), plumes: 0, maxDensity: "Unknown" }, FIXED);
 }
 function realRoads(): RoadClosureReport {
   return { timestamp: FIXED, incidents: [], totalIncidents: 0, delNorteIncidents: [], overallSeverity: "NONE", hasMajorClosure: false, summary: "s" };
@@ -161,11 +161,11 @@ describe("buildExtendedMonitorDefinitions", () => {
     expect(defs.find(d => d.key === "roads")?.itemCount).toBe(1);
   });
 
-  test("a non-array truthy value (smoke forecast object) counts as exactly 1", () => {
+  test("unsupported legacy smoke forecast payload does not count as current evidence", () => {
     const results = baseline();
     results.smoke = settled({ forecasts: { maxPm25: 4.2 } });
     const defs = buildExtendedMonitorDefinitions(results);
-    expect(defs.find(d => d.key === "smoke")?.itemCount).toBe(1);
+    expect(defs.find(d => d.key === "smoke")?.itemCount).toBe(0);
   });
 
   test("a report whose list field is missing or null counts as 0, not a crash", () => {
@@ -194,7 +194,7 @@ describe("monitor identity survives a change to the batch order", () => {
     const results = baseline();
     results.drought = settled({ readings: [{ fips: "06015" }] });
     results.psps = settled({ events: [{ id: "a" }, { id: "b" }] });
-    results.smoke = settled({ forecasts: [{ maxPm25: 9 }] });
+    results.smoke = settled(buildHmsSmokeReport({ mapDate: "20260930", maxDensity: "Light", plumes: 1 }, "2026-09-30T12:00:00Z"));
     results.roads = settled({ incidents: [{ id: 1 }, { id: 2 }, { id: 3 }] });
     results.schools = settled({ events: [{ id: "x" }] });
     const counts = Object.fromEntries(buildExtendedMonitorDefinitions(results).map(def => [def.key, def.itemCount]));

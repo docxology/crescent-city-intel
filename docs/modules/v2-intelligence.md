@@ -1,16 +1,17 @@
-# Intelligence Modules — v2.0 Documentation
+# Additional Intelligence Modules
 
-This document covers all new modules added in v2.0.0.
+This overview covers alert inputs, structured queries, legal parsing, fuzzy
+search, streaming RAG and civic analytics. Detailed current behavior lives in
+the corresponding [alerts](alerts.md), [GUI](gui.md) and [LLM](llm.md) guides.
 
-## New Alert Monitors
+## Alert Inputs
 
 ### EPA AirNow Air Quality (`src/alerts/epa_airnow.ts`)
 
-Fetches real-time Air Quality Index (AQI) data from the EPA AirNow API for
-Crescent City (ZIP 95531).
-
-**Data sources**: `airnowapi.org/aq/observation/zipCode/current/`
-**Requires**: `AIRNOW_API_KEY` env var (free at airnowapi.org)
+Reads AirNow observations for Crescent City (ZIP 95531). Public file-based
+observations are the default; `AIRNOW_API_KEY` enables the optional keyed
+`airnowapi.org/aq/observation/zipCode/current/` endpoint. Missing keyed access
+does not by itself make the public observation source unavailable.
 **Output**: `output/alerts/airquality/current.json` + `history.jsonl`
 **API endpoint**: `GET /api/alerts/airquality`
 
@@ -35,9 +36,8 @@ surrounding areas (Siskiyou, Humboldt, Trinity).
 **Output**: `output/alerts/wildfire/current.json` + `history.jsonl`
 **API endpoint**: `GET /api/alerts/wildfire`
 
-> The retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked. The
-> current official incident JSON endpoint is used instead; a successful query
-> with no matching regional incidents is emitted as `empty`, not unavailable.
+> A successful query of the official incident endpoint with no matching
+> regional incidents is emitted as `empty`; fetch failure is `unavailable`.
 
 Tracked per incident: acres burned, containment %, evacuation orders/warnings,
 structures threatened/destroyed, distance from Crescent City (Haversine).
@@ -77,7 +77,7 @@ Severity thresholds:
 | Long-period swell ≥15 s | WATCH |
 | Normal conditions | CALM |
 
-## Composite 15-Monitor Severity (`src/alerts/severity.ts`)
+## Composite Severity (`src/alerts/severity.ts`)
 
 Aggregates all 20 alert monitors (8 core + 12 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast, USCG broadcasts, permits, dredging, fuel, PacFIN reports, AIS vessel traffic) into a single composite severity level. The authoritative roster is `MONITOR_KEYS` in `src/alerts/composite.ts`.
 
@@ -132,8 +132,10 @@ Supported citation types:
 - `buildGlossary(sections)` — builds glossary from entire corpus
 - `GET /api/glossary` — API endpoint
 
-### Effective Date Extraction
-- `extractEffectiveDate(historyText)` — most recent amendment year
+### Recorded Amendment Year
+- `extractEffectiveDate(historyText)` — most recent recorded amendment year;
+  the export retains its compatibility name and does not establish a legal
+  effective date. The UI labels the result as a recorded amendment year.
 
 ## Fuzzy Search (`src/shared/fuzzy.ts`)
 
@@ -175,9 +177,9 @@ Aggregates all alert history JSONL files across all monitor types.
 Per-type statistics: total events, first/last event, severity distribution,
 average events per day.
 
-## Expanded Intelligence Domains
+## Civic Intelligence Domains
 
-3 new domains added (12 total):
+The 12-domain roster includes:
 
 ### Climate & Environment
 Topics: Climate adaptation & sea-level rise, Drought & water conservation,
@@ -193,7 +195,7 @@ Mental health & crisis response.
 
 ## Monthly Report Integration
 
-The monthly civic health report now includes sections for all new alert types:
+The monthly civic health report includes sections for:
 - Air Quality (peak AQI, unhealthy days)
 - Wildfire Activity (incident count, evacuation orders)
 - Marine Conditions (peak wave height, wind speed, advisories)

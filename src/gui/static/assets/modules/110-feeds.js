@@ -128,7 +128,7 @@
       // Above GLOSSARY_VIRTUAL_THRESHOLD rows render through virtual-list.js
       // (table mode): row markup is unchanged, fixed-height spacer <tr>s
       // preserve the scroll extent, and only the visible window exists in
-      // the DOM. The legacy full-render path is kept for smaller sets.
+      // the DOM. Smaller sets use the full-list renderer.
       if (filtered.length > GLOSSARY_VIRTUAL_THRESHOLD) {
         if (!glossaryVirtualList) {
           glossaryVirtualList = createVirtualList({
@@ -194,7 +194,7 @@
       el.innerHTML = '<p style="color:var(--text-secondary)">Loading...</p>';
       try {
         const data = await apiFetch(`/api/history/${guid}`).then(r => r.json());
-        if (data.error) { el.innerHTML = `<p style="color:#f97316">${data.error}</p>`; return; }
+        if (data.error) { el.innerHTML = `<p style="color:#f97316">${escapeHtml(data.error)}</p>`; return; }
         let html = `<h4>§ ${data.number}</h4><p style="color:var(--text-secondary);margin-bottom:12px">${data.rawHistory}</p>`;
         if (data.entries?.length > 0) {
           html += '<table class="intel-table"><thead><tr><th>Ordinance</th><th>Action</th><th>Year</th></tr></thead><tbody>';
@@ -214,7 +214,7 @@
       el.innerHTML = '<p style="color:var(--text-secondary)">Comparing...</p>';
       try {
         const data = await apiFetch(`/api/compare?guid1=${g1}&guid2=${g2}`).then(r => r.json());
-        if (data.error) { el.innerHTML = `<p style="color:#f97316">${data.error}</p>`; return; }
+        if (data.error) { el.innerHTML = `<p style="color:#f97316">${escapeHtml(data.error)}</p>`; return; }
         const pct = (data.similarity * 100).toFixed(1);
         let html = `<div class="intel-grid" style="margin-bottom:12px">
           <div class="intel-card"><h4>Similarity</h4><div class="metric">${pct}%</div></div>
@@ -233,7 +233,7 @@
         const resp = await apiFetch('/api/report/latest');
         if (resp.status === 404) { el.innerHTML = '<p style="color:var(--text-secondary)">No monthly report has been generated yet. Run: bun run report to create one.</p>'; return; }
         const md = await resp.text();
-        el.innerHTML = marked.parse(md);
+        el.innerHTML = CCGui.markdown(md);
       } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the monthly report.</p>'; }
     }
 
@@ -284,13 +284,13 @@
       {method:'GET', path:'/api/domains/coverage', desc:'Domain coverage metrics'},
       {method:'GET', path:'/api/readability', desc:'Reading-difficulty scores (Flesch-Kincaid, Gunning Fog)'},
       {method:'GET', path:'/api/monitor/status', desc:'Code change detection status'},
-      {method:'GET', path:'/api/monitor/alerts', desc:'15-monitor alert aggregation + composite'},
+      {method:'GET', path:'/api/monitor/alerts', desc:'20-monitor alert aggregation + composite'},
       {method:'GET', path:'/api/alerts/timeline', desc:'Unified alert event timeline'},
       {method:'GET', path:'/api/alerts/recent?limit=10', desc:'Recent alert events'},
       {method:'GET', path:'/api/alerts/airquality', desc:'Current EPA air-quality index (AQI)'},
       {method:'GET', path:'/api/alerts/wildfire', desc:'Current CAL FIRE incidents'},
       {method:'GET', path:'/api/alerts/marine', desc:'Current NDBC buoy data'},
-      {method:'GET', path:'/api/alerts/composite', desc:'15-monitor composite severity'},
+      {method:'GET', path:'/api/alerts/composite', desc:'20-monitor composite severity'},
       {method:'GET', path:'/api/glossary', desc:'Definition glossary from code corpus'},
       {method:'GET', path:'/api/cross-refs/validate', desc:'Cross-reference validation'},
       {method:'GET', path:'/api/search/analytics', desc:'Search term analytics'},

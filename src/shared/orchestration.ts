@@ -3,6 +3,7 @@ import type { PipelineRunReport, PipelineStepReport, SourceHealth, SourceHealthS
 import { errorMessage, summarizeSourceHealth, writeJsonAtomic } from "./source_health.js";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { withinDeadline } from "./transport.js";
 
 export interface StepExecution<T> {
   value?: T;
@@ -14,20 +15,26 @@ export interface StepOptions<T> {
   itemCount?: (value: T) => number | undefined;
   outputPaths?: string[];
   metadata?: Record<string, unknown>;
+  receiptPath?: string;
+  timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 /** Execute one pipeline stage and retain a structured failure instead of losing the stage boundary. */
 export async function executePipelineStep<T>(
   name: string,
-  task: () => Promise<T>,
+  task: (signal: AbortSignal) => Promise<T>,
   options: StepOptions<T> = {},
 ): Promise<StepExecution<T>> {
   const startedAt = new Date().toISOString();
   const startedMs = Date.now();
+  if (options.receiptPath) await writeJsonAtomic(options.receiptPath, { name, status: "running", startedAt });
   try {
-    const value = await task();
+    const value = options.timeoutMs !== undefined
+      ? await withinDeadline(task, options.timeoutMs, options.signal)
+      : await task(options.signal ?? new AbortController().signal);
     const completedAt = new Date().toISOString();
-    return {
+    const execution: StepExecution<T> = {
       value,
       report: {
         name,
@@ -40,9 +47,11 @@ export async function executePipelineStep<T>(
         ...(options.metadata ? { metadata: options.metadata } : {}),
       },
     };
+    if (options.receiptPath) await writeJsonAtomic(options.receiptPath, execution.report);
+    return execution;
   } catch (error: unknown) {
     const completedAt = new Date().toISOString();
-    return {
+    const execution: StepExecution<T> = {
       report: {
         name,
         status: "failed",
@@ -54,12 +63,14 @@ export async function executePipelineStep<T>(
         error: errorMessage(error),
       },
     };
+    if (options.receiptPath) await writeJsonAtomic(options.receiptPath, execution.report);
+    return execution;
   }
 }
 
 export function createRunId(pipeline: string, startedAt = new Date().toISOString()): string {
   const stamp = startedAt.replace(/[-:.TZ]/g, "").slice(0, 14);
-  return `${pipeline.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${stamp}-${process.pid}`;
+  return `${pipeline.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${stamp}-${process.pid}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 function gitCommit(): string | null {
@@ -78,12 +89,11 @@ function gitCommit(): string | null {
 }
 
 /**
- * The shipped version, read from package.json rather than typed here. The
- * literal fallback said 2.5.1 while the package was at 2.6.0, so every pipeline
- * run reported a version the code had not been for two releases — a value
- * presented to a reader as fact and quietly invented.
+ * Read the shipped package version without running Git. An unreadable manifest
+ * yields an explicit unknown version; caller-specific overrides stay with the
+ * caller.
  */
-function packageVersion(): string {
+export function packageVersion(): string {
   try {
     const manifest = JSON.parse(readFileSync(join(import.meta.dir, "..", "..", "package.json"), "utf-8")) as { version?: string };
     if (typeof manifest.version === "string" && manifest.version.length > 0) return manifest.version;

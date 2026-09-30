@@ -1,166 +1,72 @@
-// 50-chat.js — RAG chat: model picker helpers, streaming send with AbortController, history.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
-    /** The model the picker has selected, or "" for the server default. */
-    function chatSelectedModel() {
-      const select = document.getElementById("chat-model");
-      return select && select.value ? select.value : "";
+// Chat controller depends explicitly on CCGui transport/rendering and core refs.
+function chatSelectedModel() { return document.getElementById("chat-model")?.value || ""; }
+function chatRequestBody(msg, history = chatHistory.slice(-6)) {
+  const body = { q: msg, history }; const model = chatSelectedModel();
+  if (model) body.model = model;
+  return body;
+}
+function appendChatSources(container, sources) {
+  if (!Array.isArray(sources) || !sources.length) return;
+  const details = document.createElement("details"); details.className = "chat-sources";
+  const summary = document.createElement("summary"); summary.textContent = `${sources.length} retrieved source records`; details.appendChild(summary);
+  for (const source of sources) {
+    const button = document.createElement("button"); button.type = "button"; button.className = "chat-source";
+    button.textContent = `${source.sectionNumber || source.timestamp || "Source"} — ${source.sectionTitle || "Retrieved record"}`;
+    if (source.sourceType === "youtube_transcript") {
+      button.addEventListener("click", () => { if (/^[a-zA-Z0-9_-]{11}$/.test(source.videoId)) window.open(`https://www.youtube.com/watch?v=${source.videoId}`, "_blank", "noopener,noreferrer"); });
+    } else button.addEventListener("click", () => loadSection(source.sectionGuid));
+    details.appendChild(button);
+  }
+  container.appendChild(details);
+}
+async function sendChat() {
+  const msg = chatInput.value.trim(); if (!msg) return;
+  activeChatController?.abort();
+  const controller = new AbortController(), body = chatRequestBody(msg);
+  activeChatController = controller; chatCancel.disabled = false; chatInput.value = "";
+  const user = document.createElement("div"); user.className = "chat-msg user"; user.textContent = msg; chatMessages.appendChild(user);
+  const bot = document.createElement("div"); bot.className = "chat-msg assistant";
+  const answer = document.createElement("div"), status = document.createElement("p");
+  status.className = "chat-status"; status.textContent = "Retrieving sources and preparing a response…";
+  bot.append(answer, status); chatMessages.appendChild(bot);
+  let text = "", sources = [], successful = false;
+  try {
+    let response = await apiFetch("/api/chat/stream", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: controller.signal });
+    if ([404, 405, 501].includes(response.status)) {
+      // Capability fallback occurs before an accepted stream and preserves history.
+      response = await apiFetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: controller.signal });
+      const result = await response.json();
+      if (!response.ok || result.error) throw new Error("The chat helper could not complete this response.");
+      text = result.answer || "No answer was returned."; sources = result.sources || [];
+      successful = !!result.answer && result.evidence?.disposition !== "abstained";
+      answer.innerHTML = CCGui.markdown(text);
+      status.textContent = successful ? "Generated response. Citation identity is checked; factual support has not been independently verified." : "Insufficient evidence; no successful conversation turn was retained.";
+    } else {
+      if (!response.ok || !response.headers.get("Content-Type")?.includes("text/event-stream")) throw new Error("The chat helper could not start this response.");
+      const terminal = await CCGui.consumeSse(response, (event, payload) => {
+        if (event === "sources") sources = payload;
+        if (event === "token") { text += payload.token || ""; answer.innerHTML = CCGui.markdown(text); status.textContent = "Provisional response; waiting for completion."; }
+      });
+      if (terminal.name === "error") throw new Error(terminal.payload.status === "cancelled" ? "Request cancelled." : "The chat helper could not complete this response.");
+      const result = terminal.payload;
+      if (!["complete", "abstained"].includes(result.status) || typeof result.answer !== "string") throw new Error("Incomplete chat receipt.");
+      text = result.answer; sources = result.sources || sources;
+      answer.innerHTML = CCGui.markdown(text); successful = result.status === "complete";
+      status.textContent = successful ? "Generated response. Citation identity is checked; factual support has not been independently verified." : "Insufficient evidence; no successful conversation turn was retained.";
     }
-
-    /** Chat request body; `model` is omitted entirely when using the default. */
-    function chatRequestBody(msg) {
-      const body = { q: msg, history: chatHistory };
-      const model = chatSelectedModel();
-      if (model) body.model = model;
-      return body;
+    appendChatSources(bot, sources);
+    if (successful && activeChatController === controller && !controller.signal.aborted) {
+      chatHistory.push({ role: "user", content: msg }, { role: "assistant", content: text });
+      if (chatHistory.length > 6) chatHistory.splice(0, chatHistory.length - 6);
     }
-
-    // Chat send
-    async function sendChat() {
-      const msg = chatInput.value.trim();
-      if (!msg) return;
-      activeChatController?.abort();
-      activeChatController = new AbortController();
-      chatCancel.disabled = false;
-      chatInput.value = "";
-
-      const userDiv = document.createElement("div");
-      userDiv.className = "chat-msg user";
-      userDiv.textContent = msg;
-      chatMessages.appendChild(userDiv);
-      chatHistory.push({ role: "user", content: msg });
-
-      // Show streaming assistant message
-      const botDiv = document.createElement("div");
-      botDiv.className = "chat-msg assistant";
-      const answerText = document.createElement("div");
-      answerText.innerHTML = '<span style="color:var(--text-secondary)">⏳ Thinking...</span>';
-      botDiv.appendChild(answerText);
-      chatMessages.appendChild(botDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-
-      // Try SSE streaming first, fall back to regular /api/chat
-      try {
-        const resp = await apiFetch('/api/chat/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(chatRequestBody(msg)),
-          signal: activeChatController.signal,
-        });
-
-        if (resp.ok && resp.headers.get('Content-Type')?.includes('text/event-stream')) {
-          // SSE streaming
-          const reader = resp.body.getReader();
-          const decoder = new TextDecoder();
-          let fullAnswer = '';
-          let buffer = '';
-          let sourcesHtml = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() ?? '';
-
-            for (const line of lines) {
-              if (line.startsWith('event: sources')) {
-                // Next data line has sources
-              } else if (line.startsWith('event: token')) {
-                // Next data line has token
-              } else if (line.startsWith('data: ')) {
-                try {
-                  const payload = JSON.parse(line.substring(6));
-                  if (payload.token) {
-                    fullAnswer += payload.token;
-                    answerText.innerHTML = marked.parse(fullAnswer);
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                  }
-                  if (payload.sources) {
-                    sourcesHtml = '<div class="chat-sources"><strong>Sources:</strong> ' +
-                      payload.sources.map(s => `<span class="chat-source">§ ${s.sectionNumber}</span>`).join(' ') +
-                      '</div>';
-                  }
-                  if (payload.answer) {
-                    fullAnswer = payload.answer;
-                    answerText.innerHTML = marked.parse(fullAnswer);
-                  }
-                  if (payload.sources && Array.isArray(payload.sources)) {
-                    sourcesHtml = '<div class="chat-sources"><strong>Sources:</strong> ' +
-                      payload.sources.map(s => `<span class="chat-source">§ ${s.sectionNumber}</span>`).join(' ') +
-                      '</div>';
-                  }
-                } catch { /* skip malformed */ }
-              }
-            }
-          }
-          if (sourcesHtml) botDiv.insertAdjacentHTML('beforeend', sourcesHtml);
-          chatHistory.push({ role: "assistant", content: fullAnswer });
-          chatCancel.disabled = true;
-          activeChatController = null;
-          return;
-        }
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          answerText.innerHTML = '<span style="color:var(--text-secondary)">Cancelled.</span>';
-          chatCancel.disabled = true;
-          activeChatController = null;
-          return;
-        }
-        /* fall through to regular chat */
-      }
-
-      // Fallback: regular /api/chat
-      answerText.innerHTML = '<span style="color:var(--text-secondary)">⏳ Thinking...</span>';
-      try {
-        const selectedModel = chatSelectedModel();
-        const modelParam = selectedModel ? `&model=${encodeURIComponent(selectedModel)}` : "";
-        const resp = await apiFetch(`/api/chat?q=${encodeURIComponent(msg)}${modelParam}`, { signal: activeChatController.signal });
-        const data = await resp.json();
-
-        if (data.error) {
-          answerText.innerHTML = `<span style="color:#f97316">${data.error}</span>`;
-        } else {
-          answerText.innerHTML = marked.parse(data.answer || "No answer was returned.");
-          if (data.answer) chatHistory.push({ role: "assistant", content: data.answer });
-          if (data.sources && data.sources.length > 0) {
-            const sourcesDiv = document.createElement("details");
-            sourcesDiv.className = "chat-sources";
-            const summary = document.createElement("summary");
-            summary.textContent = `📚 ${data.sources.length} source${data.sources.length > 1 ? "s" : ""} cited`;
-            sourcesDiv.appendChild(summary);
-            for (const src of data.sources) {
-              const srcDiv = document.createElement("div");
-              srcDiv.className = "chat-source";
-              // Link to section
-              srcDiv.innerHTML = `<span class="score">${(src.score * 100).toFixed(0)}%</span> 
-                <a href="#" onclick="loadSection('${src.sectionGuid}'); return false;">
-                  ${escapeHtml(src.sectionNumber)} — ${escapeHtml(src.sectionTitle)}
-                </a>`;
-              sourcesDiv.appendChild(srcDiv);
-            }
-            botDiv.appendChild(sourcesDiv);
-          }
-
-          chatMessages.appendChild(botDiv);
-        }
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          answerText.innerHTML = '<span style="color:var(--text-secondary)">Cancelled.</span>';
-          return;
-        }
-        const errDiv = document.createElement("div");
-        errDiv.className = "chat-msg system";
-        errDiv.textContent = "Could not reach the chat helper. Check that the optional AI service is running.";
-        chatMessages.appendChild(errDiv);
-      }
-      chatCancel.disabled = true;
-      activeChatController = null;
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    document.getElementById("chat-send").addEventListener("click", sendChat);
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") sendChat();
-    });
+  } catch (error) {
+    status.textContent = controller.signal.aborted ? "Cancelled. Any partial response is incomplete." : `${error.message || "Response failed."} Any partial response is incomplete.`;
+    appendChatSources(bot, sources);
+  } finally {
+    if (activeChatController === controller) { chatCancel.disabled = true; activeChatController = null; }
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+}
+document.getElementById("chat-send").addEventListener("click", sendChat);
+chatInput.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); sendChat(); } });
+window.addEventListener("pagehide", () => activeChatController?.abort());

@@ -2,20 +2,20 @@
 /**
  * Del Norte Triplicate (triplicate.com) source connector.
  *
- * The Triplicate has NO public RSS feed and sits behind Cloudflare (a plain
- * `fetch`/`curl` returns HTTP 403). So this monitor drives the project's
- * existing Playwright + Cloudflare-bypass browser layer (src/browser.ts) to
- * render each section listing page, then extracts article links + titles with
- * cheerio. It deduplicates by normalized article URL through the shared
- * IdempotencyStore and persists new items under output/triplicate/.
+ * The site's public RSS listing is collected separately by news_monitor.ts.
+ * This deep reference connector renders section listings through the shared
+ * Playwright browser layer, extracts article links/titles with cheerio, and
+ * optionally enriches articles through bounded __data.json requests. It
+ * deduplicates by normalized article URL through the shared IdempotencyStore
+ * and persists reference records under the selected output/triplicate/ root.
  *
  * ─── ROBOTS.TXT / AI-USAGE POLICY — READ BEFORE CONSUMING THIS CONTENT ──────
  * triplicate.com's robots.txt permits general indexing ("search") and declares
  * a default "reference" mode for AI input, but DISALLOWS AI-training use of its
  * content. Binding, practical implication for this codebase:
- *   Triplicate article content collected here may be used ONLY for
- *   retrieval-with-citation (e.g. a RAG chat that cites the source). It must
- *   NEVER be used as fine-tuning / training input for any model.
+ *   Triplicate records are retained for source references and citations only.
+ *   Project consumers exclude them from LLM curation, prompts, embeddings,
+ *   training inputs and public article-content export.
  * Every stored record carries `usagePolicy = TRIPLICATE_USAGE_POLICY` and every
  * downstream indexer/consumer MUST honor it. The same note is repeated inline
  * at the exact points where article content is extracted and persisted.
@@ -29,23 +29,30 @@ import * as cheerio from 'cheerio';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { createLogger } from './logger.js';
-import { newPage, navigateWithCloudflare, closeBrowser } from './browser.js';
+import { newPage, navigateWithCloudflare, closeBrowser, withPageDeadline, closePageBounded } from './browser.js';
+import { boundedHttpFetch as fetch } from './shared/transport.js';
 import { withRetry, detectCloudflareStall } from './scraper_utils.js';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { normalizeUrl } from './news_monitor.js';
 import { SCRAPE_TIMEOUT_MS } from './constants.js';
 import { paths } from './shared/paths.js';
 import { sourceHealth, writeJsonAtomic } from './shared/source_health.js';
+import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
 import { outputRoot } from './shared/paths.js';
 
 const logger = createLogger('triplicate_monitor');
 
+function triplicateSourceHealth(...args: Parameters<typeof sourceHealth>): SourceHealth {
+  const [name, status, checkedAt, details] = args;
+  return sourceHealth(name, status, checkedAt, { ...details, sourceId: sourceIdForMonitor('triplicate:deep-content') });
+}
+
 /**
  * Binding, machine-visible AI-usage tag stamped on every stored Triplicate
- * record. See the robots.txt / AI-usage policy block at the top of this file:
- * Triplicate content is reference/citation (RAG) input ONLY and must never be
- * used to train or fine-tune any model. Downstream indexers MUST honor this.
+ * record. See the project policy block above: downstream consumers must retain
+ * the reference/citation-only boundary and exclude article content from LLM
+ * prompts, embeddings, curation, training and public article-content export.
  */
 export const TRIPLICATE_USAGE_POLICY =
   'reference-citation-only; NEVER AI-training input' as const;
@@ -62,11 +69,11 @@ export const TRIPLICATE_SECTIONS: Record<string, string> = {
   News: 'https://www.triplicate.com/news/',
 };
 
-const TRIPLICATE_OUTPUT_DIR = join(outputRoot(), 'triplicate');
+const triplicateOutputDir = () => join(outputRoot(), 'triplicate');
 /** Persistent dedup index — normalized article URL keys, survives restarts.
  * Lives under output/state/, NOT output/triplicate/, so it never collides
  * with a listing of the batch article-output files. */
-const SEEN_ARTICLES_PATH = join(process.cwd(), 'output', 'state', 'triplicate-seen-articles.json');
+const seenArticlesPath = () => join(outputRoot(), 'state', 'triplicate-seen-articles.json');
 
 /** Minimum link-text length for a candidate to be treated as a real headline. */
 const MIN_TITLE_LEN = 15;
@@ -96,7 +103,7 @@ export interface TriplicateArticle {
   link: string;
   section: string;
   fetchedAt: string;
-  /** Binding AI-usage restriction — reference/citation (RAG) only, never training. */
+  /** Binding AI-usage restriction — reference/citation only; excluded from LLM and training inputs. */
   usagePolicy: typeof TRIPLICATE_USAGE_POLICY;
 }
 
@@ -137,9 +144,9 @@ export function isLikelyArticleUrl(u: URL): boolean {
 /**
  * Pure: parse rendered HTML and return the article links + titles found on it.
  *
- * AI-USAGE: the article text/links extracted here are reference/citation (RAG)
- * input ONLY — never training/fine-tuning input. See the file header and
- * TRIPLICATE_USAGE_POLICY. Callers that index this output MUST honor that.
+ * AI-USAGE: the article text/links are reference/citation-only records.
+ * LLM curation, prompts, embeddings, training and public body export are
+ * excluded. See the file header and TRIPLICATE_USAGE_POLICY.
  *
  * Relative hrefs are resolved against `pageUrl`; off-site, asset, and
  * non-article links are dropped; duplicates (by normalized URL) are collapsed.
@@ -185,6 +192,7 @@ async function fetchRenderedHtml(url: string): Promise<string> {
   const page = await newPage();
   const startedAt = Date.now();
   try {
+    return await withPageDeadline(page, async () => {
     await navigateWithCloudflare(page, url);
     // Belt-and-suspenders: navigateWithCloudflare enforces its own timeout, but
     // an over-budget elapsed time is treated as a stuck Turnstile challenge.
@@ -194,14 +202,11 @@ async function fetchRenderedHtml(url: string): Promise<string> {
       );
     }
     return await page.content();
+    }, SCRAPE_TIMEOUT_MS);
   } finally {
     // Best-effort close; the page may already be gone. Nothing to recover here,
     // so the failure is intentionally swallowed rather than masking a real error.
-    try {
-      await page.close();
-    } catch {
-      /* page already closed */
-    }
+    await closePageBounded(page);
   }
 }
 
@@ -260,8 +265,8 @@ async function fetchSection(
 // The 2025 Cloudflare block is gone and the site is now a SvelteKit app that
 // ships machine-readable data: every article has /news/{uuid}/__data.json with
 // headline, released_at, byline, and body_html. The reference-citation-only
-// usage policy is unchanged: article bodies are stored for retrieval-with-
-// citation and are NEVER AI-training input.
+// usage policy is unchanged: article bodies remain reference/citation-only;
+// LLM prompts, curation, embeddings, training and public body export are excluded.
 export const TRIPLICATE_RSS_URL = 'https://www.triplicate.com/rss.xml';
 
 export interface TriplicateDeepArticle {
@@ -371,7 +376,7 @@ export async function fetchTriplicateArticleContent(
   if (!match) return null;
   const [, section, uuid] = match;
   try {
-    // AI-USAGE: body text is stored as citation/retrieval input only.
+    // AI-USAGE: body text is a local reference/citation record, excluded from LLM inputs.
     const raw = await fetchText(`https://www.triplicate.com/${section}/${uuid}/__data.json`);
     const nodes = articleNodeData(raw);
     if (!nodes) return null;
@@ -402,7 +407,7 @@ export async function fetchTriplicateArticleContent(
 
 export async function saveTriplicateArticles(
   articles: TriplicateArticle[],
-  outputDir: string = TRIPLICATE_OUTPUT_DIR,
+  outputDir: string = triplicateOutputDir(),
 ): Promise<string> {
   await mkdir(outputDir, { recursive: true });
 
@@ -411,8 +416,8 @@ export async function saveTriplicateArticles(
 
   const payload = {
     fetchedAt: new Date().toISOString(),
-    // AI-USAGE POLICY: this content is reference/citation (RAG) input ONLY and
-    // must NEVER be used as fine-tuning/training input for any model.
+    // Reference/citation-only records are excluded from LLM prompts, curation,
+    // embeddings, training and public article-content export.
     usagePolicy: TRIPLICATE_USAGE_POLICY,
     totalItems: articles.length,
     items: articles,
@@ -458,9 +463,9 @@ export async function monitorTriplicate(
   opts: MonitorTriplicateOptions = {},
 ): Promise<TriplicateArticle[]> {
   const fetchHtml = opts.fetchHtml ?? fetchRenderedHtml;
-  const seenPath = opts.seenPath ?? SEEN_ARTICLES_PATH;
+  const seenPath = opts.seenPath ?? seenArticlesPath();
   const sections = opts.sections ?? TRIPLICATE_SECTIONS;
-  const outputDir = opts.outputDir ?? TRIPLICATE_OUTPUT_DIR;
+  const outputDir = opts.outputDir ?? triplicateOutputDir();
   const healthPath = opts.healthPath ?? paths.triplicateHealth;
   const maxRetries = opts.retry?.maxRetries ?? 2;
   const baseDelayMs = opts.retry?.baseDelayMs ?? 2000;
@@ -487,7 +492,7 @@ export async function monitorTriplicate(
     totalExtracted += outcome.articles.length;
 
     for (const article of outcome.articles) {
-      // AI-USAGE: reference/citation (RAG) only — never training input. The
+      // AI-USAGE: reference/citation only; excluded from LLM inputs. The
       // usagePolicy tag rides along on every record for downstream consumers.
       const key = normalizeUrl(article.link);
       const { isNew } = store.seen(key, '', {
@@ -535,20 +540,20 @@ export async function monitorTriplicate(
   }
 
   const health: SourceHealth = !anyFetchSucceeded && anyFetchFailed
-    ? sourceHealth('Del Norte Triplicate deep content', 'unavailable', fetchedAt, {
+    ? triplicateSourceHealth('Del Norte Triplicate deep content', 'unavailable', fetchedAt, {
       url: Object.values(sections)[0],
       itemCount: 0,
       error: 'Every configured section failed to render',
       provenance: 'Playwright Cloudflare-bypass rendered pages',
     })
     : totalExtracted === 0
-      ? sourceHealth('Del Norte Triplicate deep content', 'stale', fetchedAt, {
+      ? triplicateSourceHealth('Del Norte Triplicate deep content', 'stale', fetchedAt, {
         url: Object.values(sections)[0],
         itemCount: 0,
         error: 'Rendered pages yielded no article links; selectors or layout may have changed',
         provenance: 'Playwright Cloudflare-bypass rendered pages',
       })
-      : sourceHealth('Del Norte Triplicate deep content', anyFetchFailed ? 'stale' : 'ok', fetchedAt, {
+      : triplicateSourceHealth('Del Norte Triplicate deep content', anyFetchFailed ? 'stale' : 'ok', fetchedAt, {
         url: Object.values(sections)[0],
         fetchedAt,
         itemCount: totalExtracted,

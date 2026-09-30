@@ -1,19 +1,18 @@
 /**
  * Documented numbers must match the code that produces them.
  *
- * Every count in README.md, AGENTS.md and docs/** is hand-typed with no
- * generator, so each one is a claim that decays silently: the monitor family
- * grew 8 → 13 and the docs still said 8 in six places, the version moved
- * 2.5.1 → 2.6.0 and four places still said 2.5.1, the domain list grew 6 → 12
- * and the README's own sample output still said 6. A reader cannot tell a stale
- * number from a current one, which makes every number in the docs worth less.
+ * Handwritten roster, version, and module claims must remain in sync with their
+ * canonical runtime definitions. Full paths distinguish equal basenames in
+ * different directories; structural YAML checks ignore serialization layout.
  *
  * These assertions read both sides — the doc and the source of truth — so the
  * next drift fails the gate instead of aging quietly in the prose.
  */
 import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { join, relative } from "path";
+import { MONITOR_KEYS } from "../src/alerts/composite.ts";
+import { documentedSourcePaths } from "../src/doc_inventory.ts";
 
 const root = process.cwd();
 const read = (relative: string): string => readFileSync(join(root, relative), "utf8");
@@ -24,7 +23,7 @@ describe("documented version numbers match the shipped version", () => {
   const version = (JSON.parse(read("package.json")) as { version: string }).version;
 
   test("openapi.yaml declares the package version", () => {
-    expect(read("openapi.yaml")).toContain(`  version: ${version}`);
+    expect((Bun.YAML.parse(read("openapi.yaml")) as { info: { version: string } }).info.version).toBe(version);
   });
 
   test("no doc quotes a different spec version", () => {
@@ -42,11 +41,7 @@ describe("documented version numbers match the shipped version", () => {
 
 describe("documented inventories match the code", () => {
   test("the monitor count the docs quote matches the runner's batch", () => {
-    // The runner is the source of truth: it logs the count it runs.
-    const runner = read("scripts/run-alerts.ts");
-    const declared = /Running All (\d+) Alert Monitors/.exec(runner);
-    expect(declared).not.toBeNull();
-    const monitorCount = Number(declared![1]);
+    const monitorCount = MONITOR_KEYS.length;
 
     const stale: string[] = [];
     for (const file of DOC_FILES) {
@@ -61,16 +56,9 @@ describe("documented inventories match the code", () => {
 
   test("the composite severity really takes the number of inputs the docs claim", async () => {
     const { computeAlertSeverity } = await import("../src/alerts/severity.ts");
-    const runner = read("scripts/run-alerts.ts");
-    const monitorCount = Number(/Running All (\d+) Alert Monitors/.exec(runner)![1]);
-    // The claim "13-monitor composite" is only true if the function accepts 13
-    // inputs AND the runner passes them; length counts required parameters, so
-    // check the call site too.
-    expect(computeAlertSeverity.length).toBeLessThanOrEqual(monitorCount);
-    const callSite = /computeAlertSeverity\(([\s\S]*?)\n\s*\);/.exec(runner);
-    expect(callSite).not.toBeNull();
-    const argumentCount = callSite![1]!.split(",").filter(part => part.trim().length > 0).length;
-    expect(`composite inputs passed: ${argumentCount}`).toBe(`composite inputs passed: ${monitorCount}`);
+    const { SEVERITY_MONITOR_KEYS } = await import("../src/alerts/severity.ts");
+    expect(MONITOR_KEYS.length).toBeGreaterThan(0);
+    expect(SEVERITY_MONITOR_KEYS.map(key => key.toLowerCase()).sort()).toEqual([...MONITOR_KEYS].sort());
   });
 
   test("the domain count in the README sample matches src/domains.ts", async () => {
@@ -106,27 +94,24 @@ describe("documented inventories match the code", () => {
     expect(`documented modules that do not exist: ${JSON.stringify(missing)}`).toBe("documented modules that do not exist: []");
   });
 
-  test("every module under src/ appears in the AGENTS.md architecture tree", () => {
-    // The check above runs documentation -> code. It cannot catch the drift that
-    // actually happened: 34 of 87 src modules had accumulated with no entry in
-    // the tree at all, including whole families (the five Phase-12 monitors, the
-    // alert healer, the OpenRouter client). AGENTS.md claims to be the
-    // architecture map an agent reads first, so an unlisted module is a claim
-    // that it does not exist.
-    //
-    // Deliberately generic: the assertion is "no src module is absent", not a
-    // list of the modules that were absent once — a guard naming its own past
-    // violations catches nothing new.
-    const listed = new Set([...read("AGENTS.md").matchAll(/^\s*([a-z_0-9]+\.ts)\s+#/gm)].map(match => match[1]!));
+  test("every full source path appears in the architecture tree", () => {
+    const listed = documentedSourcePaths(read("AGENTS.md"));
     const sources: string[] = [];
     const walk = (directory: string): void => {
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
-        if (entry.isDirectory()) walk(join(directory, entry.name));
-        else if (entry.name.endsWith(".ts")) sources.push(entry.name);
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) walk(path);
+        else if (entry.name.endsWith(".ts")) sources.push(relative(root, path));
       }
     };
     walk(join(root, "src"));
-    const undocumented = [...new Set(sources)].filter(name => !listed.has(name)).sort();
-    expect(`src modules absent from the AGENTS.md tree: ${JSON.stringify(undocumented)}`).toBe("src modules absent from the AGENTS.md tree: []");
+    expect(sources.filter(path => !listed.has(path)).sort()).toEqual([]);
+    expect([...listed].filter(path => !sources.includes(path)).sort()).toEqual([]);
+  });
+
+  test("equal basenames in different directories remain independent inventory entries", () => {
+    const listed = documentedSourcePaths("```\nsrc/ # root\napi/ # api\n  index.ts # API\nllm/ # llm\n  index.ts # LLM\nscripts/ # scripts\n``` ");
+    expect([...listed]).toEqual(["src/api/index.ts", "src/llm/index.ts"]);
+    expect(listed.has("src/gui/index.ts")).toBe(false);
   });
 });

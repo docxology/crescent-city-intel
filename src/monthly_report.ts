@@ -20,7 +20,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createLogger } from './logger.js';
 import { domains } from './domains.js';
-import { paths } from './shared/paths.js';
+import { paths, outputRoot } from './shared/paths.js';
 import { completeSourceHealth, isIsoTimestamp, summarizeSourceHealth, writeJsonAtomic, writeTextAtomic } from './shared/source_health.js';
 import { buildSourceDiscoveryReport, getSourceRegistry } from './source_registry.js';
 import { isActiveNewsSource } from './news_monitor.js';
@@ -33,7 +33,7 @@ import type { MonthlyReportMetadata, SourceHealth } from './types.js';
 
 const logger = createLogger('monthly-report');
 
-const REPORTS_DIR = paths.reports;
+function reportsDir(): string { return paths.reports; }
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ function readBatchItems(dir: string, month: string, include: (item: any) => bool
 
 /** Format a magnitude as M4.2 */
 const fmtMag = (m: number) => `M${m.toFixed(1)}`;
-// ─── Meeting votes + agenda/minutes document drift (TODO Phase 4.2) ──
+// ─── Meeting votes + agenda/minutes document drift ──────────────────
 
 /** Runtime shape guard for untrusted JSON: object (not array) or null. */
 const asRecord = (value: unknown): Record<string, unknown> | null =>
@@ -364,10 +364,10 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   logger.info(`Generating monthly civic health report for ${monthLabel}`, { month });
 
   // ── Load data sources ──────────────────────────────────────────
-  const manifestPath = join(process.cwd(), 'output', 'manifest.json');
+  const manifestPath = join(outputRoot(), 'manifest.json');
   const manifest = readJson(manifestPath);
 
-  const readabilityPath = join(process.cwd(), 'output', 'readability.json');
+  const readabilityPath = join(outputRoot(), 'readability.json');
   const readability = readJson(readabilityPath);
 
   const periodItems = (label: string, records: any[]): any[] => {
@@ -377,14 +377,14 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
     }
     return result.items;
   };
-  const earthquakes = periodItems('Earthquake history', readJsonl(join(process.cwd(), 'output', 'alerts', 'earthquake', 'history.jsonl')));
-  const weather = periodItems('Weather history', readJsonl(join(process.cwd(), 'output', 'alerts', 'weather', 'history.jsonl')));
-  const tsunami = periodItems('Tsunami history', readJsonl(join(process.cwd(), 'output', 'alerts', 'tsunami', 'history.jsonl')));
-  const airquality = periodItems('Air-quality history', readJsonl(join(process.cwd(), 'output', 'alerts', 'airquality', 'history.jsonl')));
-  const wildfire = periodItems('Wildfire history', readJsonl(join(process.cwd(), 'output', 'alerts', 'wildfire', 'history.jsonl')));
-  const marine = periodItems('Marine history', readJsonl(join(process.cwd(), 'output', 'alerts', 'marine', 'history.jsonl')));
-  const tides = periodItems('Tide history', readJsonl(join(process.cwd(), 'output', 'tides', 'history.jsonl')));
-  const fishing = periodItems('Fishing history', readJsonl(join(process.cwd(), 'output', 'fishing', 'history.jsonl')));
+  const earthquakes = periodItems('Earthquake history', readJsonl(join(outputRoot(), 'alerts', 'earthquake', 'history.jsonl')));
+  const weather = periodItems('Weather history', readJsonl(join(outputRoot(), 'alerts', 'weather', 'history.jsonl')));
+  const tsunami = periodItems('Tsunami history', readJsonl(join(outputRoot(), 'alerts', 'tsunami', 'history.jsonl')));
+  const airquality = periodItems('Air-quality history', readJsonl(join(outputRoot(), 'alerts', 'airquality', 'history.jsonl')));
+  const wildfire = periodItems('Wildfire history', readJsonl(join(outputRoot(), 'alerts', 'wildfire', 'history.jsonl')));
+  const marine = periodItems('Marine history', readJsonl(join(outputRoot(), 'alerts', 'marine', 'history.jsonl')));
+  const tides = periodItems('Tide history', readJsonl(join(outputRoot(), 'tides', 'history.jsonl')));
+  const fishing = periodItems('Fishing history', readJsonl(join(outputRoot(), 'fishing', 'history.jsonl')));
 
   const newsItems = readBatchItems(paths.news, month, item => isActiveNewsSource(item?.source));
   const meetingItems = readBatchItems(paths.govMeetings, month);
@@ -396,7 +396,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const youtubeHealth = readJson(paths.youtubeHealth);
   const triplicateHealth = readJson(paths.triplicateHealth);
 
-  const coveragePath = join(process.cwd(), 'output', 'domain-coverage.json');
+  const coveragePath = join(outputRoot(), 'domain-coverage.json');
   const coverage = readJson(coveragePath);
 
   const healthReports = [newsHealth, meetingHealth, youtubeHealth, triplicateHealth, readJson(paths.alertsHealth)];
@@ -729,8 +729,8 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   }
 
   // ── Write to file ────────────────────────────────────────────
-  const reportPath = join(REPORTS_DIR, `monthly-${month}.md`);
-  const metadataPath = join(REPORTS_DIR, `monthly-${month}.json`);
+  const reportPath = join(reportsDir(), `monthly-${month}.md`);
+  const metadataPath = join(reportsDir(), `monthly-${month}.json`);
   const reportStatus: MonthlyReportMetadata['status'] = !manifest ? 'unavailable' : 'ok';
   const metadata: MonthlyReportMetadata = {
     schemaVersion: '1.0.0',

@@ -22,7 +22,9 @@ import { mkdir } from 'fs/promises';
 import { join } from 'path';
 import { createLogger } from './logger.js';
 import { chatWithProvider, checkChatProvider } from './llm/provider.js';
+import { outputRoot } from './shared/paths.js';
 import { writeJsonAtomic } from './shared/source_health.js';
+import { redactUrl } from './shared/transport.js';
 
 const logger = createLogger('events');
 
@@ -48,6 +50,8 @@ export interface StructuredEvent {
   kind: EventKind;
   /** ISO yyyy-mm-dd, or null when no date was recorded in the source data. */
   dateStart: string | null;
+  /** Source publication/upload metadata; it never supplies an occurrence date. */
+  publicationAt?: string | null;
   dateAllDay: boolean;
   timeNote: string | null;
   location: string | null;
@@ -111,40 +115,53 @@ const NO_DATE_VALUES = /^(n\/?a|tbd|tba|none|unknown|null)$/i;
  * Parse an ISO yyyy-mm-dd date out of a raw feed value. Returns null for
  * empty, placeholder, or unparseable values — this function never guesses.
  */
-export function parseEventDate(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null;
-  const value = raw.trim();
-  if (NO_DATE_VALUES.test(value)) return null;
-  // ISO (or ISO-prefixed) form passes through directly.
-  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s]|$)/);
-  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-  // "Mar 18, 2026" / "March 18, 2026"
-  const namedMatch = value.match(/^([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$/);
-  if (namedMatch) {
-    const monthIndex = MONTH_NAMES.indexOf(namedMatch[1].toLowerCase());
-    if (monthIndex >= 0) {
-      const day = Number(namedMatch[2]);
-      const year = Number(namedMatch[3]);
-      if (day >= 1 && day <= 31 && year >= 1900 && year <= 9999) {
-        return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-      return null;
-    }
-  }
-  // Anything else Date.parse can accept (e.g. RFC 822 pubDate values).
-  const time = Date.parse(value);
-  if (!Number.isFinite(time)) return null;
-  return new Date(time).toISOString().slice(0, 10);
+export function isCivilDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
-
-/**
- * Classify an event by its parsed date: today-or-future is scheduled,
- * past is completed, and a missing date is unknown.
- */
-export function classify(dateStart: string | null): EventStatus {
-  if (dateStart === null) return 'unknown';
-  const today = new Date().toISOString().slice(0, 10);
-  return dateStart >= today ? 'scheduled' : 'completed';
+export function pacificDay(instant: Date = new Date()): string {
+  const parts = new Map(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(instant).map(part => [part.type, part.value]));
+  return `${parts.get("year")}-${parts.get("month")}-${parts.get("day")}`;
+}
+export function parseEventDate(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim(); if (!value || NO_DATE_VALUES.test(value)) return null;
+  if (/^\d{8}$/.test(value)) { const date = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`; return isCivilDate(date) ? date : null; }
+  const iso = value.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s]|$)/);
+  if (iso) {
+    if (!isCivilDate(iso[1]!)) return null;
+    if (value === iso[1]) return iso[1]!;
+    const clock = value.match(/^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/i);
+    if (!clock || Number(clock[1]) > 23 || Number(clock[2]) > 59 || Number(clock[3] ?? 0) > 59) return null;
+    if (/T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) {
+      const instant = new Date(value); return Number.isFinite(instant.getTime()) ? pacificDay(instant) : null;
+    }
+    return iso[1]!;
+  }
+  const numeric = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (numeric) { const date = `${numeric[3]}-${numeric[1]!.padStart(2, "0")}-${numeric[2]!.padStart(2, "0")}`; return isCivilDate(date) ? date : null; }
+  const named = value.match(/^([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+  if (named) {
+    const month = MONTH_NAMES.findIndex(name => name.startsWith(named[1]!.toLowerCase()));
+    if (month < 0) return null;
+    const date = `${named[3]}-${String(month + 1).padStart(2, "0")}-${named[2]!.padStart(2, "0")}`;
+    return isCivilDate(date) ? date : null;
+  }
+  // RFC publication instants require an explicit offset/timezone and a valid source calendar day.
+  const rfc = value.match(/\b(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})\b/);
+  if (rfc && /(?:[+-]\d{4}|GMT|UTC)$/.test(value)) {
+    const month = MONTH_NAMES.findIndex(name => name.startsWith(rfc[2]!.toLowerCase()));
+    const day = `${rfc[3]}-${String(month + 1).padStart(2, "0")}-${rfc[1]!.padStart(2, "0")}`;
+    if (month < 0 || !isCivilDate(day)) return null;
+    const instant = new Date(value); return Number.isFinite(instant.getTime()) ? pacificDay(instant) : null;
+  }
+  return null;
+}
+/** Compare civil dates in Crescent City's timezone; no UTC-day guess at midnight. */
+export function classify(dateStart: string | null, now: Date = new Date()): EventStatus {
+  if (dateStart === null || !isCivilDate(dateStart)) return "unknown";
+  return dateStart >= pacificDay(now) ? "scheduled" : "completed";
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +192,7 @@ interface RawEventCandidate {
   sourceLinks: string[];
   kind: EventKind;
   dateStart: string | null;
+  publicationAt?: string | null;
   dateAllDay: boolean;
   timeNote: string | null;
   location: string | null;
@@ -260,12 +278,15 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
     link = `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId.trim())}`;
   }
   if (!title || !link || !/^https?:\/\//i.test(link)) return null;
+  try { const url = new URL(link); if (url.username || url.password || redactUrl(link) !== url.toString()) return null; } catch { return null; }
 
-  const rawDate = item.date ?? item.pubDate ?? item.uploadDate;
+  const rawDate = item.dateStart ?? item.startDate ?? item.eventStart ?? item.date;
   const dateStart = parseEventDate(rawDate);
-  // News items without a resolvable date stay visible as announcements in
-  // News but are excluded from the structured calendar.
-  if ((kind === 'civic-news' || kind === 'community-listing' || kind === 'holiday-closure') && dateStart === null) {
+  const published = item.publicationAt ?? item.publishedAt ?? item.pubDate ?? item.uploadDate;
+  const publicationAt = parseEventDate(published) ? str(published) : null;
+  // Publication metadata remains visible on undated notices, but ICS only emits
+  // explicitly dated occurrences. Completely undated news stays in its feed.
+  if ((kind === 'civic-news' || kind === 'community-listing' || kind === 'holiday-closure') && dateStart === null && publicationAt === null) {
     return null;
   }
 
@@ -280,6 +301,7 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
     sourceLinks: [link],
     kind,
     dateStart,
+    publicationAt,
     dateAllDay: true,
     timeNote: structuredTime ?? extractTimeNote(rawDateStr),
     location: str(item.location) || null,
@@ -379,8 +401,9 @@ function daysApart(a: string, b: string): number {
  * The body discriminator is what keeps a City Council meeting and a Harbor
  * District meeting that share a title and a day from collapsing into one.
  */
-export function dedupeKey(event: Pick<RawEventCandidate, 'title' | 'dateStart' | 'organizer'>): string {
-  return `${normalizedTitle(event.title)}::${event.dateStart ?? 'no-date'}::${bodyKey(event)}`;
+export function dedupeKey(event: Pick<RawEventCandidate, 'title' | 'dateStart' | 'organizer'> & { publicationAt?: string | null; link?: string }): string {
+  const unknownIdentity = event.publicationAt ? `published:${event.publicationAt}` : event.link ?? 'no-date';
+  return `${normalizedTitle(event.title)}::${event.dateStart ?? unknownIdentity}::${bodyKey(event)}`;
 }
 
 /** An exact pair is the same title on the same day — a proven identity, not a probable one. */
@@ -394,6 +417,8 @@ function isExactPair(a: RawEventCandidate, b: RawEventCandidate): boolean {
  * disagreement is tolerated only across different feeds.
  */
 function canMerge(existing: RawEventCandidate, candidate: RawEventCandidate): boolean {
+  if (existing.kind !== candidate.kind) return false;
+  if (existing.dateStart === null || candidate.dateStart === null) return existing.dateStart === candidate.dateStart && existing.link === candidate.link;
   if (!organizersCompatible(bodyKey(existing), bodyKey(candidate))) return false;
   if (!titlesMatch(existing.title, candidate.title)) return false;
   if (existing.dateStart === candidate.dateStart) return true;
@@ -429,6 +454,7 @@ function mergeInto(existing: RawEventCandidate, candidate: RawEventCandidate): v
   if (!existing.description) existing.description = candidate.description;
   if (!existing.timeNote) existing.timeNote = candidate.timeNote;
   if (existing.fetchedAt === null) existing.fetchedAt = candidate.fetchedAt;
+  if (!existing.publicationAt) existing.publicationAt = candidate.publicationAt;
 }
 
 /**
@@ -526,7 +552,7 @@ async function loadDiscoveryEvents(outputDir: string): Promise<Array<Record<stri
  * then undated ones by title — so the cap truncates the past, never the future,
  * and the calendar opens on what has not happened yet.
  */
-export async function collectEvents(outputDir = join(process.cwd(), 'output')): Promise<StructuredEvent[]> {
+export async function collectEvents(outputDir = outputRoot()): Promise<StructuredEvent[]> {
   const base = outputDir.replace(/\/+$/, '');
   const [meetingItems, newsItems, youtubeItems] = await Promise.all([
     loadItems(join(base, 'gov_meetings'), true),
@@ -536,7 +562,8 @@ export async function collectEvents(outputDir = join(process.cwd(), 'output')): 
 
   const candidates: RawEventCandidate[] = [];
   for (const item of meetingItems) {
-    const mapped = mapCandidate(item, kindFor('meetings', str(item.source)), 'Government meeting');
+    const grounded = item.recordKind === "meeting-document" && (item.dateEvidence !== "meeting-context" || item.occurrenceEligible !== true) ? { ...item, date: null, dateStart: null, startDate: null, eventStart: null } : item;
+    const mapped = mapCandidate(grounded, kindFor('meetings', str(item.source)), 'Government meeting');
     if (mapped) candidates.push(mapped);
   }
   // Discovered community-calendar events (event_discovery.ts) join the same
@@ -574,7 +601,7 @@ export async function collectEvents(outputDir = join(process.cwd(), 'output')): 
   // take the remainder. Sorting everything ascending and slicing at 200 —
   // what this used to do — spent the budget on months-old completed meetings
   // and dropped genuinely upcoming ones off the end.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = pacificDay();
   const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
   const upcoming = withStatus
     .filter(event => event.dateStart !== null && event.dateStart >= today)
@@ -590,11 +617,12 @@ export async function collectEvents(outputDir = join(process.cwd(), 'output')): 
     kept.push(...pool.slice(0, MAX_EVENTS - kept.length));
   }
 
-  return kept.map((candidate, index) => ({
-    id: `${slug(candidate.title) || 'event'}-${candidate.dateStart ?? 'undated'}-${String(index).padStart(3, '0')}`,
+  return kept.map(candidate => ({
+    id: `${slug(candidate.title) || 'event'}-${candidate.dateStart ?? 'undated'}-${new Bun.CryptoHasher("sha256").update(dedupeKey(candidate)).digest("hex").slice(0, 12)}`,
     title: candidate.title,
     kind: candidate.kind,
     dateStart: candidate.dateStart,
+    publicationAt: candidate.publicationAt ?? null,
     dateAllDay: candidate.dateAllDay,
     timeNote: candidate.timeNote,
     location: candidate.location,
@@ -869,10 +897,10 @@ export async function refreshEvents(argv: string[]): Promise<void> {
   }
   artifact.llm = llm;
 
-  const destination = join(process.cwd(), 'output', 'events', 'events.json');
-  await mkdir(join(process.cwd(), 'output', 'events'), { recursive: true });
+  const destination = join(outputRoot(), 'events', 'events.json');
+  await mkdir(join(outputRoot(), 'events'), { recursive: true });
   await writeJsonAtomic(destination, artifact);
-  const icsDestination = join(process.cwd(), 'output', 'events', 'events.ics');
+  const icsDestination = join(outputRoot(), 'events', 'events.ics');
   await Bun.write(icsDestination, buildEventsIcs(artifact.events, { stamp: generatedAt }));
   logger.info(`wrote ${artifact.count} events (${artifact.llm.status}${artifact.summaries ? `, ${Object.keys(artifact.summaries).length} summaries` : ''}) -> ${destination} + ${icsDestination}`);
 }

@@ -2,8 +2,9 @@
 /** GUI server — lightweight HTML viewer served by Bun.serve() */
 import { handleApiRoute } from "./routes.js";
 import { initSearch } from "./search.js";
+import { randomBytes } from "node:crypto";
 import { createLogger } from "../logger.js";
-import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp, recordRequestLog, resolveIp } from "../api/middleware.js";
+import { applyMiddleware, getPrimaryApiKey, isTrustedLocalIp, isTrustedProxyPeer, recordRequestLog, resolveIp } from "../api/middleware.js";
 
 const log = createLogger("gui");
 
@@ -41,7 +42,7 @@ export async function maybeCompress(res: Response, acceptEncoding: string | null
 }
 
 /**
- * Serve index.html, injecting the live API key ONLY for loopback/LAN
+ * Serve index.html, injecting the live API key ONLY for loopback
  * requesters so the page's own fetch() calls can authenticate.
  *
  * `socketIp` MUST be Bun's own `server.requestIP(req)` value — never
@@ -57,16 +58,15 @@ export async function maybeCompress(res: Response, acceptEncoding: string | null
  * so it's the only signal this decision may trust.
  *
  * The key is embedded in page source, visible via view-source/devtools to
- * anyone who loads the URL — fine for the same trust boundary the rate
- * limiter already grants local traffic, but a real key exposure if handed to
+ * anyone who loads the URL — limited to loopback peers, but a real key exposure if handed to
  * an arbitrary remote visitor on a publicly-deployed instance (this repo
  * ships a Dockerfile). A remote requester gets the placeholder left
  * unsubstituted, so `apiFetch()`'s `hasKey` check is false and it falls back
  * to an unauthenticated fetch — i.e. remote visitors see exactly the
  * pre-fix behavior (protected panels 401, public ones work), not a leaked key.
  */
-export async function serveIndexHtml(socketIp: string | undefined): Promise<Response> {
-  return serveStaticHtmlWithKey("index.html", socketIp);
+export async function serveIndexHtml(socketIp: string | undefined, request?: Request): Promise<Response> {
+  return serveStaticHtmlWithKey("index.html", socketIp, request);
 }
 
 /**
@@ -77,11 +77,19 @@ export async function serveIndexHtml(socketIp: string | undefined): Promise<Resp
  * requester gets the placeholder left unsubstituted — the page then shows
  * its explicit error/empty state instead of a leaked key.
  */
-export async function serveStaticHtmlWithKey(fileName: string, socketIp: string | undefined): Promise<Response> {
+export async function serveStaticHtmlWithKey(fileName: string, socketIp: string | undefined, request?: Request): Promise<Response> {
   const raw = await Bun.file(`${STATIC_DIR}${fileName}`).text();
-  const key = isTrustedLocalIp(socketIp ?? "unknown") ? getPrimaryApiKey() : "";
-  const html = raw.replace("__CC_API_KEY_INJECT__", key);
-  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  const hostname = request ? new URL(request.url).hostname.replace(/^\[|\]$/g, "") : "";
+  const viaProxy = isTrustedProxyPeer(socketIp) || !!request?.headers.has("x-forwarded-for") || !!request?.headers.has("x-real-ip") || !!request?.headers.has("forwarded");
+  const localHost = hostname === "localhost" || isTrustedLocalIp(hostname);
+  const key = isTrustedLocalIp(socketIp ?? "unknown") && localHost && !viaProxy ? getPrimaryApiKey() : "";
+  const nonce = randomBytes(24).toString("base64");
+  const escapedKey = JSON.stringify(key).slice(1, -1).replace(/</g, "\\u003c");
+  const html = raw.replace("__CC_API_KEY_INJECT__", escapedKey).replace(/<script\b/g, `<script nonce="${nonce}"`);
+  return new Response(html, { headers: {
+    "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`,
+  } });
 }
 
 // Guarded so importing this module (e.g. from a test, to reach
@@ -129,19 +137,20 @@ const server = Bun.serve({
 
     // Static files
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return serveIndexHtml(socketIp);
+      return serveIndexHtml(socketIp, req);
     }
     // Phase 14 pages — served like index.html so their panels get the
     // loopback API key injected (their endpoints are key-protected).
-    if (url.pathname === "/docs-dashboard.html") return serveStaticHtmlWithKey("docs-dashboard.html", socketIp);
-    if (url.pathname === "/structured-queries.html") return serveStaticHtmlWithKey("structured-queries.html", socketIp);
+    if (url.pathname === "/docs-dashboard.html") return serveStaticHtmlWithKey("docs-dashboard.html", socketIp, req);
+    if (url.pathname === "/structured-queries.html") return serveStaticHtmlWithKey("structured-queries.html", socketIp, req);
     // Phase 10 page — same loopback key injection: its panels call
     // key-protected endpoints and must show their error state, not a leaked key.
-    if (url.pathname === "/phase10-legal.html") return serveStaticHtmlWithKey("phase10-legal.html", socketIp);
+    if (url.pathname === "/phase10-legal.html") return serveStaticHtmlWithKey("phase10-legal.html", socketIp, req);
     // Sanitize pathname to prevent directory traversal (e.g. /../../../etc/passwd).
     // decodeURIComponent normalizes percent-encoded sequences like %2e%2e%2f → ../.
     // Then resolve relative to STATIC_DIR and require the result to stay within it.
-    const decoded = decodeURIComponent(url.pathname);
+    let decoded: string;
+    try { decoded = decodeURIComponent(url.pathname); } catch { return new Response("Invalid path", { status: 400 }); }
     if (decoded.includes("..")) {
       return new Response("Not Found", { status: 404 });
     }
@@ -152,7 +161,7 @@ const server = Bun.serve({
     }
 
     // SPA fallback
-    return serveIndexHtml(socketIp);
+    return serveIndexHtml(socketIp, req);
   },
   error(err) {
     // Catch EADDRINUSE (port already in use) and give a helpful message

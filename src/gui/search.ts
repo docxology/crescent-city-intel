@@ -21,29 +21,18 @@ import { stem } from "../shared/porter_stem.js";
 import { paths, outputRoot } from "../shared/paths.js";
 import { fuzzyCorrect } from "../shared/fuzzy.js";
 import { normalizeSectionNumber } from "../utils.js";
-import { appendFileSync, mkdirSync, existsSync } from "fs";
+import { privateReceipt } from "../llm/privacy.js";
 
 const logger = createLogger("search");
 
 // ─── Search query logging ──────────────────────────────────────────
 /**
- * Append one query to the analytics log. Exported and called by the HTTP
- * handlers only: while search() itself logged, every unit-level call appended a
- * fixture query to the real corpus with no cleanup, which both polluted the
- * analytics evidence and moved the fingerprint the overview reports.
+ * Record result-count metadata only when private diagnostics are explicitly
+ * enabled. HTTP handlers call this compatibility entry point; search() has no
+ * persistence side effects, and query text is never retained here.
  */
-export function logSearchQuery(query: string, resultCount: number): void {
-  try {
-    if (!existsSync(paths.output)) mkdirSync(paths.output, { recursive: true });
-    const entry = JSON.stringify({
-      ts: new Date().toISOString(),
-      query,
-      resultCount,
-    });
-    appendFileSync(paths.searchQueryLog, entry + "\n", "utf-8");
-  } catch {
-    // Non-fatal — search logging should never break search
-  }
+export function logSearchQuery(_query: string, resultCount: number): void {
+  void privateReceipt("search", { resultCount });
 }
 
 // ─── BM25 constants ───────────────────────────────────────────────
@@ -270,7 +259,8 @@ export async function reloadSearch(): Promise<void> {
 function bm25Score(
   terms: string[],
   sectionIdx: number,
-  bodyLen: number
+  bodyLen: number,
+  bodyOnly = false,
 ): number {
   const termMap = tfIndex[sectionIdx];
   let score = 0;
@@ -288,7 +278,7 @@ function bm25Score(
     // Title boost: treat title matches as 3× more relevant (added directly to score)
     const titleScore = idf * entry.titleTf * 3;
 
-    score += bodyScore + titleScore;
+    score += bodyScore + (bodyOnly ? 0 : titleScore);
   }
 
   return score;
@@ -366,12 +356,19 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
   const terms = queryTerms(query); // raw + stemmed union
   const rawQuery = query.trim();
+  const eligible = (section: FlatSection) => {
+    const number = normalizeSectionNumber(section.number);
+    if (titleFilter && !number.startsWith(titleFilter + ".") && !number.startsWith(titleFilter + " ")) return false;
+    const segments = number.split(".").length;
+    return typeFilter === "article" ? segments <= 2 : typeFilter === "section" ? segments >= 3 : true;
+  };
 
   // Field-level search: if field=number, only match section numbers
   if (field === "number") {
     const lowerQuery = rawQuery.toLowerCase();
     const scored: Array<{ idx: number; score: number }> = [];
     for (let i = 0; i < sections.length; i++) {
+      if (!eligible(sections[i])) continue;
       const num = normalizeSectionNumber(sections[i].number).toLowerCase();
       if (num.includes(lowerQuery) || num.startsWith(lowerQuery)) {
         scored.push({ idx: i, score: 20 });
@@ -392,6 +389,7 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
     const lowerQuery = rawQuery.toLowerCase();
     const scored: Array<{ idx: number; score: number }> = [];
     for (let i = 0; i < sections.length; i++) {
+      if (!eligible(sections[i])) continue;
       const title = sections[i].title.toLowerCase();
       if (title.includes(lowerQuery)) {
         scored.push({ idx: i, score: 10 });
@@ -411,6 +409,7 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
   for (let i = 0; i < sections.length; i++) {
     const section = sections[i];
+    if (!eligible(section)) continue;
 
     // Title filter (e.g., "8" matches sections like "§ 8.04.010")
     if (titleFilter) {
@@ -433,9 +432,9 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
     // Heavy boost for section number prefix match
     const numberClean = normalizeSectionNumber(section.number).toLowerCase();
-    let score = bm25Score(terms, i, bodyLengths[i] ?? 0);
+    let score = bm25Score(terms, i, bodyLengths[i] ?? 0, field === "text");
 
-    if (numberClean.startsWith(rawQuery.toLowerCase())) score += 20;
+    if (field !== "text" && numberClean.startsWith(rawQuery.toLowerCase())) score += 20;
 
     if (score > 0) scored.push({ idx: i, score });
   }
@@ -469,8 +468,6 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
       const queryWords = rawQuery.split(/\s+/).filter(Boolean);
       const corrections = fuzzyCorrect(queryWords, vocab, 0.7);
       if (corrections.length > 0) {
-        // Log the zero-result query too so /api/search/analytics counts it —
-        // previously this fuzzy short-circuit returned before logSearchQuery.
         return { results, total, offset, limit, fuzzyCorrections: corrections };
       }
     } catch {
@@ -478,14 +475,7 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
     }
   }
 
-  // Log search query for analytics (non-fatal)
-
   return { results, total, offset, limit };
-}
-
-/** Backward-compatible default export for single-arg usage */
-export function searchSimple(query: string, limit = 50): SearchResult[] {
-  return search(query, { limit }).results;
 }
 
 /** Total indexed sections */

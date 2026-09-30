@@ -1,12 +1,11 @@
 /**
- * Legal-citation cross-linking (Phase 10 of the deferred GUI/UX set).
+ * Legal-citation cross-linking (Phase 10).
  *
  * The corpus cites the codes around it — California codes ("Government Code §
  * 65850"), the U.S. Code ("42 U.S.C. § 1983") — the way its own sections cite
  * each other. `extractCitations` (src/legal_parser.ts) already parses those
- * citations; what was missing is the link layer: turning a parsed citation
- * into a stable, canonical URL a reader can follow, and counting which
- * sections cite which outside authority.
+ * citations. This module resolves parsed citations to stable, canonical URLs
+ * a reader can follow, and counts which sections cite which outside authority.
  *
  * Two hard rules, matching the repo's cross-reference-linking doctrine
  * (src/gui/static/assets/modules/15-cross-ref-links.js):

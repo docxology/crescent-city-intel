@@ -2,9 +2,7 @@
  * Phase 14 GUI surfaces: the docs/modules dashboard and the dedicated
  * structured-query pages.
  *
- * Two kinds of contract are locked here, per the TODO's acceptance criterion
- * ("each surface ships with an explicit empty state and a string-contract (or
- * browser-smoke) test"):
+ * Two kinds of contract cover explicit empty states and dashboard derivation:
  *
  *  1. String contracts on the pages themselves — the empty-state markup must
  *     exist verbatim, so a surface cannot ship without saying what "nothing
@@ -46,7 +44,7 @@ describe("docs/modules dashboard page", () => {
 
   test("the endpoint is implemented, served, and specced", () => {
     expect(routes).toContain('path === "/api/docs/modules"');
-    expect(spec).toMatch(/^ {2}\/api\/docs\/modules:$/m);
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths['/api/docs/modules']).toBeDefined();
   });
 });
 
@@ -107,15 +105,15 @@ describe("structured-query pages (Phase 14)", () => {
   test("the server serves the page with the same loopback key injection as index.html", () => {
     expect(server).toContain('"/structured-queries.html"');
     expect(server).toContain('"/docs-dashboard.html"');
-    expect(server).toContain('serveStaticHtmlWithKey("structured-queries.html", socketIp)');
-    expect(server).toContain('serveStaticHtmlWithKey("docs-dashboard.html", socketIp)');
+    expect(server).toContain('serveStaticHtmlWithKey("structured-queries.html", socketIp, req)');
+    expect(server).toContain('serveStaticHtmlWithKey("docs-dashboard.html", socketIp, req)');
   });
 });
 
 describe("no existing contract regressed", () => {
   test("route-spec parity still holds for the new endpoint", () => {
     expect(routes).toContain('"/api/docs/modules"');
-    expect(spec).toContain("  /api/docs/modules:");
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths["/api/docs/modules"]).toBeDefined();
   });
 
   test("existing route extraction is untouched", () => {

@@ -284,12 +284,16 @@ describe("GET /api/events/discover — persisted by default, validated paginatio
   });
 
   test("openapi documents the parameters and count fields this route now serves", () => {
-    const spec = readFileSync(join(REPO_ROOT, "openapi.yaml"), "utf-8");
-    const section = spec.slice(spec.indexOf("  /api/events/discover:"), spec.indexOf("  /api/alerts/recent:"));
-    expect(section).toContain("name: refresh");
-    expect(section).toContain("'400':");
-    expect(section).toContain("enum: [persisted, network, offline-shell]");
+    const spec = Bun.YAML.parse(readFileSync(join(REPO_ROOT, "openapi.yaml"), "utf-8")) as { paths: Record<string, { get: { parameters: Array<{ name: string; schema: Record<string, unknown> }>; responses: Record<string, { description: string; content?: Record<string, { schema: { properties: Record<string, any> } }> }>; security: unknown[] } }> };
+    const operation = spec.paths["/api/events/discover"]!.get;
+    expect(operation.parameters.some(parameter => parameter.name === "refresh")).toBe(true);
+    expect(operation.responses["400"]).toBeDefined();
+    const properties = operation.responses["200"]!.content!["application/json"]!.schema.properties;
+    expect(properties.source.enum).toEqual(["persisted", "network", "offline-shell"]);
+    expect(operation.security).toEqual([{ apiKey: [] }]);
+    expect(operation.parameters.find(parameter => parameter.name === "limit")!.schema.maximum).toBe(500);
+    expect(operation.parameters.find(parameter => parameter.name === "limit")!.schema.minimum).toBe(1);
     // The count/counts.count ambiguity the R3 audit flagged must be spelled out.
-    expect(section).toContain("counts.count");
+    expect(operation.responses["200"]!.description).toContain("counts.count");
   });
 });

@@ -1,30 +1,32 @@
-# workflows — agent notes
+# Workflow contracts
 
-Three workflows (verified 2026-09-28). `tests/ci-config.test.ts` asserts the
-properties below, because workflow YAML is configuration: nothing typechecks it
-and nothing fails when it drifts.
+| Workflow | Trigger | Scope |
+| --- | --- | --- |
+| `pr-gate.yml` | Pull request to main, manual | Strict source/tests types, canonical contract checks, conservative affected tests, real GUI browser smoke |
+| `pages.yml` | Main push, weekly, manual | Full gate, bounded isolated code candidate, fresh feeds, validated same-edition public tree, unchanged upload/deploy |
+| `weekly.yml` | Weekly, manual | Current monitor roster health; optional full scrape and hash-bound artifact handoff to downstream live verification |
 
-| Workflow | Trigger | Job | What it decides |
-| :--- | :--- | :--- | :--- |
-| `pr-gate.yml` | `pull_request` to main, manual | Fast gate | Whether a change may merge. Offline contract checks + affected tests. Deliberately no push trigger: same-repo branch pushes with an open PR already fire `pull_request`, so a push trigger double-runs the gate per commit. |
-| `pages.yml` | `push` to main, weekly, manual | Publish | Whether the public snapshot may ship. Runs the FULL release gate. |
-| `weekly.yml` | weekly, manual | Health check / verify / scrape | The intelligence cycle. |
+Pin the same Bun version and frozen dependency install in every job. Chromium
+requires its own explicit installation. The fast path calls
+`bun run validate -- --only=contracts`; importing `src/release_gate.ts` alone is
+not a CLI invocation. Its output names all skipped checks.
 
-## Rules
+Dependency selection uses recursive TypeScript import/re-export/helper closure.
+Configuration/assets/scripts, missing/deleted paths, unresolved/dynamic imports,
+or uncertain mappings run the full suite. Affected selection never means an
+empty pass. Current-cycle health requires the exact canonical monitor roster,
+valid states/counts/timestamps, and a successful runner; unavailable upstream
+records remain distinct from crashes or missing current evidence.
 
-- **Bun is pinned** via `BUN_VERSION`, identical in all three. Never
-  `bun-version: latest` — that lets a Bun release break a job with no change to
-  this repository.
-- **Never restate the monitor roster in a workflow.** `weekly.yml` used to
-  carry eight hand-written `bun run alerts:<x>` steps and silently fell behind a
-  roster of fifteen, so seven monitors were never smoke-tested in CI. Use
-  `scripts/ci-monitor-smoke.ts`, which derives from `MONITOR_KEYS`.
-- **The fast PR path is a MODE OF THE GATE**, not a second implementation:
-  `bun run validate --only=contracts`. A check added to `src/release_gate.ts`
-  before the `contractsOnly` early-return is picked up by both. It prints what it
-  skipped and says it is not a full pass.
-- **Live-feed degradation is reported, never a build failure.** These hit
-  government endpoints; a red build on someone else's downtime is a red build
-  people learn to ignore. Real failures are the gate's job.
-- **Adding a job** means updating this table and checking any `secrets.*` /
-  `vars.*` references are used.
+The Pages code candidate lives under runner temporary storage, apart from
+`output/` feeds. A failed/timed-out candidate selects the entire reviewed seed;
+it cannot poison the weekly monitor with partial TOC/manifest files. A successful
+candidate must pass live verification before export, and the publication reader
+recomputes its binding. Staged tree validation and hash/privacy receipts precede
+upload. Deployment status needs a hosted receipt and direct site checks.
+
+Weekly manual scraping uploads the exact generated core/article artifacts and
+verification receipt. The downstream job downloads that artifact and validates
+its input binding before another live verification. It must not verify an empty
+fresh checkout and imply continuity with a prior job. Public health uploads use
+DTO projections; raw operator diagnostics stay outside transferred artifacts.

@@ -1,7 +1,6 @@
 # Docker build context exclusions.
 # CRITICAL: .env is excluded from git but NOT filtered by it — without this
 # file, `docker build` copies it (and any API keys it holds) into image layers.
-# See TODO.md Scoped Major M5.
 .env
 .env.*
 .git
@@ -10,6 +9,12 @@ node_modules
 output
 .pages
 .claude
-manuscript/output
 *.log
 .DS_Store
+
+# Recoverable publication state and private local orchestration receipts
+.*.publication-*
+.*.previous-*
+.pages-build-*
+.seed-build-*
+.manuscript-build-*

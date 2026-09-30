@@ -20,5 +20,8 @@ const logger = createLogger("run-curation");
 
 logger.info("=== Curation Pipeline ===");
 
-const curated = await runCuration();
+const args = Bun.argv.slice(2);
+if (args.some(arg => !/^--deadline-ms=\d+$/.test(arg))) throw new Error("Supported argument: --deadline-ms=N (1..3600000)");
+const deadlineMs = Number(args.find(arg => arg.startsWith("--deadline-ms="))?.slice("--deadline-ms=".length) ?? 3600000);
+const curated = await runCuration({ deadlineMs });
 logger.info(`Curation complete: ${curated.length} item(s) curated to output/curated/`);

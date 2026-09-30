@@ -1,53 +1,38 @@
 /**
  * Tests for news_monitor.ts
  *
- * Tests the pure-logic aspects of the news monitor:
- * - RSS feed parsing with real XML payloads
+ * Tests the news monitor's source boundary and fetch contract:
+ * - RSS/Atom feed parsing with real XML payloads
  * - Keyword-based relevance filtering
- * - Cross-source deduplication in monitorNews
+ * - Configured source roster and typed fetch failure health
  *
- * Network calls are not made during unit tests — fetchRSSFeed is tested by
- * verifying it returns [] on a network error, which happens naturally when
- * the URL is unreachable in a test environment.
+ * Real local HTTP fixtures exercise parsing and typed source health without
+ * contacting public services.
  */
 import { describe, expect, test, afterAll, beforeAll } from "bun:test";
-import { fetchRSSFeed, fetchRSSFeedDetailed, isActiveNewsSource, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
+import { fetchRSSFeedDetailed, isActiveNewsSource, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
 
-// Helper: build a minimal RSS XML string
-function buildRSS(items: Array<{ title: string; link: string; pubDate?: string; description?: string }>): string {
-  const itemXml = items
-    .map(
-      (i) => `
-    <item>
-      <title>${i.title}</title>
-      <link>${i.link}</link>
-      ${i.pubDate ? `<pubDate>${i.pubDate}</pubDate>` : ""}
-      ${i.description ? `<description>${i.description}</description>` : ""}
-    </item>`
-    )
-    .join("");
-  return `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel>${itemXml}</channel></rss>`;
-}
-
-describe("fetchRSSFeed", () => {
-  test("returns empty array when URL is unreachable", async () => {
-    // This URL will fail — graceful degradation should return []
-    const result = await fetchRSSFeed("http://localhost:0/nonexistent-feed.xml", "TestSource");
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
+describe("fetchRSSFeedDetailed", () => {
+  test("reports an unavailable source when URL is unreachable", async () => {
+    const result = await fetchRSSFeedDetailed("http://localhost:0/nonexistent-feed.xml", "TestSource");
+    expect(result.items).toHaveLength(0);
+    expect(result.health.status).toBe("unavailable");
+    expect(result.health.error).toBeTruthy();
   });
 
-  test("returns empty array on HTTP 404", async () => {
+  test("reports an unavailable source on HTTP 404", async () => {
     // Use a real local HTTP server so the deterministic suite does not depend
     // on a public service or its network latency.
     const server = Bun.serve({
       port: 0,
       fetch: () => new Response("not found", { status: 404 }),
     });
-    const result = await fetchRSSFeed(`http://localhost:${server.port}/missing`, "TestSource");
+    const result = await fetchRSSFeedDetailed(`http://localhost:${server.port}/missing`, "TestSource", { allowPrivateHosts: ["localhost"] });
     server.stop();
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
+    expect(result.items).toHaveLength(0);
+    expect(result.health.status).toBe("unavailable");
+    expect(result.health.httpStatus).toBe(404);
+    expect(result.health.error).toContain("HTTP 404");
   });
 
   test("reports an unavailable source instead of collapsing failure into empty", async () => {
@@ -55,7 +40,7 @@ describe("fetchRSSFeed", () => {
       port: 0,
       fetch: () => new Response("temporarily unavailable", { status: 503 }),
     });
-    const result = await fetchRSSFeedDetailed(`http://localhost:${server.port}/feed`, "UnavailableSource");
+    const result = await fetchRSSFeedDetailed(`http://localhost:${server.port}/feed`, "UnavailableSource", { allowPrivateHosts: ["localhost"] });
     server.stop();
     expect(result.items).toHaveLength(0);
     expect(result.health.status).toBe("unavailable");
@@ -63,7 +48,7 @@ describe("fetchRSSFeed", () => {
     expect(result.health.error).toContain("HTTP 503");
   });
 
-  test("parses Atom entries and normalizes tracking parameters", async () => {
+  test("parses Atom entries and preserves source links", async () => {
     const server = Bun.serve({
       port: 0,
       fetch: () => new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
@@ -72,11 +57,13 @@ describe("fetchRSSFeed", () => {
         <updated>2026-07-24T12:00:00Z</updated><summary>Harbor emergency planning.</summary></entry>
       </feed>`, { headers: { "Content-Type": "application/atom+xml" } }),
     });
-    const result = await fetchRSSFeed(`http://localhost:${server.port}/feed`, "AtomSource");
+    const result = await fetchRSSFeedDetailed(`http://localhost:${server.port}/feed`, "AtomSource", { allowPrivateHosts: ["localhost"] });
     server.stop();
-    expect(result).toHaveLength(1);
-    expect(result[0].link).toBe("https://example.com/story/?utm_source=test");
-    expect(result[0].content).toContain("Harbor emergency planning");
+    expect(result.health.status).toBe("ok");
+    expect(result.health.itemCount).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].link).toBe("https://example.com/story/?utm_source=test");
+    expect(result.items[0].content).toContain("Harbor emergency planning");
   });
 });
 
@@ -156,8 +143,11 @@ describe("Redwood Voice integration", () => {
     server.stop();
   });
 
-  test("fetchRSSFeed parses a real Redwood Voice item through the same pipeline as the other 4 feeds, no source-specific branching", async () => {
-    const items = await fetchRSSFeed(feedUrl, "Redwood Voice");
+  test("fetchRSSFeedDetailed parses a real Redwood Voice item through the shared feed pipeline", async () => {
+    const result = await fetchRSSFeedDetailed(feedUrl, "Redwood Voice", { allowPrivateHosts: ["localhost"] });
+    const items = result.items;
+    expect(result.health.status).toBe("ok");
+    expect(result.health.itemCount).toBe(1);
     expect(items).toHaveLength(1);
     expect(items[0].title).toBe(REAL_REDWOOD_VOICE_ITEM.title);
     expect(items[0].link).toBe(REAL_REDWOOD_VOICE_ITEM.link);

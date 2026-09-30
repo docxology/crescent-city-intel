@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "crescent-city-release-acceptance/v1",
+  "version": "3.0.0",
+  "date": "2026-09-30",
+  "status": "local-verified",
+  "baselineCommit": "ed8e909e04a46bf9d65c14e03acdf25f6c3eb7aa",
+  "publication": {
+    "evidenceLocation": "GitHub v3.0.0 release, main checks and Pages deployment records",
+    "boundary": "This file records local acceptance; publication commit identity and live acceptance are recorded externally to avoid a self-referential commit hash."
+  },
+  "municipal": {
+    "articles": 245,
+    "sections": 2206,
+    "manifestSha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
+    "liveSample": {
+      "attempted": 5,
+      "passed": 5
+    },
+    "publicationEligible": true
+  },
+  "registry": {
+    "sources": 48,
+    "monitored": 34,
+    "discoveryOnly": 14,
+    "fingerprint": "5875bb8df16c5639c7d7adf5b00ad72d6ad4b5bdd509e0ea3179f650a4869b3d",
+    "observedAt": "2026-09-30T22:54:33.967Z",
+    "probes": {
+      "checked": 48,
+      "unavailable": 6
+    },
+    "alertCoverage": {
+      "present": 17,
+      "total": 20,
+      "missing": [
+        "alert-city-permits",
+        "alert-pacfin-reports",
+        "alert-ais-vessels"
+      ]
+    },
+    "coverageGaps": [
+      "City and county child pages are inventoried but not yet collected by a dedicated monitor.",
+      "Harbor/County document links are bounded acquisitions; archive pagination, PDF text, recordings and calendar completeness are not established.",
+      "County Board of Supervisors, Solid Waste Management Authority, and Redwood Coast Transit Authority meeting streams need dedicated connectors.",
+      "Probe availability does not replace parser-level validation or source-health emitted by a configured monitor."
+    ]
+  },
+  "boundaries": [
+    "Citation identity does not establish semantic support or factuality.",
+    "PDF extraction does not establish votes or legal effective dates.",
+    "Catalog/statewide records do not establish local regulated-record coverage.",
+    "Native temporary backend acceptance does not establish permanent deployment.",
+    "External private consumer state, scheduler installation and push display are separate acceptance."
+  ],
+  "runtime": {
+    "bun": "1.4.2",
+    "localOllamaClient": "0.35.0",
+    "chromaImage": "chromadb/chroma:1.5.9",
+    "configuredOllamaImage": "ollama/ollama:0.34.2"
+  },
+  "native": {
+    "guiFixtureJourneys": {
+      "passed": 7
+    },
+    "populatedGuiSmoke": {
+      "passed": true,
+      "semanticResults": 3,
+      "heatmap": "20x14"
+    },
+    "localLlmIntegration": {
+      "passed": 6,
+      "scope": "isolated fixture with actual local embedding/generation/vector services"
+    },
+    "geoConsumer": {
+      "accepted": true,
+      "monitors": 20,
+      "bundledStaticContractByteIdentical": true,
+      "scope": "Actual source observation loader and its real dependencies; full package initializer and analytics admission not exercised",
+      "sourceSha256": "1822b3147b6c65895c06cdf713d372e6b69b39aecadfaff8a07b5dcf0595d87c"
+    },
+    "researchRender": {
+      "pdf": true,
+      "html": true,
+      "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
+      "pdfSha256": "685cf991e20fd31d92583250440e22c7e05319c3d2b431ecbfb2635504ff4a8b",
+      "htmlSha256": "0fea932c9df236dab4f7aaf10e73b840d92fd7f07a6eb77ac44e17e6acdc6b60"
+    },
+    "ragBenchmark": {
+      "cases": 8,
+      "retrievalApplicable": 6,
+      "retrievalHitAny": 6,
+      "dispositionMatches": 8,
+      "errors": 0,
+      "model": "gemma3:4b",
+      "embeddingModel": "nomic-embed-text",
+      "verifiedFactuality": false,
+      "semanticEntailment": "not-evaluated",
+      "indexManifestSha256": "9a47abad83c0bbaf4e5519224c4e156fdf2090572ec306ed5d475073af04ff77"
+    },
+    "pagesBrowser": {
+      "passed": 9,
+      "viewports": [
+        320,
+        375,
+        768,
+        1440
+      ],
+      "scope": "Exact final full local publication; final validation and whole-tree privacy guards passed"
+    },
+    "container": {
+      "image": "cci-release:v3.0.0",
+      "imageSha256": "4d2f416b36dc7dd047dfb7639926de3c4531eab0e3161ca39a63fc3736fbc823",
+      "healthHttpStatus": 200,
+      "scope": "Native Linux GUI with an empty corpus and explicit optional-backend degradation; backend/profile acceptance is separate"
+    },
+    "transcriptIndex": {
+      "transcripts": 15,
+      "chunks": 763,
+      "municipalChunks": 3105,
+      "sourceByteAndGeometryVerified": true,
+      "reindexRequired": false
+    }
+  },
+  "verification": {
+    "authoritativeGate": {
+      "passed": 1874,
+      "failed": 0,
+      "optionalLiveTestsSkipped": 2,
+      "lineCoveragePercent": 78.81,
+      "functionCoveragePercent": 81.11,
+      "outputFencesPassed": true,
+      "productionAndTestTypesPassed": true,
+      "scope": "Frozen final runtime source with populated fresh municipal corpus in an independent checkout; optional live model behavior verified separately."
+    },
+    "freshWeeklyRun": {
+      "stages": 10,
+      "result": "ok",
+      "exitCode": 0,
+      "ownedChildReaped": true,
+      "browserShutdownVerified": true
+    }
+  },
+  "curation": {
+    "retainedItems": 251,
+    "generatedSummaries": 61,
+    "documentListingsSourceOnly": 190,
+    "semanticSupportIndependentlyVerified": false
+  }
+}

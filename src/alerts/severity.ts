@@ -172,14 +172,13 @@ export interface PspsInput {
   available: boolean;
 }
 
-/** HRRR Smoke Forecast input. */
+/** Qualitative HMS mapped-plume input; surface exposure remains unknown. */
 export interface SmokeInput {
-  /** Peak PM2.5 smoke level */
-  peakLevel: "GOOD" | "MODERATE" | "UNHEALTHY_SENSITIVE" | "UNHEALTHY" | "VERY_UNHEALTHY" | "HAZARDOUS";
-  /** Peak AQI equivalent */
-  peakAqi: number | null;
-  /** Max PM2.5 forecast value */
-  maxPm25: number | null;
+  sourceProduct: "noaa-hms";
+  density: "light" | "moderate" | "heavy" | "none" | "unknown";
+  peakLevel: "UNKNOWN";
+  peakAqi: null;
+  maxPm25: null;
   /** Whether data was available */
   available: boolean;
 }
@@ -555,27 +554,19 @@ function assessPsps(input: PspsInput): MonitorStatus {
 }
 
 /**
- * Assess HRRR smoke forecast severity.
+ * Assess a mapped HMS plume without inferring numeric surface air quality.
  */
 function assessSmoke(input: SmokeInput): MonitorStatus {
   if (!input.available) {
-    return { level: "CALM", summary: "Smoke forecast data unavailable", count: 0, availability: "unavailable" };
+    return { level: "CALM", summary: "HMS smoke-map data unavailable", count: 0, availability: "unavailable" };
   }
-  if (input.peakLevel === "HAZARDOUS" || input.peakLevel === "VERY_UNHEALTHY") {
-    return {
-      level: "WARNING",
-      summary: `\u{1f534} Smoke ${input.peakLevel}: PM2.5 ${input.maxPm25?.toFixed(1) ?? "N/A"} ug/m3`,
-      count: 1,
-    };
+  if (input.sourceProduct === "noaa-hms") {
+    if (!input.density || input.density === "unknown") return { level: "CALM", summary: "HMS plume density unknown", count: 0, availability: "unavailable" };
+    return { level: input.density === "none" ? "CALM" : "WATCH",
+      summary: input.density === "none" ? "No mapped HMS plume; surface air quality not measured"
+        : `HMS ${input.density}-density mapped plume; surface PM2.5/AQI unknown`, count: input.density === "none" ? 0 : 1 };
   }
-  if (input.peakLevel === "UNHEALTHY" || input.peakLevel === "UNHEALTHY_SENSITIVE") {
-    return {
-      level: "WATCH",
-      summary: `\u{1f7e1} Smoke ${input.peakLevel}: PM2.5 ${input.maxPm25?.toFixed(1) ?? "N/A"} ug/m3`,
-      count: 1,
-    };
-  }
-  return { level: "CALM", summary: "Smoke forecast: Good/Moderate air quality", count: 0 };
+  return { level: "CALM", summary: "Unsupported smoke evidence; surface air quality unknown", count: 0, availability: "unavailable" };
 }
 
 /**
@@ -971,7 +962,7 @@ export function computeAlertSeverity(
   marine: MarineInput = { waveHeightFt: null, windSpeedKt: null, available: false },
   drought: DroughtInput = { severity: "NONE", severeDroughtPercent: 0, available: false },
   psps: PspsInput = { status: "NONE", eventCount: 0, delNorteAffected: false, available: false },
-  smoke: SmokeInput = { peakLevel: "GOOD", peakAqi: null, maxPm25: null, available: false },
+  smoke: SmokeInput = { sourceProduct: "noaa-hms", density: "unknown", peakLevel: "UNKNOWN", peakAqi: null, maxPm25: null, available: false },
   roads: RoadClosureInput = { severity: "NONE", hasMajorClosure: false, incidentCount: 0, available: false },
   schools: SchoolClosureInput = { status: "OPEN", hasActiveClosure: false, hasActiveDelay: false, eventCount: 0, available: false },
   marinezone: MarineZoneInput = { worstLevel: "CALM", peakWindKt: null, available: false },

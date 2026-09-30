@@ -11,11 +11,16 @@ import { afterAll, describe, expect, test } from "bun:test";
 import {
   BoundedFetchError,
   CONNECTOR_USER_AGENT,
-  boundedFetchText,
+  boundedFetchText as fetchFromConnector,
   resetConnectorState,
   robotsAllowsPath,
   setHostRateLimit,
 } from "../src/alerts/connector";
+import type { BoundedFetchOptions } from "../src/alerts/connector";
+
+function boundedFetchText(url: string, options: BoundedFetchOptions): Promise<string> {
+  return fetchFromConnector(url, { ...options, allowPrivateHosts: ["localhost", "127.0.0.1"] });
+}
 import {
   AIS_MAX_BYTES,
   AIS_REQUEST_HEADERS,
@@ -51,7 +56,7 @@ function startServer(
       return handler(request, state);
     },
   });
-  state.port = server.port;
+  state.port = server.port!;
   state.stop = () => server.stop(true);
   return state;
 }
@@ -72,7 +77,7 @@ const aisServerBody = JSON.stringify({
 afterAll(() => resetConnectorState());
 
 describe("boundedFetchText — timeout bound", () => {
-  test("aborts a hung response and reports a typed timeout failure", { timeout: 15_000 }, async () => {
+  test("aborts a hung response and reports a typed timeout failure", async () => {
     resetConnectorState();
     const server = startServer((request) => {
       if (request.url.endsWith("/robots.txt")) return new Response("User-agent: *\nAllow: /\n");
@@ -211,7 +216,7 @@ describe("boundedFetchText — robots gate", () => {
       }
       expect(error).toBeInstanceOf(BoundedFetchError);
       expect(error!.kind).toBe("robots");
-      expect(error!.message).toContain("source declined, not scraped");
+      expect(error!.message).toContain("Source policy declined acquisition");
       expect(server.requests.map(req => req.path)).toEqual(["/robots.txt"]);
     } finally {
       server.stop();
@@ -274,7 +279,7 @@ describe("boundedFetchText — robots gate", () => {
         error = err as BoundedFetchError;
       }
       expect(error!.kind).toBe("robots");
-      expect(error!.message).toContain("robots.txt unreachable (HTTP 403)");
+      expect(error!.message).toContain("robots.txt returned HTTP 403");
     } finally {
       server.stop();
     }
@@ -284,7 +289,9 @@ describe("boundedFetchText — robots gate", () => {
 describe("boundedFetchText — status and degradation", () => {
   test("a 503 surfaces as a typed status error", async () => {
     resetConnectorState();
-    const server = startServer(() => new Response("down", { status: 503 }));
+    const server = startServer(request => request.url.endsWith("/robots.txt")
+      ? new Response("User-agent: *\nAllow: /\n")
+      : new Response("down", { status: 503 }));
     try {
       let error: BoundedFetchError | undefined;
       try {
@@ -368,7 +375,7 @@ describe("live wiring — per-connector bound configs and headers", () => {
         minIntervalMs: 0,
         retry: false,
       });
-      expect(seenEncoding).toContain("gzip");
+      expect(seenEncoding as string | null).toContain("gzip");
       expect(parseAisLocations(body)[0]!.mmsi).toBe(230000001);
     } finally {
       server.stop();

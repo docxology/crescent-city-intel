@@ -95,9 +95,8 @@ describe("GET /api/sections/longevity", () => {
     }
   });
 
-  test("an out-of-range asOfYear falls back to the default rather than being honoured", async () => {
-    const body = await (await get("/api/sections/longevity?limit=1&asOfYear=99999")).json();
-    expect(body.asOfYear).toBe(new Date().getUTCFullYear());
+  test("an out-of-range asOfYear is rejected before computation", async () => {
+    expect((await get("/api/sections/longevity?limit=1&asOfYear=99999")).status).toBe(400);
   });
 });
 
@@ -150,12 +149,8 @@ describe("GET /api/insights", () => {
     expect(Array.isArray(rebuilt.trends)).toBe(true);
   }, 120000);
 
-  test("a window override forces a computed report and is clamped", async () => {
-    const body = await (await get("/api/insights?window=9999")).json();
-    expect(body.source).toBe("computed");
-    expect(body.windowDays).toBe(365);
-    // A GET never triggers LLM polish.
-    expect(body.narrative.requested).toBe(false);
+  test("an out-of-range window is rejected before computation", async () => {
+    expect((await get("/api/insights?window=9999")).status).toBe(400);
   });
 });
 

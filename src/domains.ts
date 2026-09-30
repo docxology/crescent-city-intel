@@ -5,16 +5,9 @@
  * Each domain contains curated intelligence that enhances the RAG pipeline
  * by providing context beyond what's in the raw municipal code text.
  *
- * Interfaces are canonically defined in types.ts; re-exported here for
- * backward compatibility with existing imports.
+ * Interfaces are canonically defined in types.ts.
  */
-import type {
-  DomainSource,
-  DomainTopic,
-  IntelligenceDomain,
-} from "./types.js";
-
-export type { DomainSource, DomainTopic, IntelligenceDomain };
+import type { IntelligenceDomain } from "./types.js";
 
 /** All intelligence domains */
 export const domains: IntelligenceDomain[] = [

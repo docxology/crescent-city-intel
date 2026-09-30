@@ -1191,3 +1191,16 @@
       font-size: 12px;
       max-width: 170px;
     }
+
+/* Keyboard-readable controls and responsive core journeys. */
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.toc-label, button.search-result { font:inherit; color:inherit; background:none; border:0; text-align:left; width:100%; }
+button.search-result span { display:block; }
+:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+@media (max-width:700px) { #header { flex-wrap:wrap; } #sidebar { max-width:38vw; } #content { min-width:0; overflow-wrap:anywhere; } .header-buttons { flex-wrap:wrap; } #chat-panel { max-width:100vw; } }
+
+.api-credentials { position:relative; color:var(--text); font:inherit; }
+.api-credentials summary { cursor:pointer; padding:6px; }
+#api-credentials-form { position:absolute; z-index:1000; right:0; width:min(300px,85vw); padding:16px; background:var(--bg); border:1px solid var(--border); box-shadow:0 4px 16px #0003; }
+#api-credentials-form label, #api-credentials-key { display:block; width:100%; box-sizing:border-box; margin-bottom:8px; }
+#api-credentials-status { font-size:12px; line-height:1.4; }

@@ -1,7 +1,7 @@
 /**
  * Tests for the monthly-report meeting-votes + document-drift surface
- * (TODO Phase 4.2 part-2 acceptance: vote tables + PDF hash drift surfaced
- * in the meeting report). Pure builders only — filesystem use is confined
+ * (vote tables + PDF hash drift surfaced in the meeting report).
+ * Pure builders only — filesystem use is confined
  * to a per-test temp directory; no live network, no mocks.
  */
 import { describe, expect, test } from 'bun:test';

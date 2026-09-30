@@ -40,7 +40,7 @@ bun test --watch      # Watch mode
 | `content*.test.ts` | `src/content.ts` — HTML extraction, readability, fixtures, and SHA-256 |
 | `domains*.test.ts` | `src/domains.ts` — domain data and search |
 | `monitor.test.ts` | `src/monitor.ts` — monitor report shape |
-| `news_monitor.test.ts` | `src/news_monitor.ts` — RSS/Atom parsing, local feed failures, dedup |
+| `news_monitor.test.ts` | `src/news_monitor.ts` — RSS/Atom parsing, source roster, and typed local feed failures |
 | `gov_meeting_monitor.test.ts` | `src/gov_meeting_monitor.ts` — local endpoint failures and persistence |
 | `youtube_monitor.test.ts` | `src/youtube_monitor.ts` — VTT parsing and bounded listing failures |
 | `triplicate_monitor.test.ts` | `src/triplicate_monitor.ts` — extraction, retry, policy, and idempotency |
@@ -49,9 +49,9 @@ bun test --watch      # Watch mode
 | `ndbc-parser.test.ts` | `src/alerts/ndbc_marine.ts` — line parsing, units, and severity |
 | `new-monitors.test.ts` | `src/alerts/{permits,dredging,fuel,pacfin,ais}.ts` — the five 2026-09-28 expansion monitors over real captured fixtures, with per-monitor negative controls |
 | `connector.test.ts` | `src/alerts/connector.ts` + the five expansion monitors' live wiring — timeout, streaming size cap, per-host rate limit, and robots-gate bounds over real local `Bun.serve` HTTP servers; typed degradation (`timeout`/`size`/`robots`/`status`/`network`); no mocks |
-| `run-alerts.test.ts` | `scripts/run-alerts.ts` — real report-to-severity mappings |
+| `run-alerts.test.ts` | `src/alerts/composite.ts` — real report-to-severity mappings used by `scripts/run-alerts.ts` |
 | `comprehensive-edges.test.ts` | Cross-module boundary and edge cases |
-| `scraper_utils.test.ts` | `src/scraper_utils.ts` — TOC/artifact validation, retry, and manifest utilities |
+| `scraper_utils.test.ts` | `src/scraper_utils.ts` — TOC/artifact validation, retry, and Cloudflare stall timing |
 | `fuzzy.test.ts` | `src/shared/fuzzy.ts` — Levenshtein and typo correction |
 | `legal_parser.test.ts` | `src/legal_parser.ts` — citations, definitions, and ordinances |
 | `structured_queries.test.ts` | `src/structured_queries.ts` — legislative history and similarity |

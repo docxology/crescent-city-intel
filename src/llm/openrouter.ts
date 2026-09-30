@@ -4,6 +4,8 @@ import { llmConfig } from "./config.js";
 import { createLogger } from "../logger.js";
 import { estimateTokens, recordLlmUsage } from "./usage.js";
 import type { ChatRequestOptions } from "./provider.js";
+import { readBoundedText, streamLines } from "./runtime.js";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const log = createLogger("openrouter");
 
@@ -59,15 +61,11 @@ type OpenRouterModelsResponseWithIds = {
   }>;
 };
 
-let openRouterRequestCount = 0;
-
-function formatResponseSnippet(value: unknown): string {
-  try {
-    return JSON.stringify(value).slice(0, 200);
-  } catch {
-    return String(value).slice(0, 200);
-  }
-}
+const budgets = new AsyncLocalStorage<{ count: number }>();
+const runBudget = { count: 0 };
+/** Each concurrent API operation owns its own budget; CLI retains a run budget. */
+export function withProviderBudget<T>(task: () => Promise<T>): Promise<T> { return budgets.run({ count: 0 }, task); }
+const budget = () => budgets.getStore() ?? runBudget;
 
 function resolveApiKey(apiKeyOverride?: string): string {
   const apiKey = apiKeyOverride ?? process.env.OPENROUTER_API_KEY;
@@ -120,13 +118,13 @@ function isOpenRouterModelsResponse(value: unknown): value is OpenRouterModelsRe
 }
 
 function incrementRequestCount(): void {
-  const next = openRouterRequestCount + 1;
+  const next = budget().count + 1;
   if (next > llmConfig.openrouterMaxRequestsPerRun) {
     throw new Error(
       `OpenRouter request cap exceeded (${llmConfig.openrouterMaxRequestsPerRun} per run). Raise OPENROUTER_MAX_REQUESTS to allow more requests.`
     );
   }
-  openRouterRequestCount = next;
+  budget().count = next;
 }
 
 function buildMessages(messages: ChatMessage[], context?: string, systemPromptOverride?: string): ChatMessage[] {
@@ -178,12 +176,12 @@ export async function chat(
   });
 
   if (!resp.ok) {
-    throw new Error(`OpenRouter chat failed (${resp.status}): ${await resp.text()}`);
+    await resp.body?.cancel(); throw new Error(`OpenRouter chat failed (${resp.status})`);
   }
 
-  const data = await resp.json() as OpenRouterChatResponse;
+  const data = JSON.parse(await readBoundedText(resp)) as OpenRouterChatResponse;
   if (!isOpenRouterChatResponse(data)) {
-    throw new Error(`OpenRouter returned an unexpected response shape: ${formatResponseSnippet(data)}`);
+    throw new Error("OpenRouter returned an unexpected response shape");
   }
 
   const content = data.choices[0].message.content;
@@ -226,35 +224,23 @@ export async function* streamChat(
   });
 
   if (!response.ok || !response.body) {
-    throw new Error(`OpenRouter streaming request failed (${response.status}): ${await response.text()}`);
+    await response.body?.cancel(); throw new Error(`OpenRouter streaming request failed (${response.status})`);
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const payload = line.trim();
-      if (!payload.startsWith("data:")) continue;
-      const data = payload.slice(5).trim();
-      if (data === "[DONE]") return;
-      let parsed: any;
-      try {
-        parsed = JSON.parse(data);
-      } catch (error) {
-        log.warn("Skipping malformed OpenRouter stream chunk", { error: String(error) });
-        continue;
-      }
-      if (parsed.error?.message) throw new Error(`OpenRouter stream error: ${parsed.error.message}`);
-      const token = parsed.choices?.[0]?.delta?.content;
-      if (typeof token === "string" && token.length > 0) yield token;
-    }
+  let completed = false, output = "";
+  for await (const line of streamLines(response)) {
+    const payload = line.trim();
+    if (!payload.startsWith("data:")) continue;
+    const data = payload.slice(5).trim();
+    if (data === "[DONE]") { completed = true; break; }
+    let parsed: { error?: unknown; choices?: Array<{ delta?: { content?: string } }> };
+    try { parsed = JSON.parse(data); } catch { throw new Error("Malformed provider stream record"); }
+    if (parsed.error) throw new Error("Provider reported a stream failure");
+    const token = parsed.choices?.[0]?.delta?.content;
+    if (typeof token === "string" && token.length > 0) { output += token; yield token; }
   }
+  if (!completed) throw new Error("Provider stream ended without completion");
+  recordLlmUsage("openrouter", model, estimateTokens(JSON.stringify(buildMessages(messages, context, options?.systemPrompt))), estimateTokens(output), true);
 }
 
 /** List available models from OpenRouter */
@@ -270,12 +256,12 @@ export async function listModels(): Promise<string[]> {
   });
 
   if (!resp.ok) {
-    throw new Error(`OpenRouter listModels failed (${resp.status}): ${await resp.text()}`);
+    await resp.body?.cancel(); throw new Error(`OpenRouter listModels failed (${resp.status})`);
   }
 
-  const data = await resp.json() as OpenRouterModelsResponse;
+  const data = JSON.parse(await readBoundedText(resp)) as OpenRouterModelsResponse;
   if (!isOpenRouterModelsResponse(data)) {
-    throw new Error(`OpenRouter returned an unexpected response shape: ${formatResponseSnippet(data)}`);
+    throw new Error("OpenRouter returned an unexpected response shape");
   }
 
   return data.data.map((model) => model.id);
@@ -302,9 +288,9 @@ export async function checkOpenRouterHealth(options: OpenRouterRequestOptions = 
         : AbortSignal.timeout(llmConfig.providerPreflightTimeoutMs),
     });
     if (!response.ok) {
-      return { reachable: false, error: `OpenRouter preflight failed (${response.status}): ${(await response.text()).slice(0, 300)}` };
+      await response.body?.cancel(); return { reachable: false, error: `OpenRouter preflight failed (${response.status})` };
     }
-    const data = await response.json() as OpenRouterModelsResponse;
+    const data = JSON.parse(await readBoundedText(response)) as OpenRouterModelsResponse;
     if (!isOpenRouterModelsResponse(data)) {
       return { reachable: false, error: "OpenRouter preflight returned an unexpected /models response shape" };
     }
@@ -316,10 +302,10 @@ export async function checkOpenRouterHealth(options: OpenRouterRequestOptions = 
 
 /** Reset the OpenRouter request counter */
 export function resetOpenRouterRequestCount(): void {
-  openRouterRequestCount = 0;
+  budget().count = 0;
 }
 
 /** Get the OpenRouter request counter */
 export function getOpenRouterRequestCount(): number {
-  return openRouterRequestCount;
+  return budget().count;
 }

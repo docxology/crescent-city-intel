@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * USGS Earthquake Alert Integration for Crescent City.
  * Connects to USGS earthquake notification API, filters for earthquakes near 
@@ -37,15 +39,15 @@ export function isCascadiaEvent(lat: number, lng: number): boolean {
 }
 
 // Persistent alert history JSONL path
-const HISTORY_DIR = join(process.cwd(), 'output', 'alerts', 'earthquake');
-const HISTORY_FILE = join(HISTORY_DIR, 'history.jsonl');
+function HISTORY_DIR(): string { return join(outputRoot(), 'alerts', 'earthquake'); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), 'history.jsonl'); }
 
 /** Load processed earthquake IDs from persistent history to prevent cross-run duplicates */
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, 'utf-8').split('\n').filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), 'utf-8').split('\n').filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip corrupt lines */ }
     }
@@ -221,7 +223,7 @@ async function fetchUSGSOverlayEarthquakes(): Promise<Array<{
  */
 function appendEarthquakeHistory(earthquake: any, alertLevel: string): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const cascadia = isCascadiaEvent(earthquake.latitude, earthquake.longitude);
     const record = JSON.stringify({
       id: earthquake.id,
@@ -237,7 +239,7 @@ function appendEarthquakeHistory(earthquake: any, alertLevel: string): void {
       time: new Date(earthquake.time).toISOString(),
       fetchedAt: new Date().toISOString(),
     });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn('Failed to append earthquake history', { error: String(err) });
   }
@@ -250,7 +252,7 @@ function appendEarthquakeHistory(earthquake: any, alertLevel: string): void {
  * a human-readable per-event GeoJSON for GIS tooling.
  */
 async function saveEarthquakeToFile(earthquake: any): Promise<void> {
-  const dataDir = join(process.cwd(), 'output', 'alerts', 'earthquake');
+  const dataDir = join(outputRoot(), 'alerts', 'earthquake');
   await mkdir(dataDir, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -332,7 +334,7 @@ export async function monitorUSGSEarthquakeAlerts(): Promise<void> {
     logger.info(`Processed ${newEarthquakesCount} new relevant USGS earthquakes`);
   }
 
-  await mkdir(HISTORY_DIR, { recursive: true });
+  await mkdir(HISTORY_DIR(), { recursive: true });
   // `level` and `summary` are part of this artifact's contract, not decoration.
   // Every other monitor's `current.json` carries them, and the GUI's per-monitor
   // tile reads `summary ?? level` — so the earthquake tile rendered "OK" /
@@ -358,7 +360,7 @@ export async function monitorUSGSEarthquakeAlerts(): Promise<void> {
     : worst ? `M${worst.magnitude} earthquake ${worst.distanceKm.toFixed(0)} km away`
     : 'No qualifying earthquakes within 200 km';
 
-  await writeJsonAtomic(join(HISTORY_DIR, 'current.json'), {
+  await writeJsonAtomic(join(HISTORY_DIR(), 'current.json'), {
     fetchedAt: new Date().toISOString(),
     events: earthquakes,
     relevantEventCount: relevant.length,

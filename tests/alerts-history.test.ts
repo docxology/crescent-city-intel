@@ -26,7 +26,7 @@ describe("/api/alerts/:type/history", () => {
     const res = await get("/api/alerts/bogus/history");
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain("Unknown alert type");
+    expect(body.error).toContain("unsupported value");
   });
 
   test("offset slicing is monotonic (offset 1 starts after offset 0)", async () => {

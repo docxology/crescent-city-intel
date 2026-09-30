@@ -21,7 +21,7 @@ mistaken for calm readings.
 | 9 | NWS Marine Forecast | NWS KEKA CWF text product (PZZ450) | `output/alerts/marinezone/` | `alerts/nws_marine.ts` |
 | 10 | USCG Broadcasts | USCG NAVCEN District 11 BNM listing | `output/alerts/uscg/` | `alerts/uscg_broadcasts.ts` |
 | 11 | USDM Drought | `droughtmonitor.unl.edu` (DSCI) | `output/alerts/drought/` | `alerts/usdm_drought.ts` |
-| 12 | PG&E PSPS | PG&E PSPS feed | `output/alerts/psps/` | `alerts/pge_psps.ts` |
+| 12 | PG&E PSPS | Official PG&E browser-rendered event page | `output/alerts/psps/` | `alerts/pge_psps.ts` |
 | 13 | HRRR Smoke | NOAA HMS smoke plumes | `output/alerts/smoke/` | `alerts/hrrr_smoke.ts` |
 | 14 | Caltrans Roads | Caltrans road conditions | `output/alerts/roads/` | `alerts/caltrans_roads.ts` |
 | 15 | DUSD Schools | Del Norte USD closures | `output/alerts/schools/` | `alerts/dusd_schools.ts` |
@@ -30,6 +30,12 @@ mistaken for calm readings.
 | 18 | EIA California Fuel | EIA weekly CA all-formulations retail gasoline | `output/alerts/fuel/` | `alerts/fuel.ts` |
 | 19 | PacFIN Reports Dashboard | PSMFC PacFIN public report catalog | `output/alerts/pacfin/` | `alerts/pacfin.ts` |
 | 20 | AIS Vessel Traffic | Open-AIS FeatureCollection feed (Del Norte watch box) | `output/alerts/ais/` | `alerts/ais.ts` |
+
+PG&E checks the official rendered event page, smoke checks NOAA HMS polygon
+products, and Caltrans checks every configured route on its Highway Conditions
+text service. If these sources cannot be read, the monitor returns `null` and
+source health records `unavailable`. An unreadable source cannot establish
+that conditions are clear.
 
 ---
 
@@ -41,11 +47,8 @@ Polls the NOAA Weather API for active tsunami warnings affecting the California 
 
 `GET https://api.weather.gov/alerts/active?area=CA`
 
-Built via `URLSearchParams` so the `event` value is always properly
-URL-encoded. **Fixed 2026-07-23**: the endpoint requires the query param to be
-named `area` (not `region`), and an unencoded space in `Tsunami Warning`
-previously caused `api.weather.gov` to return HTTP 400 on every run, silently
-breaking the monitor.
+Built via `URLSearchParams` so event names such as `Tsunami Warning` are
+URL-encoded. The geographic query parameter is `area=CA`.
 
 ### Exports
 
@@ -96,10 +99,8 @@ Monitors National Weather Service alerts for the Northwest CA coastal zone (CAZ0
 
 `GET https://api.weather.gov/alerts/active?zone=CAZ006`
 
-**Fixed 2026-07-23**: `zone` and `region` are mutually exclusive on
-`api.weather.gov` — combining them (as this monitor previously did) returns
-HTTP 400 on every run. `zone=CAZ006` alone (the Northwest CA coastal zone) is
-correct and sufficient.
+`zone` and `region` are mutually exclusive on `api.weather.gov`; this monitor
+uses `zone=CAZ006` alone for the Northwest CA coastal zone.
 
 ### Severity Categorization
 
@@ -139,7 +140,7 @@ Tracks California's annual Dungeness crab season calendar and CDFW North Coast m
 
 ---
 
-## `src/alerts/epa_airnow.ts` — EPA AirNow Air Quality (v2.0)
+## `src/alerts/epa_airnow.ts` — EPA AirNow Air Quality
 
 Fetches real-time Air Quality Index (AQI) data from the EPA AirNow API for Crescent City (ZIP 95531).
 
@@ -177,7 +178,7 @@ Fetches real-time Air Quality Index (AQI) data from the EPA AirNow API for Cresc
 
 ---
 
-## `src/alerts/calfire_wildfire.ts` — CAL FIRE Wildfire (v2.0)
+## `src/alerts/calfire_wildfire.ts` — CAL FIRE Wildfire
 
 Fetches active wildfire incidents from CAL FIRE for Del Norte County and surrounding areas (Siskiyou, Humboldt, Trinity).
 
@@ -185,9 +186,8 @@ Fetches active wildfire incidents from CAL FIRE for Del Norte County and surroun
 
 `GET https://incidents.fire.ca.gov/umbraco/api/IncidentApi/List?inactive=false`
 
-The retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked. The monitor
-now uses the current official incident JSON endpoint and reports a valid
-no-match regional result as `empty`.
+The monitor reads the official incident JSON endpoint and reports a successful
+no-match regional result as `empty`; fetch failure is `unavailable`.
 
 ### Exports
 
@@ -212,7 +212,7 @@ no-match regional result as `empty`.
 
 ---
 
-## `src/alerts/ndbc_marine.ts` — NDBC Marine Buoy (v2.0)
+## `src/alerts/ndbc_marine.ts` — NDBC Marine Buoy
 
 Fetches real-time marine observations from 3 NDBC buoy stations nearest to Crescent City.
 
@@ -274,7 +274,7 @@ contributes a `MonitorStatus` with level, summary, and count.
 
 ---
 
-## `src/alerts/composite.ts` — Composite Input Shaping + Source Health (v2.0)
+## `src/alerts/composite.ts` — Composite Input Shaping + Source Health
 
 Pure helpers that keep `scripts/run-alerts.ts` thin: they shape the eight
 per-monitor reports into the composite scorer's input and classify each
@@ -285,7 +285,7 @@ source's health after a run.
 | Export | Signature | Description |
 | :--- | :--- | :--- |
 | `buildCompositeInput({tsunami, earthquake, weather, airquality, wildfire, marine, tidesReport, fishingReport})` | `(object) → CompositeInput` | Normalize per-monitor reports (including the tides + fishing history-path reports) into `computeAlertSeverity` inputs |
-| `buildTidesInput(report)` / `buildFishingInput(report)` | `(report) → MonitorStatus` | Shape the two report-only monitors into scorer inputs (re-exported by `scripts/run-alerts.ts` for backward-compatible test imports) |
+| `buildTidesInput(report)` / `buildFishingInput(report)` | `(report) → MonitorStatus` | Shape the two report-only monitors into scorer inputs; import directly from `src/alerts/composite.ts` |
 | `classifySourceHealth(definition, settledResult, errors, checkedAt)` | `(...) → SourceHealth` | Map a settled monitor result to `ok` / `empty` / `unavailable` / `stale` with reason + item count |
 | `isFreshReport(report, windowMs?)` | `(report, number?) → boolean` | Freshness gate (matches air/wildfire/marine): stale reports count as unavailable |
 
@@ -298,7 +298,7 @@ of failing the run.
 
 ---
 
-## `src/alert_analytics.ts` — Alert Analytics (v2.0)
+## `src/alert_analytics.ts` — Alert Analytics
 
 Aggregates all alert history JSONL files across all monitor types into
 a unified chronological timeline with per-type statistics.
@@ -324,7 +324,7 @@ a unified chronological timeline with per-type statistics.
 - **Persistent JSONL history**: All monitors append to `history.jsonl` for analytics
 - **In-process deduplication**: Module-level `Set<string>` tracks processed IDs
 - **import.meta.main**: Each file can be run directly via `bun run src/alerts/<file>.ts`
-- **Composite severity**: `run-alerts.ts` runs all 20 monitors and computes the composite from all 20 — the five Phase-12 monitors (drought, PSPS, smoke, roads, schools), the NWS marine forecast (CWF PZZ450), the USCG broadcasts (BNM District 11), and the 2026-09-28 expansion monitors (permits, dredging, fuel, PacFIN reports, AIS vessel traffic) feed it through `buildExtendedCompositeInput`
+- **Composite severity**: `run-alerts.ts` runs all 20 monitors and computes the composite from all 20. The 12 extended civic and marine inputs feed it through `buildExtendedCompositeInput`.
 
 ## Running
 
@@ -334,26 +334,21 @@ bun run alerts:earthquake   # USGS earthquake
 bun run alerts:weather      # NWS weather
 bun run alerts:tides        # NOAA tides
 bun run alerts:fishing      # CDFW fishing
-bun run alerts:airquality   # EPA AirNow (v2.0)
-bun run alerts:wildfire     # CAL FIRE wildfire (v2.0)
-bun run alerts:marine       # NDBC marine buoy (v2.0)
+bun run alerts:airquality   # EPA AirNow
+bun run alerts:wildfire     # CAL FIRE wildfire
+bun run alerts:marine       # NDBC marine buoy
 bun run alerts:marinezone  # NWS CWF marine forecast (PZZ450)
 bun run alerts              # all 20 concurrently + composite severity
 ```
 
 See [scripts/README.md](../../scripts/README.md) for cron setup.
 
-All three layers now cover every monitor. `alert_analytics` `ALERT_TYPES` held
-only the 8 hazard-core families until 2026-09-27, so road closures, school
-closures, PSPS, smoke plumes, drought transitions and the coastal-waters
-forecast reached neither `/api/alerts/timeline`, the GUI heatmap, the insight
-brief, the monthly report, nor `GET /api/monitor/alerts` — despite all six
-writing a `history.jsonl` in the shape the reader already consumed.
-`alert_correlation.ts` scanned 13, omitting `marinezone` and `uscg`.
+Analytics, correlation and GUI trend rosters cover every monitor in
+`MONITOR_KEYS`, including the extended civic and marine inputs.
 
 `tests/alert-source-roster.test.ts` derives every roster from `MONITOR_KEYS`
 rather than restating it, and asserts the SPA's hand-written monitor and icon
-maps in `gui/static/index.html` against it too. `ANALYTICS_GAP_TYPES` is
+maps in `gui/static/assets/modules/110-feeds.js` against it too. `ANALYTICS_GAP_TYPES` is
 retained as an explicit asserted-empty constant so "every history-keeping
 monitor is analysed" stays a checkable property.
 
@@ -376,9 +371,8 @@ monitor is analysed" stays a checkable property.
   run-alerts composite reaches **WARNING** or **EMERGENCY**, a JSON POST
   (`{severity, reason, assessedAt, source}`) is fired at that URL with a bounded
   timeout (`ALERT_WEBHOOK_TIMEOUT_MS`, default 5000). Fire-and-forget — a
-  webhook failure never fails an alert run. Per-monitor TODOs about "triggering
-  notifications" are intentionally not wired: notification is a composite-level
-  concern.
+  webhook failure never fails an alert run. Notification is a composite-level
+  concern; delivery/retry receipts are scoped separately in TODO.md (M28).
 - **Fire weather (Red Flag)** is already covered by the `CAZ006` zone fetch; the
   NWS weather monitor now flags each alert with `isRedFlag` and reports
   `redFlagCount` in `current.json`, so Del Norte red-flag/warning conditions are

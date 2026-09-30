@@ -1,23 +1,9 @@
 /**
  * CI configuration contract.
  *
- * The workflows are configuration, so nothing typechecks them and nothing fails
- * when they drift. That is how this state was reached:
- *
- *  - `bun-version: latest` in all three workflows, so a Bun release could break
- *    any of them with no change to this repository.
- *  - `weekly.yml` smoke-testing eight hand-written `bun run alerts:<x>` steps
- *    while the roster held fifteen, so seven monitors — including the marine
- *    forecast and the USCG broadcasts — were never exercised in CI and a change
- *    that broke them was invisible until the weekly cycle published a degraded
- *    source-health record.
- *  - No `pull_request` trigger anywhere: the authoritative release gate ran only
- *    on `push: main` and a schedule, so a regression could be merged and the
- *    first signal was the publish failing after it was already on main.
- *
- * These assertions are cheap and offline. They are not a substitute for running
- * the workflows, but they catch the class of drift where a file is edited to add
- * a monitor and the enforcement around it is not.
+ * Offline assertions guard the declared Bun pin, authoritative PR gate and
+ * full monitor roster. Configuration agreement is separate from hosted workflow
+ * execution and current-source acceptance (TODO.md M22).
  */
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "fs";
@@ -91,8 +77,7 @@ describe("the alert roster is exercised in CI", () => {
     // lives in `noaa_tsunami.ts`, so such a map does not follow from the key).
     expect(text).toContain("MONITOR_KEYS");
     expect(text).not.toMatch(/src\/alerts\/\$\{/);
-    // And it reports rather than enforces, because these hit live endpoints.
-    expect(text).toContain("process.exit(0)");
+    expect(text).toContain("validateMonitorCycle");
   });
 });
 
@@ -113,28 +98,12 @@ describe("pull requests are gated", () => {
     expect(text).toContain("--only=contracts");
   });
 
-  test("the affected-test selector refuses to narrow to nothing", () => {
+  test("the affected-test CLI delegates conservative selection to its tested module", () => {
     const text = readFileSync(join(ROOT, "scripts/ci-affected-tests.ts"), "utf8");
-    // "No changed files" and "no test covers this" must both fall back to the
-    // full suite. Silently running zero tests turns the job into a green light
-    // that verifies nothing.
+    expect(text).toContain("selectAffectedTests");
     expect(text).toContain("running the full suite rather than nothing");
-    // And shared infrastructure must always force the full suite.
-    for (const shared of ["src/types.ts", "src/constants.ts", "src/shared/paths.ts", "src/release_gate.ts"]) {
-      expect(`triggers on ${shared}: ${text.includes(shared)}`).toBe(`triggers on ${shared}: true`);
-    }
   });
 
-  test("the affected-test selector maps tests by the module they import", () => {
-    const text = readFileSync(join(ROOT, "scripts/ci-affected-tests.ts"), "utf8");
-    // Subject mapping, read from each test's imports. A filename-similarity
-    // heuristic would miss every test whose subject did not change name.
-    expect(text).toContain("subjectsOf");
-    // The import pattern must key on the module path, e.g. `../src/legal_parser.js`.
-    expect(text).toContain('from\\s+"\\.\\.\\/(src\\/');
-    // And strip the ESM-style `.js` specifier to reach the `.ts` source.
-    expect(text).toContain('.replace(/\\.(ts|js)$/, ".ts")');
-  });
 });
 
 describe("the release gate is a mode, not two implementations", () => {

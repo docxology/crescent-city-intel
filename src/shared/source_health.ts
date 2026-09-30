@@ -1,6 +1,9 @@
-import { mkdir, rename, open, appendFile, readFile } from "fs/promises";
+import { mkdir, rename, open, appendFile, readFile, unlink } from "fs/promises";
+import { randomUUID } from "node:crypto";
+import { withFileLease, withFileLeaseSync } from "./storage.js";
 import { dirname } from "path";
 import { appendFileSync, readFileSync, writeFileSync, renameSync } from "fs";
+import { throwIfAborted, redactUrl } from "./transport.js";
 import type { SourceHealth, SourceHealthStatus, SourceHealthSummary } from "../types.js";
 
 /**
@@ -35,7 +38,9 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "North Coast Journal", url: "https://www.northcoastjournal.com/feed", monitor: "news" },
   { source: "City Council", url: "https://www.crescentcity.org/meetings/get_list", monitor: "meetings" },
   { source: "Planning Commission", url: "https://www.crescentcity.org/meetings/get_list", monitor: "meetings" },
-  { source: "Harbor Commission", url: "https://www.crescentcity.org/meetings/get_list", monitor: "meetings" },
+  { source: "Harbor Commission", url: "https://www.ccharbor.com/archived-agendas", monitor: "meetings" },
+  { source: "Del Norte County meetings and agendas", url: "https://www.co.del-norte.ca.us/meetings/85/", monitor: "meetings" },
+  { source: "Del Norte County and City government media hub", url: "https://media.co.del-norte.ca.us/", monitor: "meetings" },
   { source: "YouTube", url: "https://www.youtube.com/feeds/videos.xml?channel_id=UCc8LIkDxscuciAFNB9yEEMA", monitor: "youtube" },
   { source: "Del Norte Triplicate", url: "https://www.triplicate.com/rss.xml", monitor: "news:Del Norte Triplicate" },
   { source: "Del Norte Triplicate deep content", url: "https://www.triplicate.com/news/", monitor: "triplicate" },
@@ -59,7 +64,7 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   // the event page), AirFire's 404s (NOAA HMS is primary), and QuickMap's serves
   // an SPA shell (per-route roads text is primary). Source names must match
   // ALERT_MONITOR_SOURCE_NAMES in alerts/composite.ts.
-  { source: "USDM Drought", url: "https://usdmapi.cpc.ncep.noaa.gov/api/StateDroughtMonitor/GetDroughtSeverity/Drought/06015", monitor: "alerts" },
+  { source: "USDM Drought", url: "https://usdmdataservices.unl.edu/", monitor: "alerts" },
   { source: "PG&E PSPS", url: "https://pgealerts.alerts.pge.com/pg-e-partners/psps-events/", monitor: "alerts" },
   { source: "HRRR Smoke", url: "https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/Shapefile/", monitor: "alerts" },
   { source: "Caltrans Roads", url: "https://roads.dot.ca.gov/?roadnumber=", monitor: "alerts" },
@@ -86,10 +91,12 @@ export function sourceHealth(
     itemCount: details.itemCount ?? 0,
     ...details,
   };
+  if (health.url) health.url = redactUrl(health.url);
+  if (health.error) health.error = errorMessage(health.error);
   if (health.fetchedAt) {
-    const ageMs = Date.parse(health.fetchedAt);
-    if (Number.isFinite(ageMs)) {
-      health.ageMs = Math.max(0, Date.now() - ageMs);
+    const ageMs = Date.parse(checkedAt) - Date.parse(health.fetchedAt);
+    if (isIsoTimestamp(checkedAt) && isIsoTimestamp(health.fetchedAt) && Number.isFinite(ageMs) && ageMs >= 0) {
+      health.ageMs = ageMs;
       health.freshness = health.ageMs <= (health.freshnessWindowMs ?? DEFAULT_FRESHNESS_WINDOW_MS) ? "fresh" : "stale";
     } else {
       health.freshness = "unknown";
@@ -97,6 +104,9 @@ export function sourceHealth(
   } else {
     health.freshness = "unknown";
   }
+  if (!isIsoTimestamp(checkedAt) || health.fetchedAt && health.freshness === "unknown") {
+    health.status = "unavailable"; health.error ??= "Invalid or future source timestamp; freshness unknown";
+  } else if (["ok", "empty"].includes(health.status) && health.freshness === "stale") health.status = "stale";
   return health;
 }
 
@@ -156,11 +166,16 @@ export function completeSourceHealth(
       error: `No ${expected.monitor} source-health record was emitted for this run`,
       provenance: "Synthetic coverage marker: expected monitor output was absent; availability and calmness are unknown.",
     }));
-  return [...sources, ...missing].sort((a, b) => a.source.localeCompare(b.source));
+  const current = sources.map(source => {
+    const reassessed = sourceHealth(source.source, source.status, checkedAt, Object.fromEntries(Object.entries(source).filter(([key]) => !["source", "status", "checkedAt", "ageMs", "freshness"].includes(key))) as Omit<Partial<SourceHealth>, "source" | "status" | "checkedAt">);
+    return { ...reassessed, checkedAt: source.checkedAt };
+  });
+  return [...current, ...missing].sort((a, b) => a.source.localeCompare(b.source));
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+  return message.replace(/https?:\/\/[^\s<>"']+/gi, value => redactUrl(value));
 }
 
 /** Flip a fully-written temp file into place after fsync, so a crash between
@@ -168,7 +183,7 @@ export function errorMessage(error: unknown): string {
  * path (which downstream `JSON.parse` would treat as corrupt and, for
  * idempotency stores, silently start over from empty). */
 async function writeFileSynced(path: string, data: string): Promise<void> {
-  const handle = await open(path, "w");
+  const handle = await open(path, "wx", 0o600);
   try {
     await handle.writeFile(data, "utf-8");
     await handle.sync();
@@ -178,22 +193,43 @@ async function writeFileSynced(path: string, data: string): Promise<void> {
 }
 
 /** Write a JSON artifact atomically so concurrent runs cannot truncate it. */
-export async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFileSynced(temporary, `${JSON.stringify(value, null, 2)}\n`);
-  await rename(temporary, path);
+export async function writeJsonAtomic(path: string, value: unknown, options: { signal?: AbortSignal } = {}): Promise<void> {
+  await writeTextAtomic(path, `${JSON.stringify(value, null, 2)}\n`, options);
 }
 
-export async function writeTextAtomic(path: string, value: string): Promise<void> {
+export async function writeTextAtomic(path: string, value: string, options: { signal?: AbortSignal } = {}): Promise<void> {
+  if (options.signal) throwIfAborted(options.signal);
   await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
-  await writeFileSynced(temporary, value);
-  await rename(temporary, path);
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try { if (options.signal) throwIfAborted(options.signal); await writeFileSynced(temporary, value); if (options.signal) throwIfAborted(options.signal); await rename(temporary, path); }
+  finally { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
 
 export function isIsoTimestamp(value: unknown): value is string {
-  return typeof value === "string" && Number.isFinite(Date.parse(value));
+  if (typeof value !== "string") return false;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})$/i);
+  if (!match || Number(match[2]) > 23 || Number(match[3]) > 59 || Number(match[4]) > 59 || !Number.isFinite(Date.parse(value))) return false;
+  const day = new Date(`${match[1]}T12:00:00Z`);
+  return Number.isFinite(day.getTime()) && day.toISOString().slice(0, 10) === match[1];
+}
+
+/** Structural health receipt validation; observation/currentness policy is assessed separately. */
+export function isSourceHealthReceipt(value: unknown): value is SourceHealth {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const source = value as Record<string, unknown>;
+  if (typeof source.source !== "string" || !source.source.trim() || !["ok", "empty", "unavailable", "stale"].includes(String(source.status)) || !isIsoTimestamp(source.checkedAt) || !Number.isSafeInteger(source.itemCount) || Number(source.itemCount) < 0) return false;
+  if (source.sourceId !== undefined && (typeof source.sourceId !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(source.sourceId))) return false;
+  if (source.fetchedAt !== undefined && !isIsoTimestamp(source.fetchedAt)) return false;
+  for (const key of ["url", "error", "provenance"]) if (source[key] !== undefined && typeof source[key] !== "string") return false;
+  if (typeof source.url === "string") {
+    try { const url = new URL(source.url); if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || redactUrl(source.url) !== url.toString()) return false; }
+    catch { return false; }
+  }
+  if (source.freshness !== undefined && !["fresh", "stale", "unknown"].includes(String(source.freshness))) return false;
+  if (source.disabled !== undefined && typeof source.disabled !== "boolean") return false;
+  if (source.httpStatus !== undefined && (!Number.isSafeInteger(source.httpStatus) || Number(source.httpStatus) < 100 || Number(source.httpStatus) > 599)) return false;
+  for (const key of ["ageMs", "durationMs", "freshnessWindowMs"]) if (source[key] !== undefined && (typeof source[key] !== "number" || !Number.isFinite(source[key]) || Number(source[key]) < 0)) return false;
+  return true;
 }
 
 function boundedTail(lines: string[], maxLines: number): string {
@@ -211,8 +247,8 @@ function toJsonLine(record: string | unknown): string {
  * Trimming to exactly `maxLines` leaves the very next append over the cap
  * again, so a full-file rewrite (read + temp + fsync + rename) happened on
  * *every* append once the cap was reached. That is not the low-frequency case
- * the original comment assumed: `hrrr_smoke` appends one line per forecast
- * hour (up to 48 in a run) and `caltrans_roads` one per incident, so a single
+ * the original comment assumed: historical smoke runs appended one line per
+ * forecast hour and `caltrans_roads` appends one per incident, so a single
  * run could trigger dozens of full-file rewrites.
  *
  * Trim when the file reaches `maxLines`, and trim down to `maxLines *
@@ -242,15 +278,15 @@ export async function appendBoundedJsonl(
   maxLines = JSONL_HISTORY_MAX_LINES,
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
+  await withFileLease(`${path}.lock`, async () => {
   await appendFile(path, toJsonLine(record));
   try {
     const lines = (await readFile(path, "utf-8")).split("\n");
     if (lines.filter(Boolean).length >= maxLines) {
       await writeTextAtomic(path, boundedTail(lines, trimTarget(maxLines)));
     }
-  } catch {
-    // A failed trim must never break an alert run; the file just stays unbounded.
-  }
+  } catch (error) { throw new Error(`History trim failed: ${errorMessage(error)}`); }
+  });
 }
 
 /** Synchronous bounded JSONL appender for monitors that persist with fs sync
@@ -260,6 +296,7 @@ export function appendBoundedJsonlSync(
   record: string | unknown,
   maxLines = JSONL_HISTORY_MAX_LINES,
 ): void {
+  withFileLeaseSync(`${path}.lock`, () => {
   appendFileSync(path, toJsonLine(record));
   try {
     const lines = readFileSync(path, "utf-8").split("\n");
@@ -267,11 +304,10 @@ export function appendBoundedJsonlSync(
       // Synchronous crash-safe trim: temp file + rename, so a partial write
       // cannot corrupt the live history under the real path. Same amortised
       // down-trim as the async appender — see RETAIN_RATIO.
-      const tmp = `${path}.${process.pid}.${Date.now()}.trim`;
-      writeFileSync(tmp, boundedTail(lines, trimTarget(maxLines)));
+      const tmp = `${path}.${process.pid}.${randomUUID()}.trim`;
+      writeFileSync(tmp, boundedTail(lines, trimTarget(maxLines)), { flag: "wx", mode: 0o600 });
       renameSync(tmp, path);
     }
-  } catch {
-    // non-fatal
-  }
+  } catch (error) { throw new Error(`History trim failed: ${errorMessage(error)}`); }
+  });
 }

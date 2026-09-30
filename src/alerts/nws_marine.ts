@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * NWS Coastal Waters Forecast monitor — Crescent City nearshore zone.
  *
- * Roadmap item "Marine: ... marine weather forecasts". The NDBC buoy monitor
+ * The NDBC buoy monitor
  * (ndbc_marine.ts) covers OBSERVATIONS; this monitor covers the FORECAST side
  * by reading the official NWS Coastal Waters Forecast (CWF) text product that
  * api.weather.gov publishes for the Eureka (KEKA) office.
  *
- * Zone note: the roadmap said "PZZ455", but the live 2026-09 CWF renumbered
- * the zones — Crescent City's nearshore waters (Pt. St. George to Cape
- * Mendocino out 10 nm) are now PZZ450. The zone title is read from the
+ * The configured nearshore zone is PZZ450. Its title is read from the
  * product text itself rather than hardcoded, so future renumbering degrades
  * to a visible title change, not a silently wrong forecast.
  *
@@ -38,9 +38,9 @@ export const NWS_CWF_PRODUCT_URL = "https://api.weather.gov/products/{ID}";
 /** Crescent City nearshore zone in the current (2026-09) CWF numbering. */
 export const MARINE_ZONE_CODE = "PZZ450";
 
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "marinezone");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "marinezone"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 let lastMarineZoneError: string | undefined;
 
 export function getLastMarineZoneError(): string | undefined {
@@ -226,9 +226,9 @@ export function toMarineZoneForecast(productText: string, now = new Date().toISO
 
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    for (const line of readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean)) {
+    for (const line of readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean)) {
       try { ids.add(String(JSON.parse(line).id)); } catch { /* skip corrupt row */ }
     }
   } catch { /* ignore */ }
@@ -272,12 +272,12 @@ export async function runMarineZoneMonitor(): Promise<MarineZoneForecast | null>
     const forecast = toMarineZoneForecast(productText);
     if (!forecast) throw new Error(`Zone ${MARINE_ZONE_CODE} not found in the newest CWF product`);
 
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, forecast);
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), forecast);
 
     const id = `${forecast.zone}-${forecast.worstLevel}-${forecast.issuance}`;
     if (!loadProcessedIds().has(id)) {
-      appendBoundedJsonlSync(HISTORY_FILE, JSON.stringify({
+      appendBoundedJsonlSync(HISTORY_FILE(), JSON.stringify({
         id,
         zone: forecast.zone,
         zoneTitle: forecast.zoneTitle,

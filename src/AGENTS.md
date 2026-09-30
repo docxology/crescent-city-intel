@@ -63,12 +63,15 @@ This directory contains all TypeScript source modules. Every file is a standalon
 
 ## Testing Strategy
 
-Unit tests cover all **pure-logic** functions. Integration modules (browser, content, scrape, verify, export, alert monitors) require external services and are tested manually via `bun run`.
+Deterministic tests cover pure logic, filesystem boundaries, local HTTP fixtures,
+provider degradation, and exported-page rendering. Live source acceptance and
+optional Ollama/Chroma integration require separate runs; an offline pass does
+not establish current upstream availability.
 
 Run the full test suite with `bun test tests/`; use `bun run validate` for the
 authoritative strict TypeScript, test, contract, and generated-output gate.
 
-## v2.0+ New Modules
+## Additional Modules
 
 | Module | Purpose | Key Exports |
 |---|---|---|
@@ -79,7 +82,7 @@ authoritative strict TypeScript, test, contract, and generated-output gate.
 | `alerts/calfire_wildfire.ts` | CAL FIRE wildfire incident monitoring | `classifyWildfireSeverity()`, `runWildfireMonitor()` |
 | `alerts/ndbc_marine.ts` | NDBC buoy marine weather monitoring | `classifyMarineSeverity()`, `runMarineMonitor()` |
 | `alerts/nws_marine.ts` | NWS Coastal Waters Forecast monitor (CWF text product, zone PZZ450) | `runMarineZoneMonitor()`, `classifyMarineForecastPeriod()`, `parseWindKt()` |
-| `alerts/severity.ts` | 15-monitor composite severity | `computeAlertSeverity()` (8 core + 7 extended monitors) |
+| `alerts/severity.ts` | Composite severity across the canonical monitor roster | `computeAlertSeverity()` (20 monitors: 8 core + 12 extended) |
 | `alerts/composite.ts` | Pure composite-input shaping + source-health classification (thin-script enabler for `scripts/run-alerts.ts`) | `buildCompositeInput()`, `classifySourceHealth()`, `isFreshReport()` |
 | `shared/fuzzy.ts` | Levenshtein fuzzy matching + typo correction | `levenshtein()`, `similarity()`, `fuzzyCorrect()`, `expandQueryFuzzy()` |
 | `llm/streaming_rag.ts` | SSE streaming RAG | `createStreamingRagResponse()` |

@@ -1,13 +1,9 @@
 /**
  * Docs stay in sync with the implementation and the published contract.
  *
- * The TODO item's acceptance criterion: "after every version bump,
- * `docs/architecture.md` and `docs/api-reference.md` pass the doc-inventory /
- * route-contract gates unchanged". The release gate already proves the OpenAPI
- * route table and the implementation agree with each other; what it does NOT
- * check is that the human-facing docs still describe that same set. A route can
- * be implemented, specced, and entirely absent from the API reference, and every
- * existing gate stays green — which is the drift this file closes.
+ * The release gate checks OpenAPI route parity with the implementation. These
+ * tests check that the module reference points readers to that route authority,
+ * advertises no nonexistent route, and keeps the architecture roster current.
  *
  * Counts are read from the sources, never restated, so the check cannot itself
  * become a thing that needs updating.
@@ -21,7 +17,7 @@ const read = (...parts: string[]): string => readFileSync(join(ROOT, ...parts), 
 
 /** Every `/api/...` path in the published spec. */
 function specPaths(): string[] {
-  return [...read("openapi.yaml").matchAll(/^ {2}(\/api\/[^:]+):$/gm)].map(m => m[1]!);
+  return Object.keys((Bun.YAML.parse(read("openapi.yaml")) as { paths: Record<string, unknown> }).paths);
 }
 
 /**
@@ -69,10 +65,7 @@ describe("the API reference does not misrepresent the route surface", () => {
 
 describe("the architecture document states the current monitor count", () => {
   test("its monitor roster matches MONITOR_KEYS", async () => {
-    // The doc states "Real-Time Intelligence Layer (15 monitors: 8 core + 7
-    // extended)" in prose. A prose count is a restatement, so assert it against
-    // the roster rather than trusting it — the count has been wrong across
-    // several releases (8 → 9 → 14 → 15) and the prose never moved.
+    // A prose count restates the roster, so assert it against MONITOR_KEYS.
     const { MONITOR_KEYS } = await import("../src/alerts/composite.ts");
     const architecture = read("docs", "architecture.md");
     const layer = /Real-Time Intelligence Layer \((\d+) monitors: (\d+) core \+ (\d+) extended\)/
@@ -90,7 +83,7 @@ describe("the architecture document states the current monitor count", () => {
     const missing = ALERT_MONITOR_SOURCE_NAMES.filter(name => !architecture.includes(name));
     expect(`monitors missing from the architecture map: ${missing.join(", ")}`)
       .toBe("monitors missing from the architecture map: ");
-    expect(MONITOR_KEYS.length).toBe(ALERT_MONITOR_SOURCE_NAMES.length);
+    expect(Number(MONITOR_KEYS.length)).toBe(ALERT_MONITOR_SOURCE_NAMES.length);
   });
 });
 

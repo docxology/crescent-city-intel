@@ -43,7 +43,7 @@ function isComplexWord(word: string, isSentenceInitial = false): boolean {
   // complex word). BUT a sentence-initial word is capitalized for grammatical
   // reasons — dropping it here under-reports complexity for polysyllabic
   // content words like "Notwithstanding"/"Municipal" that legitimately start a
-  // sentence (TODO flagged this; see computeReadability for the caller that
+  // sentence (see computeReadability for the caller that
   // supplies sentence-initial context).
   if (isCapitalized && !isSentenceInitial) return false;
   const syls = syllableCount(word);

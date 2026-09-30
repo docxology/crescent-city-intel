@@ -36,19 +36,13 @@ for collection. The complete run inventory is reported in
 
 ## Worked example: unavailable is not calm
 
-The current source envelope records EPA AirNow as unavailable when its API key
-is absent and CAL FIRE as unavailable when its endpoint returns HTTP 403. The
-operational record is qualitatively different from an empty NOAA tsunami
-response:
-
-~~~json
-{
-  "source": "EPA AirNow",
-  "status": "unavailable",
-  "itemCount": 0,
-  "error": "AIRNOW_API_KEY env var not set"
-}
-~~~
+An illustrative unavailable response has `status: "unavailable"` and
+`itemCount: 0` when the configured endpoint cannot be read. This is different
+from a reachable feed with no qualifying records. AirNow's default collector
+reads public observations; an optional keyed API is a separate path. Specific
+upstream failures are run observations, not permanent properties of a provider.
+The hydrated counts above state the selected snapshot's coverage without
+assuming a particular endpoint failed today.
 
 The empty tsunami record means that the request completed and no qualifying
 active event was returned. It does not prove that every tsunami-related fact
@@ -75,10 +69,10 @@ reason is a trace to the maximum local severity, not a black-box risk score.
 The current overview records LLM status {{LLM_STATUS}} from
 {{LLM_PROVIDER}} using model {{LLM_MODEL}}. It also records the prompt version
 and the same input fingerprint used by the deterministic overview. The
-successful-summary reuse rule in [@eq:summary_reuse] was exercised by running
-the analytics command twice without changing substantive inputs. The second
-run retained the prior summary timestamp and fingerprint rather than issuing a
-new completion.
+successful-summary reuse rule in [@eq:summary_reuse] is checked by deterministic
+regressions that retain the timestamp and fingerprint for an unchanged successful
+summary. A selected run with an unavailable provider supports the fallback
+contract; it does not establish a successful real-model reuse observation.
 
 This is an idempotency result, not an accuracy result. The platform can prove
 that it reused the same evidence-bound summary; it cannot infer that the model
@@ -93,12 +87,18 @@ whitespace, generated JSON contracts, and the Pages artifact. The manuscript
 gate adds IMRAD structure, heading-level continuity, citation closure,
 equation/table reference closure, claim-ledger shape, and token hydration.
 
-The local and public surfaces were regenerated from the same output directory.
-The Pages data/analytics-overview.json fingerprint equals the local
-output/state/analytics-overview.json fingerprint, satisfying the parity
-invariant [@eq:surface_parity]. The public snapshot remains degraded whenever
-unavailable or stale source records are present; this prevents the static
-export from converting an operational gap into a reassuring label.
+The parity invariant [@eq:surface_parity] requires comparing the exact local
+and exported analytics fingerprints for one selected run. It is an acceptance
+condition, not a consequence of both files existing. Public artifact validation
+and real local Chromium journeys check structural/render behavior. Native
+Ollama/Chroma, external manuscript rendering, hosted Actions, and deployed-site
+checks require separate concrete receipts; a deterministic or fixture pass does
+not substitute for any of them.
+
+Source-health coverage can remain partial while the static publication is ready:
+publication validity and source availability are distinct fields. A reviewed
+archived municipal seed remains labeled as such, with its recorded source dates,
+even when live feed snapshots were collected during the current build.
 
 ## Claim-to-evidence map
 

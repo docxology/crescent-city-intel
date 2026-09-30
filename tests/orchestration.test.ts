@@ -5,11 +5,23 @@ import {
   executePipelineStep,
 } from "../src/shared/orchestration.ts";
 import { completeSourceHealth, EXPECTED_SOURCE_HEALTH, sourceHealth, summarizeSourceHealth } from "../src/shared/source_health.ts";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { waitWithSignal } from "../src/shared/transport.ts";
 
 describe("orchestration and metadata contracts", () => {
+  test("a durable running receipt precedes work and a parent deadline signals cancellation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cci-stage-receipt-")); const receiptPath = join(root, "stage.json"); let cancelled = false;
+    try {
+      const pending = executePipelineStep("bounded-stage", async signal => { signal.addEventListener("abort", () => { cancelled = true; }, { once: true }); expect(JSON.parse(await readFile(receiptPath, "utf8")).status).toBe("running"); await waitWithSignal(10_000, signal); return "late"; }, { timeoutMs: 40, receiptPath });
+      const result = await pending; expect(result.report.status).toBe("failed"); expect(result.value).toBeUndefined(); expect(cancelled).toBe(true);
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8")); expect(receipt.status).toBe("failed"); expect(receipt.startedAt).toBe(result.report.startedAt); expect(receipt.durationMs).toBeLessThan(500);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   test("source health derives freshness without changing operational status", () => {
     const checkedAt = "2026-07-24T12:00:00.000Z";
-    const fetchedAt = new Date().toISOString();
+    const fetchedAt = "2026-07-24T11:59:30.000Z";
     const health = sourceHealth("Fixture", "ok", checkedAt, {
       fetchedAt,
       itemCount: 2,

@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 /**
- * PacFIN (Pacific Fisheries Information Network) reports monitor (#19) —
- * part of the 🟡 TODO "Marine expansion".
+ * PacFIN (Pacific Fisheries Information Network) report-catalog monitor (#19).
  *
  * PacFIN is the joint federal/state commercial-fisheries data network
  * (PSMFC) whose fish-ticket data covers Crescent City landings. Its APEX

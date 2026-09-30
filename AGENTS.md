@@ -7,7 +7,9 @@ verifies, exports, and queries the municipal code from ecode360.com, monitors
 20 real-time alert streams (8 core + 12 extended incl. USCG broadcasts), provides
 RAG chat via Ollama/OpenRouter + Chroma, and publishes a bounded snapshot to
 GitHub Pages at quadruplicate.org. See [README.md](README.md) for the full
-feature map. There is no Python here — the watchdog is `bun`, never `uv`/`pytest`.
+feature map. The application and checks use Bun/TypeScript. A thin Python
+adapter invokes Bun for the external manuscript renderer; it is not an
+application runtime or test runner.
 
 ## Architecture
 
@@ -92,6 +94,23 @@ pages_scan.ts                   # Pages artifact scanner (links, assets, SEO)
 pages_css.ts                    # Generated Pages stylesheet builder
 pages_validation.ts             # Pages artifact validator (release-gate checks)
 pages_seed.ts                   # Verified municipal-code seed refresh for Pages
+ci_support.ts                   # Dependency closure and current-cycle monitor acceptance
+corpus_editions.ts              # Source-bound extraction receipts and retained corpus lineage
+doc_inventory.ts                # Full source-path documentation inventory validation
+geo_sync.ts                     # Module contract and implementation
+manuscript_document.ts          # Manuscript evidence hydration and validation
+manuscript_hydration.ts         # Module contract and implementation
+pages_public.ts                 # Public artifact projections and privacy boundary
+publication_bundle.ts           # Coherent corpus selection, custody receipts and recoverable promotion
+release_checks.ts               # Actual line coverage and failure-safe output fences
+interactive_menu.ts             # Module contract and implementation
+official_meetings.ts            # Module contract and implementation
+scheduler.ts                    # Escaped dry-run launchd/cron plans; installs nothing
+stack_readiness.ts              # Module contract and implementation
+weekly_pipeline.ts              # Module contract and implementation
+meeting_documents.ts            # Bounded PDF capture, page spans and exact source/text receipts
+readability_report.ts           # Root-scoped readability scoring and bounded history publication
+output_migrations.ts            # Module contract and implementation
 alerts/                         # 20 monitors + composite severity; docs/modules/alerts.md
   connector.ts                  # Bounded live-fetch layer for the expansion monitors:
                                 #   timeout, streaming size cap, per-host rate limit,
@@ -120,14 +139,17 @@ alerts/                         # 20 monitors + composite severity; docs/modules
   composite.ts                  # Freshness-gated composite availability across monitors
   healer.ts                     # Per-monitor staleness detection and re-run roster
   notify.ts                     # ALERT_WEBHOOK_URL fire-and-forget severity webhook
-api/
+  batch.ts                      # Module contract and implementation
+api/                            # Runtime API contract, admission and middleware
   middleware.ts                 # Sliding-window rate limiter + API key auth
-domains/
+  admission.ts                  # Finite expensive-operation admission and streaming cancellation
+  contracts.ts                  # Runtime method, authentication, input and response contracts from OpenAPI
+domains/                        # Civic domain coverage and references
   coverage.ts                   # Domain coverage % with prefix matching
   scholarly_context.ts          # Scholarly/reference context per civic domain
-notifications/
+notifications/                  # Notification delivery and receipts
   push.ts                       # Push notification delivery
-shared/
+shared/                         # Shared artifact, transport and storage contracts
   paths.ts                      # Centralized output path constants
   source_health.ts              # Typed source-health contract + atomic artifact writes
   orchestration.ts              # Durable step/run envelopes and build metadata
@@ -136,8 +158,11 @@ shared/
   readability.ts                # Flesch-Kincaid + Gunning Fog scoring
   fuzzy.ts                      # Levenshtein fuzzy matching + typo correction
   idempotency.ts                # Durable idempotency store for repeated runs
-  output_fence.ts               # Output-corpus fence: proves the suite mutates nothing
-gui/
+  output_fence.ts               # Output-corpus snapshots and drift checks
+  storage.ts                    # Cross-process writer leases and owned recovery
+  transport.ts                  # Bounded DNS-pinned outbound transport and URL redaction
+  subprocess.ts                 # Module contract and implementation
+gui/                            # Local server, API and browser surfaces
   server.ts                     # Bun.serve() HTTP server (port 3000)
   routes.ts                     # API route handlers (contract in openapi.yaml)
   docs_dashboard.ts             # Docs/modules dashboard derivation (pure; sync status from the tree)
@@ -146,13 +171,13 @@ gui/
   analytics.ts                  # PCA, K-Means, word loadings
   alert_trends.ts               # Per-type trend bars + all-monitor heatmap
   annotations.ts                # Bounded JSON wildfire-map annotation store (GET/POST/DELETE /api/annotations)
-  ordinal_refinement.ts         # Phase 10 ordinal-sequence refinement report (GET /api/ordinals)
-  legal_crosslinks.ts           # Phase 10 CA/US legal-citation cross-link builder (GET /api/citations/index)
-  effective_dates.ts            # Phase 10 derived effective-date field (GET /api/effective-dates)
+  ordinal_refinement.ts         # Ordinal-sequence refinement report (GET /api/ordinals)
+  legal_crosslinks.ts           # CA/US legal-citation cross-link builder (GET /api/citations/index)
+  effective_dates.ts            # Latest recorded amendment year (GET /api/effective-dates)
   static/index.html             # Single-page app (no framework)
-  static/docs-dashboard.html    # Phase 14 docs/modules dashboard page
-  static/structured-queries.html # Phase 14 dedicated structured-query page (history/compare/similar)
-  static/phase10-legal.html     # Phase 10 page (ordinals / citation cross-links / effective dates)
+  static/docs-dashboard.html    # Docs/modules dashboard page
+  static/structured-queries.html # Dedicated structured-query page (history/compare/similar)
+  static/phase10-legal.html     # Legal-analysis page (ordinals / citation cross-links / recorded amendment years)
 llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   config.ts                     # LLM configuration
   provider.ts                   # Explicit Ollama/OpenRouter chat-provider selection
@@ -169,6 +194,10 @@ llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   usage.ts                      # Token/request usage accounting
   validate.ts                   # Generated-output validation guards
   index.ts                      # CLI entry point
+  evidence.ts                   # Citation policy, abstention and reproducible support evaluation
+  privacy.ts                    # Bounded private query retention and opt-in diagnostics
+  runtime.ts                    # Model/vector admission, deadlines and byte limits
+  benchmark.ts                  # Module contract and implementation
 scripts/                        # Thin CLI orchestrators — full list in scripts/README.md
                                 #   and package.json "scripts"; business logic in src/
 tests/                          # Deterministic zero-mock suite; run `bun run validate`
@@ -181,12 +210,12 @@ openapi.yaml                    # OpenAPI 3.0.3 spec
 ## Verify
 
 ```bash
-bun install                 # Install dependencies
-bun run source-discovery    # REQUIRED ONCE on a fresh clone: writes
-                            #   output/source-registry.json, which the release
-                            #   gate requires in fingerprint sync (src/release_gate.ts)
-bun run validate            # Authoritative gate: in-process contracts + tsc +
-                            #   manuscript + fenced bun test + coverage floor
+bun install --frozen-lockfile # Install locked dependencies
+bunx playwright install chromium # Install the browser separately
+bun run source-discovery    # Refresh optional generated registry/health evidence;
+                            #   present artifacts must match the canonical fingerprint
+bun run validate            # Authoritative gate: contracts + source/test strict types +
+                            #   manuscript + fenced plain/coverage suites + line floor
 bun test                    # Deterministic zero-mock suite (offline; no mocks)
 ```
 
@@ -197,7 +226,8 @@ Other commands: `bun run gui` (web viewer on :3000), `bun run weekly-check`
 `bun run geo:observations`, `bun run geo:sync-check`. See `package.json`
 "scripts" and `scripts/README.md` for the rest.
 
-Prerequisites: Bun 1.0+; Playwright auto-installs via `bun install`; the
+Prerequisites: Bun 1.4.2 (the CI pin); `bun install` installs the Playwright
+package, and `bunx playwright install chromium` installs its browser. The
 optional LLM stack is Ollama with `nomic-embed-text` + `gemma3:4b`, Chroma on
 port 8001, and `AIRNOW_API_KEY` for air quality.
 
@@ -205,13 +235,17 @@ port 8001, and `AIRNOW_API_KEY` for air quality.
 
 - **scripts/ are thin orchestrators** — business logic lives in `src/`
   (see `scripts/AGENTS.md`).
-- **Zero-mock tests**: real data, real modules, all offline. The suite mutates
-  nothing — enforced by the output-corpus fence in `src/shared/output_fence.ts`.
+- **Zero-mock tests**: real data, real modules, all offline. Tests must not
+  persist changes to the real output corpus. `src/shared/output_fence.ts`
+  detects drift in `finally` after successful, failed, and timed-out plain and
+  coverage runs, for both the checkout corpus and any selected `CC_OUTPUT_DIR`.
 - **openapi.yaml <-> src/gui/routes.ts route-table parity** is enforced by the
   release gate; update both together.
-- **tsconfig `include` is `src/` + `scripts/` only.** Tests are not typechecked
-  (24 known `tsc` errors if included) — do not widen the include.
-- The release gate requires `bun run source-discovery` once on a fresh clone.
+- **tsconfig `include` is `src/` + `scripts/` only.** Do not widen the production
+  include. Tests use a separate strict `tsconfig.tests.json` lane
+  (`bun run test:typecheck`).
+- Generated source-discovery artifacts are optional. When present, the release
+  gate requires their counts and fingerprints to match the canonical registry.
 - `tests/doc-inventory.test.ts` enforces that every `src/**/*.ts` appears in
   the tree above on its own `name.ts # ...` line — new modules need an entry.
 
@@ -221,6 +255,7 @@ port 8001, and `AIRNOW_API_KEY` for air quality.
   api-reference. Repo conventions live there too.
 - [TODO.md](TODO.md) — the single item-level backlog.
 - `docs/roadmap.md` — strategy.
+- `docs/project-review.md` — current-state audit, cleanup decisions, and verification receipts.
 - [CHANGELOG.md](CHANGELOG.md) — the ONLY version history.
 - [ISA.md](ISA.md) — frozen 2026-07 build archive, not current guidance.
 

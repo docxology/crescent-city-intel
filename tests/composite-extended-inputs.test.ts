@@ -16,6 +16,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildExtendedCompositeInput } from "../src/alerts/composite.ts";
 import { computeAlertSeverity } from "../src/alerts/severity.ts";
+import { buildHmsSmokeReport } from "../src/alerts/hrrr_smoke.ts";
 
 /** The eight original inputs, all quiet and available (real interface shapes). */
 const QUIET_BASE = [
@@ -69,7 +70,7 @@ describe("extended monitors reach the composite severity", () => {
     const report = severityWith({
       drought: { timestamp: FRESH, compositeSeverity: "NONE", severeDroughtPercent: 0 },
       psps: { timestamp: FRESH, overallStatus: "NONE", totalEvents: 0, delNorteAffected: false },
-      smoke: { timestamp: FRESH, peakLevel: "GOOD", peakAqi: 10, maxPm25: 2 },
+      smoke: buildHmsSmokeReport({ mapDate: FRESH.slice(0, 10).replaceAll("-", ""), maxDensity: "Light", plumes: 0 }, FRESH),
       roads: { timestamp: FRESH, overallSeverity: "NONE", hasMajorClosure: false, totalIncidents: 0 },
       schools: { timestamp: FRESH, districtStatus: "OPEN", hasActiveClosure: false, hasActiveDelay: false, totalEvents: 0 },
     });
@@ -103,9 +104,9 @@ describe("extended monitors reach the composite severity", () => {
     expect(psps.level).not.toBe(quiet.level);
   });
 
-  test("hazardous forecast smoke reaches the composite", () => {
+  test("mapped heavy HMS plume reaches WATCH with unknown surface exposure", () => {
     const quiet = severityWith({});
-    const smoke = severityWith({ smoke: { timestamp: FRESH, peakLevel: "HAZARDOUS", peakAqi: 320, maxPm25: 250 } });
+    const smoke = severityWith({ smoke: buildHmsSmokeReport({ mapDate: FRESH.slice(0, 10).replaceAll("-", ""), maxDensity: "Heavy", plumes: 3 }, FRESH) });
     expect(smoke.level).not.toBe(quiet.level);
   });
 
@@ -125,7 +126,7 @@ describe("extended monitors reach the composite severity", () => {
 
   test("a USCG broadcast advisory reaches the composite", () => {
     const quiet = severityWith({});
-    const advisory = severityWith({ uscg: { timestamp: FRESH, worstLevel: "ADVISORY" } });
+    const advisory = severityWith({ uscg: { timestamp: FRESH, worstLevel: "ADVISORY", totalBroadcasts: 1, relevantCount: 1 } });
     expect(quiet.level).toBe("CALM");
     // BNM traffic is informational, so the composite's advisory-class WATCH is
     // the ceiling it can impose — the same mapping NWS advisories get.
@@ -154,12 +155,12 @@ describe("the mapping is honest about what the monitors reported", () => {
     expect(input.schools).toEqual({ status: "DELAYED", hasActiveClosure: false, hasActiveDelay: true, eventCount: 1, available: true });
   });
 
-  test("a malformed report degrades to the quiet defaults but stays marked available", () => {
+  test("a malformed current report is unavailable and cannot manufacture calm coverage", () => {
     // Present-but-unreadable is a different fact from absent: the monitor ran,
     // it just did not emit the fields the mapper reads. The freshness stamp is
     // what makes it "present" now, exactly as a real report carries one.
     const input = buildExtendedCompositeInput({ roads: { timestamp: FRESH, unexpected: true } });
-    expect(input.roads).toEqual({ severity: "NONE", hasMajorClosure: false, incidentCount: 0, available: true });
+    expect(input.roads).toEqual({ severity: "NONE", hasMajorClosure: false, incidentCount: 0, available: false });
   });
 
   test("a report with no freshness stamp is treated as stale, not as current", () => {

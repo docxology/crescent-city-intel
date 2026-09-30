@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "fs";
-import { mkdir, readdir, rm, writeFile } from "fs/promises";
+import { mkdir, readdir, rm, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { IdempotencyStore } from "../src/shared/idempotency";
 
@@ -135,6 +135,12 @@ describe("IdempotencyStore — persistence", () => {
     const store = new IdempotencyStore(p);
     await expect(store.load()).resolves.toBeUndefined();
     expect(store.size).toBe(0);
+    store.seen("new-record"); await expect(store.save()).rejects.toThrow("corrupt idempotency"); expect(await readFile(p, "utf8")).toBe("{ not valid json");
+  });
+  test("two independently loaded writers preserve disjoint records", async () => {
+    const p = storePath("concurrent"); const a = new IdempotencyStore(p); const b = new IdempotencyStore(p);
+    await Promise.all([a.load(), b.load()]); a.seen("a", "hash-a"); b.seen("b", "hash-b"); await Promise.all([a.save(), b.save()]);
+    const retained = new IdempotencyStore(p); await retained.load(); expect(retained.has("a")).toBe(true); expect(retained.has("b")).toBe(true);
   });
 });
 
@@ -148,6 +154,7 @@ describe("IdempotencyStore — legacy migration (news_monitor.ts seen-ids.json s
     await store.load();
 
     expect(store.size).toBe(3);
+    expect(store.get(legacyIds[0])?.firstSeen).toBe(""); expect(store.get(legacyIds[0])?.meta?.dateEvidence).toBe("legacy-unknown");
     for (const id of legacyIds) {
       expect(store.has(id)).toBe(true);
     }

@@ -119,7 +119,7 @@ describe("the 14-monitor roster", () => {
     expect(normalized).toEqual([...MONITOR_KEYS].sort());
     // And every key that needed an alias is declared, so the alias table cannot
     // grow a second, undocumented entry.
-    const unaliased = SEVERITY_MONITOR_KEYS.filter(key => !MONITOR_KEYS.includes(key));
+    const unaliased = SEVERITY_MONITOR_KEYS.filter(key => !new Set<string>(MONITOR_KEYS).has(key));
     expect([...unaliased].sort()).toEqual(Object.keys(ALIAS).sort());
   });
 

@@ -33,7 +33,6 @@ Fetches and processes the TOC tree from the ecode360 API.
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `fetchToc` | `(page) → Promise<TocNode>` | Navigates to the code page, intercepts the `/toc/CR4919` API response, returns the parsed TOC tree. |
-| `flattenToc` | `(node) → TocNode[]` | Re-exported from `utils.ts`. Recursively flattens the TOC tree into a flat array. |
 | `getArticlePages` | `(toc) → TocNode[]` | Returns all scrapable page nodes: article-type nodes plus chapters that directly contain sections (no intermediate articles). |
 | `getSections` | `(toc) → TocNode[]` | Returns all section-type nodes from the tree. |
 | `tocSummary` | `(toc) → string` | Multi-line human-readable summary with type counts and municipality name. |

@@ -54,7 +54,9 @@ export async function runBrowserSmoke(): Promise<void> {
     console.error(`[browser-smoke] FAIL: ${msg}`);
   }
 
-  async function waitForHealth(url: string, timeoutMs = 20_000): Promise<boolean> {
+  const startupTimeoutMs = Number(process.env.GUI_STARTUP_TIMEOUT_MS ?? "60000");
+  if (!Number.isSafeInteger(startupTimeoutMs) || startupTimeoutMs < 1000 || startupTimeoutMs > 120000) throw new Error("GUI_STARTUP_TIMEOUT_MS must be 1000..120000");
+  async function waitForHealth(url: string, timeoutMs = startupTimeoutMs): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
@@ -95,7 +97,17 @@ export async function runBrowserSmoke(): Promise<void> {
         apiRequests.push(url.pathname);
         if (url.pathname.startsWith("/api/alerts/")) alertRequests.push(`${url.pathname}${url.search}`);
       });
-      await page.goto(`${BASE}/`, { waitUntil: "networkidle", timeout: 20_000 });
+      // Core readiness is independent of the background welcome overview,
+      // whose optional provider generation may legitimately still be running.
+      await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      await page.waitForFunction(() => {
+        const tree = document.getElementById("toc-tree");
+        return tree?.getAttribute("aria-busy") === "false" && (
+          tree.dataset.state === "ready" && Boolean(tree.querySelector("button")) ||
+          tree.dataset.state === "unavailable" && Boolean(tree.textContent?.trim())
+        );
+      }, undefined, { timeout: 20_000 });
+      await page.locator("#search-input").waitFor({ state: "visible", timeout: 20_000 });
 
       const headerCount = await page.locator("#header").count();
       if (headerCount === 0) markFail("page did not render #header");
@@ -120,13 +132,13 @@ export async function runBrowserSmoke(): Promise<void> {
       // bm25-fallback) whether or not the vector stack is running.
       const semantic = await page.evaluate(async (base: string) => {
         try {
-          const res = await fetch(`${base}/api/search/semantic?q=harbor&limit=3`);
+          const res = await fetch(`${base}/api/search/semantic?q=harbor&limit=3`, { headers: { "X-API-Key": (window as any).__CC_API_KEY__ ?? "" } });
           if (!res.ok) return { ok: false, status: res.status };
           const body = await res.json();
           return { ok: true, mode: body.mode, count: Array.isArray(body.results) ? body.results.length : -1 };
-        } catch { return { ok: false }; }
+        } catch { return { ok: false, status: 0 }; }
       }, BASE);
-      if (!semantic.ok) markFail("/api/search/semantic did not return 200");
+      if (!semantic.ok) markFail(`/api/search/semantic did not return 200 (status=${semantic.status})`);
       else if (semantic.mode !== "semantic" && semantic.mode !== "bm25-fallback") markFail(`unexpected semantic mode: ${semantic.mode}`);
       else console.log(`[browser-smoke] semantic mode=${semantic.mode} results=${semantic.count}`);
 
@@ -204,13 +216,14 @@ export async function runBrowserSmoke(): Promise<void> {
           await page.waitForFunction(
             (id: string) => {
               const element = document.getElementById(id);
-              return Boolean(element) && !/Loading|Building|Counting|Reading/.test(element!.textContent ?? "");
+              return Boolean(element) && !/^(?:Loading|Building|Counting|Reading)/.test((element!.textContent ?? "").trim());
             },
             contentId,
             { timeout: 30_000 },
           );
         } catch {
-          markFail(`${tab} panel never finished loading`);
+          const pendingText = await page.locator(`#${contentId}`).innerText();
+          markFail(`${tab} panel never finished loading (state=${pendingText.slice(0, 100)})`);
           return "";
         }
         if (!apiRequests.some(path => path === expectedRoute)) markFail(`${tab} panel did not request ${expectedRoute}`);
@@ -224,7 +237,7 @@ export async function runBrowserSmoke(): Promise<void> {
         if (!graphText.includes(label)) markFail(`section graph panel is missing the "${label}" metric`);
       }
       const lexiconText = await openPanel("analytics-overlay", "#analytics-toggle", "lexicon", "lexicon-content", "/api/lexicon/frequency");
-      for (const label of ["Indexed tokens", "Distinct terms", "Most frequent terms", "Most distinctive terms"]) {
+      for (const label of ["Words counted", "Distinct terms", "Most frequent terms", "Most distinctive terms"]) {
         if (!lexiconText.includes(label)) markFail(`word-frequency panel is missing "${label}"`);
       }
       const longevityText = await openPanel("analytics-overlay", "#analytics-toggle", "longevity", "longevity-content", "/api/sections/longevity");

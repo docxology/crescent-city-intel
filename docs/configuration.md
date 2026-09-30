@@ -50,7 +50,7 @@ Hard-coded project constants. Change these to target a different municipality.
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
 | `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale. Applies to the non-alert source families (news, meetings, YouTube, Triplicate). |
-| `ALERT_FRESHNESS_WINDOW_MS` | `3600000` | Maximum age before an *alert-monitor* report is treated as stale by the composite. Applies to all 14 monitors — core and extended — which share one window. The alert window is deliberately stricter than `SOURCE_FRESHNESS_WINDOW_MS`; the two were previously independent, with the alert side hardcoded, so a report could be `ok` under one policy and `stale` under the other and the stricter one was not tunable. An unparseable or non-positive value falls back to the default rather than disabling the gate. |
+| `ALERT_FRESHNESS_WINDOW_MS` | `3600000` | Maximum age before an alert-monitor report is stale in the composite. Applies to every monitor in `MONITOR_KEYS` (20 currently). The alert window is stricter than the non-alert `SOURCE_FRESHNESS_WINDOW_MS`. An unparseable or non-positive value falls back to the default. |
 | `SOURCE_DISCOVERY_TIMEOUT_MS` | `10000` | Bounded timeout for optional source-discovery probes |
 | `SOURCE_DISCOVERY_LIVE_CHECK` | unset | Set to `1` in scheduled orchestration to probe discovery-only sources; offline runs keep them `not-checked` |
 | `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |
@@ -62,11 +62,17 @@ Hard-coded project constants. Change these to target a different municipality.
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key for `/api/*` endpoints (comma-separated for multiple) |
+| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Header-only key for spec-protected operations (comma-separated for multiple); public read routes declare `security: []` in OpenAPI |
+
+`CC_OUTPUT_DIR` selects the artifact root per operation.
+`CRESCENT_TRUSTED_PROXY_IPS` is a comma-separated exact socket-peer allowlist;
+leave it empty unless a reviewed proxy supplies client addresses.
 
 The API rate limiter uses a sliding window of 100 requests per IP per hour
-(`RATE_LIMIT_MAX_REQUESTS`, not env-overridable) with stricter per-path limits
-for `/api/chat`, `/api/summarize`, and `/api/analytics/embeddings`. The
+(`RATE_LIMIT_MAX_REQUESTS`, not env-overridable) with separate chat (20), vector (10), and probe (1000) buckets. Socket peers
+remain subject to quotas; forwarded IP headers are accepted only from exact
+`CRESCENT_TRUSTED_PROXY_IPS` peers. Expensive operations have finite admission
+and cancellation; the GUI receives its key only on an eligible loopback request. The
 `RATE_LIMIT_MS` variable listed under Scraper applies to scraping, not the API.
 
 ### Scraper
@@ -105,7 +111,7 @@ for `/api/chat`, `/api/summarize`, and `/api/analytics/embeddings`. The
 | `usgs_earthquake.ts` | `SEARCH_RADIUS_KM` | `200` | Max distance from Crescent City for quakes |
 | `usgs_earthquake.ts` | `MIN_MAGNITUDE` | `4.0` | Minimum earthquake magnitude |
 | `nws_weather.ts` | NWS zone | `CAZ006` | Northwest CA coastal zone code |
-| `epa_airnow.ts` | `AIRNOW_API_KEY` | _(none)_ | Free API key from [airnowapi.org](https://airnowapi.org) — **required** for air quality monitor |
+| `epa_airnow.ts` | `AIRNOW_API_KEY` | _(none)_ | Free API key from [airnowapi.org](https://airnowapi.org) — optional keyed API; the default reads public AirNow observations |
 | `calfire_wildfire.ts` | `SEARCH_COUNTIES` | `["Del Norte", "Siskiyou", "Humboldt", "Trinity"]` | Counties to monitor |
 | `calfire_wildfire.ts` | `SEARCH_RADIUS_KM` | `150` | Max distance from Crescent City for fire incidents |
 | `ndbc_marine.ts` | `WAVE_HEIGHT_WARNING_FT` | `15` | Wave height threshold for WARNING severity |
@@ -113,7 +119,7 @@ for `/api/chat`, `/api/summarize`, and `/api/analytics/embeddings`. The
 | `ndbc_marine.ts` | `WIND_SPEED_WARNING_KT` | `34` | Wind speed threshold for WARNING (gale force) |
 | `ndbc_marine.ts` | `WIND_SPEED_WATCH_KT` | `22` | Wind speed threshold for WATCH |
 | `ais.ts` | `AIS_FEED_URL` | `https://meri.digitraffic.fi/api/ais/v1/locations` | Open-AIS FeatureCollection feed (keyless default; point at a US-waters provider for local coverage) |
-| `pacfin.ts` | `PACFIN_SESSION_COOKIE` | _(none)_ | Optional PacFIN session credential; without it the monitor reads only the public report catalog and landing figures stay unavailable |
+| `pacfin.ts` | `PACFIN_SESSION_COOKIE` | _(none)_ | Optional credential forwarded to the PacFIN dashboard fetch. The current monitor reads the public report catalog; setting this does not enable landing-figure extraction. |
 
 ## Example: Override Multiple Settings
 
@@ -126,7 +132,7 @@ AIRNOW_API_KEY=your-key-here bun run alerts:airquality
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `ALERT_WEBHOOK_URL` | _(unset)_ | Optional URL; `scripts/run-alerts.ts` POSTs a JSON payload when the composite reaches WARNING/EMERGENCY |
+| `ALERT_WEBHOOK_URL` | _(unset)_ | Optional URL; `scripts/run-alerts.ts` POSTs a JSON payload when the composite transitions into WARNING/EMERGENCY |
 | `ALERT_WEBHOOK_TIMEOUT_MS` | `5000` | Positive-integer webhook POST timeout (`src/alerts/notify.ts`); invalid/non-positive values fall back to 5000 |
 | `RERANK_ENABLED` | `false` | Enable the post-retrieval lexical-hybrid rerank (`src/llm/rag.ts`) |
 | `RERANK_TOP_N` | `5` | Chunks retained by the rerank when `RERANK_ENABLED=true` |

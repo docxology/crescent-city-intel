@@ -132,9 +132,9 @@ describe("transferable municipality contract", () => {
     const payload = buildMunicipalityContract(EurekaSpec);
     expect(payload.schema).toBe("eureka-geo-intel/v1");
     expect(payload.anchor).toBe(EurekaSpec.anchor);
-    expect(payload.anchor.name).toBe("Eureka");
-    expect(payload.anchor.guid).toBe("EU1234");
-    expect(payload.anchor.county).toBe("Humboldt County");
+    expect((payload.anchor as typeof EurekaSpec.anchor).name).toBe("Eureka");
+    expect((payload.anchor as typeof EurekaSpec.anchor).guid).toBe("EU1234");
+    expect((payload.anchor as typeof EurekaSpec.anchor).county).toBe("Humboldt County");
     expect(payload.domainCount).toBe(1);
     expect((payload.domains as Array<{ id: string }>)[0].id).toBe("emergency-management");
     // hazard subset is derived from the spec's own domains, not the 12 default.
@@ -147,7 +147,7 @@ describe("transferable municipality contract", () => {
     const viaSpec = buildMunicipalityContract(getDefaultCrescentSpec());
     const viaLegacy = buildGeoIntel(domains);
     expect(viaSpec.schema).toBe("crescent-city-geo-intel/v1");
-    expect(viaSpec.anchor.name).toBe("Crescent City");
+    expect((viaSpec.anchor as typeof EurekaSpec.anchor).name).toBe("Crescent City");
     expect(viaSpec.domainCount).toBe(12);
     // The legacy wrapper resolves to the same transferable builder output shape.
     expect(viaSpec.domains).toHaveLength(12);
@@ -214,13 +214,12 @@ describe("transferable municipality contract", () => {
     expect(hazard.relevantDomainCount).toBe(0);
   });
 
-  test("Crescent default hazard surface now covers flood + sea level across 4 domains", () => {
+  test("Crescent default hazard surface covers flood + sea level across multiple domains", () => {
     const spec = getDefaultCrescentSpec();
     const hazard = hazardRelevantDomains(spec.domains);
     expect(hazard.length).toBeGreaterThanOrEqual(4);
     const allTags = hazard.flatMap((d) => d.hazardTags);
-    // The cross-cutting gap the GEO-INFER consumers flagged: flood + sea-level
-    // policy must actually reach the hazard subset.
+    // Flood and sea-level policy must reach the hazard subset.
     expect(allTags.some((t) => t.includes("flood"))).toBe(true);
     expect(allTags.some((t) => t.includes("sea level"))).toBe(true);
   });

@@ -1,29 +1,18 @@
 /**
- * Cross-source validation layer — classifies how well independent source
- * snippets support a factual claim.
- *
- * Grounding invariant: the verifier NEVER trusts a model's own claims about
- * what it quoted. Every quoted span proposed by the provider must pass a
- * literal substring check against the originating snippet text
- * (`verifiedBySubstring`) before it can influence a verdict. Unverifiable
- * spans are reported and dropped, never guessed around.
- *
- * Two layers:
- *  - Pure builders (`normalizeForSubstringMatch`, `verifiedBySubstring`,
- *    `classifySupportFromCounts`, `extractQuoteSpans`, `buildClaimValidation`)
- *    — deterministic, unit-testable without any provider.
- *  - Provider-backed wrapper (`validateClaims` / `validateEventClaims`) that
- *    uses `queryStructured` to propose candidate quoted spans, then hands
- *    every proposal to the pure code-side verifier above.
+ * Literal quote-presence diagnostics. Matching text never proves entailment,
+ * source independence, or the truth of a claim. Candidate quote classifications
+ * remain diagnostic; returned claim verdicts are explicitly unassessed.
  */
 
 export type ClaimSupportVerdict =
+  | "unassessed"
   | "corroborated"
   | "partial"
   | "unsupported"
   | "contradicted";
 
 export const SUPPORT_VERDICTS: readonly ClaimSupportVerdict[] = [
+  "unassessed",
   "corroborated",
   "partial",
   "unsupported",
@@ -31,7 +20,7 @@ export const SUPPORT_VERDICTS: readonly ClaimSupportVerdict[] = [
 ] as const;
 
 export interface CorroborationSnippet {
-  /** Distinct independent source URL this snippet came from. */
+  /** Source URL this snippet came from; independence is not evaluated. */
   sourceUrl: string;
   /** Raw snippet text as fetched from the source. */
   text: string;
@@ -52,6 +41,11 @@ export interface VerifiedSpan {
 export interface ClaimValidation {
   claim: string;
   verdict: ClaimSupportVerdict;
+  /** Quote presence is insufficient to establish entailment or independence. */
+  verifiedSupport: false;
+  semanticSupport: "not-evaluated";
+  sourceIndependence: "not-evaluated";
+  proposedQuoteClassification: ClaimSupportVerdict;
   /** Spans that passed the substring check (supporting + contradicting). */
   verifiedSpans: VerifiedSpan[];
   /** Distinct source URLs contributing at least one verified supporting span. */
@@ -78,7 +72,7 @@ export function verifiedBySubstring(span: string, snippetText: string): boolean 
 }
 
 /**
- * Deterministic classifier over VERIFIED counts only.
+ * Diagnostic classification of proposed quote labels and literal-match counts.
  * - Any verified contradicting span wins outright ("contradicted").
  * - >=2 distinct sources with verified supporting spans -> "corroborated".
  * - Exactly 1 -> "partial" (single-source, needs corroboration).
@@ -119,7 +113,7 @@ function buildProvenance(snippets: CorroborationSnippet[]): ClaimValidation["pro
 /**
  * Pure assembly given pre-verified span sets (no provider involved).
  * Counts only VERIFIED spans; distinct source counting is over supporting
- * sources so a single source quoting twice still reads as one witness.
+ * URLs so repeated quotes from one URL count once; this is not corroboration.
  */
 export function buildClaimValidation(
   claim: string,
@@ -130,7 +124,11 @@ export function buildClaimValidation(
 ): ClaimValidation {
   return {
     claim,
-    verdict: classifySupportFromCounts(
+    verdict: "unassessed",
+    verifiedSupport: false,
+    semanticSupport: "not-evaluated",
+    sourceIndependence: "not-evaluated",
+    proposedQuoteClassification: classifySupportFromCounts(
       new Set(verifiedSupporting.filter(v => v.verified).map(v => v.sourceUrl)).size,
       verifiedContradicting.filter(v => v.verified).length,
     ),
@@ -158,7 +156,7 @@ async function proposeQuoteSpans(claim: string, snippets: CorroborationSnippet[]
     '{"supportingQuotes": ["<exact verbatim span copied from a snippet>"], '
     + '"contradictingQuotes": ["<exact verbatim span copied from a snippet>"]}';
   const prompt =
-    `Claim: "${claim}"\n\nIndependent source snippets:\n\n`
+    `Claim: "${claim}"\n\nSource snippets (independence not evaluated):\n\n`
     + snippets
       .map((s, i) => `[${i}] (${s.sourceUrl})\n${s.text.slice(0, 1200)}`)
       .join("\n\n")
@@ -228,11 +226,3 @@ export async function validateClaims(
 
   return buildClaimValidation(claim, snippets, verifiedSupporting, verifiedContradicting, rejectedSpans);
 }
-
-/**
- * Events-path entry point for src/events.ts (owned by the events lane this
- * round): gate extracted event facts against independent source snippets
- * before publication. Same contract as `validateClaims`; the alias keeps the
- * wiring site self-describing. See docs/modules/llm.md for intended wiring.
- */
-export const validateEventClaims = validateClaims;

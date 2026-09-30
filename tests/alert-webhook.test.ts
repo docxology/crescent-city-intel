@@ -139,3 +139,33 @@ afterAll(() => {
   else process.env.ALERT_WEBHOOK_TIMEOUT_MS = prevTimeout;
   server?.stop(true);
 });
+
+describe("failed transitions remain retryable", () => {
+  test("HTTP 500 does not consume the next successful WARNING transition", async () => {
+    process.env.ALERT_WEBHOOK_URL = `${url}/fail`;
+    await maybeSendSeverityWebhook({ level: "WARNING", reason: "fixture failure" });
+    captured = null;
+    process.env.ALERT_WEBHOOK_URL = url;
+    await maybeSendSeverityWebhook({ level: "WARNING", reason: "retry after failure" });
+    expect(captured).not.toBeNull();
+  });
+  test("a slow local endpoint times out under the configured transport budget", async () => {
+    const slow = Bun.serve({ port: 0, async fetch() { await new Promise(resolve => setTimeout(resolve, 150)); return new Response("ok"); } });
+    try {
+      const start = Date.now();
+      await expect(sendWebhook(`http://127.0.0.1:${slow.port}`, {}, 20)).rejects.toThrow();
+      expect(Date.now() - start).toBeLessThan(100);
+    } finally { slow.stop(true); }
+  });
+});
+
+test("same-destination HTTP failures retry without a success receipt and then dedupe accepted delivery", async () => {
+  let calls = 0;
+  const transient = Bun.serve({ port: 0, fetch() { calls++; return new Response("", { status: calls <= 3 ? 503 : 202 }); } });
+  process.env.ALERT_WEBHOOK_URL = `http://127.0.0.1:${transient.port}`;
+  try {
+    await maybeSendSeverityWebhook({ level: "WARNING" }); expect(calls).toBe(3);
+    await maybeSendSeverityWebhook({ level: "WARNING" }); expect(calls).toBe(4);
+    await maybeSendSeverityWebhook({ level: "WARNING" }); expect(calls).toBe(4);
+  } finally { transient.stop(true); }
+});

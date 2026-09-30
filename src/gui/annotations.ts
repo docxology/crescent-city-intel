@@ -18,6 +18,8 @@ import { existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir } from "fs/promises";
 import { join, dirname } from "path";
 import { writeJsonAtomic } from "../shared/source_health.js";
+import { withFileLease } from "../shared/storage.js";
+import { randomUUID } from "node:crypto";
 import { paths } from "../shared/paths.js";
 
 /** The surface these annotations anchor to. Extending this is a contract change. */
@@ -84,18 +86,24 @@ export function readAnnotationStore(): AnnotationStore {
   if (!existsSync(file)) return emptyStore();
   try {
     const parsed = JSON.parse(readFileSync(file, "utf-8")) as AnnotationStore;
-    if (parsed?.schemaVersion !== "1.0.0" || !Array.isArray(parsed.annotations)) return emptyStore();
+    if (parsed?.schemaVersion !== "1.0.0" || !Array.isArray(parsed.annotations) || parsed.annotations.length > ANNOTATION_MAX_COUNT || !Number.isSafeInteger(parsed.droppedPastBound) || parsed.droppedPastBound < 0) throw new Error("Invalid annotation store");
+    const ids = new Set<string>();
+    for (const annotation of parsed.annotations) {
+      if (!isWellFormedAnnotationId(annotation?.id) || ids.has(annotation.id) || annotation.surface !== ANNOTATION_SURFACE || !validateAnnotationInput(annotation).ok || !Number.isFinite(Date.parse(annotation.createdAt))) throw new Error("Invalid annotation record");
+      ids.add(annotation.id);
+    }
     return { schemaVersion: "1.0.0", annotations: parsed.annotations, droppedPastBound: parsed.droppedPastBound ?? 0 };
   } catch {
-    return emptyStore();
+    throw new Error("Annotation store is malformed; preserve it for repair");
   }
 }
 
 /** Persist an annotation; returns the stored record (id assigned here). */
 export async function addAnnotation(input: { x: number; y: number; text: string }): Promise<MapAnnotation> {
+  return withFileLease(`${annotationsFilePath()}.lock`, async () => {
   const store = readAnnotationStore();
   const annotation: MapAnnotation = {
-    id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: `ann-${Date.now()}-${randomUUID().replace(/-/g, "")}`,
     surface: ANNOTATION_SURFACE,
     x: input.x,
     y: input.y,
@@ -114,10 +122,12 @@ export async function addAnnotation(input: { x: number; y: number; text: string 
   await mkdir(dirname(file), { recursive: true });
   await writeJsonAtomic(file, { schemaVersion: "1.0.0", annotations, droppedPastBound });
   return annotation;
+  });
 }
 
 /** Remove one annotation by id; returns false when the id is unknown. */
 export async function deleteAnnotation(id: string): Promise<boolean> {
+  return withFileLease(`${annotationsFilePath()}.lock`, async () => {
   const store = readAnnotationStore();
   const before = store.annotations.length;
   const annotations = store.annotations.filter(a => a.id !== id);
@@ -126,6 +136,7 @@ export async function deleteAnnotation(id: string): Promise<boolean> {
   await mkdir(dirname(file), { recursive: true });
   await writeJsonAtomic(file, { schemaVersion: "1.0.0", annotations, droppedPastBound: store.droppedPastBound });
   return true;
+  });
 }
 
 /** Safe id check: ids are server-generated `ann-<ts>-<rand>`. */

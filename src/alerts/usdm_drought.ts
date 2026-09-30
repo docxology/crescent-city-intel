@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * USDM Drought Monitor for Del Norte County.
  *
@@ -33,9 +35,9 @@ export const USDM_AREA_PCT_URL =
 const TARGET_FIPS = "06015"; // Del Norte County FIPS code
 const TARGET_COUNTY = "Del Norte";
 
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "drought");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "drought"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 let lastDroughtError: string | undefined;
 
 export function getLastDroughtError(): string | undefined {
@@ -66,9 +68,9 @@ const SEVERITY_SCORE: Record<DroughtSeverity, number> = {
 
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }
@@ -78,11 +80,11 @@ function loadProcessedIds(): Set<string> {
 
 function appendHistory(readings: DroughtReading[]): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     for (const r of readings) {
       const id = r.fips + "-" + r.severity + "-" + new Date().toISOString().slice(0, 10);
       const record = JSON.stringify({ id: id, ...r, fetchedAt: new Date().toISOString() });
-      appendBoundedJsonlSync(HISTORY_FILE, record);
+      appendBoundedJsonlSync(HISTORY_FILE(), record);
     }
   } catch (err) {
     logger.warn("Failed to append drought history", { error: String(err) });
@@ -180,8 +182,8 @@ export async function runDroughtMonitor(): Promise<DroughtReport | null> {
   lastDroughtError = undefined;
   try {
     const report = await fetchDroughtData();
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, report);
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), report);
     if (report.readings.length > 0) {
       const processedIds = loadProcessedIds();
       for (const r of report.readings) {

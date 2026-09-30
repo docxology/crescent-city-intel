@@ -1,10 +1,8 @@
 /**
  * Incremental index planning — pure, offline, and independent of ChromaDB.
  *
- * The TODO item this closes: `indexAllSections` skipped the rebuild only when
- * the WHOLE-corpus chunk fingerprint was unchanged, so a single changed article
- * re-embedded all 3,105 chunks of the municipal code. On a local embedder that
- * is minutes of work for a one-section edit.
+ * `indexAllSections` uses this planner to re-embed changed articles while
+ * retaining unchanged articles' chunks.
  *
  * The unit of work is the ARTICLE, not the corpus, because an article is the
  * smallest unit whose sections always change together (a re-scrape rewrites an
@@ -48,9 +46,13 @@ export interface IndexArticleEntry {
 }
 
 export interface IndexManifest {
+  /** Immutable complete collection activated by this receipt. */
+  servingCollection?: string;
+  /** Exact source manifest bytes used to assemble this serving edition. */
+  corpusManifestSha256?: string;
   schemaVersion: number;
   generatedAt: string;
-  /** Whole-corpus fingerprint. A match is the fast path that skips everything. */
+  /** Whole-corpus text fingerprint; actual IDs and source receipt are reconciled too. */
   fingerprint: string;
   chunkCount: number;
   source: string;
@@ -152,14 +154,15 @@ function unusableReason(manifest: IndexManifest | null | undefined, configSignat
   if (!manifest.articles || typeof manifest.articles !== "object") {
     return "index manifest has no per-article map";
   }
+  if (Object.values(manifest.articles).some(entry => !entry || typeof entry.fingerprint !== "string" || !Array.isArray(entry.chunkIds) || !entry.chunkIds.every(id => typeof id === "string"))) return "index manifest contains malformed article ownership";
   return null;
 }
 
 /**
  * Decide what to re-embed.
  *
- * `existingIds` is the id set actually present in the store, used only to avoid
- * planning a deletion for a chunk that is already gone. Passing it is optional;
+ * `existingIds` is the actual store state; missing desired IDs require repair.
+ * Passing it is optional for offline planning against a manifest alone;
  * when omitted, every recorded chunk id is treated as present, which is the safe
  * direction (a redundant delete is a no-op in Chroma).
  */
@@ -190,11 +193,14 @@ export function planIncrementalIndex(
   if (reason !== null) {
     plan.fullRebuildReason = reason;
     const current = new Set(articles.map(article => article.articleGuid));
+    const desiredIds = new Set(articles.flatMap(article => article.chunks.map(chunk => chunk.id)));
     for (const [articleGuid, entry] of Object.entries(prior?.articles ?? {})) {
-      if (current.has(articleGuid)) continue;
-      plan.removed.push(articleGuid);
-      plan.staleChunkIds.push(...entry.chunkIds);
+      if (!current.has(articleGuid)) plan.removed.push(articleGuid);
+      if (Array.isArray(entry?.chunkIds)) plan.staleChunkIds.push(...entry.chunkIds.filter(id => typeof id === "string" && !desiredIds.has(id)));
     }
+    // Schema-1 did not record ownership. Numeric section chunk IDs belong to
+    // the municipal index; transcript IDs have a separate youtube_ namespace.
+    if (existingIds) plan.staleChunkIds.push(...[...existingIds].filter(id => /^\d+_\d+$/.test(id) && !desiredIds.has(id)));
     for (const article of articles) plan.added.push(article.articleGuid);
     plan.chunksToEmbed = totalChunks;
     plan.noop = false;
@@ -211,7 +217,7 @@ export function planIncrementalIndex(
       plan.added.push(article.articleGuid);
       continue;
     }
-    if (before.fingerprint === article.fingerprint) {
+    if (before.fingerprint === article.fingerprint && (!existingIds || article.chunks.every(chunk => existingIds.has(chunk.id)))) {
       plan.unchanged.push(article.articleGuid);
       // The article's text is identical, so its chunk ids are identical too
       // (ids are derived from guid + index). Nothing to delete.
@@ -219,9 +225,8 @@ export function planIncrementalIndex(
     }
     plan.changed.push(article.articleGuid);
     const desired = new Set(article.chunks.map(chunk => chunk.id));
-    // Chunks that no longer exist because the article shrank. A changed
-    // article is deleted wholesale before re-embedding, so trailing ids are
-    // listed here for the caller's bookkeeping and the id set is rebuilt.
+    // Chunks absent from the desired edition after an article shrinks.
+    // The executor activates a staged collection; this plan records old IDs.
     plan.staleChunkIds.push(...before.chunkIds.filter(id => !desired.has(id)));
   }
 

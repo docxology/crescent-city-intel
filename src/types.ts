@@ -270,6 +270,8 @@ export type SourceHealthStatus = "ok" | "empty" | "unavailable" | "stale";
 
 /** Common health envelope used by feeds, monitors, reports, and the GUI. */
 export interface SourceHealth {
+  /** Stable canonical registry identity when the producer declares it. */
+  sourceId?: string;
   source: string;
   status: SourceHealthStatus;
   checkedAt: string;
@@ -457,6 +459,8 @@ export interface CurationRunReport {
   succeededCount: number;
   retryableCount: number;
   sourceOnlyCount: number;
+  /** Exact retained summaries reconciled after an interrupted store commit. */
+  reusedCount?: number;
   outputPath: string | null;
   /** False when the run had no work and intentionally skipped provider I/O. */
   providerChecked?: boolean;

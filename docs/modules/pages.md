@@ -9,6 +9,7 @@ Bun GUI: GitHub Pages cannot reach the local API, Ollama, or ChromaDB.
 ```bash
 bun run pages:export -- --source output --seed pages-data --output .pages
 bun run pages:validate -- .pages
+PAGES_SMOKE_DIR="$PWD/.pages" bun test tests/lane5-render-smoke.test.ts -t 'lane 5: exported pages render cleanly' --timeout 120000
 ```
 
 `pages-data/` is a tracked, reviewed public seed containing the last verified
@@ -17,10 +18,19 @@ Refresh the code artifacts after a successful scrape, verification, and export
 with `bun run pages:seed`; live source-health and monitor artifacts still come
 from the current deployment run.
 
-The generated `.pages/` directory can be previewed with any static server, for
-example `cd .pages && python3 -m http.server 4173`, then open
-`http://localhost:4173/`. The exporter is atomic: it builds a temporary
-directory and replaces the exact destination only after all files are ready.
+The generated `.pages/` directory can be previewed with a static server. The
+exporter validates a sibling staging tree before promotion. An owner/token lease
+and durable journal make an interrupted writer recoverable; prior bytes remain
+in a rollback directory. A failed stage leaves the active publication intact.
+This is process-interruption evidence, not a claim of arbitrary power-loss atomicity.
+
+The explicit `PAGES_SMOKE_DIR` browser command renders those exact saved bytes
+without rebuilding the tree. It checks all nine exported pages in Chromium,
+script/console failures, populated render targets, and overflow at four viewport
+widths. Normal deterministic suite execution builds a separate six-article
+reviewed-text fixture; that fixture check does not replace acceptance of the
+final full publication. Actions runs the exact-artifact command before uploading
+the unchanged directory.
 
 ## Local directory
 
@@ -31,9 +41,11 @@ attractions. `directory.html` renders it with pull-down category menus
 (counts injected from the artifact), sort, and text filter. The reviewed
 seed is `pages-data/directory.json`; validation runs through
 `src/directory.ts` (`buildDirectoryArtifact`), and `tests/directory.test.ts`
-holds every seed entry to the same rules the export uses: a verified source
-URL per entry, unverified fields left `null`, and unknown categories or
-non-URL sources fail the export rather than shipping.
+holds every seed entry to the same rules the export uses: a public source URL,
+valid row/count/category invariants, and optional editorial `consultedAt`/
+`reviewedAt` dates that remain `null` when unknown. Generation time or URL
+reachability does not establish field verification. Credential URLs and private
+literal hosts fail the export.
 
 ## Public artifact
 
@@ -45,7 +57,7 @@ with existing consumers and its `view` field carries the
 `crescent-city-geo-view/v1` bounds, anchor, nominal hazard-domain features, and
 section references. It is built from the reviewed seed or the same in-repo pure
 builders, so no network, API key, tiles provider, or local service is required.
-The companion `data/geo-observations.json` carries the LIVE hazard-observation
+The companion `data/geo-observations.json` carries the selected recorded hazard-observation
 envelope (`crescent-city-geo-observations/v1`): the composite severity banner,
 one operational chip per alert monitor, and the freshness of the upstream
 geo-intel contract. It is ALWAYS emitted — when no valid envelope exists for
@@ -54,8 +66,8 @@ envelope (`available: false`) keeps the dashboard's fetch from 404ing rather
 than shipping silence. Validation is fail-closed: schema, anchor, composite,
 monitor, and freshness fields are checked offline plus a 64 KiB byte ceiling,
 and the `#observations` section must embed the panel. The masthead nav and
-breadcrumbs are generated from the canonical `PAGES_SECTION_NAV` list (which
-now includes Observations); `tests/pages-nav.test.ts` pins the authored
+breadcrumbs are generated from the canonical `PAGES_SECTION_NAV` list,
+including Observations; `tests/pages-nav.test.ts` pins the authored
 markup against the generated nav so the two cannot drift, and the JSON-LD
 dataset catalog lists the observations artifact (8 entries).
 
@@ -67,13 +79,32 @@ links only, alert current snapshots and composite severity, the shared
 `analytics-overview.json` when the pipeline has generated it, and the latest
 monthly report.
 
-In the GitHub Actions build, `PAGES_BUILD=1` makes collection explicitly
-seed-aware: when the runner has no local scraped `output/toc.json` and
-`output/manifest.json`, the live municipal-code change monitor is recorded as
-`not-run` and the reviewed `pages-data/` seed remains the code baseline.
-Analytics uses that same reviewed seed for code counts. A local-only provider
-such as Ollama may therefore be `unavailable` in the public build while the
-deterministic analytics summary and its provenance still export normally.
+In GitHub Actions the municipal candidate is collected in job-owned temporary
+storage, with a total 18 minute scrape→verify→export budget and forced cleanup of
+its process group on timeout. It stays separate from the live-feed `output/`
+directory. `--municipal-source` passes an eligible candidate to publication;
+failed collection selects the entire reviewed tracked seed. With no municipal
+TOC/manifest beside feeds, `PAGES_BUILD=1` records the weekly live code monitor
+as not run instead of trying to read a partial failed scrape. Other source
+outages remain explicit; crashed required pipeline stages fail the job.
+
+The core bundle is code JSON, TOC, manifest, and verification report from one
+directory, plus optional coverage/readability from that directory. Fresh output
+requires all required verification planes and exact manifest/TOC byte hashes plus
+a recomputed canonical exported-article hash including section text/history.
+Matching raw HTML metadata alone is insufficient. Reviewed historical seed
+fallback remains visibly labeled; source verification/export dates are separate
+from this build's date.
+
+`publication-input.json` records the selected bundle and its file hashes.
+`publication-manifest.json` binds every emitted file and the selected input
+receipt. Family DTOs retain display fields and dynamic public maps while omitting
+backend additions and operator detail. Core custody files preserve exact bytes;
+unknown fields fail their explicit family allowlist. Full-tree checks reject
+private paths, credential-bearing URLs, operator-only records, and private
+literal service addresses. An empty but valid RSS channel is an honest zero-item
+edition. All tree/schema/link/privacy/hash checks precede promotion and unchanged
+artifact upload. Hosted Actions/deploy/site success needs its own receipt.
 
 The first viewport is a welcome linktree that routes visitors to local news and
 summaries, source registry/health, municipal code, alerts, reports, structured
@@ -106,19 +137,20 @@ It deliberately excludes chat history, request/search/RAG logs, Chroma
 indexes, credentials, and Triplicate article content. The dashboard labels
 `ok`, `empty`, `unavailable`, and `stale` separately. An unavailable source is
 not converted into a calm result. The snapshot reports present versus missing
-checks and lists the missing names and reasons; ordinary source gaps do not
+checks and lists the missing names and states; ordinary source gaps do not
 reclassify an otherwise complete static export as `degraded`.
 
-The exporter completes the 18-source operational health contract before
-writing `data/snapshot.json`. If a monitor crashes or omits its health file,
+The exporter completes the operational health contract defined by
+`EXPECTED_SOURCE_HEALTH` in `src/shared/source_health.ts` before writing
+`data/snapshot.json`. If a monitor crashes or omits its health file,
 the absent source is emitted as a named synthetic `unavailable` coverage
 record, so the denominator cannot silently shrink. A monitor that reached a
 source and found no matching records remains `empty` and therefore present.
 
 ## Deployment
 
-The repository Pages source must be configured as `GitHub Actions` (not the
-legacy `main` branch root) so that the artifact produced by this workflow is
+The repository Pages source must be configured as `GitHub Actions` so that
+the artifact produced by this workflow is
 the site that visitors receive. The workflow runs on pushes to `main`, a
 weekly schedule, and manual dispatch. It runs `bun run validate`, then
 `bun run weekly-check` with source outages
@@ -147,7 +179,7 @@ snapshot is discoverable and attributable without any client-side code:
   namespace covering the canonical root plus the major anchor sections
   (`#analytics`, `#code`, `#events`, `#geo`, `#news`, `#meetings`, `#curated`).
 
-## Reader experience (night edition, 2026-09-08)
+## Reader experience
 
 The shared surface (`assets/site.css` + `assets/site.js`, content-hashed at
 export) carries a site-wide dark/night theme: `html[data-theme="dark"]`

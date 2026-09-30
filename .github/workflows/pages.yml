@@ -1,156 +1,77 @@
 name: Publish Public Intelligence Snapshot
-
 on:
   push:
     branches: [main]
   schedule:
-    # Refresh the public snapshot after the weekly intelligence cycle window.
     - cron: '30 8 * * 1'
   workflow_dispatch:
-
 env:
-  # Pinned, and identical to pr-gate.yml and weekly.yml. `bun-version: latest`
-  # meant a Bun release could break the publish with no change to this
-  # repository, which is the worst moment to discover it.
   BUN_VERSION: "1.4.2"
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: github-pages
   cancel-in-progress: true
-
 jobs:
   build:
-    name: Collect and build static snapshot
+    name: Collect, validate and stage public edition
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     env:
       AIRNOW_API_KEY: ${{ secrets.AIRNOW_API_KEY }}
       GITHUB_SHA: ${{ github.sha }}
       LOG_LEVEL: info
-      SOURCE_DISCOVERY_LIVE_CHECK: "1"
       PAGES_BUILD: "1"
-      PAGES_DOMAIN: quadruplicate.org
       HEADLESS_BROWSER: "1"
       SCRAPE_TIMEOUT_MS: "180000"
-      # The 10s default fetch timeout is tighter than a cold-datacenter-TLS
-      # round trip to several state endpoints (roads.dot.ca.gov timed out on
-      # all five route fetches in the 2026-08-31 run while serving 200s in
-      # ~0.3s locally). 60s keeps the honest-unavailable semantics while not
-      # mistaking slow egress for a dead source.
       SOURCE_FETCH_TIMEOUT_MS: "60000"
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      # yt-dlp must be current: YouTube extraction internals rotate constantly
-      # (see the extractor-args note in src/youtube_monitor.ts). A stale
-      # runner-pip yt-dlp was the cause of the 2026-08-30 run's ten transcript
-      # extraction failures that flagged YouTube source health STALE.
-      - name: Install current yt-dlp
-        run: pipx install yt-dlp || pip install --user -U yt-dlp || python3 -m pip install --break-system-packages -U yt-dlp yt-dlp[default] 2>/dev/null || pip install -U yt-dlp
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Install Playwright Chromium (for code scraper)
+      - run: bun install --frozen-lockfile
+      - name: Install Chromium
         run: bunx playwright install --with-deps chromium
-
-      - name: Generate canonical source registry
+      - name: Generate offline canonical registry
         run: bun run source-discovery
-
-      # The release gate decides whether this edition may publish, so its result
-      # has to matter. It ran with continue-on-error for as long as the suite
-      # needed a populated output/ tree that a fresh checkout does not have;
-      # with the corpus fence and the artifact-root seam in place the suite is
-      # hermetic and a clean clone passes it, so a failure here now stops the
-      # publish instead of being recorded as a warning nobody reads.
       - name: Run deterministic release gate
         run: bun run validate
-
-      # Community-calendar refresh (events.html + front-page calendar): merge
-      # live government calendars into the structured events artifact, then
-      # feed live-source discovery into the same pipeline. continue-on-error
-      # matches the rest of collection: an outage degrades source health, it
-      # does not block the public snapshot.
-      - name: Collect community calendar events
-        run: bun run events
+      - name: Collect municipal code candidate
+        id: scrape
+        env:
+          CC_OUTPUT_DIR: ${{ runner.temp }}/municipal-candidate
+        run: timeout --signal=TERM --kill-after=20s 18m bun run all
         continue-on-error: true
-        timeout-minutes: 5
-
-      - name: Discover community events from public feeds
-        run: bun run src/event_discovery.ts
-        continue-on-error: true
-        timeout-minutes: 5
-
-      # The re-merge is deterministic local work: it reads the artifacts the two
-      # steps above wrote and rebuilds output/events/events.json. It performs no
-      # network I/O, so a failure here is a code or data defect, not an outage —
-      # it fails the build rather than publishing whatever the last step left
-      # behind. Total-failure honesty is enforced downstream too: the Pages
-      # validator rejects an empty calendar published alongside non-empty
-      # meeting/news/YouTube inputs, so three silently-skipped collection steps
-      # can no longer leave a green build with an empty community calendar.
-      - name: Re-merge discovered events into the calendar
-        run: bun run events
-        timeout-minutes: 5
-
-
-      # Municipal-code snapshot collection must precede snapshot export so the
-      # published edition contains real code statistics. A failed collection
-      # fails the build loudly instead of silently publishing an empty edition.
-      - name: Collect municipal code snapshot
-        run: bun run scrape
-        # If live collection fails (e.g. source blocks datacenter IPs), the export
-        # falls back to the reviewed pages-data seed so the edition still ships.
-        continue-on-error: true
-
-      - name: Verify collected municipal code data
-        run: bun run verify
-        continue-on-error: true
-
       - name: Collect live source snapshots
         run: bun run weekly-check
-        # Source outages are represented in source-health artifacts and must not
-        # prevent Pages from publishing the rest of the honest snapshot.
-        continue-on-error: true
-
-      - name: Export public Pages snapshot
-        run: bun run pages:export -- --source output --seed pages-data --output .pages
-
-
-      - name: Create CNAME for custom domain
-        run: cp CNAME .pages/CNAME
-
-      - name: Validate public Pages snapshot
+      - name: Discover community events
+        run: bun run src/event_discovery.ts
+      - name: Merge community calendar
+        run: bun run events
+      - name: Build recoverable public publication
+        env:
+          MUNICIPAL_CANDIDATE: ${{ runner.temp }}/municipal-candidate
+          MUNICIPAL_CANDIDATE_OUTCOME: ${{ steps.scrape.outcome }}
+        run: |
+          if [ "$MUNICIPAL_CANDIDATE_OUTCOME" = success ]; then
+            bun run pages:export -- --source output --municipal-source "$MUNICIPAL_CANDIDATE" --seed pages-data --output .pages
+          else
+            bun run pages:export -- --source output --municipal-source "$RUNNER_TEMP/no-municipal-candidate" --seed pages-data --output .pages
+          fi
+      - name: Validate complete public tree and custody receipt
         run: bun run pages:validate -- .pages
-
-      # Renders every exported page in the Chromium installed above and fails on
-      # a script error, a failed request, an empty render target, or horizontal
-      # overflow outside the known-defect ledger the test carries. It exports
-      # into its own temp directory, intercepts every request, and reaches no
-      # network — so it is the same check locally and here.
-      - name: Render smoke test over the exported pages
-        run: bun test tests/lane5-render-smoke.test.ts
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
+      - name: Real browser render smoke
+        env:
+          PAGES_SMOKE_DIR: ${{ github.workspace }}/.pages
+        run: bun test tests/lane5-render-smoke.test.ts -t 'lane 5: exported pages render cleanly' --timeout 120000
+      - uses: actions/configure-pages@v5
+      - name: Upload the validated unchanged publication
         uses: actions/upload-pages-artifact@v3
         with:
           path: .pages
-
   deploy:
     name: Deploy static snapshot
     needs: build

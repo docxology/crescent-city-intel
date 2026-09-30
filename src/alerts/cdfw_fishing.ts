@@ -1,3 +1,4 @@
+import { boundedHttpFetch as fetch, type TransportOptions } from "../shared/transport.js";
 /**
  * CDFW Commercial Fishing & Dungeness Crab Season Monitor
  * for Crescent City, CA.
@@ -115,7 +116,7 @@ export function extractBulletinBody(html: string): string {
  * Gracefully returns an empty string on any failure (network error, timeout,
  * non-200, or parse failure). Never throws.
  */
-export async function fetchBulletinBody(url: string): Promise<string> {
+export async function fetchBulletinBody(url: string, options: TransportOptions = {}): Promise<string> {
   try {
     const resp = await fetch(url, {
       headers: {
@@ -123,6 +124,7 @@ export async function fetchBulletinBody(url: string): Promise<string> {
         Accept: "text/html",
       },
       signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
+      ...options,
     });
 
     if (!resp.ok) {

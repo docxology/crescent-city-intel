@@ -2,8 +2,7 @@
 /**
  * Crescent City Harbor District dredging / marine-construction monitor (#17).
  *
- * Roadmap item: the 🔴 TODO "New monitors: permits, dredging, fuel". The
- * Harbor District (the port authority that owns the Crescent City harbor,
+ * The Harbor District (the port authority that owns the Crescent City harbor,
  * its channel approach and Citizens Dock) publishes operational news as
  * posts at www.ccharbor.com. The site has no RSS feed (wp-json and /feed/
  * are disabled) but a standard sitemap.xml, which this monitor reads.

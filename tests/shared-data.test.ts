@@ -1,5 +1,8 @@
-import { describe, expect, test } from "bun:test";
-import { existsSync } from "fs";
+import { beginSeedCorpus, endCorpusCopy, withEmptyCorpus } from "./helpers/output-root.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
+beforeAll(async () => { await beginSeedCorpus(); invalidateSectionsCache(); });
+afterAll(async () => { await endCorpusCopy(); invalidateSectionsCache(); });
+import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import {
   loadToc,
   loadManifest,
@@ -7,15 +10,15 @@ import {
   loadAllSections,
   loadSection,
   loadMonitorReport,
-  searchSections,
   hasScrapedData,
   hasArticles,
 } from "../src/shared/data";
 import { paths } from "../src/shared/paths";
+import { runMonitor } from "../src/monitor.ts";
 
-// Tests run against real output/ if present; otherwise verify graceful fallback.
+// Corpus tests always use reviewed seed text; absence cases use a separate empty root.
 
-const hasOutput = existsSync(paths.toc) && existsSync(paths.manifest);
+const hasOutput = true; // Every corpus case uses the reviewed seed fixture below.
 
 describe("shared/data — core loaders", () => {
   test("loadToc returns a TocNode with expected fields", async () => {
@@ -30,8 +33,7 @@ describe("shared/data — core loaders", () => {
 
   test("loadToc throws with actionable message when output absent", async () => {
     // Always tests: if output missing, error message is descriptive
-    if (hasOutput) return; // skip if data exists
-    await expect(loadToc()).rejects.toThrow("Run 'bun run scrape' first");
+    await withEmptyCorpus(async () => { await expect(loadToc()).rejects.toThrow("Run 'bun run scrape' first"); });
   });
 
   test("loadManifest returns a ScrapeManifest with expected fields", async () => {
@@ -61,9 +63,7 @@ describe("shared/data — core loaders", () => {
 
   test("loadAllArticles returns empty array when output dir absent", async () => {
     // The function always returns [] gracefully if dir missing
-    if (hasOutput) return;
-    const articles = await loadAllArticles();
-    expect(articles).toEqual([]);
+    await withEmptyCorpus(async () => { expect(await loadAllArticles()).toEqual([]); });
   });
 });
 
@@ -88,9 +88,7 @@ describe("shared/data — loadAllSections", () => {
 
 describe("shared/data — loadSection", () => {
   test("returns undefined for unknown guid when output absent", async () => {
-    if (hasOutput) return;
-    const result = await loadSection("nonexistent-guid");
-    expect(result).toBeUndefined();
+    await withEmptyCorpus(async () => { expect(await loadSection("nonexistent-guid")).toBeUndefined(); });
   });
 
   test("finds section by guid in real data", async () => {
@@ -107,15 +105,13 @@ describe("shared/data — loadSection", () => {
 
 describe("shared/data — loadMonitorReport", () => {
   test("returns undefined when monitor-report.json does not exist", async () => {
-    if (existsSync("output/monitor-report.json")) return;
-    const result = await loadMonitorReport();
-    expect(result).toBeUndefined();
+    await withEmptyCorpus(async () => { expect(await loadMonitorReport()).toBeUndefined(); });
   });
 
-  test("returns MonitorReport with expected fields if file exists", async () => {
-    if (!existsSync("output/monitor-report.json")) return;
+  test("loads the exact current monitor producer report from the selected fixture root", async () => {
+    const produced = await runMonitor();
     const report = await loadMonitorReport();
-    expect(report).toBeDefined();
+    expect(report).toEqual(produced);
     expect(typeof report!.timestamp).toBe("string");
     expect(typeof report!.articlesChecked).toBe("number");
     expect(Array.isArray(report!.hashMismatches)).toBe(true);
@@ -133,23 +129,5 @@ describe("shared/data — existence checks", () => {
   test("hasArticles is a function that returns a promise", async () => {
     const result = await hasArticles();
     expect(typeof result).toBe("boolean");
-  });
-});
-
-describe("shared/data — searchSections", () => {
-  test("filters by substring match", async () => {
-    if (!hasOutput) return;
-    const all = await loadAllSections();
-    if (all.length === 0) return;
-    const results = await searchSections("the", all);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.length).toBeLessThanOrEqual(all.length);
-  });
-
-  test("returns empty array for nonsense query", async () => {
-    if (!hasOutput) return;
-    const all = await loadAllSections();
-    const results = await searchSections("xyzzy_totally_impossible_query_12345", all);
-    expect(results).toHaveLength(0);
   });
 });

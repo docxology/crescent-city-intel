@@ -39,9 +39,6 @@ export async function fetchToc(page: Page): Promise<TocNode> {
   }
 }
 
-// Re-export flattenToc from utils for backward compatibility
-export { flattenToc } from "./utils.js";
-
 /**
  * Extract all nodes that serve as scrapable pages containing sections.
  * This includes "article" nodes AND chapters that directly parent sections

@@ -2,9 +2,8 @@
  * Phase 10 GUI surfaces: ordinal-sequence refinement, legal-citation
  * cross-linking, and the effective-date field.
  *
- * The TODO's acceptance criterion is binding: each surface ships with an
- * explicit empty state and a string-contract (or browser-smoke) test. Four
- * layers, matching the repo's established test idioms:
+ * Each surface has explicit empty states and string-contract coverage. Four
+ * layers exercise the page, derivations, routes, and specification:
  *
  *  1. String contracts on the page (`/phase10-legal.html`) — the empty-state
  *     markup must exist verbatim for all three panels (tests/gui-phase14
@@ -36,8 +35,7 @@ const spec = read("openapi.yaml");
 
 describe("string contracts: the Phase 10 page", () => {
   test("all three panels carry an explicit empty state, on load and on empty data", () => {
-    // The TODO's AC: explicit empty state per surface. On-load AND empty-result
-    // states for each of the three panels, verbatim.
+    // On-load and empty-result states for each of the three panels, verbatim.
     expect(page).toContain('id="ordinals-empty"');
     expect(page).toContain("No ordinal report loaded yet");
     expect(page).toContain('id="ordinals-empty-result"');
@@ -47,9 +45,9 @@ describe("string contracts: the Phase 10 page", () => {
     expect(page).toContain('id="crosslinks-empty-result"');
     expect(page).toContain("No legal citations were found");
     expect(page).toContain('id="effective-empty"');
-    expect(page).toContain("No effective-date report loaded yet");
+    expect(page).toContain("No recorded-amendment report loaded yet");
     expect(page).toContain('id="effective-empty-result"');
-    expect(page).toContain("no effective date on record");
+    expect(page).toContain("no recorded amendment year on record");
   });
 
   test("each panel calls its endpoint and renders the honest no-link state", () => {
@@ -259,11 +257,11 @@ describe("route + spec wiring", () => {
     expect(routes).toContain('path === "/api/ordinals"');
     expect(routes).toContain('path === "/api/citations/index"');
     expect(routes).toContain('path === "/api/effective-dates"');
-    expect(spec).toMatch(/^ {2}\/api\/ordinals:$/m);
-    expect(spec).toMatch(/^ {2}\/api\/citations\/index:$/m);
-    expect(spec).toMatch(/^ {2}\/api\/effective-dates:$/m);
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths['/api/ordinals']).toBeDefined();
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths['/api/citations/index']).toBeDefined();
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths['/api/effective-dates']).toBeDefined();
     expect(server).toContain('"/phase10-legal.html"');
-    expect(server).toContain('serveStaticHtmlWithKey("phase10-legal.html", socketIp)');
+    expect(server).toContain('serveStaticHtmlWithKey("phase10-legal.html", socketIp, req)');
   });
 
   test("the exact /api/citations/index check precedes the /api/citations/{guid} matcher", () => {
@@ -280,8 +278,8 @@ describe("route + spec wiring", () => {
     // their implementations and spec entries.
     expect(routes).toContain('path === "/api/ordinal-check"');
     expect(routes).toContain("const citationsMatch = path.match");
-    expect(spec).toMatch(/^ {2}\/api\/ordinal-check:$/m);
-    expect(spec).toMatch(/^ {2}\/api\/citations\/\{guid\}:$/m);
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths['/api/ordinal-check']).toBeDefined();
+    expect((Bun.YAML.parse(spec) as { paths: Record<string, unknown> }).paths['/api/citations/{guid}']).toBeDefined();
   });
 });
 

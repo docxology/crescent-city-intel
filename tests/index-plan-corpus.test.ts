@@ -1,17 +1,18 @@
+import { beginSeedCorpus, endCorpusCopy, withEmptyCorpus } from "./helpers/output-root.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
+beforeAll(async () => { await beginSeedCorpus(); invalidateSectionsCache(); });
+afterAll(async () => { await endCorpusCopy(); invalidateSectionsCache(); });
 /**
  * The incremental-index claim, measured on the REAL scraped corpus.
  *
- * `tests/index-plan.test.ts` proves the planner is correct on fixtures. This
- * proves the win is real: it runs the same grouping and fingerprinting that
- * `indexAllSections` performs over the actual `output/articles/*.json` and
- * compares what the old whole-corpus check would have decided against what the
- * per-article plan decides for a realistic one-article edit.
+ * This runs the same grouping and fingerprinting that `indexAllSections`
+ * performs over `output/articles/*.json` and measures the per-article plan
+ * for a realistic one-article edit. Fixture cases live in index-plan.test.ts.
  *
- * Without this, "1 section edit no longer re-embeds 3,105 chunks" would be an
- * assertion about arithmetic rather than about this corpus. It also degrades to
- * a no-op on a host with no scraped corpus, rather than failing.
+ * The assertions use the loaded corpus counts. A host with no scraped corpus
+ * has no corpus measurement to perform.
  */
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { loadAllSections } from "../src/shared/data.ts";
 import { chunkText } from "../src/llm/embeddings.ts";
 import {
@@ -70,8 +71,7 @@ describe("incremental indexing over the real municipal code", () => {
 
     const plan = planIncrementalIndex(edited, manifest, SIG);
 
-    // The old behaviour: any text change moved the whole-corpus fingerprint,
-    // so every chunk in the code was re-embedded.
+    // The corpus fingerprint changes while the plan isolates the edited article.
     const wholeCorpusFingerprint = await computeSha256(edited.flatMap(a => a.chunks).map(c => `${c.id}\0${c.text}`).join("\n"));
     expect(wholeCorpusFingerprint).not.toBe(manifest.fingerprint);
 

@@ -17,8 +17,9 @@ import type {
   DroughtInput, TidesInput, FishingInput, MarineZoneInput,
 } from "../src/alerts/severity.ts";
 import { buildTidesInput, buildFishingInput, isFreshReport, buildExtendedCompositeInput } from "../src/alerts/composite.ts";
-import { classifyPm25 } from "../src/alerts/hrrr_smoke.ts";
+import { buildHmsSmokeReport } from "../src/alerts/hrrr_smoke.ts";
 import { toMarineZoneForecast } from "../src/alerts/nws_marine.ts";
+import { computeDroughtComposite } from "../src/alerts/usdm_drought.ts";
 
 /**
  * `computeAlertSeverity` takes POSITIONAL inputs, so a partial call leaves the
@@ -203,33 +204,15 @@ describe("tides: a forecast is not an observation", () => {
   });
 });
 
-describe("smoke: the top AQI band cannot report AQI 0", () => {
-  test("a hazardous PM2.5 concentration reports the band maximum, not zero", () => {
-    // The defect: the top band used `max: Infinity`, and the interpolation
-    // `aqi * (pm25 / Infinity)` evaluated to 0 — so a hazardous plume was
-    // published as `peakLevel: HAZARDOUS` with `peakAqi: 0`, and the analytics
-    // layer, which reads the AQI number, recorded it as clean air.
-    const hazardous = classifyPm25(400);
-    expect(hazardous.level).toBe("HAZARDOUS");
-    expect(hazardous.aqi).toBeGreaterThan(300);
-    expect(hazardous.aqi).toBeLessThanOrEqual(500);
+describe("smoke mapped plumes cannot claim measured air quality", () => {
+  test("heavy mapped smoke retains unknown measured exposure", () => {
+    const report = buildHmsSmokeReport({ mapDate: "20260928", plumes: 3, maxDensity: "Heavy" });
+    expect(report.density).toBe("heavy"); expect(report.peakAqi).toBeNull(); expect(report.maxPm25).toBeNull();
+    expect(report.peakLevel).toBe("UNKNOWN"); expect(report.summary).toContain("unknown");
   });
-
-  test("a concentration above every breakpoint still reports the band maximum", () => {
-    // The `for` loop is total over finite bands, but an out-of-range input must
-    // not fall through to a guess. 500.4 is the top band's ceiling; beyond it
-    // the answer is the ceiling, not 0 and not undefined.
-    const extreme = classifyPm25(5000);
-    expect(extreme.level).toBe("HAZARDOUS");
-    expect(extreme.aqi).toBe(500);
-  });
-
-  test("AQI increases monotonically with concentration across every band", () => {
-    const samples = [2, 20, 45, 100, 200, 400];
-    const aqis = samples.map(pm25 => classifyPm25(pm25).aqi);
-    for (let i = 1; i < aqis.length; i++) {
-      expect(aqis[i]!).toBeGreaterThanOrEqual(aqis[i - 1]!);
-    }
+  test("no mapped plume does not become a measured zero", () => {
+    const report = buildHmsSmokeReport({ mapDate: "20260928", plumes: 0, maxDensity: "Light" });
+    expect(report.density).toBe("none"); expect(report.peakAqi).toBeNull(); expect(report.summary).toContain("not measured");
   });
 });
 
@@ -247,9 +230,10 @@ describe("freshness windows", () => {
   });
 
   test("a fresh extended report is available", () => {
-    const fresh = { timestamp: new Date().toISOString() };
+    const fresh = { timestamp: new Date().toISOString(), readings: [], compositeSeverity: computeDroughtComposite([]), severeDroughtPercent: 0, summary: "No drought category in this captured empty county result" };
     const input = buildExtendedCompositeInput({ drought: fresh }) as Record<string, { available: boolean }>;
     expect(input.drought!.available).toBe(true);
+    expect((buildExtendedCompositeInput({ drought: { timestamp: fresh.timestamp } }) as Record<string, { available: boolean }>).drought!.available).toBe(false);
   });
 
   test("ALERT_FRESHNESS_WINDOW_MS tunes the alert layer, and an invalid value keeps the gate on", () => {

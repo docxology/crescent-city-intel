@@ -1,218 +1,111 @@
-/**
- * Bounded live-fetch connector for the five 2026-09-28 expansion monitors
- * (permits, dredging, fuel, pacfin, ais).
- *
- * Every live fetch these monitors make goes through `boundedFetchText`, which
- * enforces four connector bounds in one place:
- *
- *   1. TIMEOUT — the request is aborted after `timeoutMs`
- *                 (SOURCE_FETCH_TIMEOUT_MS by default, env-overridable).
- *   2. SIZE    — the body is streamed and rejected once it exceeds `maxBytes`,
- *                even when the server omits Content-Length.
- *   3. RATE    — per-host minimum interval between fetches, so repeated runs
- *                or a healer retry racing the batch cannot hammer a source.
- *   4. ROBOTS  — the host's robots.txt (bounded fetch, cached 24 h) is checked
- *                for `User-agent: *` Disallow rules; a disallowed path throws
- *                BoundedFetchError("robots") so the run records an honest
- *                unavailable-with-reason health state instead of scraping
- *                against a published content-use signal.
- *
- * Errors carry a stable `kind` (`timeout` | `size` | `robots` | `status` |
- * `network`) so source-health reporting and tests can assert the failure mode,
- * not just "it failed". The 2026-09-26/27 correctness doctrine applies
- * downstream: a dead or blocked source surfaces as a thrown error → the
- * monitor's `null` return → a degraded SourceHealth record. Nothing here
- * fabricates a plausible result.
- */
-import { SOURCE_FETCH_TIMEOUT_MS } from "../shared/source_health.js";
+/** Robots-aware, path-specific acquisition policy over the shared bounded transport. */
+import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
+import { boundedHttpFetch, redactUrl, TransportError, waitWithSignal, withinDeadline, type TransportOptions } from '../shared/transport.js';
 
-export type FetchFailureKind = "timeout" | "size" | "robots" | "status" | "network";
-
+export type FetchFailureKind = 'timeout' | 'size' | 'robots' | 'status' | 'network' | 'destination' | 'redirect';
 export class BoundedFetchError extends Error {
-  readonly kind: FetchFailureKind;
-  readonly url: string;
-  constructor(kind: FetchFailureKind, url: string, message: string) {
-    super(message);
-    this.name = "BoundedFetchError";
-    this.kind = kind;
-    this.url = url;
-  }
+  constructor(readonly kind: FetchFailureKind, readonly url: string, message: string) { super(message); this.name = 'BoundedFetchError'; }
 }
-
-export const CONNECTOR_USER_AGENT =
-  "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)";
-
-export interface BoundedFetchOptions {
-  label: string;
-  maxBytes: number;
-  timeoutMs?: number;
-  /** Per-host minimum interval between fetches; defaults to the shared 5 s. */
-  minIntervalMs?: number;
-  headers?: Record<string, string>;
-  retry?: boolean;
-  skipRobots?: boolean;
+export const CONNECTOR_USER_AGENT = 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)';
+export interface BoundedFetchOptions extends TransportOptions {
+  label: string; maxBytes: number; minIntervalMs?: number; retry?: boolean; skipRobots?: boolean; robotsTtlMs?: number;
 }
-
-const DEFAULT_MIN_INTERVAL_MS = 5_000;
-
 const nextAllowedAt = new Map<string, number>();
-
-export function setHostRateLimit(host: string, nextAllowedAtMs: number): void {
-  nextAllowedAt.set(host, Math.max(nextAllowedAtMs, nextAllowedAt.get(host) ?? 0));
+const robotsCache = new Map<string, { body: string; denied?: string; checkedAt: number }>();
+export function setHostRateLimit(host: string, time: number): void { nextAllowedAt.set(host, Math.max(time, nextAllowedAt.get(host) ?? 0)); }
+export function resetConnectorState(): void { nextAllowedAt.clear(); robotsCache.clear(); }
+async function reserveHost(host: string, interval: number, signal: AbortSignal): Promise<void> {
+  const reserved = Math.max(Date.now(), nextAllowedAt.get(host) ?? 0);
+  nextAllowedAt.set(host, reserved + Math.max(0, interval));
+  await waitWithSignal(reserved - Date.now(), signal);
 }
 
-export function resetConnectorState(): void {
-  nextAllowedAt.clear();
-  robotsCache.clear();
-}
-
-async function awaitHostRateLimit(host: string, minIntervalMs: number): Promise<void> {
-  const allowed = nextAllowedAt.get(host) ?? 0;
-  const wait = allowed - Date.now();
-  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-  nextAllowedAt.set(host, Date.now() + minIntervalMs);
-}
-
-const ROBOTS_TTL_MS = 24 * 60 * 60 * 1000;
-const ROBOTS_MAX_BYTES = 256 * 1024;
-
-interface RobotsDecision {
-  allowed: boolean;
-  reason?: string;
-  checkedAt: number;
-}
-
-const robotsCache = new Map<string, RobotsDecision>();
-
-/** Disallow test for the `User-agent: *` group of a robots.txt body: any matching Disallow denies. */
-export function robotsAllowsPath(robotsTxt: string, path: string): { allowed: boolean; reason?: string } {
-  let inStarBlock = false;
-  let longestMatched = "";
-  for (const raw of robotsTxt.split(/\r?\n/)) {
-    const line = raw.replace(/#.*$/, "").trim();
-    const colon = line.indexOf(":");
-    if (colon === -1) continue;
-    const key = line.slice(0, colon).trim().toLowerCase();
-    const value = line.slice(colon + 1).trim();
-    if (key === "user-agent") {
-      inStarBlock = value === "*";
-    } else if (inStarBlock && key === "disallow" && value && path.startsWith(value) && value.length > longestMatched.length) {
-      longestMatched = value;
+/** Most specific user-agent group; longest matching path; Allow wins ties. */
+export function robotsAllowsPath(body: string, path: string, userAgent = CONNECTOR_USER_AGENT): { allowed: boolean; reason?: string } {
+  if (/<!doctype\s+html|<html[\s>]/i.test(body)) return { allowed: false, reason: 'robots endpoint returned HTML' };
+  const groups: Array<{ agents: string[]; rules: Array<{ allow: boolean; path: string }> }> = [];
+  let group: typeof groups[number] | null = null; let hasRules = false;
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, '').trim(); const colon = line.indexOf(':'); if (colon < 0) continue;
+    const key = line.slice(0, colon).trim().toLowerCase(), value = line.slice(colon + 1).trim();
+    if (key === 'user-agent') {
+      if (!group || hasRules) { group = { agents: [], rules: [] }; groups.push(group); hasRules = false; }
+      group.agents.push(value.toLowerCase());
+    } else if (group && ['allow', 'disallow'].includes(key)) {
+      hasRules = true; if (value) group.rules.push({ allow: key === 'allow', path: value });
     }
   }
-  if (longestMatched) {
-    return { allowed: false, reason: `Disallow: ${longestMatched}` };
+  const agent = userAgent.toLowerCase();
+  const score = (g: typeof groups[number]) => Math.max(-1, ...g.agents.map(a => a === '*' ? 0 : agent.includes(a) ? a.length : -1));
+  const specificity = Math.max(-1, ...groups.map(score));
+  let best: { allow: boolean; path: string; length: number } | null = null;
+  for (const g of groups.filter(g => score(g) === specificity && specificity >= 0)) for (const rule of g.rules) {
+    const end = rule.path.endsWith('$');
+    const pattern = rule.path.replace(/\$$/, '').split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+    if (!new RegExp('^' + pattern + (end ? '$' : '')).test(path)) continue;
+    const length = rule.path.replace(/[\*$]/g, '').length;
+    if (!best || length > best.length || length === best.length && rule.allow) best = { ...rule, length };
   }
-  return { allowed: true };
+  return best && !best.allow ? { allowed: false, reason: 'Disallow: ' + best.path } : { allowed: true };
 }
 
-async function checkRobots(url: URL): Promise<void> {
-  const cached = robotsCache.get(url.host);
-  if (cached && Date.now() - cached.checkedAt < ROBOTS_TTL_MS) {
-    if (!cached.allowed) throw robotsError(url, cached.reason!);
-    return;
-  }
-  let decision: RobotsDecision;
-  try {
-    const response = await fetch(`${url.protocol}//${url.host}/robots.txt`, {
-      headers: { "User-Agent": CONNECTOR_USER_AGENT },
-      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-    });
-    if (response.status === 401 || response.status === 403) {
-      // A walled robots endpoint must not widen permissions by defaulting to allow.
-      decision = { allowed: false, reason: `robots.txt unreachable (HTTP ${response.status})`, checkedAt: Date.now() };
-    } else {
-      const body = response.ok ? (await response.text()).slice(0, ROBOTS_MAX_BYTES) : "";
-      const verdict = robotsAllowsPath(body, url.pathname);
-      decision = { allowed: verdict.allowed, reason: verdict.reason, checkedAt: Date.now() };
-    }
-  } catch (err) {
-    if (err instanceof BoundedFetchError) throw err;
-    decision = { allowed: true, checkedAt: Date.now() };
-  }
-  robotsCache.set(url.host, decision);
-  if (!decision.allowed) throw robotsError(url, decision.reason ?? "robots.txt disallows this path");
-}
-
-function robotsError(url: URL, reason: string): BoundedFetchError {
-  return new BoundedFetchError(
-    "robots",
-    url.toString(),
-    `${url.host} robots.txt disallows automated fetching of ${url.pathname} (${reason}) — source declined, not scraped`,
-  );
-}
-
-/** Read the response body with an incremental cap that works without Content-Length. */
-async function readBodyWithCap(response: Response, url: URL, label: string, maxBytes: number): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    const text = await response.text();
-    if (text.length > maxBytes) throw new BoundedFetchError("size", url.toString(), `${label} response exceeds the ${maxBytes}-byte size cap`);
-    return text;
-  }
-  const decoder = new TextDecoder();
-  let text = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    text += decoder.decode(value, { stream: true });
-    if (text.length > maxBytes) {
-      await reader.cancel().catch(() => undefined);
-      throw new BoundedFetchError("size", url.toString(), `${label} response exceeds the ${maxBytes}-byte size cap`);
-    }
-  }
-  return text;
-}
-
-async function boundedFetchOnce(url: string, options: BoundedFetchOptions): Promise<string> {
-  const parsed = new URL(url);
-  await awaitHostRateLimit(parsed.host, options.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS);
-  if (!options.skipRobots) await checkRobots(parsed);
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: {
-        "User-Agent": CONNECTOR_USER_AGENT,
-        "Accept-Encoding": "gzip",
-        ...options.headers,
-      },
-      signal: AbortSignal.timeout(options.timeoutMs ?? SOURCE_FETCH_TIMEOUT_MS),
-      redirect: "follow",
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const kind: FetchFailureKind = /abort|time\s?-?out|timed\s+out/i.test(message) ? "timeout" : "network";
-    throw new BoundedFetchError(kind, url, `${options.label} fetch failed (${kind}): ${message}`);
-  }
-  if (!response.ok) {
-    throw new BoundedFetchError("status", url, `${options.label} returned HTTP ${response.status}: ${response.statusText}`);
-  }
-  try {
-    return await readBodyWithCap(response, parsed, options.label, options.maxBytes);
-  } catch (err) {
-    if (err instanceof BoundedFetchError) throw err;
-    const message = err instanceof Error ? err.message : String(err);
-    throw new BoundedFetchError("network", url, `${options.label} body read failed: ${message}`);
-  }
-}
-
-/**
- * Bounded live fetch: per-host rate limit → robots.txt gate → timeout-capped,
- * size-capped, once-retried GET. Every failure throws BoundedFetchError with a
- * stable `kind`; the caller (monitor run wrapper) converts it to null + a
- * recorded error so source health degrades honestly.
- */
-export async function boundedFetchText(url: string, options: BoundedFetchOptions): Promise<string> {
-  const attempts = options.retry === false ? 1 : 2;
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
+async function checkRobots(url: URL, options: BoundedFetchOptions, signal: AbortSignal): Promise<void> {
+  let policy = robotsCache.get(url.origin);
+  if (!policy || Date.now() - policy.checkedAt >= (options.robotsTtlMs ?? 86400000)) {
+    await reserveHost(url.host, options.minIntervalMs ?? 5000, signal);
     try {
-      const text = await boundedFetchOnce(url, options);
-      if (!text.trim()) throw new BoundedFetchError("status", url, `${options.label} returned an empty body`);
-      return text;
-    } catch (err) {
-      lastError = err;
+      const response = await boundedHttpFetch(url.origin + '/robots.txt', {
+        ...options, signal, maxBytes: 256 * 1024, maxRedirects: 0, beforeRequest: undefined,
+        headers: { 'User-Agent': CONNECTOR_USER_AGENT },
+      });
+      if (response.status === 404 || response.status === 410) policy = { body: '', checkedAt: Date.now() };
+      else if (!response.ok) policy = { body: '', denied: 'robots.txt returned HTTP ' + response.status, checkedAt: Date.now() };
+      else policy = { body: await response.text(), checkedAt: Date.now() };
+    } catch (error) {
+      if (error instanceof TransportError && ['timeout', 'size', 'destination'].includes(error.kind)) throw error;
+      policy = { body: '', denied: 'robots.txt could not be checked', checkedAt: Date.now() };
     }
+    robotsCache.set(url.origin, policy);
   }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  const verdict = policy.denied ? { allowed: false, reason: policy.denied } : robotsAllowsPath(policy.body, url.pathname + url.search);
+  if (!verdict.allowed) throw new BoundedFetchError('robots', redactUrl(url.toString()), 'Source policy declined acquisition: ' + verdict.reason);
+}
+
+export async function boundedFetchBytes(url: string, options: BoundedFetchOptions): Promise<Uint8Array> {
+  try {
+    return await withinDeadline(async signal => {
+      const attempts = options.retry === false ? 1 : 2; let lastError: unknown;
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        try {
+          const response = await boundedHttpFetch(url, {
+            ...options, signal,
+            headers: { 'User-Agent': CONNECTOR_USER_AGENT, ...Object.fromEntries(new Headers(options.headers).entries()) },
+            beforeRequest: async destination => {
+              if (!options.skipRobots) await checkRobots(destination, options, signal);
+              await reserveHost(destination.host, options.minIntervalMs ?? 5000, signal);
+              await options.beforeRequest?.(destination, signal);
+            },
+          });
+          if (!response.ok) throw new BoundedFetchError('status', redactUrl(url), options.label + ' returned HTTP ' + response.status);
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          if (!bytes.length) throw new BoundedFetchError('status', redactUrl(url), options.label + ' returned an empty body');
+          return bytes;
+        } catch (error) {
+          lastError = error;
+          if (error instanceof BoundedFetchError && error.kind === 'robots' || error instanceof TransportError && ['destination', 'size', 'redirect'].includes(error.kind)) throw error;
+        }
+      }
+      throw lastError;
+    }, options.timeoutMs ?? SOURCE_FETCH_TIMEOUT_MS, options.signal);
+  } catch (error) {
+    if (error instanceof BoundedFetchError) throw error;
+    if (error instanceof TransportError) throw new BoundedFetchError(error.kind, redactUrl(url), error.message);
+    throw new BoundedFetchError('network', redactUrl(url), options.label + ' acquisition failed');
+  }
+}
+export async function boundedFetchText(url: string, options: BoundedFetchOptions): Promise<string> {
+  const bytes = await boundedFetchBytes(url, options);
+  const text = new TextDecoder().decode(bytes);
+  if (!text.trim()) throw new BoundedFetchError('status', redactUrl(url), options.label + ' returned an empty body');
+  return text;
 }

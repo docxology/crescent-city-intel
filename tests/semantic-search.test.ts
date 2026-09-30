@@ -1,9 +1,13 @@
+import { beginSeedCorpus, endCorpusCopy, withEmptyCorpus } from "./helpers/output-root.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
+beforeAll(async () => { await beginSeedCorpus(); invalidateSectionsCache(); });
+afterAll(async () => { await endCorpusCopy(); invalidateSectionsCache(); });
 /**
  * Tests for /api/search/semantic — embedding search with graceful BM25
  * fallback (src/gui/semantic_search.ts). The fallback path is exercised
  * deterministically; the vector path is env-dependent and only shape-checked.
  */
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { bm25Fallback, semanticSearch } from "../src/gui/semantic_search.ts";
 import { handleApiRoute } from "../src/gui/routes.ts";
 

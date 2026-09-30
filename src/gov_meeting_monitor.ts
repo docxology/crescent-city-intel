@@ -9,43 +9,29 @@ import { createLogger } from './logger.js';
 import { computeSha256, htmlToText } from './utils.js';
 import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
-import { paths } from './shared/paths.js';
+import { OFFICIAL_MEETING_SOURCES, acquireOfficialMeetingDocuments } from './official_meetings.js';
+import { boundedHttpFetch as fetch, type TransportOptions, withinDeadline, throwIfAborted } from './shared/transport.js';
+import { paths, outputRoot } from './shared/paths.js';
 import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
 import { computeDocumentHashes, diffDocumentHashes, extractVotes, fetchDocumentText } from './minutes_extraction.js';
 import type { DocumentDrift } from './minutes_extraction.js';
+import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
 
 const logger = createLogger('gov_meeting_monitor');
 
-// Government meeting sources.
-//
-// The city migrated its site to the EvoGov CMS at some point after these
-// URLs were first configured; all three 404'd (confirmed live 2026-07-24).
-// EvoGov renders its meeting calendar client-side via JS, but the widget
-// itself calls a same-origin JSON endpoint to populate it — found by
-// capturing network traffic with Playwright against the real
-// https://www.crescentcity.org/meetings page. That endpoint is what
-// fetchGovMeetings() now calls for every source below; City Council and
-// Planning Commission meetings both live on the SAME calendar ("Meetings
-// and Events", id 666) and are distinguished only by `title`, not by a
-// separate URL or calendar id — confirmed by inspecting a full year of
-// real response data (title values included "City Council Meeting",
-// "Special City Council Meeting", "City Council Budget Workshop",
-// "Planning Commission Meeting", among others).
-//
-// Harbor Commission has no presence on this endpoint at all (checked
-// against a full year of titles), and its own domain
-// (crescentcityharbor.com / www.crescentcityharbor.com) no longer resolves
-// in DNS (confirmed live 2026-07-24: "Could not resolve host"). There is
-// currently no known digital source for Harbor Commission agendas — kept
-// here so the filter runs (and honestly returns zero rather than the
-// misleading "unreachable" it would 404 with previously), not because a
-// real source was found. See TODO.md Phase 4.2.
+function meetingSourceHealth(...args: Parameters<typeof sourceHealth>): SourceHealth {
+  const [name, status, checkedAt, details] = args;
+  const monitor = name === 'City Council' || name === 'Planning Commission' ? 'gov-meetings' : `meetings:${name}`;
+  return sourceHealth(name, status, checkedAt, { ...details, sourceId: sourceIdForMonitor(monitor) });
+}
+
+// City calendars and separately owned official Harbor/County sources.
 const EVOGOV_MEETINGS_API = 'https://www.crescentcity.org/meetings/get_list';
-const GOV_SOURCES = {
+const GOV_SOURCES: Record<string, string> = {
   'City Council': EVOGOV_MEETINGS_API,
   'Planning Commission': EVOGOV_MEETINGS_API,
-  'Harbor Commission': EVOGOV_MEETINGS_API,
+  ...Object.fromEntries(OFFICIAL_MEETING_SOURCES.map(source => [source.name, source.url])),
 };
 
 /**
@@ -61,8 +47,7 @@ const GOV_SOURCES = {
  * "seen-meetings.json" sorts alphabetically after every "gov_meetings-*"
  * timestamped file and has a different (non-batch) shape.
  */
-const MEETING_CACHE_PATH = join(process.cwd(), 'output', 'state', 'gov-meetings-seen.json');
-const meetingCache = new IdempotencyStore(MEETING_CACHE_PATH, 500);
+const meetingCacheForRoot = () => new IdempotencyStore(join(outputRoot(), 'state', 'gov-meetings-seen.json'), 500);
 
 /**
  * Generate a hash for content to detect changes.
@@ -371,7 +356,7 @@ export function parseVotes(text: string): VoteResult | null {
 // passed to any single source — including the direct unit tests that pass a
 // nonexistent or 404 URL — always exercises a real fetch of exactly that
 // URL, never stale data left over from a different source's successful call.
-async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]> {
+async function fetchEvoGovMeetings(apiUrl: string, transport: TransportOptions = {}): Promise<EvoGovMeetingItem[]> {
   // Recent past (catch newly-posted minutes for meetings that already
   // happened) through upcoming (catch newly-posted agendas).
   const now = new Date();
@@ -381,8 +366,9 @@ async function fetchEvoGovMeetings(apiUrl: string): Promise<EvoGovMeetingItem[]>
 
   const url = `${apiUrl}?selected_calendar_ids=685,739,666,670,689&start_date=${fmt(start)}&end_date=${fmt(end)}&search=&sort_order=date_start&current_webpage=meeting`;
   const response = await fetch(url, {
+    ...transport,
     headers: { 'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)' },
-    signal: AbortSignal.timeout(Number(process.env.GOV_MEETINGS_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
+    signal: transport.signal ? AbortSignal.any([transport.signal, AbortSignal.timeout(Number(process.env.GOV_MEETINGS_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS))]) : AbortSignal.timeout(Number(process.env.GOV_MEETINGS_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -400,16 +386,31 @@ export interface GovMeetingFetchResult {
   health: SourceHealth;
 }
 
-export async function fetchGovMeetingsDetailed(url: string, sourceName: string): Promise<GovMeetingFetchResult> {
+export async function fetchGovMeetingsDetailed(url: string, sourceName: string, transport: TransportOptions = {}): Promise<GovMeetingFetchResult> {
+  try { return await withinDeadline(signal => fetchMeetingsWithinDeadline(url, sourceName, { ...transport, signal }), transport.timeoutMs ?? 90_000, transport.signal); }
+  catch (error) { return { items: [], health: meetingSourceHealth(sourceName, "unavailable", new Date().toISOString(), { url, error: errorMessage(error), provenance: "Total bounded government meeting acquisition" }) }; }
+}
+async function fetchMeetingsWithinDeadline(url: string, sourceName: string, transport: TransportOptions): Promise<GovMeetingFetchResult> {
   const checkedAt = new Date().toISOString();
   try {
     logger.info(`Fetching government meetings from ${sourceName}`, { url });
 
-    const allItems = await fetchEvoGovMeetings(url);
+    const official = OFFICIAL_MEETING_SOURCES.find(source => source.name === sourceName);
+    if (official) {
+      const acquired = await acquireOfficialMeetingDocuments({ ...official, url }, transport);
+      const receiptPath = join(outputRoot(), "gov_meetings", "acquisitions", `${official.id}-${acquired.rawSha256}.json`);
+      await writeJsonAtomic(receiptPath, { sourceId: official.id, url, ...acquired });
+      return { items: acquired.items, health: meetingSourceHealth(sourceName, acquired.coverage === "documents-discovered" ? "ok" : "unavailable", new Date().toISOString(), {
+        url, fetchedAt: acquired.fetchedAt, itemCount: acquired.items.length, provenance: `${official.id}; retained source SHA256 ${acquired.rawSha256}; document-link discovery only`,
+        ...(acquired.coverage === "unrecognized-page" ? { error: "No recognizable meeting documents; source completeness unknown" } : {}) }) };
+    }
+    const allItems = await fetchEvoGovMeetings(url, transport);
+    if (!Array.isArray(allItems) || allItems.some(item => !item || typeof item.title !== "string" || !Number.isFinite(item.id))) throw new Error("Malformed EvoGov calendar payload");
     const matching = allItems.filter(item => item.title.toLowerCase().includes(sourceName.toLowerCase()));
 
     const items: Array<{title: string, link: string, date: string, content: string, hash: string, agendaItems?: LinkItem[], minuteItems?: LinkItem[], vote?: VoteResult | null}> = [];
-    for (const item of matching) {
+    for (const item of matching.slice(0, 200)) {
+      if (transport.signal) throwIfAborted(transport.signal);
       const link = `https://www.crescentcity.org/events/${item.id}/`;
       const date = item.start_date_short ?? item.start_date_day_of_week ?? '';
       const agendaUrls = extractLinkUrls(item.agenda_links);
@@ -425,13 +426,14 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
       // Try to parse votes from the description text
       const vote = parseVotes(item.description ?? '');
 
-      // Phase 4.2: fetch agenda/minutes documents (bounded), hash them for
+      // Fetch agenda/minutes documents (bounded), hash them for
       // change detection, and extract every vote tally from minutes text.
       const docUrls = [...new Set([...agendaUrls, ...minuteUrls])];
       const docs: Array<{ url: string; text: string }> = [];
       const docTimeoutMs = Number(process.env.GOV_MEETINGS_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS);
-      for (const docUrl of docUrls) {
-        const text = await fetchDocumentText(docUrl, docTimeoutMs);
+      for (const docUrl of docUrls.slice(0, 8)) {
+        if (transport.signal) throwIfAborted(transport.signal);
+        const text = await fetchDocumentText(docUrl, docTimeoutMs, transport);
         if (text !== null) docs.push({ url: docUrl, text });
       }
       let docHashes: Record<string, string> | undefined;
@@ -452,7 +454,7 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
     logger.info(`Found ${items.length} meeting-related items from ${sourceName}`, { count: items.length });
     return {
       items,
-      health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+      health: meetingSourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
         url,
         fetchedAt: checkedAt,
         itemCount: items.length,
@@ -464,7 +466,7 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
     logger.error(`Failed to fetch government meetings from ${sourceName}`, { error: errorMessage(error), url });
     return {
       items: [],
-      health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+      health: meetingSourceHealth(sourceName, 'unavailable', checkedAt, {
         url,
         itemCount: 0,
         error: errorMessage(error),
@@ -472,11 +474,6 @@ export async function fetchGovMeetingsDetailed(url: string, sourceName: string):
       }),
     };
   }
-}
-
-/** Backwards-compatible item-only meeting fetch API. */
-export async function fetchGovMeetings(url: string, sourceName: string): Promise<Array<{title: string, link: string, date: string, content: string, hash: string}>> {
-  return (await fetchGovMeetingsDetailed(url, sourceName)).items;
 }
 
 /**
@@ -492,7 +489,7 @@ export async function saveMeetingItems(
    * 384 batches in this repo's corpus were one test's fixture, and the Pages
    * export published its fabricated council meeting as a real record.
    */
-  dataDir: string = join(process.cwd(), 'output', 'gov_meetings'),
+  dataDir: string = paths.govMeetings,
 ): Promise<void> {
   const fs = await import('fs/promises');
   try {
@@ -516,7 +513,7 @@ export async function saveMeetingItems(
     changedItems: changedItems.length,
     unchangedItems: unchangedItems.length,
     itemsBySource: {} as Record<string, number>,
-    // Phase 4.2: agenda/minutes SHA-256 drift, reported alongside the items it
+    // Agenda/minutes SHA-256 drift, reported alongside the items it
     // describes rather than only in the source-health sidecar.
     documentDrift,
     changedDocuments: documentDrift.filter(drift => drift.changed).length,
@@ -528,7 +525,7 @@ export async function saveMeetingItems(
     data.itemsBySource[item.source] = (data.itemsBySource[item.source] || 0) + 1;
   });
   
-  await fs.writeFile(filename, JSON.stringify(data, null, 2));
+  await writeJsonAtomic(filename, data);
   logger.info(`Saved meeting items to ${filename}`);
   
   if (newItems.length > 0) {
@@ -539,7 +536,7 @@ export async function saveMeetingItems(
   }
 }
 
-export const MEETING_DOC_HASHES_PATH = join(process.cwd(), 'output', 'state', 'meeting-doc-hashes.json');
+export const MEETING_DOC_HASHES_PATH = () => join(outputRoot(), 'state', 'meeting-doc-hashes.json');
 
 /**
  * Load the previously recorded agenda/minutes hash map (empty when absent).
@@ -550,7 +547,7 @@ export const MEETING_DOC_HASHES_PATH = join(process.cwd(), 'output', 'state', 'm
  * came back `isNew` on every run and drift was never detectable. A bare legacy
  * map (no envelope) is still accepted.
  */
-export async function loadMeetingDocHashes(path = MEETING_DOC_HASHES_PATH): Promise<Record<string, string>> {
+export async function loadMeetingDocHashes(path = MEETING_DOC_HASHES_PATH()): Promise<Record<string, string>> {
   try {
     const fs = await import('fs/promises');
     const raw = await fs.readFile(path, 'utf-8');
@@ -568,7 +565,7 @@ export async function loadMeetingDocHashes(path = MEETING_DOC_HASHES_PATH): Prom
 }
 
 /** Atomically persist the current agenda/minutes document hash map. */
-export async function saveMeetingDocHashes(hashes: Record<string, string>, path = MEETING_DOC_HASHES_PATH): Promise<void> {
+export async function saveMeetingDocHashes(hashes: Record<string, string>, path = MEETING_DOC_HASHES_PATH()): Promise<void> {
   await writeJsonAtomic(path, { savedAt: new Date().toISOString(), hashes });
 }
 
@@ -594,6 +591,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
 
   // Load the persistent change-detection index (shared store — this is what
   // gives cross-run idempotency; the prior in-memory Map never had it)
+  const meetingCache = meetingCacheForRoot();
   await meetingCache.load();
 
   const allItems: GovMeetingItem[] = [];
@@ -619,7 +617,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
       }
     } catch (error: unknown) {
       const checkedAt = new Date().toISOString();
-      health.push(sourceHealth(sourceName, 'unavailable', checkedAt, {
+      health.push(meetingSourceHealth(sourceName, 'unavailable', checkedAt, {
         url,
         error: errorMessage(error),
         provenance: 'EvoGov meetings JSON endpoint',
@@ -631,7 +629,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   // Persist the updated change-detection index
   await meetingCache.save();
 
-  // Phase 4.2: agenda/minutes document hash drift, surfaced in the meeting report.
+  // Agenda/minutes document hash drift, surfaced in the meeting report.
   let documentDrift: DocumentDrift[] = [];
   try {
     const previous = await loadMeetingDocHashes();
@@ -654,7 +652,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   await writeJsonAtomic(paths.govMeetingsHealth, {
     checkedAt: new Date().toISOString(),
     sources: health,
-    // Phase 4.2: agenda/minutes SHA-256 drift surfaced in the meeting report.
+    // Agenda/minutes SHA-256 drift surfaced in the meeting report.
     documentDrift,
   });
 

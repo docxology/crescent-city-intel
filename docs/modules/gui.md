@@ -18,7 +18,8 @@ All API endpoints return JSON with CORS headers (`Access-Control-Allow-Origin: *
 
 LLM-dependent routes (`/api/chat`, `/api/analytics/*`, `/api/summarize`) degrade gracefully: if the selected chat provider, Ollama embeddings, or ChromaDB are unavailable they return `503 Service Unavailable` rather than crashing. `/api/health` reports dependency status separately from `sourceCoverage`, which contains present/missing counts and named source records. An unavailable feed is never rendered as calm, and a missing feed does not make liveness `degraded` by itself.
 
-The GUI uses the same 18-source health contract as the Pages exporter. If a
+The GUI and Pages exporter use the health roster defined by
+`EXPECTED_SOURCE_HEALTH` in `src/shared/source_health.ts`. If a
 monitor has not emitted a health record, `/api/health`, `/api/metadata`, and
 `/api/sources` expose a named unavailable coverage record rather than treating
 the missing row as evidence that the source was checked.
@@ -69,7 +70,6 @@ In-memory full-text search across all municipal code sections.
 | Function | Signature | Description |
 | :--- | :--- | :--- |
 | `search` | `(query, options?) → PagedSearchResult` | BM25 keyword search with pagination, title/type/field filters, highlight, and fuzzy-correction fallback |
-| `searchSimple` | `(query, limit?) → SearchResult[]` | Legacy simple ranked-search entry point |
 | `getIndexedCount` | `() → number` | Current number of indexed sections |
 
 `initSearch()` (called by `server.ts` on startup) loads all sections into
@@ -110,7 +110,7 @@ calm.
 | `getCodeStats` | `() → Promise<CodeStats>` | Articles/sections/words, per-title breakdown, longest/shortest sections |
 | `getEmbeddingProjection` | `() → Promise<EmbeddingProjection>` | PCA projection with K-Means clustering and word loadings |
 | `kmeans` | `(data, k, maxIter?) → {centroids, assignments}` | K-Means clustering |
-| `powerIteration` | `(data, dim, _, iterations?) → {vector, eigenvalue}` | Dominant eigenvector of X^T X |
+| `powerIteration` | `(data, dim, iterations?) → {vector, eigenvalue}` | Dominant eigenvector of X^T X |
 | `computeWordLoadings` | `(docs, projections, pcs) → WordLoading[]` | Pearson correlation between term frequencies and PC scores |
 
 ### PCA Pipeline
@@ -125,7 +125,7 @@ calm.
 
 ---
 
-## `src/gui/docs_dashboard.ts` — Docs/Modules Dashboard Derivation (Phase 14)
+## `src/gui/docs_dashboard.ts` — Docs/Modules Dashboard Derivation
 
 Pure, offline-testable derivation behind `GET /api/docs/modules` and the
 `/docs-dashboard.html` page. It computes — never restates — the module roster
@@ -141,7 +141,7 @@ control, empty-root fixture, page and route string contracts).
 
 ---
 
-## `src/gui/static/structured-queries.html` — Structured-Query Page (Phase 14)
+## `src/gui/static/structured-queries.html` — Structured-Query Page
 
 A dedicated static page at `/structured-queries.html` for the three
 structured-query engine surfaces already served by the API — legislative
@@ -157,16 +157,16 @@ endpoint wiring, and server serving).
 
 ---
 
-## `src/gui/ordinal_refinement.ts` — Ordinal-Sequence Refinement (Phase 10)
+## `src/gui/ordinal_refinement.ts` — Ordinal-Sequence Refinement
 
 Pure, offline derivation behind `GET /api/ordinals` and the
-`/phase10-legal.html` page (Phase 10 "ordinal-sequence refinement"). Each
+`/phase10-legal.html` page. Each
 title's chapter ordinals are classified as `numeric`, `suffixed`
 (`"04-R"` — a real post-adoption insertion slot sharing its base number with
 the plain form), or `non-numeric`; gaps are computed strictly between present
 ordinal VALUES (a suffix family is one slot, never a gap of 1..R−1), missing
 ordinals are formatted with their neighbours' zero-padding, and unparseable
-segments are REPORTED rather than coerced to NaN. The narrower legacy
+segments are REPORTED rather than coerced to NaN. The narrower published
 `GET /api/ordinal-check` keeps its published shape.
 
 Tests: `tests/gui-phase10.test.ts` (classification/gap fixtures, zero-padding,
@@ -174,7 +174,7 @@ real-corpus determinism, empty-report state, route + spec wiring).
 
 ---
 
-## `src/gui/legal_crosslinks.ts` — Legal-Citation Cross-Linking (Phase 10)
+## `src/gui/legal_crosslinks.ts` — Legal-Citation Cross-Linking
 
 Pure corpus sweep behind `GET /api/citations/index` and the
 `/phase10-legal.html` page. Every California-code and U.S.C. citation the
@@ -193,28 +193,31 @@ hosts appear in hrefs, empty state, route ordering vs `/api/citations/{guid}`).
 
 ---
 
-## `src/gui/effective_dates.ts` — Effective-Date Field (Phase 10)
+## `src/gui/effective_dates.ts` — Latest Recorded Amendment Year
 
-The Phase 10 effective-date field, behind `GET /api/effective-dates` and the
-`/phase10-legal.html` page. It derives each section's effective year from
-its OWN history line via `legal_parser.extractOrdinanceAmendments`: the most
+The field behind `GET /api/effective-dates` and the `/phase10-legal.html` page
+derives each section's latest recorded amendment year from
+its own history line via `legal_parser.extractOrdinanceAmendments`: the most
 recent year in the parsed amendment trail, with the ordinance and action that
 carried it. A section whose history carries no parseable year is an explicit
-`effectiveYear: null` — rendered as "no effective date on record", never
+`effectiveYear: null` — rendered as "no recorded amendment year on record", never
 guessed from an ordinance number or the scrape date. The corpus report
 partitions sections with/without a date and bounds the year range to what is
-actually on record.
+actually on record. The UI calls this a recorded amendment year. The
+`effectiveYear` field and `/api/effective-dates` route retain their compatibility
+names; they do not establish a legal effective date. That requires primary
+ordinance evidence and a separate legal chronology assessment.
 
 Tests: `tests/gui-phase10.test.ts` (derivation, no-fabrication negatives,
 corpus partition + year-range bound, route + spec wiring, unknown-guid 400).
 
 ---
 
-## `src/gui/static/phase10-legal.html` — Phase 10 Page
+## `src/gui/static/phase10-legal.html` — Legal Analysis Page
 
-A dedicated static page at `/phase10-legal.html` for the three Phase 10
+A dedicated static page at `/phase10-legal.html` for three legal-analysis
 surfaces: ordinal sequences (`/api/ordinals`), legal-citation cross-links
-(`/api/citations/index`), and effective dates (`/api/effective-dates`).
+(`/api/citations/index`), and recorded amendment years (`/api/effective-dates`).
 Each panel carries an explicit empty state on load and on empty data, plus a
 distinct error state; the page is served with the same loopback-only API-key
 injection as `index.html` (see `server.ts`'s `serveStaticHtmlWithKey`).
@@ -262,25 +265,24 @@ heatmap, source-state rows, and accessible cell labels.
 
 ## `src/gui/static/index.html` — Frontend
 
-No-build SPA. Since v2.7.0 the markup shell lives in `index.html` and the
-styles and scripts are extracted into versioned plain assets under
-`src/gui/static/assets/` (loaded by classic `<script src>` / `<link>` tags,
-preserving the original single-script execution order and every implicit
-window global).
+No-build SPA. The markup shell lives in `index.html`, with styles and scripts
+under `src/gui/static/assets/` (loaded by classic `<script src>` / `<link>` tags,
+with explicit load order and shared window globals).
 
-### Asset layout (v2.7.0)
+### Asset layout
 
 | Path | Role |
 | :--- | :--- |
 | `index.html` | Markup shell: `<head>` with the `__CC_API_KEY__` bootstrap + CDN tags + `<link rel="stylesheet" href="assets/gui.css">`; the body markup for every panel/overlay; trailing `<script src>` tags in load order. No inline `<style>` and no large inline `<script>` (the key bootstrap excepted). |
-| `assets/gui.css` | The former inline `<style>` block, relocated verbatim. |
-| `assets/virtual-list.js` | Windowed list renderer (`createVirtualList`): fixed row height, overscan 5, spacer divs/rows, ResizeObserver. Applied to the search-results dropdown (sets > `SEARCH_VIRTUAL_THRESHOLD` = 24) and the glossary table (rows > `GLOSSARY_VIRTUAL_THRESHOLD` = 40). Per-item markup is byte-identical to the legacy templates. |
+| `assets/gui.css` | Shared stylesheet for the local GUI. |
+| `assets/virtual-list.js` | Windowed list renderer (`createVirtualList`): fixed row height, overscan 5, spacer divs/rows, ResizeObserver. Applied to the search-results dropdown (sets > `SEARCH_VIRTUAL_THRESHOLD` = 24) and the glossary table (rows > `GLOSSARY_VIRTUAL_THRESHOLD` = 40). Uses the same item markup as the unwindowed lists. |
 | `assets/modules/00-nav.js` | Navigation layer (loaded first): hash deep-links (`#<section>` / `#<section>/<tab>`), a header "Go to…" `<select>` (`#nav-jump`), and `Alt+ArrowRight`/`Alt+ArrowLeft` tab cycling within the visible overlay. Purely additive — invokes existing toggle/tab click handlers, never overrides them. |
-| `assets/modules/10-core.js` … `140-fuzzy-keys.js` | The former inline `<script>` block, split by concern and relocated verbatim. Globals stay implicit (no IIFE, no namespace). `100-overlay-tabs.js` loads after `130-readability.js` because its `TAB_LOADERS` map eagerly references loader functions declared in later modules (function declarations are not hoisted across files the way they were in the single inline script). |
+| `assets/modules/10-core.js` … `140-fuzzy-keys.js` | Scripts grouped by concern, sharing implicit globals (no IIFE, no namespace). `100-overlay-tabs.js` loads after `130-readability.js` because its `TAB_LOADERS` map eagerly references loader functions; declarations in separate scripts must be loaded before use. |
 
-### Navigation (redesigned 2026-07-24)
+### Navigation
 
-Seven top-level nav buttons, each a distinct, non-overlapping purpose. Exactly one overlay is ever open at a time — every button calls a shared `closeAllOverlays()` before opening its own, so switching tabs never leaves a stale panel open behind the new one (previously only one of the four buttons did this closing, asymmetrically).
+Seven top-level nav buttons group the main surfaces. Each button calls the
+shared `closeAllOverlays()` before opening its own overlay.
 
 | Tab | Contains | Sub-tabs |
 | :--- | :--- | :--- |
@@ -288,11 +290,9 @@ Seven top-level nav buttons, each a distinct, non-overlapping purpose. Exactly o
 | 📊 **Code Analytics** | Tools for analyzing the municipal code itself | Stats & Charts, Readability, Glossary, Cross-Refs, Domains, Compare Sections, Legislative History |
 | 📰 **News & Feeds** | Everything sourced from *outside* the code — the actual "news sources" (RSS, government meeting agendas, YouTube transcripts) | Civic Dashboard, News Feed, Monthly Report |
 | 🧭 **Sources** | Canonical source coverage, operational joins, provenance, and machine-readable exports | Source Coverage, Structured Output |
-| 🚨 **Alerts** | The real-time safety monitors + their timeline (previously the timeline duplicated as a separate Intelligence sub-tab) | — (single panel) |
+| 🚨 **Alerts** | The real-time safety monitors + their timeline | — (single panel) |
 | 💬 **Chat** | RAG assistant over the code + transcripts | — |
 | 🔌 **Developer** | Meta/dev-facing tools, not end-user civic content | API Explorer, Search Analytics |
-
-Before this pass, all of Code Analytics/News & Feeds/Developer's content lived flattened under one 12-tab "🧠 Intelligence" button with no grouping — a user had no way to tell, from the tab bar alone, that e.g. the Glossary (a code tool) and the Curated Feed (actual news) were unrelated kinds of content sharing one label.
 
 ### Landing page / welcome directory
 
@@ -318,14 +318,14 @@ landing page is navigation rather than a second copy of the data model.
 | **Dark/light mode** | Toggle persisted in localStorage |
 | **Domains panel** | Intelligence domain browser with municipal code cross-refs |
 | **Source Coverage panel** | Filterable monitored/discovery/reference registry, per-source drill-down, coverage gaps, and structured JSON download |
-| **Alert activity view** | Selectable 14-day per-type trend plus an eight-type heatmap with explicit calm/empty/stale/unavailable/unknown labeling |
+| **Alert activity view** | Selectable 14-day per-type trend plus an all-monitor heatmap with explicit calm/empty/stale/unavailable/unknown labeling |
 
 ### Tests
 
 ```bash
-bun test tests/routes.test.ts      # 7 tests
-bun test tests/search.test.ts      # 8 tests
-bun test tests/analytics.test.ts   # 7 tests
+bun test tests/routes.test.ts
+bun test tests/search.test.ts
+bun test tests/analytics.test.ts
 bun test tests/alert-trends.test.ts
 ```
 
@@ -340,11 +340,10 @@ bun test tests/alert-trends.test.ts
 - A top-of-page `#error-banner` (`showErrorBanner`) surfaces genuine network failures from
   `apiFetch`; per-route inline errors are preserved.
 
-### Wave-2 panel wiring (v2.7.0)
+### Observation and readability panels
 
-Two panels carry additive fetch wiring for the endpoints that went live in
-v2.7.0. Both render defensively: any missing/malformed field yields the graceful empty
-state, never a throw.
+Two panels fetch the hazard-observation and readability-history envelopes and
+provide empty states when data is unavailable.
 
 - **📈 Readability → "History trend" sub-block** (`#readability-history-content`):
   `GET /api/readability/history?limit=60` → `{ total, count, offset, limit,
@@ -363,7 +362,7 @@ state, never a throw.
 
 Boots the actual GUI server and drives it with Playwright Chromium: page load, tab switching, search, and alert-panel render checks against the real static assets. Not part of the deterministic suite (requires a browser); run via `bun run test:browser`.
 
-## `src/gui/annotations.ts` — Map Annotation Persistence (Phase 9)
+## `src/gui/annotations.ts` — Map Annotation Persistence
 
 User-anchored map annotations for the wildfire map's distance bands: notes are
 persisted server-side in a bounded JSON artifact under `output/state/`

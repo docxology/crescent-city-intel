@@ -13,7 +13,7 @@ import {
   extractQuoteSpans,
   normalizeForSubstringMatch,
   SUPPORT_VERDICTS,
-  validateEventClaims,
+  validateClaims,
   verifiedBySubstring,
   type CorroborationSnippet,
   type VerifiedSpan,
@@ -95,7 +95,9 @@ describe("buildClaimValidation — pure assembly", () => {
        span("adopted the harbor overlay ordinance", SNIPPET_B.sourceUrl)],
       [],
     );
-    expect(result.verdict).toBe("corroborated");
+    expect(result.verdict).toBe("unassessed");
+    expect(result.verifiedSupport).toBe(false);
+    expect(result.proposedQuoteClassification).toBe("corroborated");
     expect(result.distinctSourcesCount).toBe(2);
     expect(result.verifiedSpans).toHaveLength(2);
     expect(result.provenance.map(p => p.url)).toContain(SNIPPET_B.sourceUrl);
@@ -104,28 +106,30 @@ describe("buildClaimValidation — pure assembly", () => {
   test("a single-source verification is partial even if quoted twice", () => {
     const result = buildClaimValidation("claim", [SNIPPET_A],
       [span("voted 4-1", SNIPPET_A.sourceUrl), span("harbor overlay ordinance", SNIPPET_A.sourceUrl)], []);
-    expect(result.verdict).toBe("partial");
+    expect(result.verdict).toBe("unassessed");
+    expect(result.proposedQuoteClassification).toBe("partial");
     expect(result.distinctSourcesCount).toBe(1);
   });
 
   test("only verified spans count; unverified entries never raise the verdict", () => {
     const unverified: VerifiedSpan = { span: "unanimous approval", sourceUrl: SNIPPET_A.sourceUrl, verified: false };
     const result = buildClaimValidation("claim", [SNIPPET_A], [unverified], []);
-    expect(result.verdict).toBe("unsupported");
+    expect(result.verdict).toBe("unassessed");
+    expect(result.proposedQuoteClassification).toBe("unsupported");
     expect(result.distinctSourcesCount).toBe(0);
   });
 
   test("SUPPORT_VERDICTS enumerates exactly the four classifications", () => {
-    expect([...SUPPORT_VERDICTS]).toEqual(["corroborated", "partial", "unsupported", "contradicted"]);
+    expect([...SUPPORT_VERDICTS]).toEqual(["unassessed", "corroborated", "partial", "unsupported", "contradicted"]);
   });
 });
 
-describe("validateEventClaims — provider-backed wrapper honors the grounding invariant", () => {
+describe("validateClaims — provider-backed wrapper honors the grounding invariant", () => {
   test("every reported verified span passes the code-side substring check; every rejection failed it", async () => {
     // Provider may be up (local Ollama) or down in a given environment. Either
     // way the invariant is absolute: a span can only influence the verdict by
     // passing verifiedBySubstring against a real snippet — never by model say-so.
-    const result = await validateEventClaims(
+    const result = await validateClaims(
       "The council adopted the harbor overlay ordinance.",
       [SNIPPET_A, SNIPPET_B],
     );
@@ -144,9 +148,9 @@ describe("validateEventClaims — provider-backed wrapper honors the grounding i
   }, 60_000);
 
   test("empty claim or no snippets short-circuits without a provider call", async () => {
-    const blank = await validateEventClaims("", [SNIPPET_A]);
-    const none = await validateEventClaims("claim", []);
-    expect(blank.verdict).toBe("unsupported");
-    expect(none.verdict).toBe("unsupported");
+    const blank = await validateClaims("", [SNIPPET_A]);
+    const none = await validateClaims("claim", []);
+    expect(blank.verdict).toBe("unassessed");
+    expect(none.verdict).toBe("unassessed");
   });
 });

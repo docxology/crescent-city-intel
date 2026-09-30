@@ -4,9 +4,11 @@
 // entries). This module validates it into the crescent-city-directory/v1
 // artifact emitted to data/directory.json in the public Pages snapshot.
 //
-// Provenance rules mirror the insights engine: every entry carries a source URL
-// that was actually consulted; a field that was not verified is null, never
-// guessed. Validation is deterministic — no LLM anywhere in this path.
+// Each entry carries a source citation. Recorded editorial consultation/review
+// dates stay unknown unless supplied; artifact generation and HTTP reachability
+// do not establish that every cited field was verified. No LLM is used here.
+import { isIP } from "node:net";
+import { isPublicAddress, redactUrl } from "./shared/transport.js";
 
 export const PAGES_DIRECTORY_ARTIFACT = "data/directory.json";
 export const DIRECTORY_SCHEMA = "crescent-city-directory/v1";
@@ -35,8 +37,11 @@ export interface DirectoryEntry {
   phone: string | null;
   website: string | null;
   description: string | null;
-  /** URL the entry facts were verified against; never guessed. */
+  /** Source attribution; verification requires separate recorded editorial evidence. */
   source: string;
+  /** Editorial evidence dates, independent of artifact generation or URL reachability. */
+  consultedAt?: string | null;
+  reviewedAt?: string | null;
 }
 
 export interface DirectoryArtifact {
@@ -53,7 +58,18 @@ function isNonEmptyString(value: unknown): value is string {
 
 function normalizeUrl(value: unknown): string | null {
   if (!isNonEmptyString(value)) return null;
-  return /^https?:\/\//i.test(value) ? value : null;
+  try {
+    const url = new URL(value), host = url.hostname.replace(/^\[|\]$/g, "");
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !host.includes(".") && !isIP(host) || /^(?:localhost|.*\.(?:localhost|local|internal|lan))$/i.test(host) || isIP(host) && !isPublicAddress(host)) return null;
+    if (redactUrl(url.href) !== url.href) return null;
+    return url.href;
+  } catch { return null; }
+}
+
+function validEvidenceDate(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}(?:T.*(?:Z|[+-]\d{2}:\d{2}))?$/.test(value) || !Number.isFinite(Date.parse(value))) return false;
+  return new Date(Date.parse(value.slice(0, 10))).toISOString().slice(0, 10) === value.slice(0, 10);
 }
 
 /** Validate one raw seed entry; returns a normalized entry or an error string. */
@@ -69,9 +85,12 @@ function normalizeEntry(raw: unknown, index: number): { entry?: DirectoryEntry; 
     return { error: `entry ${index} (${String(record.name)}) has unknown category: ${String(record.category)}` };
   }
   if (!isNonEmptyString(record.source)) return { error: `entry ${index} (${String(record.name)}) is missing a source URL` };
-  if (!/^https?:\/\//i.test(record.source)) {
+  if (!normalizeUrl(record.source)) {
     return { error: `entry ${index} (${String(record.name)}) has a non-URL source` };
   }
+  for (const field of ["address", "phone", "website", "description"]) if (record[field] !== undefined && record[field] !== null && typeof record[field] !== "string") return { error: `entry ${index} has an invalid ${field} type` };
+  for (const field of ["consultedAt", "reviewedAt"]) if (!validEvidenceDate(record[field])) return { error: `entry ${index} has an invalid ${field}` };
+  if (typeof record.website === "string" && /^https?:/i.test(record.website) && !normalizeUrl(record.website)) return { error: `entry ${index} has an unsafe website` };
   return {
     entry: {
       name: (record.name as string).trim(),
@@ -80,7 +99,9 @@ function normalizeEntry(raw: unknown, index: number): { entry?: DirectoryEntry; 
       phone: isNonEmptyString(record.phone) ? (record.phone as string).trim() : null,
       website: normalizeUrl(record.website),
       description: isNonEmptyString(record.description) ? (record.description as string).trim() : null,
-      source: (record.source as string).trim(),
+      source: normalizeUrl(record.source)!,
+      consultedAt: (record.consultedAt as string | null | undefined) ?? null,
+      reviewedAt: (record.reviewedAt as string | null | undefined) ?? null,
     },
   };
 }
@@ -90,6 +111,7 @@ export function buildDirectoryArtifact(generatedAt: string, raw: unknown): Direc
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
   if (!Array.isArray(record.entries)) return null;
+  if (!validEvidenceDate(generatedAt)) throw new Error("directory has invalid generatedAt");
   const errors: string[] = [];
   const entries: DirectoryEntry[] = [];
   for (const [index, item] of (record.entries as unknown[]).entries()) {
@@ -99,6 +121,7 @@ export function buildDirectoryArtifact(generatedAt: string, raw: unknown): Direc
   }
   if (errors.length > 0) throw new Error(`directory seed has invalid entries: ${errors.join("; ")}`);
   if (entries.length === 0) return null;
+  if (new Set(entries.map(entry => `${entry.category}:${entry.name.toLocaleLowerCase()}`)).size !== entries.length) throw new Error("directory seed has duplicate entry identities");
   entries.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   const categories = DIRECTORY_CATEGORIES
     .map(category => ({ category, count: entries.filter(entry => entry.category === category).length }))
@@ -130,7 +153,13 @@ export function parseDirectoryArtifact(text: string): DirectoryArtifact | null {
       && Array.isArray((parsed as Record<string, unknown>).entries)
       && ((parsed as Record<string, unknown>).entries as unknown[]).length > 0
     ) {
-      return parsed as DirectoryArtifact;
+      const record = parsed as Record<string, unknown>;
+      if (typeof record.generatedAt !== "string" || !validEvidenceDate(record.generatedAt)) return null;
+      const validated = buildDirectoryArtifact(record.generatedAt, record);
+      if (!validated || record.count !== validated.count || !Array.isArray(record.categories)) return null;
+      const categories = record.categories as Array<{ category: unknown; count: unknown }>;
+      if (categories.length !== validated.categories.length || new Set(categories.map(row => row.category)).size !== categories.length || categories.some(row => !validated.categories.some(expected => expected.category === row.category && expected.count === row.count))) return null;
+      return validated;
     }
     return null;
   } catch {

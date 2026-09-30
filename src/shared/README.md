@@ -40,6 +40,11 @@ const sections = await loadAllSections();  // SectionContent[]
 are absent; `loadAllArticles` returns `[]` when the articles directory is
 missing. Callers should handle errors or use `try/catch`.
 
+When article storage exists, the manifest defines membership. Invalid hashes,
+missing owned articles, or failed extraction custody reject the whole load;
+unrelated article files cannot silently enter the corpus. Section reads share
+an in-flight load and a root-specific TTL cache.
+
 ### `source_health.ts` — truthful source state
 
 `sourceHealth()` creates the common `ok`, `empty`, `unavailable`, or `stale`
@@ -54,8 +59,9 @@ rename writes.
 `executePipelineStep()` turns each stage into an observable result with
 duration, item count, output paths, and errors. `buildPipelineRun()` and
 `writePipelineRun()` produce the versioned operational envelope consumed by
-the weekly checker, API metadata, and public snapshot. It records no secrets
-or request contents.
+the weekly checker and API metadata. The public snapshot uses explicit
+allowlisted projections of operational metadata rather than transferring raw
+operator paths or error records wholesale.
 
 ## Tests
 

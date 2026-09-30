@@ -171,7 +171,9 @@ function checkOperand(expr: string, ctx: Ctx): void {
     }
   }
   // member method call, e.g. kind.toLowerCase(): check the arguments
-  const memberCall = /^(?:[A-Za-z_$][\w$]*\.?)+\s*\(/.exec(e);
+  // Required separators avoid exponentially partitioning a long identifier
+  // when the expression is a property value rather than a function call.
+  const memberCall = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+\s*\(/.exec(e);
   if (memberCall && memberCall[0].includes(".")) {
     const open = e.indexOf("(");
     if (matchDelim(e, open, "(", ")") === e.length) {

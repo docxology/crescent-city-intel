@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
 /**
  * USCG Broadcast Notice to Mariners (BNM) monitor — Coast Guard District 11.
  *
- * Roadmap item: the 15th alert monitor. The USCG Navigation Center publishes
+ * The USCG Navigation Center publishes
  * Broadcast Notices to Mariners (hazard, closure and aid-to-navigation
  * broadcast traffic) per Coast Guard district; Sector Humboldt Bay is the
  * sector whose area of responsibility includes Crescent City / Del Norte.

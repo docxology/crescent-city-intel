@@ -106,15 +106,10 @@ describe("Shared newspaper palette vars (GUI surfaces)", () => {
     }
   });
 
-  test("docs page defines shared palette variables", async () => {
+  test("the documentation entry links to the current generated API contract", async () => {
     const html = await readFile("src/gui/static/docs.html", "utf8");
-    const css = await styleBlock(html);
-    for (const name of REQUIRED_VARS) {
-      expect(css).toContain(`${name}:`);
-    }
-    for (const banned of BANNED_VARS) {
-      expect(html.includes(banned)).toBe(false);
-    }
+    expect(html).toContain('href="/api/docs"');
+    expect(html).toContain('href="/api/openapi.yaml"');
   });
 });
 

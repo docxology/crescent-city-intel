@@ -7,7 +7,7 @@ import {
   STEADY_BAND,
   attributeRecords,
   buildInsightReport,
-  collectDatedRecords,
+  collectActivityEvidence,
   coverageGapInputs,
   directionFor,
   evaluateCoverageGaps,
@@ -85,11 +85,41 @@ async function makeFixtureTree(): Promise<string> {
   return root;
 }
 
-describe("collectDatedRecords over the fixture tree", () => {
+describe("collectActivityEvidence over the fixture tree", () => {
+  test("query and OAuth fragment credentials cannot become insight evidence URLs", async () => {
+    const root = await mkdtemp(join(tmpdir(), "activity-public-urls-"));
+    try {
+      await mkdir(join(root, "news")); await mkdir(join(root, "events"));
+      await writeFile(join(root, "news", "batch.json"), JSON.stringify({ items: [{ title: "Harbor source", pubDate: "2026-09-30T12:00:00Z", link: "https://example.test/?api_key=private-fixture-token" }] }));
+      await writeFile(join(root, "events", "events.json"), JSON.stringify({ events: [{ title: "Harbor occurrence", dateStart: "2026-09-30", sourceLinks: ["https://example.test/#auth=private-fixture-token"] }] }));
+      const { records } = await collectActivityEvidence(root);
+      expect(records).toHaveLength(2); expect(records.every(record => record.url === null)).toBe(true);
+      expect(JSON.stringify(records)).not.toContain("private-fixture-token");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+  test("repeated snapshots, genuine revisions and malformed inputs have separate receipts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "activity-evidence-"));
+    const item = { id: "story-one", source: "Local newsroom", title: "Harbor grant", link: "https://example.org/grant", pubDate: "2026-09-29T12:00:00Z", fetchedAt: "2026-09-29T13:00:00Z", content: "Original harbor account" };
+    try {
+      await mkdir(join(root, "news"));
+      await writeFile(join(root, "news", "a.json"), JSON.stringify({ items: [item, { title: "Undated harbor notice", link: "https://example.org/undated", fetchedAt: "2026-09-30T12:00:00Z" }] }));
+      await writeFile(join(root, "news", "b.json"), JSON.stringify({ items: [{ ...item, fetchedAt: "2026-09-30T13:00:00Z", content: "Revised harbor account" }] }));
+      await writeFile(join(root, "news", "c.json"), JSON.stringify({ items: [item] }));
+      await writeFile(join(root, "news", "broken.json"), "{broken");
+      const { records, receipt } = await collectActivityEvidence(root);
+      expect(records).toHaveLength(2); expect(records.find(record => record.url === item.link)!.text).toBe("Revised harbor account");
+      expect(receipt).toMatchObject({ snapshotRows: 4, uniqueRecords: 2, duplicateSnapshots: 2, revisedItems: 1, undatedRecords: 1 });
+      expect(receipt.malformedFiles).toContainEqual({ path: "news/broken.json", reason: "invalid-json" });
+      expect(receipt.missingInputs).toContain("gov_meetings");
+      expect(Number.isNaN(records.find(record => record.url?.endsWith("undated"))!.atMs)).toBe(true);
+      const report = await buildInsightReport({ outputRoot: root, generatedAt: "2026-09-30T14:00:00Z", polish: false });
+      expect(report.provenance.activity.uniqueRecords).toBe(2); expect(report.provenance.activity.countUnits.alerts).toBe("distinct recorded observations");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   test("gathers alert/news/meeting records and preserves URLs", async () => {
     const root = await makeFixtureTree();
     try {
-      const records = await collectDatedRecords(root);
+      const { records } = await collectActivityEvidence(root);
       expect(records.length).toBeGreaterThanOrEqual(7);
       const harbor = records.find(r => r.title.includes("Harbor dredging"));
       expect(harbor?.url).toBe("https://example.org/news/harbor");
@@ -108,7 +138,7 @@ describe("computeDomainTrends window arithmetic", () => {
     const root = await makeFixtureTree();
     try {
       const now = Date.parse("2026-08-26T12:00:00.000Z");
-      const records = await collectDatedRecords(root);
+      const { records } = await collectActivityEvidence(root);
       const buckets = attributeRecords(records);
       const trends = computeDomainTrends(buckets, { nowMs: now, windowDays: 30 });
 
@@ -288,7 +318,7 @@ describe("buildInsightReport end to end", () => {
       throw new Error(`alert type ${type} lacks a domain mapping`);
     }
     expect(ALERT_TYPE_DOMAINS["wildfire"]).toContain("public-safety");
-    expect(ALERT_TYPE_DOMAINS["tide-like"] ?? []).toEqual([]);
+    expect((ALERT_TYPE_DOMAINS as Partial<Record<string, string[]>>)["tide-like"] ?? []).toEqual([]);
   });
 });
 describe("attachGeoDomainInsights", () => {
@@ -310,13 +340,13 @@ describe("attachGeoDomainInsights", () => {
     // Input view untouched.
     expect(base.features.some(f => f.geometry.type === "Point" && f.properties.kind === "hazard-domain" && "insight" in f.properties)).toBe(false);
     const harbor = attached.features.find(f => f.id === "hazard-domain:Harbor & Marine Operations");
-    expect(harbor?.properties.insight?.direction).toBe("rising");
-    expect(harbor?.properties.insight?.deltaTotal).toBe(2);
+    expect((harbor && "insight" in harbor.properties ? harbor.properties.insight?.direction : undefined)).toBe("rising");
+    expect((harbor && "insight" in harbor.properties ? harbor.properties.insight?.deltaTotal : undefined)).toBe(2);
     const safety = attached.features.find(f => f.id === "hazard-domain:Public Safety");
-    expect(safety?.properties.insight?.coverageGapScore).toBe(90);
+    expect((safety && "insight" in safety.properties ? safety.properties.insight?.coverageGapScore : undefined)).toBe(90);
     // Anchor point gains nothing.
     const anchor = attached.features.find(f => f.properties.kind === "anchor");
-    expect(anchor?.properties.insight).toBeUndefined();
+    expect((anchor && "insight" in anchor.properties ? anchor.properties.insight : undefined)).toBeUndefined();
   });
 
   test("domains absent from the report stay absent rather than reading as calm", () => {

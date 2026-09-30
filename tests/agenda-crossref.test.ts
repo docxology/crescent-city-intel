@@ -1,6 +1,6 @@
 /**
- * Tests for src/agenda_crossref.ts (TODO Phase 4.2 part 2 — BM25 cross-ref of
- * agenda items to code sections). Uses the REAL BM25 index over the REAL local
+ * Tests for src/agenda_crossref.ts: BM25 cross-references from agenda items
+ * to code sections. Uses the REAL BM25 index over the REAL local
  * scraped corpus (same dependency pattern as tests/data-loaders.test.ts);
  * zero mocks, zero network.
  */

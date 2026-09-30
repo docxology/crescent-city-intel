@@ -21,7 +21,7 @@ import {
   normalizeMonitorObservation,
   type GeoObservationInput,
 } from "../src/geo_observations";
-import { STABLE_CONTRACT_FIELDS, compareBundledCopy, compareRebuiltContract } from "../scripts/check-geo-sync.ts";
+import { STABLE_CONTRACT_FIELDS, compareBundledCopy, compareRebuiltContract } from "../src/geo_sync.ts";
 import { geoObservationPaths, runGeoObservations } from "../scripts/run-geo-observations.ts";
 import type { SourceHealth } from "../src/types";
 import { buildMunicipalityContract, getDefaultCrescentSpec } from "../src/geo";

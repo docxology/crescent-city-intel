@@ -1,184 +1,119 @@
 name: Weekly Intelligence Cycle
-
 on:
   schedule:
-    # Every Monday at 07:00 UTC (00:00 Pacific Daylight / 23:00 Sunday Pacific Standard)
     - cron: '0 7 * * 1'
   workflow_dispatch:
     inputs:
       run_scrape:
-        description: 'Run full scrape pipeline (slow, requires Chromium)'
+        description: Run full scrape pipeline with live verification
         required: false
-        default: 'false'
+        default: false
         type: boolean
-
 permissions:
   contents: read
   actions: read
-
 concurrency:
-  # Two overlapping weekly runs would race on the same output/ tree.
   group: weekly-cycle
   cancel-in-progress: false
-
 env:
-  # Pinned. `bun-version: latest` meant a Bun release could break the cycle
-  # with no change to this repository.
   BUN_VERSION: "1.4.2"
-
 jobs:
   weekly-health-check:
-    name: Weekly Health Check & Monitor
+    name: Tests and current-run monitor health
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      CRESCENT_CITY_API_KEY: ${{ secrets.CRESCENT_CITY_API_KEY }}
-      OLLAMA_URL: ${{ vars.OLLAMA_URL || 'http://localhost:11434' }}
-      LOG_LEVEL: info
-
+    timeout-minutes: 35
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
+      - run: bun install --frozen-lockfile
+      - name: Install Chromium for real browser tests
+        run: bunx playwright install --with-deps chromium
+      - name: Typecheck tests
+        run: bun run test:typecheck
       - name: Run full test suite
-        run: bun test
-
-      # Every monitor, DERIVED from the roster.
-      #
-      # This step used to be eight hand-written `bun run alerts:<x>` steps. It
-      # silently fell behind the roster: the marine forecast (monitor #14) and
-      # the USCG broadcasts (#15) and the five Phase-12 monitors were never
-      # smoke-tested in CI, so a change that broke them was invisible until the
-      # weekly cycle produced a degraded source-health record nobody was watching.
-      # The same drift class the rest of this work is about, and it was hiding in
-      # the one file that is supposed to be the safety net.
-      #
-      # `continue-on-error` is right here: a live-feed outage is a degraded
-      # source, not a broken build. The monitors' own source-health artifacts
-      # record which ones were unavailable, and that is what gets reviewed.
+        run: bun test tests/ --timeout 30000
       - name: Smoke-test every alert monitor
         run: bun run scripts/ci-monitor-smoke.ts
         env:
           AIRNOW_API_KEY: ${{ secrets.AIRNOW_API_KEY }}
-        continue-on-error: true
         timeout-minutes: 25
-
       - name: Check news monitor
         run: bun run src/news_monitor.ts
-        continue-on-error: true
         timeout-minutes: 5
-
       - name: Check government meetings
         run: bun run src/gov_meeting_monitor.ts
-        continue-on-error: true
         timeout-minutes: 5
-
-      - name: Upload alert outputs
+      - name: Upload alert health evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: alerts-${{ github.run_id }}
-          path: output/alerts/
-          retention-days: 90
-
-  verify-data-integrity:
-    name: Verify Scraped Data Integrity
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # Only run if scraped data exists (check for manifest)
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Check if output data exists
-        id: check-data
-        run: |
-          if [ -f "output/manifest.json" ]; then
-            echo "has_data=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Found output/manifest.json — will run verification"
-          else
-            echo "has_data=false" >> "$GITHUB_OUTPUT"
-            echo "⚠️ No manifest.json found — skipping verification (run bun run scrape first)"
-          fi
-
-      - name: Run data verification
-        if: steps.check-data.outputs.has_data == 'true'
-        run: bun run verify
-        timeout-minutes: 8
-
-      - name: Run readability analysis
-        if: steps.check-data.outputs.has_data == 'true'
-        run: bun run readability
-        continue-on-error: true
-
-      - name: Run domain coverage analysis
-        if: steps.check-data.outputs.has_data == 'true'
-        run: bun run coverage
-        continue-on-error: true
-
-      - name: Upload analysis outputs
-        if: steps.check-data.outputs.has_data == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: analysis-${{ github.run_id }}
-          path: |
-            output/verification-report.json
-            output/readability.json
-            output/domain-coverage.json
-          retention-days: 90
-
+          path: output/alerts/public-source-health.json
+          retention-days: 30
   full-scrape:
-    name: Full Data Pipeline (Manual Only)
+    name: Acquire verified corpus (manual)
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_scrape == 'true'
+    if: github.event_name == 'workflow_dispatch' && inputs.run_scrape
     needs: weekly-health-check
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Install Playwright Chromium
-        run: bun x playwright install chromium --with-deps
-
-      - name: Run full scrape + verify + export pipeline
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Scrape, live verify and export
         run: bun run all
         env:
-          RATE_LIMIT_MS: 3000  # Be gentle with ecode360.com in CI
+          RATE_LIMIT_MS: "3000"
         timeout-minutes: 90
-
-      - name: Upload scraped data
+      - name: Upload bound corpus inputs
         uses: actions/upload-artifact@v4
         with:
-          name: scraped-data-${{ github.run_id }}
+          name: corpus-${{ github.run_id }}
+          if-no-files-found: error
           path: |
             output/toc.json
             output/manifest.json
             output/articles/
             output/crescent-city-code.json
-          retention-days: 365
+            output/verification-report.json
+          retention-days: 30
+  verify-data-integrity:
+    name: Verify transported corpus
+    needs: full-scrape
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with:
+          name: corpus-${{ github.run_id }}
+          path: output
+      - name: Verify downloaded custody before live verification
+        run: bun -e 'import { verificationMatchesInputs } from "./src/verify.ts"; const r=await Bun.file("output/verification-report.json").json(); if(!await verificationMatchesInputs(r,"output"))throw new Error("Transported corpus does not match receipt")'
+      - name: Current source verification
+        run: bun run verify
+        timeout-minutes: 8
+      - name: Analyze verified corpus
+        run: |
+          bun run readability
+          bun run coverage
+      - name: Upload verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-${{ github.run_id }}
+          path: |
+            output/verification-report.json
+            output/readability.json
+            output/domain-coverage.json
+          if-no-files-found: error
+          retention-days: 30

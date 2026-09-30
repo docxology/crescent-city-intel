@@ -51,7 +51,7 @@ output data is absent.
 
 ## v2.0+ New Modules
 
-### `fuzzy.ts` (v2.0)
+### `fuzzy.ts`
 - `levenshtein(a, b)` — edit distance (O(m*n) DP, two-row memory)
 - `similarity(a, b)` — normalized 0-1 ratio
 - `closestMatch(query, candidates, threshold)` — best match from vocabulary

@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * EPA AirNow Air Quality Monitor for Crescent City.
  *
@@ -33,9 +35,9 @@ const CRESCENT_CITY_LNG = -124.2028;
 const PUBLIC_STATION_RADIUS_KM = 80;
 
 // History persistence
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "airquality");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "airquality"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 let lastAirQualityError: string | undefined;
 
 /** Return the most recent failure without changing the monitor's null-result contract. */
@@ -81,9 +83,9 @@ export interface AirQualityReport {
 /** Load processed reading IDs from persistent history */
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }
@@ -94,10 +96,10 @@ function loadProcessedIds(): Set<string> {
 /** Append a reading to persistent JSONL history */
 function appendHistory(report: AirQualityReport): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const id = `${report.zipCode}-${report.timestamp}`;
     const record = JSON.stringify({ id, ...report });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn("Failed to append air quality history", { error: String(err) });
   }
@@ -262,8 +264,8 @@ export async function runAirQualityMonitor(): Promise<AirQualityReport | null> {
 
   try {
     const report = await fetchAirQuality();
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, report);
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), report);
     appendHistory(report);
 
     if (report.advisory) {

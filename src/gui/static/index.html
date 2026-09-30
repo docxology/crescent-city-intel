@@ -6,8 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Quadruplicate — Civic Intelligence</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="assets/gui-runtime.js"></script>
   <link rel="stylesheet" href="assets/gui.css">
 </head>
 
@@ -25,8 +24,8 @@
   <div id="header">
     <h1 style="font:700 1rem/1 'Playfair Display',Georgia,serif">Civic Intelligence GUI</h1>
     <div id="search-container">
-      <input type="text" id="search-input" placeholder="Search sections... (e.g. 'zoning', '12.04')" autocomplete="off">
-      <div id="search-results"></div>
+      <input type="text" id="search-input" aria-label="Search municipal code" aria-controls="search-results" aria-expanded="false" placeholder="Search sections... (e.g. 'zoning', '12.04')" autocomplete="off">
+      <div id="search-results" aria-label="Matching code sections"></div><span id="search-status" class="sr-only" role="status" aria-live="polite"></span>
     </div>
     <div class="header-buttons">
       <button class="btn" id="code-toggle" title="Browse the municipal code">📖 Code</button>
@@ -38,6 +37,16 @@
       <button class="btn" id="dev-toggle" title="API explorer &amp; search-usage analytics">🔌 Developer</button>
       <select id="nav-jump" title="Go to section or tab" aria-label="Go to section or tab"><option value="">Go to…</option></select>
       <button class="btn" id="theme-toggle">Dark</button>
+      <details id="api-credentials" class="api-credentials">
+        <summary id="api-credentials-summary">API access</summary>
+        <form id="api-credentials-form" autocomplete="off">
+          <label for="api-credentials-key">API key for this server</label>
+          <input id="api-credentials-key" type="password" autocomplete="off" maxlength="512" spellcheck="false" aria-describedby="api-credentials-status">
+          <button class="btn" type="submit">Use key</button>
+          <button class="btn" type="button" id="api-credentials-clear">Clear key</button>
+          <p id="api-credentials-status" role="status" aria-live="polite">Entered keys stay in memory for this tab and are sent only to this server.</p>
+        </form>
+      </details>
     </div>
   </div>
 
@@ -166,12 +175,12 @@
         <button class="btn" id="chat-cancel" type="button" disabled>Cancel</button>
         <button class="btn" id="chat-close">X</button>
       </div>
-      <div id="chat-messages">
+      <div id="chat-messages" role="log" aria-live="polite" aria-relevant="additions">
         <div class="chat-msg system">Ask questions about the Crescent City Municipal Code. Answers cite the code
           sections they draw on. This feature needs the optional AI helper service running.</div>
       </div>
       <div id="chat-input-container">
-        <input type="text" id="chat-input" placeholder="Ask a question...">
+        <input type="text" id="chat-input" aria-label="Question for the code helper" placeholder="Ask a question...">
         <select id="chat-model" title="Model for this request" aria-label="Chat model" style="padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;font-size:12px;max-width:170px">
           <option value="">Default model</option>
         </select>

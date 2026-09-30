@@ -74,7 +74,9 @@
         return;
       }
       const counts = meta.counts || {};
-      metaLine.innerHTML = `${esc(counts.articlePageCount ?? "?")} articles and ${esc(counts.sectionCount ?? "?")} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(meta.files.code)}" rel="noopener noreferrer">download code.json</a>.`;
+      const editionNote = meta.edition?.selection === "reviewed-seed" ? "Reviewed archived code seed; this build does not establish current live source acceptance." : "Hash-bound code edition verified against the source during collection.";
+      const verifiedNote = meta.edition?.sourceVerifiedAt ? ` Source verification recorded ${meta.edition.sourceVerifiedAt}.` : " No source verification date was recorded.";
+      metaLine.innerHTML = `${esc(counts.articlePageCount ?? "?")} articles and ${esc(counts.sectionCount ?? "?")} sections in this public code export. ${esc(editionNote + verifiedNote)} Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(meta.files.code)}" rel="noopener noreferrer">download code.json</a>.`;
       results.innerHTML = empty("Enter a search term to search the exported municipal code.");
       const codeSearchPath = meta.files.codeSearchIndex;
       const renderMatches = (matches, needle) => {

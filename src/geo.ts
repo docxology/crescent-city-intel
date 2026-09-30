@@ -26,6 +26,7 @@
  */
 import { mkdir } from "fs/promises";
 import { join } from "path";
+import { outputRoot } from "./shared/paths.js";
 import { domains } from "./domains.js";
 import { writeJsonAtomic } from "./shared/source_health.js";
 import { createLogger } from "./logger.js";
@@ -251,7 +252,7 @@ export const geoPaths = {
   /** Committed public seed — external consumers read this without a live output/. */
   pagesSeed: join("pages-data", "geo-intel.json"),
   /** Live output/ path written by the orchestration script. */
-  liveExport: join("output", "geo-intel.json"),
+  get liveExport() { return join(outputRoot(), "geo-intel.json"); },
 };
 
 /**

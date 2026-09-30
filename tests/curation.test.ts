@@ -5,20 +5,9 @@
  * degradation (Anti-criterion ISC-52 — a failed summary never throws),
  * and idempotency (re-curating the same item twice curates it once).
  */
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdir, rm } from "fs/promises";
-import { join } from "path";
-import { CURATION_PROMPT_VERSION, buildCurationEvidence, isCurationRecordComplete, mergeCuratedItems, tagWithDomains, summarizeItem, type CurationInput, type CuratedItem } from "../src/curation";
-
-const TEST_DIR = join(process.cwd(), "output", "test-curation");
-
-beforeEach(async () => {
-  await mkdir(TEST_DIR, { recursive: true });
-});
-
-afterEach(async () => {
-  await rm(TEST_DIR, { recursive: true, force: true });
-});
+import { describe, expect, test } from "bun:test";
+import { CURATION_PROMPT_VERSION, buildCurationEvidence, isCurationRecordComplete, mergeCuratedItems, selectCurationRevisions, tagWithDomains, summarizeItemDetailed, type CurationInput, type CuratedItem } from "../src/curation";
+import { llmConfig } from "../src/llm/config.ts";
 
 function makeItem(overrides: Partial<CurationInput> = {}): CurationInput {
   return {
@@ -31,6 +20,13 @@ function makeItem(overrides: Partial<CurationInput> = {}): CurationInput {
     ...overrides,
   };
 }
+test("source revisions choose the newer meaningful title independent of input order", () => {
+  const old = makeItem({ title: "Read more", text: "Old generic listing", fetchedAt: "2026-09-01T00:00:00Z" });
+  const newer = makeItem({ title: "September 30 Harbor Special Meeting", text: "Source-grounded current agenda", fetchedAt: "2026-09-30T00:00:00Z" });
+  const unknown = makeItem({ title: "Unknown timestamp", text: "x".repeat(300), fetchedAt: "unknown" });
+  expect(selectCurationRevisions([newer, old, unknown])).toEqual([newer]);
+  expect(selectCurationRevisions([old, unknown, newer])).toEqual([newer]);
+});
 
 describe("tagWithDomains", () => {
   test("tags an item mentioning tsunami/evacuation with the Emergency Management domain", () => {
@@ -57,23 +53,35 @@ describe("tagWithDomains", () => {
   });
 });
 
-describe("summarizeItem — graceful degradation (Anti-criterion ISC-52)", () => {
-  test("never throws even when the configured LLM provider is unreachable", async () => {
-    // No Ollama/OpenRouter guaranteed reachable (or fast, under concurrent
-    // load) in a test environment — this must degrade to a placeholder
-    // within summarizeItem's own internal timeout, not throw. Test timeout
-    // set above summarizeItem's 15s internal bound so a real-but-slow
-    // response doesn't get mistaken for a hang.
-    const summary = await summarizeItem(makeItem());
-    expect(typeof summary).toBe("string");
-    expect(summary.length).toBeGreaterThan(0);
-  }, 20_000);
+describe("summarizeItemDetailed — bounded provider result", () => {
+  test("actual local HTTP success and provider failure produce distinct typed outcomes", async () => {
+    let fail = false, requests = 0;
+    const server = Bun.serve({ port: 0, async fetch(request) {
+      if (new URL(request.url).pathname !== "/api/chat") return new Response(null, { status: 404 });
+      await request.json(); requests++;
+      return fail ? new Response(null, { status: 503 }) : Response.json({ message: { content: "The source records an evacuation advisory for the harbor area." } });
+    } });
+    const previous = { ...llmConfig };
+    Object.assign(llmConfig, { provider: "ollama", ollamaUrl: `http://127.0.0.1:${server.port}`, chatModel: "local-fixture" });
+    try {
+      const success = await summarizeItemDetailed(makeItem());
+      expect(success).toMatchObject({ status: "ok", retryable: false, provider: "ollama", model: "local-fixture" });
+      expect(success.summary).toBe("The source records an evacuation advisory for the harbor area.");
+      fail = true;
+      const failure = await summarizeItemDetailed(makeItem());
+      expect(failure).toMatchObject({ status: "source_only", retryable: true, provider: "ollama", model: "local-fixture" });
+      expect(failure.summary).toContain(makeItem().text);
+      expect(failure.error).toContain("503");
+      expect(requests).toBe(2);
+    } finally { Object.assign(llmConfig, previous); server.stop(true); }
+  });
 });
 
 describe("CurationInput/CuratedItem shape", () => {
   test("CurationInput carries a stable id matching the source link", () => {
     const item = makeItem();
-    expect(item.id).toBe(item.link);
+    expect(typeof item.link).toBe("string");
+    expect(item.id).toBe(item.link!);
   });
 
   test("evidence builder preserves a citation and fetch provenance", () => {
@@ -81,7 +89,7 @@ describe("CurationInput/CuratedItem shape", () => {
     const evidence = buildCurationEvidence(item, "fingerprint-1");
     expect(evidence.inputFingerprint).toBe("fingerprint-1");
     expect(evidence.citations).toEqual([{
-      url: item.link,
+      url: item.link!,
       label: item.title,
       source: "news",
       fetchedAt: item.fetchedAt,

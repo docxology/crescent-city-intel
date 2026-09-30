@@ -3,10 +3,10 @@
 // split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
 // matches the original single-script execution order.
     // ── Permalink ──
-    function copyPermalink(guid) {
+    function copyPermalink(guid, button) {
       const url = `${window.location.origin}/?section=${guid}`;
       navigator.clipboard.writeText(url).then(() => {
-        const btn = event.target;
+        const btn = button;
         const orig = btn.textContent;
         btn.textContent = '✅ Copied!';
         setTimeout(() => btn.textContent = orig, 2000);
@@ -15,20 +15,20 @@
 
     // ── Bookmarks ──
     function toggleBookmark(guid, number, title) {
-      const bookmarks = JSON.parse(localStorage.getItem("cc-bookmarks") || "[]");
+      const bookmarks = CCGui.storage.json("cc-bookmarks", []);
       const idx = bookmarks.findIndex(b => b.guid === guid);
       if (idx >= 0) {
         bookmarks.splice(idx, 1);
       } else {
         bookmarks.push({ guid, number, title, ts: new Date().toISOString() });
       }
-      localStorage.setItem("cc-bookmarks", JSON.stringify(bookmarks));
+      CCGui.storage.set("cc-bookmarks", JSON.stringify(bookmarks));
       const btn = document.getElementById("bookmark-btn");
       if (btn) btn.textContent = idx >= 0 ? '☆ Bookmark' : '★ Bookmarked';
     }
 
     function getBookmarks() {
-      return JSON.parse(localStorage.getItem("cc-bookmarks") || "[]");
+      return CCGui.storage.json("cc-bookmarks", []);
     }
 
     // ── Export section as Markdown ──
@@ -53,11 +53,7 @@
       }
     }
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/\n/g, "<br>");
-    }
+    function escapeHtml(str) { return CCGui.escape(str); }
 
     /** Summarize a section using the configured chat provider via /api/summarize */
     async function summarizeSection(guid, btnEl) {

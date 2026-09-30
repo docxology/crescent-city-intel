@@ -65,7 +65,7 @@ describe("cross-surface analytics backend", () => {
     expect(result.centroids).toHaveLength(1);
     expect(result.assignments).toEqual([0]);
 
-    const projection = powerIteration([new Float64Array([0, 0])], 2, null);
+    const projection = powerIteration([new Float64Array([0, 0])], 2);
     expect(projection.eigenvalue).toBe(0);
     expect([...projection.vector]).toHaveLength(2);
   });

@@ -37,8 +37,8 @@ The state is not an ordinal quality score. In particular,
 unavailable is not worse-than-empty in a numerical sense; it is a different
 epistemic statement. A source-health summary reports counts for each state and
 sets the degraded count to unavailable plus stale. The public interface renders
-these states verbatim and places the source URL and error beside the state when
-possible.
+these states and a public source URL. Raw operator errors stay local; public
+DTOs omit private fields and expose bounded status metadata.
 
 The source registry also distinguishes three automation classes:
 monitored sources emit health records, discovery-only sources are inventoried
@@ -49,13 +49,23 @@ data-use boundary, not a claim that the underlying source is unimportant.
 
 ## Municipal-code acquisition and verification
 
-The scraper first obtains a table of contents, then visits manifest-selected
-article pages through the Playwright browser lifecycle. Each saved article
-contains the source URL, extracted sections, raw HTML, collection time, and a
-SHA-256 digest. The verifier checks that expected article files exist, that
-their hashes match the manifest, and that expected descendant sections are
-present. A bounded live re-fetch sample can detect changes after the local
-snapshot was written.
+The scraper obtains a table of contents and visits manifest-selected article
+pages through Playwright. Retained source HTML/fragments, extracted sections,
+collection timestamps, and parser identity form an extraction receipt. Local
+verification checks file membership, manifest hashes, selector/text replay from
+retained fragments, and section counts. The canonical export hash includes
+ordered section text and history; matching the raw HTML hash alone cannot
+establish that exported text was preserved.
+
+The verifier records three separate planes: local custody, comparison to the
+current live TOC, and a bounded live re-fetch sample. Fresh publication eligibility
+requires all required planes to pass with live-source origin. Offline verification
+can establish local consistency and remains ineligible for current-source
+publication. Hashes establish byte identity and transformation binding; they do
+not prove legal sufficiency, complete source discovery, or universal extraction
+correctness. Immutable edition receipts preserve prior corpus bytes, and Pages
+selects one complete same-directory core bundle rather than filling its gaps from
+another edition. Reviewed seed fallback is visibly historical.
 
 The exporter derives JSON, Markdown, plain-text, and CSV representations from
 the same article objects. This makes the exported forms projections of one
@@ -71,13 +81,14 @@ $\ell_j(t) \in \{0,1,2,3\}$ corresponding to CALM, WATCH, WARNING, and
 EMERGENCY. The composite level is the maximum available local severity:
 
 $$
-L(t) = \max_{j \in \{1,\ldots,8\}} \ell_j(t),
+L(t) = \max_{j \in \{1,\ldots,N\}} \ell_j(t),
 \qquad
 U(t) = \mathbb{1}\{\exists j: q_j(t)=\mathrm{unavailable}\}.
 $$ {#eq:composite_alert}
 
-The composite assessment in [@eq:composite_alert] retains both the highest
-observed severity and an explicit availability flag.
+Here $N$ is the size of the canonical monitor roster. The composite assessment
+in [@eq:composite_alert] retains the highest available severity and an explicit
+availability flag, including unavailable, stale, or invalid monitor observations.
 
 The pair $(L(t), U(t))$ is more informative than the label $L(t)$ alone. A
 warning can coexist with an unavailable monitor; a calm local level with
@@ -102,8 +113,11 @@ Municipal-code search uses a deterministic in-memory BM25 index with stemming
 and fuzzy fallback. The RAG path retrieves labeled code sections and, where
 configured, labeled YouTube transcript chunks. A response carries a query
 identifier, context fingerprint, retrieval metadata, provider, model, and a
-grounded flag. Retrieval is therefore inspectable even when the generated
-answer is not accepted as authoritative.
+verification disposition. Generated answers remain unverified: `grounded` is
+false, semantic support is not evaluated, and literal quote/citation presence is
+only a structural diagnostic. A quote can occur in the source without entailing
+the associated claim. Retrieval identity is inspectable without representing
+citation presence as factual or independent-source corroboration.
 
 News, meeting, and YouTube items are normalized into curation inputs. The
 curation prompt instructs the selected provider to use only the supplied
@@ -186,17 +200,21 @@ artifact.
 
 The evaluation combines five checks:
 
-1. **Static contracts:** TypeScript strictness, OpenAPI/route parity, source
+1. **Static contracts:** Separate source and test TypeScript strictness, parsed
+   OpenAPI route/method/auth/input contracts, source
    registry validation, manuscript structure, citation closure, and
    unresolved-token detection.
 2. **Deterministic tests:** real local corpus and fixture tests for extraction,
    source-health degradation, alert parsing, curation idempotency, API routes,
    and Pages snapshots.
-3. **Artifact validation:** JSON envelopes, schema versions, SHA-256 format,
-   source-health states, overview LLM provenance, and Pages asset links.
+3. **Artifact validation:** JSON envelopes, schema versions, replay-bound
+   extraction hashes, source-health states, overview provenance, and complete
+   Pages tree/input hash receipts. Staged publication validation precedes
+   recoverable directory promotion.
 4. **Negative controls:** unavailable providers, missing output, empty feeds,
-   HTTP errors, duplicate inputs, changed input hashes, and partially indexed
-   embeddings.
+   HTTP errors, duplicate inputs, changed exported text, private-field/URL
+   injections, killed writers and inherited-pipe child deadlines, and partially
+   indexed embeddings.
 5. **Render inspection:** manuscript hydration, template-rendered HTML/PDF
    outputs, bibliography closure, equation/table labels, and absence of
    unresolved tokens.

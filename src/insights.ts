@@ -17,13 +17,17 @@ import { existsSync } from "fs";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
 import { buildAlertAnalytics, ALERT_TYPES, type AlertType } from "./alert_analytics.js";
+import { outputRoot } from "./shared/paths.js";
 import { domains } from "./domains.js";
 import { scoreDomainCoverageGaps, type DomainCoverageGap, type DomainGapInput } from "./domains/coverage.js";
 import { checkChatProvider, chatWithProvider } from "./llm/provider.js";
+import { isCivilDate, parseEventDate } from "./events.js";
+import { custodyHash } from "./corpus_editions.js";
+import { redactUrl } from "./shared/transport.js";
 
 export const INSIGHTS_SCHEMA = "crescent-city-civic-insights/v1" as const;
 /** Where the assembled report is persisted for endpoint/snapshot consumption. */
-export const CIVIC_INSIGHTS_PATH = join(process.cwd(), "output", "state", "civic-insights.json");
+const civicInsightsPath = () => join(outputRoot(), "state", "civic-insights.json");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -87,6 +91,23 @@ export interface DatedRecord {
   feed: keyof WindowCounts & string;
   /** Monitor type when feed === "alerts"; used for explicit domain mapping. */
   alertType?: string;
+  sourceIdentity?: string;
+  revisionAtMs?: number;
+}
+
+export interface ActivityCollectionReceipt {
+  schemaVersion: "civic-activity-evidence/v1";
+  inputFiles: number;
+  missingInputs: string[];
+  malformedFiles: Array<{ path: string; reason: string }>;
+  invalidRows: number;
+  snapshotRows: number;
+  uniqueRecords: number;
+  duplicateSnapshots: number;
+  revisedItems: number;
+  undatedRecords: number;
+  countUnits: Record<keyof WindowCounts, string>;
+  limitations: string[];
 }
 
 /** Alert monitor types carry an implicit domain mapping for fast attribution. */
@@ -148,9 +169,12 @@ interface AlertTimelineEntry extends Record<string, unknown> {
 }
 
 function timestampOf(record: Record<string, unknown>): number {
-  for (const key of ["pubDate", "date", "fetchedAt", "curatedAt", "uploadDate", "timestamp"]) {
+  for (const key of ["observedAt", "publishedAt", "pubDate", "date", "uploadDate", "timestamp"]) {
     const value = record[key];
-    if (typeof value === "string" && Number.isFinite(Date.parse(value))) return Date.parse(value);
+    if (typeof value === "string" && parseEventDate(value)) {
+      if (/^\d{8}$/.test(value)) return Date.parse(parseEventDate(value)!);
+      if (Number.isFinite(Date.parse(value))) return Date.parse(value);
+    }
   }
   return Number.NaN;
 }
@@ -158,7 +182,12 @@ function timestampOf(record: Record<string, unknown>): number {
 function urlOf(record: Record<string, unknown>): string | null {
   for (const key of ["link", "url"]) {
     const value = record[key];
-    if (typeof value === "string" && /^https?:\/\//i.test(value)) return value;
+    if (typeof value === "string") {
+      try {
+        const url = new URL(value);
+        if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password && redactUrl(value) === url.toString()) return url.toString();
+      } catch { /* malformed or credential-bearing evidence is not public provenance */ }
+    }
   }
   const videoId = record.videoId;
   return typeof videoId === "string" && /^[A-Za-z0-9_-]{6,}$/.test(videoId)
@@ -166,32 +195,44 @@ function urlOf(record: Record<string, unknown>): string | null {
     : null;
 }
 
-async function readJson(path: string): Promise<unknown> {
-  try { return JSON.parse(await readFile(path, "utf8")); } catch { return null; }
-}
-
-async function jsonlRecords(path: string): Promise<Array<Record<string, unknown>>> {
-  if (!existsSync(path)) return [];
-  try {
-    return (await readFile(path, "utf8"))
-      .split("\n")
-      .filter(line => line.trim())
-      .map(line => { try { return JSON.parse(line) as Record<string, unknown>; } catch { return null; } })
-      .filter((r): r is Record<string, unknown> => r !== null);
-  } catch { return []; }
-}
-
 /**
  * Collect dated records per feed from an output root (fixture-friendly).
  * Reads only artifacts previously written by monitors - never fetches,
  * never guesses dates that are not recorded in the artifact.
  */
-export async function collectDatedRecords(root: string): Promise<DatedRecord[]> {
+export async function collectActivityEvidence(root: string): Promise<{ records: DatedRecord[]; receipt: ActivityCollectionReceipt }> {
   const records: DatedRecord[] = [];
+  const receipt: ActivityCollectionReceipt = { schemaVersion: "civic-activity-evidence/v1", inputFiles: 0, missingInputs: [], malformedFiles: [], invalidRows: 0, snapshotRows: 0, uniqueRecords: 0, duplicateSnapshots: 0, revisedItems: 0, undatedRecords: 0,
+    countUnits: { alerts: "distinct recorded observations", news: "unique published source items", meetings: "unique dated meeting records", youtube: "unique video publications", calendarEvents: "unique calendar occurrences" },
+    limitations: ["Collection cadence is not normalized; observation counts do not measure hazard frequency", "A recorded timestamp does not by itself prove an upstream observation time", "Source coverage and missing artifacts are evaluated separately from activity", "Identity without a source ID uses the recorded URL/title and date; reviewed identity reconciliation remains source-specific"] };
+  const relative = (path: string) => path.slice(root.replace(/\/+$/, "").length + 1);
+  async function readJson(path: string): Promise<unknown> {
+    try { const text = await readFile(path, "utf8"); receipt.inputFiles++; return JSON.parse(text); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") receipt.missingInputs.push(relative(path)); else receipt.malformedFiles.push({ path: relative(path), reason: error instanceof SyntaxError ? "invalid-json" : "unreadable" }); return null; }
+  }
+  async function jsonlRecords(path: string): Promise<Array<Record<string, unknown>>> {
+    let text: string; try { text = await readFile(path, "utf8"); receipt.inputFiles++; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") receipt.missingInputs.push(relative(path)); else receipt.malformedFiles.push({ path: relative(path), reason: "unreadable" }); return []; }
+    const result: Array<Record<string, unknown>> = [];
+    for (const line of text.split("\n").filter(line => line.trim())) {
+      try { const value: unknown = JSON.parse(line); if (!value || typeof value !== "object" || Array.isArray(value)) { receipt.invalidRows++; continue; } result.push(value as Record<string, unknown>); }
+      catch { receipt.invalidRows++; receipt.malformedFiles.push({ path: relative(path), reason: "invalid-jsonl-row" }); }
+    }
+    return result;
+  }
+  function identityOf(raw: Record<string, unknown>): string | undefined {
+    const id = raw.sourceId ?? raw.source ?? raw.channel ?? "";
+    const recordId = raw.id ?? raw.eventId ?? raw.incidentId ?? raw.videoId;
+    const fallback = urlOf(raw);
+    return typeof recordId === "string" || typeof recordId === "number" ? `${typeof id === "string" ? id : ""}|${recordId}` : fallback ? `${typeof id === "string" ? id : ""}|${fallback}` : undefined;
+  }
+  function revisionOf(raw: Record<string, unknown>): number | undefined {
+    return typeof raw.fetchedAt === "string" && Number.isFinite(Date.parse(raw.fetchedAt)) ? Date.parse(raw.fetchedAt) : undefined;
+  }
 
   // Alerts: per-type history.jsonl files under output/alerts/<type>/ plus the
   // standalone tides/fishing histories.
-  for (const type of ["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine"]) {
+  for (const type of ALERT_TYPES.filter(type => type !== "tides" && type !== "fishing")) {
     for (const record of await jsonlRecords(join(root, "alerts", type, "history.jsonl"))) {
       records.push({
         title: String(record.headline ?? record.summary ?? `${type} alert`),
@@ -200,6 +241,7 @@ export async function collectDatedRecords(root: string): Promise<DatedRecord[]> 
         url: urlOf(record),
         feed: "alerts",
         alertType: type,
+        sourceIdentity: identityOf(record), revisionAtMs: revisionOf(record),
       });
     }
   }
@@ -212,6 +254,7 @@ export async function collectDatedRecords(root: string): Promise<DatedRecord[]> 
         url: urlOf(record),
         feed: "alerts",
         alertType: dirName === "tides" ? "tides" : "fishing",
+        sourceIdentity: identityOf(record), revisionAtMs: revisionOf(record),
       });
     }
   }
@@ -224,11 +267,11 @@ export async function collectDatedRecords(root: string): Promise<DatedRecord[]> 
   ];
   for (const batch of batches) {
     const batchDir = join(root, batch.dir);
-    if (!existsSync(batchDir)) continue;
+    if (!existsSync(batchDir)) { receipt.missingInputs.push(batch.dir); continue; }
     let files: string[];
     try {
-      files = (await readdir(batchDir)).filter(f => f.endsWith(".json")).sort();
-    } catch { continue; }
+      files = (await readdir(batchDir)).filter(f => f.endsWith(".json") && f !== "source-health.json").sort();
+    } catch { receipt.malformedFiles.push({ path: batch.dir, reason: "unreadable-directory" }); continue; }
     for (const file of files) {
       const parsed = await readJson(join(batchDir, file));
       const array: unknown[] = Array.isArray(parsed)
@@ -239,16 +282,17 @@ export async function collectDatedRecords(root: string): Promise<DatedRecord[]> 
               : [parsed])
           : [];
       for (const raw of array) {
-        if (!raw || typeof raw !== "object") continue;
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) { receipt.invalidRows++; continue; }
         const record = raw as Record<string, unknown>;
         const title = typeof record.title === "string" ? record.title : "";
-        if (!title.trim()) continue;
+        if (!title.trim()) { receipt.invalidRows++; continue; }
         records.push({
           title,
-          text: typeof record.summary === "string" ? record.summary : typeof record.description === "string" ? record.description : "",
+          text: typeof record.summary === "string" ? record.summary : typeof record.description === "string" ? record.description : typeof record.content === "string" ? record.content : "",
           atMs: timestampOf(record),
           url: urlOf(record),
           feed: batch.feed,
+          sourceIdentity: identityOf(record), revisionAtMs: revisionOf(record),
         });
       }
     }
@@ -269,15 +313,33 @@ export async function collectDatedRecords(root: string): Promise<DatedRecord[]> 
         records.push({
           title,
           text: `${typeof event.location === "string" ? event.location : ""} ${typeof event.description === "string" ? event.description : ""}`,
-          atMs: dateStart ? Date.parse(dateStart) : Number.NaN,
-          url: Array.isArray(event.sourceLinks) && typeof event.sourceLinks[0] === "string" ? event.sourceLinks[0] : null,
+          atMs: dateStart && isCivilDate(dateStart) ? Date.parse(dateStart) : Number.NaN,
+          url: Array.isArray(event.sourceLinks) ? urlOf({ link: event.sourceLinks[0] }) : null,
           feed: "calendarEvents",
+          sourceIdentity: identityOf(event), revisionAtMs: revisionOf(event),
         });
       }
     }
   }
 
-  return records;
+  const unique = new Map<string, DatedRecord>();
+  const versions = new Map<string, Set<string>>();
+  for (const record of records) {
+    const sourceIdentity = record.sourceIdentity ?? record.url ?? record.title;
+    const occurrence = record.feed === "news" || record.feed === "youtube" ? "" : `|${record.atMs}`;
+    const identity = `${record.feed}|${record.alertType ?? ""}|${sourceIdentity}${occurrence}`;
+    const hash = custodyHash(JSON.stringify([record.title, record.text, record.url, Number.isFinite(record.atMs) ? record.atMs : null]));
+    if (!versions.has(identity)) versions.set(identity, new Set());
+    versions.get(identity)!.add(hash);
+    const prior = unique.get(identity);
+    if (!prior || (record.revisionAtMs ?? 0) >= (prior.revisionAtMs ?? 0)) unique.set(identity, record);
+  }
+  const result = [...unique.values()];
+  receipt.snapshotRows = records.length; receipt.uniqueRecords = result.length; receipt.duplicateSnapshots = records.length - result.length;
+  receipt.revisedItems = [...versions.values()].filter(version => version.size > 1).length;
+  receipt.undatedRecords = result.filter(record => !Number.isFinite(record.atMs)).length;
+  receipt.missingInputs.sort(); receipt.malformedFiles.sort((a, b) => a.path.localeCompare(b.path) || a.reason.localeCompare(b.reason));
+  return { records: result, receipt };
 }
 
 // --- Domain attribution ---------------------------------------------------
@@ -404,7 +466,7 @@ export function coverageGapInputs(buckets: Map<string, DatedRecord[]>, nowMs: nu
     let meetingsCount = 0;
     let alertEvents = 0;
     for (const record of buckets.get(domain.id) ?? []) {
-      if (!Number.isFinite(record.atMs) || record.atMs <= nowMs - 60 * DAY_MS) continue;
+      if (!Number.isFinite(record.atMs) || record.atMs > nowMs || record.atMs <= nowMs - 60 * DAY_MS) continue;
       if (record.feed === "news") {
         newsCount += 1;
         latestNewsAtMs = latestNewsAtMs === null ? record.atMs : Math.max(latestNewsAtMs, record.atMs);
@@ -496,6 +558,7 @@ export interface InsightReport {
   provenance: {
     feeds: string[];
     rule: string;
+    activity: ActivityCollectionReceipt;
   };
   trends: DomainTrendInsight[];
   top: Array<{
@@ -524,9 +587,9 @@ export async function buildInsightReport(options: BuildInsightOptions = {}): Pro
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const windowDays = options.windowDays ?? 30;
   const nowMs = Date.parse(generatedAt);
-  const root = options.outputRoot ?? join(process.cwd(), "output");
+  const root = options.outputRoot ?? outputRoot();
 
-  const records = await collectDatedRecords(root);
+  const { records, receipt } = await collectActivityEvidence(root);
   const buckets = attributeRecords(records);
   const trends = computeDomainTrends(buckets, { nowMs, windowDays });
   const gaps = evaluateCoverageGaps(coverageGapInputs(buckets, nowMs), nowMs);
@@ -562,6 +625,7 @@ export async function buildInsightReport(options: BuildInsightOptions = {}): Pro
     narrativePromptVersion: INSIGHT_NARRATIVE_PROMPT_VERSION,
     narrative: narrativeMeta,
     provenance: {
+      activity: receipt,
       feeds: [
         "output/alerts/*/history.jsonl",
         "output/tides/history.jsonl",
@@ -597,7 +661,7 @@ export async function buildInsightReport(options: BuildInsightOptions = {}): Pro
 }
 
 /** Persist the report; creates parent directories on demand. */
-export async function writeCivicInsights(report: InsightReport, path = CIVIC_INSIGHTS_PATH): Promise<void> {
+export async function writeCivicInsights(report: InsightReport, path = civicInsightsPath()): Promise<void> {
   const { mkdir, writeFile } = await import("fs/promises");
   const { dirname } = await import("path");
   await mkdir(dirname(path), { recursive: true });
@@ -605,7 +669,7 @@ export async function writeCivicInsights(report: InsightReport, path = CIVIC_INS
 }
 
 /** Read back a previously written artifact; returns null when absent/mismatched. */
-export async function readCivicInsights(path = CIVIC_INSIGHTS_PATH): Promise<InsightReport | null> {
+export async function readCivicInsights(path = civicInsightsPath()): Promise<InsightReport | null> {
   if (!existsSync(path)) return null;
   try {
     const parsed = JSON.parse(await readFile(path, "utf8")) as InsightReport;

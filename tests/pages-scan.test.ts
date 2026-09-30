@@ -14,6 +14,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { scanPage } from "../src/pages_scan.ts";
+import { runBoundedChild } from "../src/shared/subprocess.ts";
 
 /** Wrap a script body the way an exported page carries it. */
 const page = (body: string): string => `<!doctype html><html><body><script>\n${body}\n</script></body></html>`;
@@ -79,6 +80,14 @@ describe("lane 0 XSS gate: correct code is not flagged", () => {
 });
 
 describe("lane 0 XSS gate: the fixpoint records what it proves", () => {
+  test("a long member-value expression remains unsafe and cannot exhaust the scanner deadline", async () => {
+    const module = new URL("../src/pages_scan.ts", import.meta.url).pathname;
+    const script = `import { scanPage } from ${JSON.stringify(module)}; const name = 'artifactField'.repeat(500); const problems = scanPage('<script>document.body.innerHTML = ' + name + '.title;</script>', 'long-member.html'); console.log(JSON.stringify({ rejected: problems.length > 0 }));`;
+    const child = await runBoundedChild(["bun", "-e", script], { timeoutMs: 2000, maxBytes: 4096 });
+    expect(child.status).toBe("ok");
+    expect(child.reaped).toBe(true);
+    expect(JSON.parse(child.stdout).rejected).toBe(true);
+  });
   test("an unsafe const does not become safe just because it was examined", () => {
     // This is the exact defect: the probe examined the const, discarded its
     // findings, and added the name to the safe set anyway.

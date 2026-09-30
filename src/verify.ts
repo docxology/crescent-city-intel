@@ -1,258 +1,117 @@
 #!/usr/bin/env bun
-/**
- * Verification module.
- *
- * After scraping, this independently verifies completeness and integrity:
- *   1. Re-fetches the TOC to get the current expected structure
- *   2. Checks every article file exists and SHA-256 matches
- *   3. Checks every expected section (from TOC) is present in scraped data
- *   4. Optionally re-downloads a random sample of pages and compares byte-for-byte
- *
- * Output:
- *   output/verification-report.json
- */
-import { readFile } from "fs/promises";
-import { existsSync } from "fs";
-import { writeJsonAtomic } from "./shared/source_health.js";
-import type {
-  TocNode,
-  ScrapeManifest,
-  ArticlePage,
-  VerificationResult,
-  VerificationReport,
-} from "./types.js";
-import { getArticlePages, getSections } from "./toc.js";
+/** Independent local custody, current TOC, and deterministic live sample verification. */
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { TocNode, ScrapeManifest, ArticlePage, VerificationResult, VerificationReport } from "./types.js";
+import { getArticlePages, getSections, fetchToc } from "./toc.js";
 import { newPage, closeBrowser, navigateWithCloudflare } from "./browser.js";
-import { computeSha256, shuffle } from "./utils.js";
-import { paths } from "./shared/paths.js";
+import { paths, outputRoot } from "./shared/paths.js";
+import { writeJsonAtomic } from "./shared/source_health.js";
+import { isTocShapeValid } from "./scraper_utils.js";
+import { custodyHash, validateArticleCustody, articleSetSha256 } from "./corpus_editions.js";
 import { VERIFY_SAMPLE_SIZE } from "./constants.js";
 import { createLogger } from "./logger.js";
-
 const log = createLogger("verifier");
-
-/**
- * Recursively collect all section GUIDs that are descendants of a given node.
- * This must mirror `content.ts`'s `getSectionGuids` (the enumeration the
- * scraper itself uses to decide what to fetch): recurse into ALL child types —
- * division/chapter/article/subarticle/part — not just subarticle/part. A
- * verifier that only looked at subarticle/part would undercount "expected"
- * sections for any article whose sections nest under a different container,
- * potentially marking allSectionsPresent true while the scrape required more.
- */
 export function collectDescendantSections(node: TocNode): TocNode[] {
-  const sections: TocNode[] = [];
-  for (const child of node.children) {
-    if (child.type === "section") {
-      sections.push(child);
-    } else {
-      sections.push(...collectDescendantSections(child));
-    }
-  }
-  return sections;
+  return node.children.flatMap(child => child.type === "section" ? [child] : collectDescendantSections(child));
 }
-
-async function main() {
-  log.info("=== Crescent City Municipal Code Verifier ===");
-
-  if (!existsSync(paths.toc) || !existsSync(paths.manifest)) {
-    log.error("Run the scraper first (bun run scrape)");
-    process.exit(1);
-  }
-
-  const toc: TocNode = JSON.parse(await readFile(paths.toc, "utf-8"));
-  const manifest: ScrapeManifest = JSON.parse(await readFile(paths.manifest, "utf-8"));
-
-  const expectedArticles = getArticlePages(toc);
-  const expectedSections = getSections(toc);
-
-  log.info(`Expected articles: ${expectedArticles.length}`);
-  log.info(`Expected sections: ${expectedSections.length}`);
-  log.info(`Scraped articles: ${Object.keys(manifest.articles).length}`);
-
-  const results: VerificationResult[] = [];
-  const allMissingSections: string[] = [];
-  let passCount = 0;
-  let failCount = 0;
-
-  // Verify each expected article
-  for (const article of expectedArticles) {
-    const filePath = paths.article(article.guid);
-    const manifestEntry = manifest.articles[article.guid];
-
-    const checks = {
-      fileExists: false,
-      sha256Match: false,
-      sectionCountMatch: false,
-      expectedSections: 0,
-      foundSections: 0,
-      allSectionsPresent: false,
-      missingSections: [] as string[],
-    };
-
-    // Expected sections: recursively collect from this article node (handles subarticles)
-    const articleExpectedSections = collectDescendantSections(article);
-    checks.expectedSections = articleExpectedSections.length;
-
-    // Check file exists
-    checks.fileExists = existsSync(filePath);
-
-    if (checks.fileExists && manifestEntry) {
-      const data: ArticlePage = JSON.parse(await readFile(filePath, "utf-8"));
-
-      // Verify SHA-256
-      const currentHash = await computeSha256(data.rawHtml);
-      checks.sha256Match = currentHash === manifestEntry.sha256;
-
-      // Check section count
-      checks.foundSections = data.sections.length;
-      checks.sectionCountMatch =
-        data.sections.length >= articleExpectedSections.length;
-
-      // Check each expected section is present
-      const scrapedGuids = new Set(data.sections.map((s) => s.guid));
-      for (const expected of articleExpectedSections) {
-        if (!scrapedGuids.has(expected.guid)) {
-          checks.missingSections.push(
-            `${expected.indexNum}: ${expected.title} (${expected.guid})`
-          );
-        }
-      }
-      checks.allSectionsPresent = checks.missingSections.length === 0;
-    }
-
-    const status =
-      checks.fileExists &&
-      checks.sha256Match &&
-      checks.allSectionsPresent
-        ? "pass"
-        : "fail";
-
-    if (status === "pass") passCount++;
-    else failCount++;
-
-    allMissingSections.push(...checks.missingSections);
-
-    results.push({
-      guid: article.guid,
-      title: `${article.indexNum}: ${article.title}`,
-      status,
-      checks,
-    });
-
-    const icon = status === "pass" ? "PASS" : "FAIL";
-    if (status === "fail") {
-      log.warn(`[FAIL] ${article.indexNum}: ${article.title}`, {
-        fileExists: String(checks.fileExists),
-        sha256Match: String(checks.sha256Match),
-        sections: `${checks.foundSections}/${checks.expectedSections}`,
-        missing: String(checks.missingSections.length),
-      });
-    }
-  }
-
-  // Step 2: Random sample re-fetch verification
-  log.info(`--- Random Sample Re-fetch (${VERIFY_SAMPLE_SIZE} pages) ---`);
-  const sampleArticles = shuffle(expectedArticles).slice(0, VERIFY_SAMPLE_SIZE);
-  let samplePasses = 0;
-  let sampleAttempted = 0;
-  let sampleMismatchCount = 0;
-
-  const page = await newPage();
-
-  for (const article of sampleArticles) {
-    const filePath = paths.article(article.guid);
-    if (!existsSync(filePath)) {
-      log.warn(`[SKIP] ${article.indexNum}: file not found`);
-      continue;
-    }
-
-    log.info(`Re-fetching: ${article.indexNum} ${article.title}...`);
-
+export type VerificationPlane = "pass" | "fail" | "unavailable" | "not_attempted";
+export interface BoundVerificationReport extends VerificationReport {
+  schemaVersion: "corpus-verification/v2";
+  publicationEligible: boolean;
+  binding: { manifestSha256: string; tocSha256: string; articleSetSha256: string };
+  planes: { local: VerificationPlane; currentToc: VerificationPlane; sample: VerificationPlane };
+  evidence: { currentToc: string; sample: string; limitations: string[] };
+  sample: { attempted: number; passes: number; mismatches: number; failed: number; selected: string[]; results: Array<{ guid: string; status: "pass" | "mismatch" | "unavailable"; error?: string }> };
+  localErrors: string[];
+}
+export interface VerifyCorpusOptions {
+  root?: string; currentToc?: TocNode | null; currentTocError?: string;
+  /** Must identify the actual acquisition plane; a fixture/offline run cannot qualify publication. */
+  evidenceOrigin?: "ecode360-live" | "offline" | "fixture";
+  sampleSize?: number;
+  refetch?: (article: TocNode) => Promise<string>;
+}
+export async function verificationMatchesInputs(report: BoundVerificationReport, root = outputRoot()): Promise<boolean> {
+  try {
+    const [manifest, toc] = await Promise.all([readFile(join(root, "manifest.json"), "utf8"), readFile(join(root, "toc.json"), "utf8")]);
+    if (report.binding.manifestSha256 !== custodyHash(manifest) || report.binding.tocSha256 !== custodyHash(toc)) return false;
+    const values = JSON.parse(manifest) as ScrapeManifest;
+    const articles = await Promise.all(Object.keys(values.articles).sort().map(async guid => JSON.parse(await readFile(join(root, "articles", `${guid}.json`), "utf8")) as ArticlePage));
+    return report.binding.articleSetSha256 === articleSetSha256(articles);
+  } catch { return false; }
+}
+export async function verifyCorpus(options: VerifyCorpusOptions = {}): Promise<BoundVerificationReport> {
+  const root = options.root ?? outputRoot();
+  const [manifestBytes, tocBytes] = await Promise.all([readFile(join(root, "manifest.json"), "utf8"), readFile(join(root, "toc.json"), "utf8")]);
+  const toc = JSON.parse(tocBytes) as TocNode;
+  const manifest = JSON.parse(manifestBytes) as ScrapeManifest;
+  if (!isTocShapeValid(toc) || !manifest.articles || typeof manifest.articles !== "object" || Array.isArray(manifest.articles)) throw new Error("Invalid TOC or manifest shape");
+  const expected = getArticlePages(toc); const expectedGuids = new Set(expected.map(article => article.guid));
+  const localErrors: string[] = [];
+  if (Object.keys(manifest.articles).some(guid => !expectedGuids.has(guid)) || Object.keys(manifest.articles).length !== expectedGuids.size) localErrors.push("Manifest article membership differs from TOC");
+  if (!manifest.completedAt || !Number.isFinite(Date.parse(manifest.completedAt))) localErrors.push("Scrape has no valid completion receipt");
+  const articles: ArticlePage[] = []; const results: VerificationResult[] = [];
+  for (const article of expected) {
+    const sectionGuids = collectDescendantSections(article).map(section => section.guid);
+    const checks = { fileExists: false, sha256Match: false, sectionCountMatch: false, expectedSections: sectionGuids.length, foundSections: 0, allSectionsPresent: false, missingSections: [] as string[] };
+    let custodyErrors: string[] = [];
     try {
+      if (!/^[A-Za-z0-9_-]+$/.test(article.guid)) throw new Error("Unsafe article GUID");
+      const value: unknown = JSON.parse(await readFile(join(root, "articles", `${article.guid}.json`), "utf8"));
+      checks.fileExists = true;
+      custodyErrors = validateArticleCustody(value, sectionGuids, true);
+      const data = value as ArticlePage; const entry = manifest.articles[article.guid];
+      if (!Array.isArray(data.sections)) throw new Error("Malformed section array");
+      checks.foundSections = data.sections.length;
+      checks.sha256Match = !!entry && data.guid === article.guid && entry.guid === article.guid && entry.sha256 === data.sha256 && custodyHash(data.rawHtml) === data.sha256;
+      checks.sectionCountMatch = !!entry && entry.sectionCount === data.sections.length && data.sections.length === sectionGuids.length;
+      const ids = new Set(data.sections.map(section => section.guid));
+      checks.missingSections = sectionGuids.filter(guid => !ids.has(guid));
+      checks.allSectionsPresent = checks.missingSections.length === 0 && ids.size === data.sections.length && data.sections.length === sectionGuids.length;
+      articles.push(data);
+    } catch (error) { custodyErrors.push(error instanceof Error ? error.message : String(error)); }
+    localErrors.push(...custodyErrors.map(error => `${article.guid}: ${error}`));
+    results.push({ guid: article.guid, title: `${article.indexNum}: ${article.title}`, status: checks.fileExists && checks.sha256Match && checks.sectionCountMatch && checks.allSectionsPresent && !custodyErrors.length ? "pass" : "fail", checks });
+  }
+  if (manifest.articlePageCount !== expected.length || manifest.sectionCount !== getSections(toc).length) localErrors.push("Manifest totals differ from TOC");
+  let currentToc: VerificationPlane = options.currentToc === undefined ? "not_attempted" : options.currentToc === null ? "unavailable" : "fail";
+  if (options.currentToc && isTocShapeValid(options.currentToc)) currentToc = custodyHash(JSON.stringify(options.currentToc)) === custodyHash(JSON.stringify(toc)) ? "pass" : "fail";
+  const selected = [...expected].sort((a, b) => custodyHash(tocBytes + a.guid).localeCompare(custodyHash(tocBytes + b.guid))).slice(0, Math.max(0, Math.floor(options.sampleSize ?? VERIFY_SAMPLE_SIZE)));
+  const sample: BoundVerificationReport["sample"] = { attempted: 0, passes: 0, mismatches: 0, failed: 0, selected: selected.map(article => article.guid), results: [] };
+  if (options.refetch) for (const article of selected) {
+    sample.attempted++;
+    try {
+      const liveHtml = await options.refetch(article); const saved = articles.find(value => value.guid === article.guid);
+      if (!liveHtml.trim() || !saved) throw new Error("Missing live/saved source HTML");
+      const match = custodyHash(liveHtml) === saved.sha256;
+      if (match) sample.passes++; else sample.mismatches++;
+      sample.results.push({ guid: article.guid, status: match ? "pass" : "mismatch" });
+    } catch (error) { sample.failed++; sample.results.push({ guid: article.guid, status: "unavailable", error: error instanceof Error ? error.message.split("\n")[0] : "Refetch failed" }); }
+  }
+  const planes: BoundVerificationReport["planes"] = { local: localErrors.length || results.some(result => result.status === "fail") || !expected.length ? "fail" : "pass", currentToc,
+    sample: !options.refetch || !selected.length ? "not_attempted" : sample.mismatches ? "fail" : sample.failed ? "unavailable" : sample.passes === selected.length ? "pass" : "fail" };
+  const allPass = Object.values(planes).every(plane => plane === "pass");
+  return { schemaVersion: "corpus-verification/v2", verifiedAt: new Date().toISOString(), municipality: toc.tocName,
+    overallStatus: allPass ? "pass" : "fail", publicationEligible: allPass && options.evidenceOrigin === "ecode360-live",
+    binding: { manifestSha256: custodyHash(manifestBytes), tocSha256: custodyHash(tocBytes), articleSetSha256: articleSetSha256(articles) }, planes,
+    evidence: { currentToc: options.evidenceOrigin ?? "offline", sample: options.evidenceOrigin ?? "offline", limitations: ["Live sample checks selected article HTML only; it does not establish all-page currentness", ...(options.currentTocError ? [options.currentTocError] : [])] },
+    totalArticles: expected.length, passedArticles: results.filter(result => result.status === "pass").length, failedArticles: results.filter(result => result.status === "fail").length,
+    totalExpectedSections: getSections(toc).length, totalFoundSections: results.reduce((sum, result) => sum + result.checks.foundSections, 0), missingSections: results.flatMap(result => result.checks.missingSections), results, sample, localErrors };
+}
+async function main(): Promise<void> {
+  const offline = Bun.argv.includes("--offline"); let currentToc: TocNode | null | undefined; let currentTocError: string | undefined;
+  try {
+    const page = offline ? null : await newPage();
+    if (page) { try { currentToc = await fetchToc(page); } catch (error) { currentToc = null; currentTocError = error instanceof Error ? error.message.split("\n")[0] : "Current TOC unavailable"; } }
+    const report = await verifyCorpus({ currentToc, currentTocError, evidenceOrigin: offline ? "offline" : "ecode360-live", ...(page ? { refetch: async (article: TocNode) => {
       await navigateWithCloudflare(page, `https://ecode360.com/${article.guid}`);
-      await page.waitForSelector("#codeContent", { timeout: 30_000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-
-      const liveHtml = await page.evaluate(() => {
-        const el = document.querySelector("#codeContent");
-        return el ? el.innerHTML : "";
-      });
-
-      const savedData: ArticlePage = JSON.parse(
-        await readFile(filePath, "utf-8")
-      );
-
-      const liveHash = await computeSha256(liveHtml);
-      const savedHash = await computeSha256(savedData.rawHtml);
-      sampleAttempted++;
-
-      if (liveHash === savedHash) {
-        log.info(`[MATCH] ${article.indexNum}: SHA-256 matches live site`);
-        samplePasses++;
-      } else {
-        sampleMismatchCount++;
-        log.warn(`[MISMATCH] ${article.indexNum}: Content has changed!`, {
-          saved: savedHash.substring(0, 32),
-          live: liveHash.substring(0, 32),
-        });
-      }
-    } catch (err: any) {
-      log.error(`Re-fetch failed: ${article.indexNum}`, { error: err.message });
-    }
-
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-
-  await closeBrowser();
-
-  // Build report
-  const totalFoundSections = results.reduce(
-    (sum, r) => sum + r.checks.foundSections,
-    0
-  );
-
-  const report: VerificationReport = {
-    verifiedAt: new Date().toISOString(),
-    municipality: toc.tocName,
-    overallStatus: failCount === 0 ? "pass" : "fail",
-    totalArticles: expectedArticles.length,
-    passedArticles: passCount,
-    failedArticles: failCount,
-    totalExpectedSections: expectedSections.length,
-    totalFoundSections: totalFoundSections,
-    missingSections: allMissingSections,
-    results,
-    // Live re-fetch sample outcomes — the report previously logged mismatches
-    // to the console but never persisted them, so the report could say "pass"
-    // while a sampled page had drifted from the live site.
-    sample: {
-      attempted: sampleAttempted,
-      passes: samplePasses,
-      mismatches: sampleMismatchCount,
-    },
-  };
-
-  await writeJsonAtomic(paths.verificationReport, report);
-
-  // Summary
-  log.info("=== Verification Summary ===");
-  log.info(`Articles: ${passCount} pass / ${failCount} fail / ${expectedArticles.length} total`);
-  log.info(`Sections: ${totalFoundSections} found / ${expectedSections.length} expected`);
-  log.info(`Missing sections: ${allMissingSections.length}`);
-  log.info(`Sample re-fetch: ${samplePasses}/${sampleArticles.length} match`);
-  log.info(`Overall: ${report.overallStatus.toUpperCase()}`);
-  log.info(`Report: ${paths.verificationReport}`);
-
-  if (report.overallStatus === "fail") {
-    process.exit(1);
-  }
+      await page.waitForSelector("#codeContent", { timeout: 30_000 });
+      return page.evaluate(() => document.querySelector("#codeContent")?.innerHTML ?? "");
+    } } : {}) });
+    await writeJsonAtomic(paths.verificationReport, report);
+    log.info(`Verification local=${report.planes.local} currentToc=${report.planes.currentToc} sample=${report.planes.sample}; publicationEligible=${report.publicationEligible}`);
+    if (offline ? report.planes.local !== "pass" : report.overallStatus !== "pass") process.exitCode = 1;
+  } finally { await closeBrowser(); }
 }
-
-// Guarded: importing this module (e.g. from a test) must never launch a
-// Playwright browser or re-run the whole verification as a side effect.
-if (import.meta.main) {
-  main().catch((err) => {
-    log.error("Fatal error", { error: String(err) });
-    closeBrowser().finally(() => process.exit(1));
-  });
-}
+if (import.meta.main) main().catch(error => { log.error("Verification failed", { error: String(error) }); process.exitCode = 1; });

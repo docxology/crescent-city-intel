@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Agenda → municipal-code cross-reference (TODO Phase 4.2, part 2).
+ * Agenda → municipal-code cross-reference over the real BM25 index.
  *
  * For each agenda/minutes link-item title, run the real BM25 index over the
  * scraped municipal-code corpus and keep the top-k scoring sections. This

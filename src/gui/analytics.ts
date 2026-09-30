@@ -164,6 +164,8 @@ export interface WordLoading {
 export interface EmbeddingProjection {
     points: EmbeddingPoint[];
     totalVectors: number;
+    sampledVectors?: number;
+    truncated?: boolean;
     variance: number[]; // Explained variance for each PC
     wordLoadings: WordLoading[]; // top terms correlated with PC axes
 }
@@ -174,8 +176,8 @@ const NUM_PCS = 10;
  * Fetch embeddings from ChromaDB and project to N dimensions via PCA.
  * Uses covariance matrix + power iteration — no external math library.
  */
-export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
-    const coll = await getOrCreateCollection();
+export async function getEmbeddingProjection(options: { signal?: AbortSignal } = {}): Promise<EmbeddingProjection> {
+    const coll = await getOrCreateCollection({ signal: options.signal });
     const count = await coll.count();
 
     if (count === 0) {
@@ -189,7 +191,8 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
     const allMetas: Record<string, string>[] = [];
     const allDocs: string[] = [];
 
-    for (let offset = 0; offset < count; offset += BATCH) {
+    for (let offset = 0; offset < Math.min(count, 2000); offset += BATCH) {
+        options.signal?.throwIfAborted();
         const result = await coll.get({
             limit: BATCH,
             offset,
@@ -217,7 +220,9 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
     const embeddings = indices.map((i) => allEmbeddings[i]);
     const metas = indices.map((i) => allMetas[i]);
     const docs = indices.map((i) => allDocs[i] || "");
+    options.signal?.throwIfAborted();
     const dim = embeddings[0].length;
+    if (dim > 4096 || !dim || embeddings.some(vec => vec.length !== dim || vec.some(value => !Number.isFinite(value)))) throw new Error("Invalid embedding dimensions");
     const n = embeddings.length;
 
     // Center the data
@@ -239,7 +244,7 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
     const pcCount = Math.min(NUM_PCS, dim, Math.max(1, n));
 
     for (let k = 0; k < pcCount; k++) {
-        const pc = powerIteration(currentData, dim, null); // Deflation handled by update step below
+        const pc = powerIteration(currentData, dim); // Deflation handled by update step below
         pcs.push(pc);
 
         // Deflate data: subtract projection onto this component
@@ -297,6 +302,8 @@ export async function getEmbeddingProjection(): Promise<EmbeddingProjection> {
     return {
         points,
         totalVectors: count,
+        sampledVectors: embeddings.length,
+        truncated: count > embeddings.length,
         variance: pcs.map(p => p.eigenvalue),
         wordLoadings,
     };
@@ -396,7 +403,6 @@ function norm(v: Float64Array): number {
 export function powerIteration(
     data: Float64Array[],
     dim: number,
-    _unused: any, // kept signature compatible if needed
     iterations = 20 // Reduce iterations for speed since we do 10 components
 ): { vector: Float64Array; eigenvalue: number } {
     const n = data.length;

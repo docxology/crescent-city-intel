@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { dirname, join } from "path";
+import { tmpdir } from "node:os";
+import { writePublicationFixture } from "./helpers/publication-fixture.ts";
 import {
   MAX_PAGES_GEO_INTEL_BYTES,
   PAGES_GEO_INTEL_ARTIFACT,
@@ -16,6 +18,7 @@ import {
   PAGES_STATIC_PAGES,
 } from "../src/pages_snapshot.ts";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
+import { getSourceRegistry } from "../src/source_registry.ts";
 
 async function put(root: string, relative: string, value: unknown): Promise<void> {
   const path = join(root, relative);
@@ -24,7 +27,7 @@ async function put(root: string, relative: string, value: unknown): Promise<void
 }
 
 async function withFixture(run: (root: string) => Promise<void>): Promise<void> {
-  const root = await mkdtemp(join(process.cwd(), ".pages-test-"));
+  const root = await mkdtemp(join(tmpdir(), "pages-test-"));
   try { await run(root); } finally { await rm(root, { recursive: true, force: true }); }
 }
 
@@ -36,7 +39,7 @@ describe("public Pages snapshot", () => {
     expect(new TextEncoder().encode(source).byteLength).toBeLessThanOrEqual(MAX_PAGES_GEO_INTEL_BYTES);
     expect(geoIntel.schema).toBe("crescent-city-geo-intel/v1");
     expect(geoIntel.view.schema).toBe("crescent-city-geo-view/v1");
-    expect(geoIntel.view.generatedAt).toBe(geoIntel.generatedAt);
+    expect(geoIntel.view.generatedAt).toBe(String(geoIntel.generatedAt));
     expect(summarizePagesGeoIntel(geoIntel)).toEqual({
       available: true,
       schema: "crescent-city-geo-intel/v1",
@@ -67,8 +70,7 @@ describe("public Pages snapshot", () => {
 
   test("preserves source health and publication boundaries", async () => {
     await withFixture(async root => {
-      await put(root, "manifest.json", { articlePageCount: 2, sectionCount: 12 });
-      await put(root, "crescent-city-code.json", { articles: [{ title: "General", sections: [{ number: "§ 1", title: "Purpose", text: "Crescent City" }] }] });
+      await writePublicationFixture(root);
       await put(root, "news/news-2026-07-24T00.json", { items: [
         { title: "Harbor update", link: "https://example.test/harbor", source: "Lost Coast Outpost", pubDate: "2026-07-24T00:00:00Z" },
         { title: "Harbor update duplicate", link: "https://example.test/harbor", source: "Lost Coast Outpost", pubDate: "2026-07-23T00:00:00Z" },
@@ -102,10 +104,10 @@ describe("public Pages snapshot", () => {
 
   test("writes a self-contained static artifact and validates it", async () => {
     await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
+      await writePublicationFixture(root);
       await put(root, "news/source-health.json", { sources: [] });
       const destination = join(root, "pages");
-      const result = await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-07-24T01:00:00Z" });
+      const result = await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-public-seed"), generatedAt: "2026-07-24T01:00:00Z" });
       expect(result.status).toBe("ok");
       const indexHtml = await readFile(join(destination, "index.html"), "utf8");
       expect(indexHtml).toContain("data/snapshot.json");
@@ -131,6 +133,20 @@ describe("public Pages snapshot", () => {
     });
   }, 60000);
 
+  test("keeps a producer's canonical source identity when joining collection evidence", async () => {
+    await withFixture(async root => {
+      await writePublicationFixture(root);
+      const source = getSourceRegistry().find(item => item.configuredMonitor === "alert:weather")!;
+      await put(root, "alerts/source-health.json", { sources: [{ sourceId: source.id, source: "Renamed weather display", status: "empty", checkedAt: "2026-07-24T00:00:00Z", fetchedAt: "2026-07-24T00:00:00Z", itemCount: 0 }] });
+      const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
+      expect(snapshot.sourceHealth.find(row => row.source === "Renamed weather display")?.sourceId).toBe(source.id);
+      const record = snapshot.sourceDiscovery?.sources.find(row => row.id === source.id) as unknown as { healthBinding: string; collection: string; healthReceipts: Array<{ sourceId: string }> };
+      expect(record.healthBinding).toBe("source-id");
+      expect(record.collection).toBe("empty");
+      expect(record.healthReceipts[0]?.sourceId).toBe(source.id);
+    });
+  });
+
   test("does not manufacture availability when output is missing", async () => {
     await withFixture(async root => {
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
@@ -144,7 +160,7 @@ describe("public Pages snapshot", () => {
 
   test("keeps a genuine pipeline failure distinct from source coverage gaps", async () => {
     await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
+      await writePublicationFixture(root);
       await put(root, "state/latest-pipeline-run.json", { status: "failed", runId: "fixture-run" });
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.status).toBe("degraded");

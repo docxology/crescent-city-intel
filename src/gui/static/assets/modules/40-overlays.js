@@ -4,7 +4,7 @@
 // matches the original single-script execution order.
     // Theme toggle (with localStorage persistence)
     (function initTheme() {
-      const saved = localStorage.getItem("theme");
+      const saved = CCGui.storage.get("theme");
       if (saved === "dark") {
         document.documentElement.setAttribute("data-theme", "dark");
         document.getElementById("theme-toggle").textContent = "Light";
@@ -15,7 +15,7 @@
       const isDark = html.getAttribute("data-theme") === "dark";
       const next = isDark ? "light" : "dark";
       html.setAttribute("data-theme", next);
-      localStorage.setItem("theme", next);
+      CCGui.storage.set("theme", next);
       document.getElementById("theme-toggle").textContent = isDark ? "Dark" : "Light";
     });
 

@@ -18,6 +18,7 @@ import {
   formatIcsStamp,
   nextIsoDay,
   parseEventDate,
+  pacificDay,
   extractTimeNote,
   EVENTS_SCHEMA,
   type EventKind,
@@ -88,6 +89,17 @@ describe("parseEventDate", () => {
     expect(parseEventDate(null)).toBeNull();
     expect(parseEventDate(undefined)).toBeNull();
     expect(parseEventDate(42)).toBeNull();
+  });
+
+  test("rejects calendar rollover and invalid clocks while respecting leap days and Pacific instants", () => {
+    for (const date of ["2026-02-31", "2026-02-29", "2026-02-30T12:00:00Z", "2026-09-30T25:00:00Z", "2026-09-30Tgarbage", "20260931"]) expect(parseEventDate(date)).toBeNull();
+    expect(parseEventDate("2028-02-29")).toBe("2028-02-29");
+    expect(parseEventDate("20260930")).toBe("2026-09-30");
+    expect(parseEventDate("2026-09-30T00:30:00Z")).toBe("2026-09-29");
+    expect(pacificDay(new Date("2026-03-08T09:59:00Z"))).toBe("2026-03-08");
+    expect(pacificDay(new Date("2026-03-08T10:01:00Z"))).toBe("2026-03-08");
+    expect(classify("2026-09-29", new Date("2026-09-30T00:30:00Z"))).toBe("scheduled");
+    expect(classify("2026-02-31", new Date("2026-09-30T00:30:00Z"))).toBe("unknown");
   });
 });
 
@@ -232,8 +244,24 @@ describe("buildEventsArtifact", () => {
 });
 
 describe("collectEvents against real fixture output trees", () => {
+  test("upload/publication clocks and document labels cannot schedule occurrences; IDs survive unrelated insertions", async () => {
+    const root = await mkdtemp(join(tmpdir(), "event-time-evidence-"));
+    const meeting = { title: "Council meeting", link: "https://example.org/meeting", date: "2026-10-10", source: "City Council" };
+    try {
+      await writeFixture(root, "gov_meetings/batch.json", { items: [meeting, { title: "Archived minutes", link: "https://example.org/minutes.pdf", date: "2026-10-12", dateStart: "2026-10-12", recordKind: "meeting-document", dateEvidence: "document-label", source: "Harbor Commission" }] });
+      await writeFixture(root, "youtube/video.json", { videoId: "abcdef12345", title: "Meeting video", uploadDate: "20261011" });
+      await writeFixture(root, "gov_meetings/unsafe.json", { items: [{ ...meeting, title: "Unsafe meeting URL", link: "https://example.org/#auth=private-fixture-token" }] });
+      const first = await collectEvents(root); const originalId = first.find(event => event.title === meeting.title)!.id;
+      expect(JSON.stringify(first)).not.toContain("private-fixture-token"); expect(first.some(event => event.title === "Unsafe meeting URL")).toBe(false);
+      const video = first.find(event => event.kind === "youtube")!; expect(video.dateStart).toBeNull(); expect(video.publicationAt).toBe("20261011"); expect(video.status).toBe("unknown");
+      expect(first.find(event => event.title === "Archived minutes")!.dateStart).toBeNull();
+      const calendar = buildEventsIcs(first); expect(calendar.match(/BEGIN:VEVENT/g)).toHaveLength(1); expect(calendar).not.toContain("DTSTART;VALUE=DATE:20261012"); expect(calendar).not.toContain("DTSTART;VALUE=DATE:20261011");
+      await writeFixture(root, "gov_meetings/another.json", { items: [{ title: "A new meeting", link: "https://example.org/new", date: "2026-10-09", source: "Planning Commission" }] });
+      expect((await collectEvents(root)).find(event => event.title === meeting.title)!.id).toBe(originalId);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   test("reads gov_meetings, news, and youtube layouts offline", async () => {
-    const root = await mkdtemp(join(process.cwd(), ".events-test-"));
+    const root = await mkdtemp(join(tmpdir(), "events-test-"));
     try {
       await writeFixture(root, "gov_meetings/gov_meetings-2026-08-25.json", {
         fetchedAt: "2026-08-25T21:50:13.769Z",
@@ -267,7 +295,10 @@ describe("collectEvents against real fixture output trees", () => {
 
       const datedNews = events.find(event => event.title === "Hot Dog Hangout at Arcata PD HQ");
       expect(datedNews).toBeDefined();
-      expect(datedNews!.dateStart).toBe("2026-08-29");
+      expect(datedNews!.dateStart).toBeNull();
+      expect(datedNews!.publicationAt).toBe("Sat, 29 Aug 2026 08:07:14 -0700");
+      expect(datedNews!.status).toBe("unknown");
+      expect(buildEventsIcs([datedNews!])).not.toContain("BEGIN:VEVENT");
 
       const undated = events.find(event => event.title === "Undated announcement stays out of the calendar");
       expect(undated).toBeUndefined();

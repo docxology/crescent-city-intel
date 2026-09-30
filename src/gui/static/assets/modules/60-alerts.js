@@ -348,7 +348,7 @@ ${sample}
       }
     }
 
-    // ─── Alerts Dashboard (15 real-time monitors + timeline) ─────────
+    // ─── Alerts Dashboard (all monitor types + timeline) ─────────
     document.getElementById('alerts-toggle').addEventListener('click', () => {
       const panel = document.getElementById('alerts-panel');
       const wasOpen = panel.style.display !== 'none';

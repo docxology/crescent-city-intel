@@ -11,9 +11,12 @@ Thank you for your interest in contributing! This project is licensed under **CC
 ## Development Workflow
 
 ```bash
-bun install          # Install dependencies
-bun test             # Run all tests
-bun run gui          # Launch web viewer for manual testing
+bun install --frozen-lockfile     # Install locked dependencies
+bunx playwright install chromium # Install the browser for render tests
+bun run source-discovery         # Refresh optional generated registry evidence
+bun run test:typecheck           # Strict tests/source typecheck
+bun test                         # Run deterministic tests
+bun run gui                      # Launch web viewer for manual testing
 ```
 
 ## What to Contribute
@@ -28,7 +31,7 @@ bun run gui          # Launch web viewer for manual testing
 ## Code Conventions
 
 - **TypeScript** on Bun runtime — no build step, all scripts run directly
-- **No external frameworks** — the GUI is a single HTML file with embedded CSS/JS
+- **No external frameworks** — the GUI uses an HTML shell, a stylesheet, and ordered JavaScript modules in `src/gui/static/assets/`
 - **Types** — all shared interfaces go in `src/types.ts`
 - **Constants** — project-wide values go in `src/constants.ts`
 - **Paths** — use `src/shared/paths.ts` for all file I/O paths (never hardcode)
@@ -41,7 +44,9 @@ bun run gui          # Launch web viewer for manual testing
 1. Create `tests/<module>.test.ts`
 2. Import functions directly from the source module
 3. Use `describe` / `test` / `expect` from `bun:test`
-4. Focus on pure-logic functions — skip integration modules requiring external services
+4. Cover pure logic and integration boundaries with real temporary files, local
+   HTTP servers, and browser tests. Keep the deterministic suite offline; run
+   optional external services and live-source acceptance separately.
 
 ## Updating Documentation
 

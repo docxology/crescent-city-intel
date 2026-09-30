@@ -33,8 +33,8 @@ reason.
 > **Section numbers carry a marker.** `FlatSection.number` is `"§ 8.04.010"`,
 > not `"8.04.010"`. Every comparison against a citation, a `?title=` filter, or
 > a user-typed lookup must go through `normalizeSectionNumber` (`src/utils.ts`)
-> on **both** sides. Comparing the raw forms is silently always-false: it made
-> corpus-wide cross-reference resolution read 0% until 2026-09-05.
+> on **both** sides. Comparing raw forms fails to match equivalent section
+> numbers.
 
 Modelling decisions that shape every number in the report:
 

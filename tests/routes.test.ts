@@ -28,14 +28,12 @@ describe("handleApiRoute", () => {
         expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
     });
 
-    test("/api/search with empty query returns empty results", async () => {
+    test("/api/search with empty query rejects invalid input", async () => {
         const url = new URL("http://localhost:3000/api/search?q=");
         const response = await handleApiRoute(url);
-        expect(response.status).toBe(200);
+        expect(response.status).toBe(400);
         const body = await response.json();
-        expect(body.query).toBe("");
-        expect(body.count).toBe(0);
-        expect(body.results).toEqual([]);
+        expect(body.error).toContain("q:");
     });
 
     test("/api/chat with empty question returns 400", async () => {
@@ -43,7 +41,7 @@ describe("handleApiRoute", () => {
         const response = await handleApiRoute(url);
         expect(response.status).toBe(400);
         const body = await response.json();
-        expect(body.error).toContain("No question provided");
+        expect(body.error).toContain("q:");
     });
 
     test("/api/article/:guid returns 404 for nonexistent article", async () => {

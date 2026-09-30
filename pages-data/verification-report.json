@@ -1,7 +1,26 @@
 {
-  "verifiedAt": "2026-08-27T03:41:52.363Z",
+  "schemaVersion": "corpus-verification/v2",
+  "verifiedAt": "2026-09-30T21:27:14.404Z",
   "municipality": "Crescent City, CA",
   "overallStatus": "pass",
+  "publicationEligible": true,
+  "binding": {
+    "manifestSha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
+    "tocSha256": "35069e167487d7db92f78b160a397cb06ad3247316afc43e6d7a402772f1dcfb",
+    "articleSetSha256": "c7ea8210b84df80826d74cb583322b72c641c7dc1ecb4645ec36c1856fe45856"
+  },
+  "planes": {
+    "local": "pass",
+    "currentToc": "pass",
+    "sample": "pass"
+  },
+  "evidence": {
+    "currentToc": "ecode360-live",
+    "sample": "ecode360-live",
+    "limitations": [
+      "Live sample checks selected article HTML only; it does not establish all-page currentness"
+    ]
+  },
   "totalArticles": 245,
   "passedArticles": 245,
   "failedArticles": 0,
@@ -3442,7 +3461,38 @@
   ],
   "sample": {
     "attempted": 5,
-    "passes": 4,
-    "mismatches": 1
-  }
+    "passes": 5,
+    "mismatches": 0,
+    "failed": 0,
+    "selected": [
+      "44238746",
+      "44246013",
+      "44237417",
+      "44237482",
+      "44238485"
+    ],
+    "results": [
+      {
+        "guid": "44238746",
+        "status": "pass"
+      },
+      {
+        "guid": "44246013",
+        "status": "pass"
+      },
+      {
+        "guid": "44237417",
+        "status": "pass"
+      },
+      {
+        "guid": "44237482",
+        "status": "pass"
+      },
+      {
+        "guid": "44238485",
+        "status": "pass"
+      }
+    ]
+  },
+  "localErrors": []
 }

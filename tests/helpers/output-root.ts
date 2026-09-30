@@ -17,6 +17,9 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat } from "fs/promises";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { load } from "cheerio";
+import { bindArticleExtraction, custodyHash } from "../../src/corpus_editions.ts";
+import type { ArticlePage, ScrapeManifest } from "../../src/types.ts";
 
 /** Run `body` with the artifact root pointed at a copy of the real corpus. */
 export async function withCorpusCopy<T>(body: (root: string) => Promise<T>): Promise<T> {
@@ -24,7 +27,8 @@ export async function withCorpusCopy<T>(body: (root: string) => Promise<T>): Pro
 }
 
 /**
- * Run `body` against a copy of the corpus carrying only `articleCount` articles.
+ * Run `body` against a derived reviewed-seed fixture with `articleCount` articles
+ * and a complete manifest declaring exactly that membership.
  *
  * `withCorpusCopy` copies every article, and `getCodeStats` reads all of them
  * through `loadAllArticles()`. That made the analytics-overview tests the
@@ -38,30 +42,25 @@ export async function withCorpusCopy<T>(body: (root: string) => Promise<T>): Pro
  * real corpus was never what they were checking. A handful of articles produces
  * the same code-stat shape in a fraction of the time.
  *
- * Everything EXCEPT `articles/` is copied in full, because the small artifacts
- * are what the fingerprint is actually computed over: `search-queries.jsonl`,
- * the alert and feed source-health records, the curation and pipeline
- * envelopes. Dropping any of them would change what the test measures rather
- * than how long it takes.
+ * The overview's JSON/JSONL feed, health, alert-history, report and state inputs
+ * are copied when available. Acquisition custody trees, raw PDFs, markdown and
+ * consolidated exports are not overview inputs. The source manifest is replaced by fixture metadata;
+ * the retained seed text does not establish fidelity to the original source HTML.
  */
 export async function withMinimalCorpus<T>(articleCount: number, body: (root: string) => Promise<T>): Promise<T> {
   const source = join(process.cwd(), "output");
-  if (!existsSync(source)) return await withEmptyCorpus(body);
   const root = await mkdtemp(join(tmpdir(), "cci-minimal-"));
   const previous = process.env.CC_OUTPUT_DIR;
   try {
-    for (const entry of await readdir(source, { withFileTypes: true })) {
-      if (entry.name === "articles") continue;
-      await cp(join(source, entry.name), join(root, entry.name), { recursive: true });
+    const retained = new Set(["news", "gov_meetings", "youtube", "curated", "alerts", "triplicate", "tides", "fishing", "state", "reports", "source-registry.json", "source-discovery.json", "search-queries.jsonl"]);
+    for (const entry of existsSync(source) ? await readdir(source, { withFileTypes: true }) : []) {
+      if (!retained.has(entry.name)) continue;
+      await cp(join(source, entry.name), join(root, entry.name), {
+        recursive: true,
+        filter: async path => (await stat(path)).isDirectory() || /\.(?:json|jsonl)$/.test(path),
+      });
     }
-    const articlesDir = join(source, "articles");
-    if (existsSync(articlesDir)) {
-      await mkdir(join(root, "articles"), { recursive: true });
-      const files = (await readdir(articlesDir)).filter(f => f.endsWith(".json")).sort();
-      for (const file of files.slice(0, Math.max(0, articleCount))) {
-        await cp(join(articlesDir, file), join(root, "articles", file));
-      }
-    }
+    await writeSeedCorpus(root, { articleCount });
     process.env.CC_OUTPUT_DIR = root;
     return await body(root);
   } finally {
@@ -197,20 +196,35 @@ export async function endCorpusCopy(): Promise<void> {
  * tree), and rebuild any in-memory index that predates the seeding (e.g.
  * `reloadSearch()`, `invalidateSectionsCache()`).
  */
-export async function beginSeedCorpus(): Promise<string> {
+export async function beginSeedCorpus(options: { articleCount?: number; articleGuids?: readonly string[] } = {}): Promise<string> {
   if (activeRoot) throw new Error("a corpus copy is already active for this test file");
   const root = await mkdtemp(join(tmpdir(), "cci-seed-corpus-"));
-  const seed = JSON.parse(
-    await readFile(join(process.cwd(), "pages-data", "crescent-city-code.json"), "utf-8"),
-  ) as { articles?: Array<{ guid?: string; title?: string }> };
-  const articlesDir = join(root, "articles");
-  await mkdir(articlesDir, { recursive: true });
-  for (const article of seed.articles ?? []) {
-    if (!article?.guid) continue;
-    await Bun.write(join(articlesDir, `${article.guid}.json`), JSON.stringify(article));
-  }
+  await writeSeedCorpus(root, options);
   previousEnv = process.env.CC_OUTPUT_DIR;
   process.env.CC_OUTPUT_DIR = root;
   activeRoot = root;
   return root;
+}
+
+/** Derived test rendering of reviewed seed text; not evidence of original HTML extraction. */
+export async function writeSeedCorpus(root: string, options: { articleCount?: number; articleGuids?: readonly string[] } = {}): Promise<void> {
+  const seed = await Bun.file(join(process.cwd(), "pages-data", "crescent-city-code.json")).json() as { articles: ArticlePage[] };
+  const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  await mkdir(join(root, "articles"), { recursive: true });
+  const entries: ScrapeManifest["articles"] = {};
+  let count = 0;
+  const requested = options.articleGuids ? new Set(options.articleGuids) : null;
+  const members = requested ? seed.articles.filter(article => requested.has(article.guid)) : seed.articles;
+  if (requested && members.length !== requested.size) throw new Error("Unknown reviewed-seed fixture article");
+  const selected = options.articleCount === undefined ? members : members.slice(0, Math.max(0, options.articleCount));
+  for (const source of selected) {
+    const sections = source.sections.map(section => ({ ...section, html: load(`<span>${esc(section.text)}</span><div class="history">${esc(section.history)}</div>`, {}, false).root().html()! }));
+    const rawHtml = `<h2>${esc(source.title)}</h2>` + sections.map(section => `<h3 id="${section.guid}_title">${esc(section.title)}</h3><div id="${section.guid}_content">${section.html}</div>`).join("");
+    const article = bindArticleExtraction({ ...source, sections, rawHtml, sha256: custodyHash(rawHtml), scrapedAt: new Date().toISOString() });
+    await Bun.write(join(root, "articles", `${article.guid}.json`), JSON.stringify(article));
+    entries[article.guid] = { guid: article.guid, title: article.title, number: article.number, sectionCount: article.sections.length, sha256: article.sha256, filePath: `articles/${article.guid}.json` };
+    count += sections.length;
+  }
+  await Bun.write(join(root, "manifest.json"), JSON.stringify({ municipality: "Crescent City", municipalityGuid: "CR4919", sourceUrl: "https://ecode360.com/CR4919", version: "reviewed-seed-fixture", scrapedAt: new Date().toISOString(), tocNodeCount: 0, articles: entries, completedAt: new Date().toISOString(), articlePageCount: selected.length, sectionCount: count, fixtureOrigin: "reviewed-seed-text-derived-html" }));
+  await cp(join(process.cwd(), "pages-data", "toc.json"), join(root, "toc.json"));
 }

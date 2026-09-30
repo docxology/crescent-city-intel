@@ -46,9 +46,9 @@ its own.
 | `ndbc_marine.ts` | `runMarineMonitor()` | `output/alerts/marine/` | NDBC buoy realtime data |
 | `nws_marine.ts` | `runMarineZoneMonitor()` | `output/alerts/marinezone/` | NWS CWF text product (KEKA), zone PZZ450 |
 | `usdm_drought.ts` | `runDroughtMonitor()` | `output/alerts/drought/` | US Drought Monitor (Del Norte FIPS 06015) |
-| `pge_psps.ts` | `runPSPSMonitor()` | `output/alerts/psps/` | PG&E PSPS events page (the `PGE_PSPS_API_URL` JSON now 404s) |
-| `hrrr_smoke.ts` | `runSmokeMonitor()` | `output/alerts/smoke/` | NOAA HMS smoke polygons (AirFire is the fallback) |
-| `caltrans_roads.ts` | `runRoadClosureMonitor()` | `output/alerts/roads/` | `roads.dot.ca.gov` per-route text (QuickMap JSON is the legacy fallback) |
+| `pge_psps.ts` | `runPSPSMonitor()` | `output/alerts/psps/` | Official browser-rendered PG&E PSPS events page |
+| `hrrr_smoke.ts` | `runSmokeMonitor()` | `output/alerts/smoke/` | NOAA HMS smoke polygons |
+| `caltrans_roads.ts` | `runRoadClosureMonitor()` | `output/alerts/roads/` | `roads.dot.ca.gov` per-route text; all configured routes must be checked |
 | `dusd_schools.ts` | `runSchoolClosureMonitor()` | `output/alerts/schools/` | Del Norte USD news/announcements |
 | `uscg_broadcasts.ts` | `runUscgBroadcastMonitor()` | `output/alerts/uscg/` | USCG NAVCEN District 11 Broadcast Notice to Mariners listing |
 | `permits.ts` | `runPermitsMonitor()` | `output/alerts/permits/` | City of Crescent City MyGov public portal permit catalog (issued-permit register is login-gated and is NOT read) |
@@ -81,9 +81,9 @@ bun run alerts:earthquake   # usgs_earthquake.ts
 bun run alerts:weather      # nws_weather.ts
 bun run alerts:tides        # noaa_tides.ts
 bun run alerts:fishing      # cdfw_fishing.ts
-bun run alerts:airquality   # epa_airnow.ts (v2.0)
-bun run alerts:wildfire     # calfire_wildfire.ts (v2.0)
-bun run alerts:marine       # ndbc_marine.ts (v2.0)
+bun run alerts:airquality   # epa_airnow.ts
+bun run alerts:wildfire     # calfire_wildfire.ts
+bun run alerts:marine       # ndbc_marine.ts
 bun run alerts:marinezone   # nws_marine.ts (CWF PZZ450)
 bun run alerts:uscg         # uscg_broadcasts.ts
 bun run alerts:permits      # permits.ts (MyGov public portal)

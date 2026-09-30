@@ -1,44 +1,36 @@
 # Agents Guide — `src/api/`
 
-## Overview
+The GUI server uses the shipped OpenAPI document for exact method, authentication,
+request and successful JSON response contracts. Keep the spec and handlers in sync.
 
-HTTP request middleware for the GUI server. Provides rate limiting, API key authentication, and structured request logging as composable middleware functions.
+| Module | Purpose |
+| :--- | :--- |
+| `contracts.ts` | Native YAML parsing, exact route lookup, bounded input validation, response validation and route inventory |
+| `middleware.ts` | Socket identity, exact proxy trust, API keys, finite sliding-window quotas and content-free request receipts |
+| `admission.ts` | Four concurrent expensive operations, total deadline and SSE lifetime ownership |
 
-## Convention
+The server calls `applyMiddleware(req, socketIp)` before routing. A non-null
+response ends processing. `handleApiRoute` validates requests and successful
+JSON responses; unsupported methods return 405 with Allow. HEAD follows GET
+without a response body. Read the document's operation security for public access.
+Unknown paths do not inherit a parent's public status.
 
-- Middleware functions accept `Request` and return `Response | null`.
-- `null` means "pass through" (continue to next middleware or route handler).
-- Non-null `Response` means "short-circuit" (return immediately without calling routes).
-- The `applyMiddleware(req)` orchestrator chains all middleware in order.
-- No external dependencies — pure logic only.
+Authentication accepts only `X-API-Key`. `CRESCENT_CITY_API_KEY` supplies
+comma-separated keys; otherwise the process generates a random credential. The
+server injects that credential only for an actual loopback socket, a loopback
+hostname, no forwarded headers, and a peer outside the configured proxy set.
+Configure remote clients explicitly; served HTML never establishes trust.
 
-## Modules
+`CRESCENT_TRUSTED_PROXY_IPS` is an exact comma-separated IP allowlist, empty by
+default. Forwarded identity is accepted only from those socket peers. All peers,
+including loopback, have bounded hourly quotas: 100 ordinary requests, 20 chat
+or summaries, 10 vector operations, and 1000 operational probes. Capacity is
+bounded at 10,000 buckets. Expensive operations additionally have four active
+slots and a 180-second total deadline; streaming retains a slot until completion
+or cancellation. A cancelled dependency keeps ownership until it settles.
 
-| File | Purpose | Tests |
-| :--- | :--- | :--- |
-| `middleware.ts` | Rate limiting + API key auth + request logging | No |
-
-## Public API
-
-```typescript
-import { applyMiddleware } from "../api/middleware.js";
-
-// In Bun.serve() fetch handler:
-const middlewareResponse = await applyMiddleware(req);
-if (middlewareResponse !== null) return middlewareResponse;
-// ... continue to route handling
-```
-
-## Configuration
-
-| Env variable | Default | Description |
-| :--- | :--- | :--- |
-| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key (comma-separated for multiple) |
-| `RATE_LIMIT_MAX_REQUESTS` | `100` | Sliding-window request cap per IP per hour (see `ENDPOINT_LIMITS` for stricter per-path limits) |
-
-## Key Patterns
-
-- **Skip list**: `/api/health`, `/api/monitor/status`, and `/api/openapi.yaml` bypass rate limiting; `/api/health`, `/api/stats`, `/api/toc`, `/api/domains`, `/api/search`, `/api/sections`, `/api/docs`, and `/api/curated` are additionally public (no API key required).
-- **In-memory rate limit store**: keyed by client IP. Resets on server restart. For production, replace with Redis.
-- **API key source**: the `X-API-Key` header only (a prior `?api_key=` query-parameter
-  form was removed because it leaked credentials into proxy/access logs and browser history).
+Request receipts live below `CC_OUTPUT_DIR/state`, retain at most 1000 records
+and seven days, and contain templated routes, status, duration and salted client
+IDs. Never persist raw IPs, queries, bodies or credentials. Tests use isolated
+roots and real streams: `tests/api-contracts.test.ts`, middleware suites and
+`tests/gui-server.test.ts`.

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "crescent-city-publication-input/v1",
+  "editionId": "06674f5e6044f4e700565a5358d7feff7a56a5c2e34c0a4656e44c77c17728bf",
+  "selection": "verified-output",
+  "files": {
+    "crescent-city-code.json": {
+      "sha256": "532d86d90c269d5fcc795849a83b820d6b78404a91601e2dd72165a8ed5d9a4d",
+      "bytes": 2910240
+    },
+    "toc.json": {
+      "sha256": "35069e167487d7db92f78b160a397cb06ad3247316afc43e6d7a402772f1dcfb",
+      "bytes": 1419626
+    },
+    "manifest.json": {
+      "sha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
+      "bytes": 79722
+    },
+    "verification-report.json": {
+      "sha256": "e1a2d44b9966cd65af33b435f349131c2d1977460f642814d8f567d9e56c8a35",
+      "bytes": 89879
+    },
+    "domain-coverage.json": {
+      "sha256": "519eb47cdfc5b99ad974c78644c4ed0781e403db0aea61db807bcd21fb79d2ee",
+      "bytes": 34142
+    },
+    "readability.json": {
+      "sha256": "b425ed199fc548d00348bc30ae0bd3a72421db7352e4a0c0ddb12b4f7906a44d",
+      "bytes": 861690
+    }
+  },
+  "reason": "Complete same-directory edition bound to local verification",
+  "verification": "hash-bound-local",
+  "sourceVerifiedAt": "2026-09-30T21:27:14.404Z",
+  "sourceExportedAt": "2026-09-30T21:27:27.962Z"
+}

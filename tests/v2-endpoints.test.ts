@@ -1,26 +1,14 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { handleApiRoute } from "../src/gui/routes.js";
-import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { paths } from "../src/shared/paths.ts";
-import { mkdtemp, rm } from "fs/promises";
-import { tmpdir } from "os";
 import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
 
 // Every write this suite makes lands in a throwaway copy of the corpus, never
 // in the real output/ tree the published snapshot is built from.
-beforeAll(async () => { await beginCorpusCopy(); }, 300000);
+beforeAll(async () => { await beginCorpusCopy({ seed: false }); }, 300000);
 afterAll(async () => { await endCorpusCopy(); }, 60000);
-
-// Test helper — create a temporary output directory with test data
-function setupTestOutput() {
-  const testDir = join(process.cwd(), "output");
-  const hadOutput = existsSync(testDir);
-  if (!hadOutput) mkdirSync(testDir, { recursive: true });
-  return () => {
-    // Cleanup is done by the caller — we don't remove output/ since it may have real data
-  };
-}
 
 describe("v2.2 New API Endpoints", () => {
   test("GET /api/health returns a truthful status with timestamp", async () => {
@@ -73,7 +61,7 @@ describe("v2.2 New API Endpoints", () => {
   });
 
   test("GET /api/report/latest returns 404 when no reports", async () => {
-    const reportsDir = join(process.cwd(), "output", "reports");
+    const reportsDir = paths.reports;
     const hadReports = existsSync(reportsDir);
     if (!hadReports) {
       const url = new URL("http://localhost:3000/api/report/latest");
@@ -83,7 +71,7 @@ describe("v2.2 New API Endpoints", () => {
   });
 
   test("GET /api/report/latest returns markdown when reports exist", async () => {
-    const reportsDir = join(process.cwd(), "output", "reports");
+    const reportsDir = paths.reports;
     const hadReports = existsSync(reportsDir);
     mkdirSync(reportsDir, { recursive: true });
     // Use a fixture filename that sorts after any real monthly-YYYY-MM.md
@@ -162,31 +150,18 @@ describe("v2.2 New API Endpoints", () => {
 });
 
 describe("Search query logging", () => {
-  test("search() itself never writes to the query log; the HTTP layer logs", async () => {
-    const { initSearch, search, getIndexedCount, logSearchQuery } = await import("../src/gui/search.js");
-    const { paths } = await import("../src/shared/paths.ts");
-    if (getIndexedCount() === 0) {
-      try { await initSearch(); } catch { /* no output data */ }
-    }
-    const redirected = await mkdtemp(join(tmpdir(), "cci-searchlog-"));
-    process.env.CC_OUTPUT_DIR = redirected;
+  test("search and the HTTP logging hook retain no query content by default", async () => {
+    const { search, logSearchQuery } = await import("../src/gui/search.js");
+    const previous = process.env.CC_QUERY_LOGGING;
+    delete process.env.CC_QUERY_LOGGING;
     try {
-      // A library search must leave no trace: every unit-level search used to
-      // append a fixture query to the real analytics corpus, which both
-      // polluted the evidence and moved the fingerprint the overview reports.
       search("tsunami evacuation");
-      expect(existsSync(paths.searchQueryLog)).toBe(false);
-
-      // The HTTP layer's explicit call is what writes, and it writes where the
-      // artifact-root seam points.
       logSearchQuery("tsunami evacuation", 3);
-      const lines = readFileSync(paths.searchQueryLog, "utf-8").trim().split("\n");
-      const lastEntry = JSON.parse(lines[lines.length - 1]!);
-      expect(lastEntry.query).toBe("tsunami evacuation");
-      expect(lastEntry.resultCount).toBe(3);
+      expect(existsSync(paths.searchQueryLog)).toBe(false);
+      expect(existsSync(join(process.env.CC_OUTPUT_DIR!, "private", "request-receipts.jsonl"))).toBe(false);
     } finally {
-      delete process.env.CC_OUTPUT_DIR;
-      await rm(redirected, { recursive: true, force: true });
+      if (previous === undefined) delete process.env.CC_QUERY_LOGGING;
+      else process.env.CC_QUERY_LOGGING = previous;
     }
   });
 });

@@ -1,171 +1,65 @@
-/**
- * Tests for the push notification system (src/notifications/push.ts).
- *
- * Pure function tests — no actual webhook or VAPID HTTP calls. Tests the
- * configuration-checking, graceful-degradation, and console-fallback paths.
- */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Import the push module fresh for each test (env-sensitive). */
-async function importPush() {
-  // Clear module cache so env-sniffing at module scope re-runs
-  return await import("../src/notifications/push.ts");
+import { isPushConfigured, sendPushNotification } from "../src/notifications/push.ts";
+const keys = ["ALERT_WEBHOOK_URL", "PUSH_PUBLIC_KEY", "PUSH_PRIVATE_KEY", "PUSH_SUBSCRIBER", "PUSH_CONTACT_EMAIL"];
+let original: Record<string, string | undefined>;
+beforeEach(() => { original = Object.fromEntries(keys.map(key => [key, process.env[key]])); for (const key of keys) delete process.env[key]; });
+afterEach(() => { for (const key of keys) { if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key]; } });
+const encode = (value: Uint8Array) => Buffer.from(value).toString("base64url");
+async function hkdf(input: Uint8Array, salt: Uint8Array, info: Uint8Array, bits: number) {
+  const key = await crypto.subtle.importKey("raw", new Uint8Array(input), "HKDF", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(salt), info: new Uint8Array(info) }, key, bits));
 }
+function concat(...pieces: Uint8Array[]) { const output = new Uint8Array(pieces.reduce((sum, piece) => sum + piece.length, 0)); let offset = 0; for (const piece of pieces) { output.set(piece, offset); offset += piece.length; } return output; }
 
-// Save originals
-const OLD_ENV = { ...process.env };
-
-function setEnv(key: string, value: string | undefined) {
-  if (value === undefined) {
-    delete process.env[key];
-  } else {
-    process.env[key] = value;
-  }
-}
-
-describe("isPushConfigured", () => {
-  beforeEach(() => {
-    // Clear all push-related env vars before each test
-    setEnv("ALERT_WEBHOOK_URL", undefined);
-    setEnv("PUSH_PUBLIC_KEY", undefined);
-    setEnv("PUSH_PRIVATE_KEY", undefined);
-  });
-
-  afterEach(() => {
-    // Restore original env
-    Object.assign(process.env, OLD_ENV);
-  });
-
-  test("returns false when no push config is present", async () => {
-    const { isPushConfigured } = await importPush();
+describe("truthful push delivery receipts", () => {
+  test("disabled and malformed VAPID configuration cannot claim acceptance", async () => {
     expect(isPushConfigured()).toBe(false);
-  });
-
-  test("returns true when ALERT_WEBHOOK_URL is set", async () => {
-    setEnv("ALERT_WEBHOOK_URL", "https://hooks.example.com/alert");
-    const { isPushConfigured } = await importPush();
-    expect(isPushConfigured()).toBe(true);
-  });
-
-  test("returns true when VAPID keys are set", async () => {
-    setEnv("PUSH_PUBLIC_KEY", "test-public-key");
-    setEnv("PUSH_PRIVATE_KEY", "test-private-key");
-    const { isPushConfigured } = await importPush();
-    expect(isPushConfigured()).toBe(true);
-  });
-
-  test("returns false when only public key is set (missing private)", async () => {
-    setEnv("PUSH_PUBLIC_KEY", "test-public-key");
-    setEnv("PUSH_PRIVATE_KEY", undefined);
-    const { isPushConfigured } = await importPush();
-    // Should still be true if ALERT_WEBHOOK_URL provides fallback
+    expect((await sendPushNotification("Title", "Body")).state).toBe("disabled");
+    process.env.PUSH_PUBLIC_KEY = "invalid"; process.env.PUSH_PRIVATE_KEY = "invalid";
     expect(isPushConfigured()).toBe(false);
+    expect((await sendPushNotification("Title", "Body")).state).toBe("failed");
   });
-});
-
-describe("sendPushNotification — graceful degradation", () => {
-  beforeEach(() => {
-    setEnv("ALERT_WEBHOOK_URL", undefined);
-    setEnv("PUSH_PUBLIC_KEY", undefined);
-    setEnv("PUSH_PRIVATE_KEY", undefined);
+  test("local HTTP rejection stays failed; success is endpoint acceptance only", async () => {
+    let payload: Record<string, unknown> = {};
+    const server = Bun.serve({ port: 0, async fetch(req) { payload = await req.json() as Record<string, unknown>; return new Response("", { status: new URL(req.url).pathname === "/fail" ? 500 : 202 }); } });
+    try {
+      process.env.ALERT_WEBHOOK_URL = `http://127.0.0.1:${server.port}/fail`;
+      expect((await sendPushNotification("Title", "Body")).state).toBe("failed");
+      process.env.ALERT_WEBHOOK_URL = `http://127.0.0.1:${server.port}/ok`;
+      const receipt = await sendPushNotification("Title", "Body", "https://example.test/a");
+      expect(receipt).toEqual({ state: "accepted", channel: "webhook", status: 202 });
+      expect(payload.title).toBe("Title"); expect(payload.body).toBe("Body");
+    } finally { server.stop(true); }
   });
-
-  afterEach(() => {
-    Object.assign(process.env, OLD_ENV);
-  });
-
-  test("never throws when no push config is present (console fallback)", async () => {
-    const { sendPushNotification } = await importPush();
-    // Should not throw — console fallback
-    await expect(sendPushNotification("Test Title", "Test Body")).resolves.toBeUndefined();
-  });
-
-  test("never throws with empty title and body", async () => {
-    const { sendPushNotification } = await importPush();
-    await expect(sendPushNotification("", "")).resolves.toBeUndefined();
-  });
-
-  test("never throws with url parameter when no push config", async () => {
-    const { sendPushNotification } = await importPush();
-    await expect(
-      sendPushNotification("Title", "Body", "https://example.com/alert"),
-    ).resolves.toBeUndefined();
-  });
-
-  test("gracefully handles webhook failure (bad URL)", async () => {
-    setEnv("ALERT_WEBHOOK_URL", "https://nonexistent.example.com/webhook");
-    const { sendPushNotification } = await importPush();
-    // Fetch to a non-routable domain should fail gracefully
-    await expect(
-      sendPushNotification("Test", "Body"),
-    ).resolves.toBeUndefined();
-  });
-});
-
-describe("sendPushNotification — webhook path", () => {
-  beforeEach(() => {
-    setEnv("ALERT_WEBHOOK_URL", undefined);
-    setEnv("PUSH_PUBLIC_KEY", undefined);
-    setEnv("PUSH_PRIVATE_KEY", undefined);
-  });
-
-  afterEach(() => {
-    Object.assign(process.env, OLD_ENV);
-  });
-
-  test("sends via webhook when ALERT_WEBHOOK_URL is set", async () => {
-    // Start a local HTTP server to receive the webhook
-    const server = Bun.serve({
-      port: 0,
-      async fetch(req) {
-        const body = await req.json();
-        // Respond with success
-        return new Response("ok", { status: 200 });
-      },
-    });
-    const port = server.port;
-    setEnv("ALERT_WEBHOOK_URL", `http://localhost:${port}/push`);
-
-    const { sendPushNotification } = await importPush();
-    await expect(
-      sendPushNotification("Test Title", "Test Body", "https://example.com"),
-    ).resolves.toBeUndefined();
-
-    server.stop();
-  });
-
-  test("webhook includes title, body, url, and source in payload", async () => {
-    let receivedPayload: any = null;
-    const server = Bun.serve({
-      port: 0,
-      async fetch(req) {
-        receivedPayload = await req.json();
-        return new Response("ok", { status: 200 });
-      },
-    });
-    const port = server.port;
-    setEnv("ALERT_WEBHOOK_URL", `http://localhost:${port}/push`);
-
-    const { sendPushNotification } = await importPush();
-    await sendPushNotification("Alert Title", "Alert Body", "https://example.com/123");
-
-    expect(receivedPayload).toBeDefined();
-    expect(receivedPayload.title).toBe("Alert Title");
-    expect(receivedPayload.body).toBe("Alert Body");
-    expect(receivedPayload.url).toBe("https://example.com/123");
-    expect(receivedPayload.source).toBe("crescent-city-intel/push");
-    expect(receivedPayload.type).toBe("push");
-
-    server.stop();
-  });
-});
-
-describe("Module imports verify", () => {
-  test("push module exports sendPushNotification and isPushConfigured", async () => {
-    const mod = await import("../src/notifications/push.ts");
-    expect(typeof mod.sendPushNotification).toBe("function");
-    expect(typeof mod.isPushConfigured).toBe("function");
+  test("real P-256 subscription decrypts RFC payloads, verifies VAPID, and retries transient rejection", async () => {
+    const receiver = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+    const receiverPublic = new Uint8Array(await crypto.subtle.exportKey("raw", receiver.publicKey)), auth = crypto.getRandomValues(new Uint8Array(16));
+    const signer = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+    const signerPublic = new Uint8Array(await crypto.subtle.exportKey("raw", signer.publicKey)), signerJwk = await crypto.subtle.exportKey("jwk", signer.privateKey);
+    let decrypted = "", authorization = "", encoding = "", attempts = 0;
+    const server = Bun.serve({ port: 0, async fetch(req) {
+      authorization = req.headers.get("Authorization")!; encoding = req.headers.get("Content-Encoding")!;
+      const bytes = new Uint8Array(await req.arrayBuffer()), salt = bytes.slice(0, 16), recordSize = new DataView(bytes.buffer).getUint32(16), senderPublic = bytes.slice(21, 21 + bytes[20]!);
+      expect(recordSize).toBe(4096); expect(senderPublic.length).toBe(65);
+      const sender = await crypto.subtle.importKey("raw", senderPublic, { name: "ECDH", namedCurve: "P-256" }, false, []);
+      const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: sender }, receiver.privateKey, 256));
+      const input = await hkdf(shared, auth, concat(new TextEncoder().encode("WebPush: info\0"), receiverPublic, senderPublic), 256);
+      const cek = await hkdf(input, salt, new TextEncoder().encode("Content-Encoding: aes128gcm\0"), 128), nonce = await hkdf(input, salt, new TextEncoder().encode("Content-Encoding: nonce\0"), 96);
+      const key = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["decrypt"]);
+      const clear = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce }, key, bytes.slice(21 + bytes[20]!)));
+      expect(clear.at(-1)).toBe(2); decrypted = new TextDecoder().decode(clear.slice(0, -1));
+      return new Response("", { status: ++attempts === 1 ? 503 : 201 });
+    } });
+    try {
+      const url = `http://127.0.0.1:${server.port}`;
+      process.env.PUSH_SUBSCRIBER = JSON.stringify({ endpoint: url, keys: { p256dh: encode(receiverPublic), auth: encode(auth) } });
+      process.env.PUSH_PUBLIC_KEY = encode(signerPublic); process.env.PUSH_PRIVATE_KEY = signerJwk.d; process.env.PUSH_CONTACT_EMAIL = "operator@example.test";
+      expect(isPushConfigured()).toBe(true);
+      expect((await sendPushNotification("Civic alert", "Bounded fixture")).state).toBe("accepted");
+      expect(attempts).toBe(2); expect(encoding).toBe("aes128gcm"); expect(JSON.parse(decrypted).body).toBe("Bounded fixture");
+      const jwt = /^vapid t=([^,]+)/.exec(authorization)![1]!, parts = jwt.split(".");
+      const claims = JSON.parse(Buffer.from(parts[1]!, "base64url").toString()); expect(claims.aud).toBe(url); expect(claims.sub).toBe("mailto:operator@example.test");
+      expect(await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, signer.publicKey, new Uint8Array(Buffer.from(parts[2]!, "base64url")), new TextEncoder().encode(parts.slice(0, 2).join(".")))).toBe(true);
+    } finally { server.stop(true); }
   });
 });

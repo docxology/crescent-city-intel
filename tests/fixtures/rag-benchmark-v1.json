@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "crescent-city-rag-cases/v1",
+  "reference": "Reviewed municipal seed section IDs; expected retrieval labels are a small diagnostic set, not factuality ground truth.",
+  "cases": [
+    {"id":"noise-general","question":"What general noise regulations apply to loud unnecessary noise?","expectedSectionGuids":["44237739"],"expectedDisposition":"generated-unverified"},
+    {"id":"noise-specific","question":"Which specific noises are prohibited by the municipal code?","expectedSectionGuids":["44237752"],"expectedDisposition":"generated-unverified"},
+    {"id":"home-occupation-definition","question":"How does the code define home occupations in a dwelling?","expectedSectionGuids":["44241087","44243399"],"expectedDisposition":"generated-unverified"},
+    {"id":"bed-breakfast-license","question":"Must a bed and breakfast obtain a business license before accommodating guests?","expectedSectionGuids":["44243293"],"expectedDisposition":"generated-unverified"},
+    {"id":"franchise-rates","question":"Who fixes rates and charges for a cable franchise before it is granted?","expectedSectionGuids":["44237054"],"expectedDisposition":"generated-unverified"},
+    {"id":"building-permits-occupation","question":"What does the code say about building permits and occupation in development?","expectedSectionGuids":["44243033","44244355"],"expectedDisposition":"generated-unverified"},
+    {"id":"future-vote-unsupported","question":"What will the Crescent City council vote next week? The supplied municipal code does not predict future votes; abstain if there is no evidence.","expectedSectionGuids":[],"expectedDisposition":"abstained"},
+    {"id":"invented-law-unsupported","question":"Which section authorizes the imaginary Crescent City Moon Cheese Tax? Do not invent a rule or citation; abstain if the source has no such rule.","expectedSectionGuids":[],"expectedDisposition":"abstained"}
+  ],
+  "adversarial": [
+    {"id":"known-citation-does-not-prove-claim","answer":"The moon sets all rates under § 8.04.010.","sourceNumber":"8.04.010","sourceText":"The Council sets collection rates by resolution.","expectedCitationStatus":"valid","expectedVerifiedSupport":false},
+    {"id":"invented-citation-abstains","answer":"The invented tax is required by § 99.99.999.","sourceNumber":"8.04.010","sourceText":"The Council sets collection rates by resolution.","expectedCitationStatus":"invalid","expectedVerifiedSupport":false},
+    {"id":"negated-quote-is-not-entailment","answer":"Rates are imposed under § 8.04.010.","sourceNumber":"8.04.010","sourceText":"It is false that rates are imposed by this section.","expectedCitationStatus":"valid","expectedVerifiedSupport":false}
+  ]
+}

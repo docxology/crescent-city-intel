@@ -6,18 +6,22 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 20 alert moni
 
 | Tool | Version | Install |
 |------|---------|---------|
-| [Bun](https://bun.sh) | v1.0+ | `curl -fsSL https://bun.sh/install \| bash` |
-| [Ollama](https://ollama.ai) | Latest | `brew install ollama` or [download](https://ollama.ai/download) |
-| [ChromaDB](https://www.trychroma.com) | Latest | `pip install chromadb` |
-| Python 3 | 3.9+ | Required for ChromaDB |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Recent (updated within ~90 days) | `pip install -U yt-dlp` |
+| [Bun](https://bun.sh) | 1.4.2 (CI pin) | `curl -fsSL https://bun.sh/install \| bash` |
+| [Docker](https://docs.docker.com/get-docker/) + Compose | Optional container services | GUI image builds from the locked Bun dependencies |
+| [Ollama](https://github.com/ollama/ollama/releases/tag/v0.34.2) | Compose pin 0.34.2 | Local installation or the optional `llm` Compose profile |
+| [ChromaDB](https://github.com/chroma-core/chroma/releases/tag/1.5.9) | Container pin 1.5.9 | `chromadb/chroma:1.5.9`; published locally on port 8001 |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) | Optional external executable | Follow upstream installation instructions for transcript collection |
 
 > **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. `yt-dlp` is only
 > needed for `bun run youtube`. The scraper, web viewer, and all alert monitors
 > work without any of them.
-> For air quality alerts, set `AIRNOW_API_KEY` env var (free at [airnowapi.org](https://airnowapi.org)).
+> Air quality uses public AirNow observations by default; `AIRNOW_API_KEY` enables the optional keyed API.
 > For OpenRouter (optional, paid, alternative to local Ollama for chat/curation),
 > set `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY` — see Environment Variables below.
+
+Project logic and tests run in Bun/TypeScript. Optional ChromaDB and yt-dlp are
+external tools; a thin Python adapter delegates to Bun when the shared manuscript
+renderer is used. See [the manuscript workflow](manuscript.md) for that integration.
 
 ---
 
@@ -25,10 +29,20 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 20 alert moni
 
 ```bash
 cd crescent-city-intel
-bun install
+bun install --frozen-lockfile
+bunx playwright install chromium
+bun run source-discovery
 ```
 
-This installs Playwright (browser automation) and ChromaDB client.
+The dependency install adds the Playwright library and ChromaDB client. Chromium
+is a separate installation required by the scraper and exported-page render tests;
+on Linux use `bunx playwright install --with-deps chromium` when system libraries
+are needed. Source discovery writes a deterministic registry and joins stored health.
+The gate validates those artifacts when present; repeat discovery after changing
+the source registry. Absent generated evidence is reported explicitly.
+
+Run `bun run validate` to check the checkout before collecting live data. The
+deterministic suite supports both empty and populated `output/` trees.
 
 ---
 
@@ -38,7 +52,7 @@ This installs Playwright (browser automation) and ChromaDB client.
 bun run scrape
 ```
 
-This launches a visible Chromium browser, bypasses Cloudflare Turnstile, and downloads the current article/section manifest from [ecode360.com/CR4919](https://ecode360.com/CR4919). Takes ~10–15 minutes.
+This launches a visible Chromium browser, bypasses Cloudflare Turnstile, and downloads the current article/section manifest from [ecode360.com/CR4919](https://ecode360.com/CR4919). Its duration depends on source latency, deep articles, and challenge retries; use a finite job budget for unattended collection.
 
 **Resume support**: If interrupted, run `bun run scrape` again — it picks up where it left off.
 The default run refreshes the live TOC. If ecode360 is temporarily unavailable,
@@ -56,7 +70,7 @@ Output: `output/articles/*.json` + `output/toc.json` + `output/manifest.json`
 bun run verify
 ```
 
-Re-computes SHA-256 hashes and cross-references every section against the official TOC. It also re-fetches the configured verification sample from the live site to confirm data freshness.
+Re-computes SHA-256 hashes and cross-references every section against the official TOC. It separately records local custody, current live TOC, and bounded live sample planes. Fresh publication requires all required planes to pass; offline verification records local consistency and remains ineligible for current-source publication.
 
 Output: `output/verification-report.json`
 
@@ -124,9 +138,18 @@ ollama pull gemma3:4b
 ### 6b. Start ChromaDB
 
 ```bash
-# In another terminal:
-chroma run --path chroma_data
+# In another terminal (optional Docker service):
+docker run --rm --name cci-chroma -p 127.0.0.1:8001:8000 -v cci-chroma:/data chromadb/chroma:1.5.9
 ```
+
+Check the real service and model prerequisites before indexing:
+
+```bash
+bun run scripts/stack-readiness.ts
+```
+
+The bounded readiness receipt distinguishes an HTTP service from installed
+embedding/chat models. `CHAT_MODEL` is the shared runtime and Compose override.
 
 ### 6c. Index Sections
 
@@ -157,7 +180,9 @@ The web viewer's chat panel (💬 button) also connects to the RAG pipeline once
 
 | Command | What It Does |
 |---------|-------------|
-| `bun install` | Install dependencies |
+| `bun install --frozen-lockfile` | Install locked dependencies |
+| `bunx playwright install chromium` | Install the browser used by scraping and render tests |
+| `bun run source-discovery` | Refresh the deterministic registry and stored health joins |
 | `bun run scrape` | Scrape municipal code (resumable) |
 | `bun run verify` | Verify data integrity |
 | `bun run export` | Export JSON, Markdown, TXT, CSV |
@@ -168,7 +193,10 @@ The web viewer's chat panel (💬 button) also connects to the RAG pipeline once
 | `bun run query "..."` | Single RAG query |
 | `bun run status` | Check Ollama/ChromaDB/index status |
 | `bun test` | Run the deterministic test suite |
-| `bun run validate` | Strict TypeScript, tests, contract, and generated-output gate |
+| `bun run validate` | Source + test strict types, fenced plain/coverage suites, contracts and generated-output gate |
+| `bun run test:typecheck` | Separate strict TypeScript check including the tests |
+| `bun run test:gui-journeys` | Real local Chromium interaction and security journeys |
+| `bun run test:llm-native` | Optional real Ollama/Chroma acceptance |
 | `bun run monitor` | Detect municipal code changes |
 | `bun run news` | Fetch current North Coast news/civic sources with API, RSS, and bounded HTML fallbacks |
 | `bun run youtube` | Pull YouTube meeting transcripts (requires `yt-dlp` on PATH) |
@@ -206,8 +234,37 @@ All optional — defaults work out of the box.
 
 **Scraper gets stuck on Cloudflare**: The browser window should show a brief "Just a moment..." page then resolve. If it hangs, close the browser and re-run — the manifest and atomic artifacts ensure safe resume. If the live TOC endpoint is unavailable, use `bun run scrape -- --cached-toc` only when the cached TOC is known to be current; follow with `bun run verify` when live access returns.
 
-**ChromaDB won't start**: Make sure Python 3.9+ is installed and `pip install chromadb` completed. Run `chroma run --path chroma_data` from the project root.
+**ChromaDB won't start**: Check the pinned container and port mapping, matching the
+default `CHROMA_URL=http://localhost:8001`.
 
 **Ollama models not found**: Run `ollama list` to check installed models. If missing, `ollama pull nomic-embed-text && ollama pull gemma3:4b`.
 
-**Tests fail**: Run `bun install` first. Tests require scraped data in `output/` for data-dependent test files (`shared-data.test.ts`, `search.test.ts`).
+**Tests fail**: Install locked dependencies and Chromium, then run
+`bun run source-discovery` if generated registry evidence is stale, then
+`bun run validate`. Tests use offline fixtures
+and support an empty `output/`; a live scrape and optional LLM services are not
+required for the deterministic suite.
+
+
+## Container and scheduling boundaries
+
+`docker compose up --build gui` starts the GUI with a real HTTP healthcheck. The
+optional backend profile uses pinned Chroma/Ollama images, persisted volumes,
+model bootstrap, and a separate readiness service:
+
+```bash
+docker compose --profile llm up --build -d ollama chroma ollama-models
+docker compose --profile llm run --rm readiness
+```
+
+The GUI can serve deterministic data while optional models are unavailable.
+A successful image build does not establish model readiness, source acceptance,
+or deployment; record each receipt separately. Model names and installed model
+bytes remain an external prerequisite even with pinned service images.
+
+`bun run cron-setup -- --dry-run` prints the host's launchd or cron plan. It
+installs nothing. The plan uses explicit argument arrays/XML escaping on macOS,
+POSIX quoting plus percent escaping for cron, and Sunday 07:00 Pacific scheduling.
+Confirm the macOS host timezone and review the generated paths before any manual
+installation. Scheduled source runs require finite execution budgets and explicit
+unavailable/stale records.

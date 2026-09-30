@@ -21,12 +21,8 @@ const log = createLogger("alert_analytics");
  * The alert families that reach the analytics timeline, `typeStats`, the GUI
  * heatmap, the insight brief and `/api/alerts/{type}/history`.
  *
- * All fifteen, in `MONITOR_KEYS` order. This list has been the wrong length
- * three times: it once held 8 of 14 (road closures, school closures, PSPS,
- * smoke, drought and the coastal-waters forecast never reached the timeline,
- * heatmap, insight brief, monthly report, or `/api/monitor/alerts`, despite all
- * six writing a `history.jsonl` the reader already consumed), then 9 when
- * `uscg` was added, then 14.
+ * Every monitor, in `MONITOR_KEYS` order. Roster parity is asserted so a
+ * monitor with persisted history cannot disappear from consumer surfaces.
  *
  * Order is the display order of the heatmap and the trend selector, so it is
  * `MONITOR_KEYS` rather than alphabetical: emergency-first, then the civic set.

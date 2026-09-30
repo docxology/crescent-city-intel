@@ -13,7 +13,9 @@ import { readFile } from "fs/promises";
 import { computeSha256 } from "./utils.js";
 import { paths } from "./shared/paths.js";
 import { IdempotencyStore } from "./shared/idempotency.js";
-import { errorMessage, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "./shared/source_health.js";
+import { boundedHttpFetch, redactUrl, type TransportOptions } from "./shared/transport.js";
+import { errorMessage, isSourceHealthReceipt, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "./shared/source_health.js";
+import { MONITOR_KEYS, ALERT_MONITOR_SOURCE_NAMES } from "./alerts/composite.js";
 import type {
   SourceDefinition,
   SourceDiscoveryRecord,
@@ -85,8 +87,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   source({
     id: "county-meetings", name: "Del Norte County meetings and agendas", kind: "meeting", authority: "official",
     region: "Del Norte County", canonicalUrl: "https://www.co.del-norte.ca.us/meetings/85/", discoveredFrom: [DISCOVERY_CITATIONS.county],
-    collectionMode: "html", automation: "discovery-only", enabled: true, expectedCadence: "as published",
-    provenance: "Official county meeting page discovered from the county site.",
+    collectionMode: "html", automation: "monitored", configuredMonitor: "meetings:Del Norte County meetings and agendas", enabled: true, expectedCadence: "as published",
+    provenance: "Official county meeting document links; source HTML retained by the bounded meetings connector; pagination/PDF completeness not established.",
   }),
   source({
     id: "county-planning", name: "Del Norte County Planning", kind: "county_official", authority: "official",
@@ -103,9 +105,20 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   source({
     id: "county-city-media-hub", name: "Del Norte County and City government media hub", kind: "video", authority: "official",
     region: "Del Norte County", canonicalUrl: DISCOVERY_CITATIONS.mediaHub, discoveredFrom: [DISCOVERY_CITATIONS.city, DISCOVERY_CITATIONS.county],
-    collectionMode: "html", automation: "discovery-only", enabled: true, expectedCadence: "as published",
+    collectionMode: "html", automation: "monitored", configuredMonitor: "meetings:Del Norte County and City government media hub", enabled: true, expectedCadence: "as published",
     provenance: "Joint County/City hub linking agendas and recordings for Board of Supervisors, City Council, SWMA, and RCTA.",
     notes: "The hub identifies additional government video/calendar families not yet connected to a dedicated monitor.",
+  }),
+  source({
+    id: "harbor-agendas", name: "Harbor Commission", kind: "meeting", authority: "official", region: "Crescent City",
+    canonicalUrl: "https://www.ccharbor.com/archived-agendas", discoveredFrom: [DISCOVERY_CITATIONS.harbor], collectionMode: "html",
+    automation: "monitored", configuredMonitor: "meetings:Harbor Commission", enabled: true, expectedCadence: "as published",
+    provenance: "Official Harbor agenda archive; bounded document-link acquisition retains HTML custody; PDF/OCR and archive completeness remain separate acceptance.",
+  }),
+  source({
+    id: "harbor-calendar", name: "Harbor District event calendar", kind: "meeting", authority: "official", region: "Crescent City",
+    canonicalUrl: "https://www.ccharbor.com/event-calendar", discoveredFrom: [DISCOVERY_CITATIONS.harbor], collectionMode: "html",
+    automation: "discovery-only", enabled: true, expectedCadence: "as published", provenance: "Official Harbor event calendar; acquired reachability alone does not prove calendar normalization.",
   }),
   source({
     id: "harbor-official-home", name: "Crescent City Harbor District", kind: "harbor", authority: "official",
@@ -228,6 +241,41 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
     configuredMonitor: "alert:marine", expectedCadence: "real time", provenance: "NDBC realtime2 observations for buoys 46027, 46022, and 46214.",
   }),
   source({
+    id: "alert-usdm-drought", name: "US Drought Monitor Del Norte statistics", kind: "environment", authority: "public_agency", region: "Federal",
+    canonicalUrl: "https://usdmdataservices.unl.edu/", discoveredFrom: ["https://droughtmonitor.unl.edu/"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:drought", expectedCadence: "weekly", provenance: "USDM county statistics API: Del Norte FIPS 06015 DSCI and per-category area percentages; bounded dated queries are selected by the monitor.",
+  }),
+  source({
+    id: "alert-pge-psps", name: "PG&E public safety power shutoff events", kind: "alert", authority: "reference", region: "California",
+    canonicalUrl: "https://pgealerts.alerts.pge.com/pg-e-partners/psps-events/", discoveredFrom: ["https://www.pge.com/"], collectionMode: "playwright", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:psps", expectedCadence: "as published", provenance: "Official PG&E rendered PSPS events page; active events and county coverage come from the visible page. A browser/challenge failure is unavailable.",
+  }),
+  source({
+    id: "alert-noaa-hms", name: "NOAA HMS mapped smoke polygons", kind: "environment", authority: "public_agency", region: "Federal",
+    canonicalUrl: "https://satepsanone.nesdis.noaa.gov/pub/FIRE/web/HMS/Smoke_Polygons/Shapefile/", discoveredFrom: ["https://www.ospo.noaa.gov/products/land/hms.html"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:smoke", expectedCadence: "daily product", provenance: "NOAA HMS daily smoke polygon ZIP product: source product date and qualitative density; PM2.5/AQI and forecasts are unknown, not inferred.",
+  }),
+  source({
+    id: "alert-caltrans-roads", name: "Caltrans North Coast per-route conditions", kind: "transportation", authority: "public_agency", region: "California",
+    canonicalUrl: "https://roads.dot.ca.gov/?roadnumber=101", discoveredFrom: ["https://roads.dot.ca.gov/"], collectionMode: "html", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:roads", expectedCadence: "real time", provenance: "Official per-route text for all configured North Coast roads; one failed route makes coverage unavailable rather than implying all roads are clear.",
+  }),
+  source({
+    id: "alert-dusd-schools", name: "Del Norte Unified school closures", kind: "alert", authority: "official", region: "Del Norte County",
+    canonicalUrl: "https://www.dnusd.org/news", endpointUrl: "https://www.dnusd.org/", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "html", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:schools", expectedCadence: "as published", provenance: "Official district landing/news/announcement pages; closure notices require parsed content and retain stated dates.",
+  }),
+  source({
+    id: "alert-nws-marine", name: "NWS coastal waters forecast PZZ450", kind: "environment", authority: "public_agency", region: "Federal",
+    canonicalUrl: "https://api.weather.gov/products/types/CWF/locations/EKA", discoveredFrom: ["https://www.weather.gov/eka/"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:marinezone", expectedCadence: "as issued", provenance: "Latest Eureka CWF product, PZZ450 coastal waters; parsed issue time and forecast periods remain forecasts, not buoy observations.",
+  }),
+  source({
+    id: "alert-uscg-broadcasts", name: "USCG District 11 broadcast notices", kind: "alert", authority: "public_agency", region: "Federal",
+    canonicalUrl: "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0", discoveredFrom: ["https://www.navcen.uscg.gov/"], collectionMode: "html", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:uscg", expectedCadence: "as issued", provenance: "NAVCEN District 11 BNM list and message text; bounded issue-date windows and official notice identifiers, with no claim that advisory broadcasts imply an emergency.",
+  }),
+  source({
     id: "alert-city-permits", name: "City of Crescent City permit portal (MyGov)", kind: "city_official", authority: "official", region: "Crescent City",
     canonicalUrl: "https://public.mygov.us/crescent_city_ca", endpointUrl: "https://public.mygov.us/crescent_city_ca/module?module=pi",
     discoveredFrom: [DISCOVERY_CITATIONS.city], collectionMode: "html", automation: "monitored", enabled: true,
@@ -260,7 +308,7 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
     canonicalUrl: "https://meri.digitraffic.fi/api/ais/v1/locations",
     discoveredFrom: ["https://www.digitraffic.fi/en/marine-traffic/"], collectionMode: "api", automation: "monitored", enabled: true,
     configuredMonitor: "alert:ais", expectedCadence: "real time",
-    provenance: "Keyless open-AIS FeatureCollection feed (AIS_FEED_URL env; default digitraffic) filtered to the Del Norte watch box. US-waters AIS requires a credentialed provider (AISHub/USCG); until one is configured the local watch box reads empty, never fabricated.",
+    provenance: "Keyless open-AIS FeatureCollection feed (AIS_FEED_URL env; default digitraffic) filtered to the Del Norte watch box. The default feed does not establish local US-water coverage; an empty foreign feed is unavailable for local traffic, not evidence of calm.",
   }),
   source({
     id: "triplicate-home-reference", name: "Del Norte Triplicate", kind: "reference", authority: "journalistic", region: "Del Norte County",
@@ -270,8 +318,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "triplicate-news-reference", name: "Del Norte Triplicate news section", kind: "reference", authority: "journalistic", region: "Del Norte County",
-    canonicalUrl: "https://www.triplicate.com/news/", discoveredFrom: ["https://www.triplicate.com/"], collectionMode: "rss", automation: "monitored", enabled: true,
-    configuredMonitor: "triplicate", expectedCadence: "daily", provenance: "Section articles flow through the site RSS feed and deep __data.json endpoints; citations only.",
+    canonicalUrl: "https://www.triplicate.com/news/", discoveredFrom: ["https://www.triplicate.com/"], collectionMode: "playwright", automation: "monitored", enabled: true,
+    configuredMonitor: "triplicate:deep-content", expectedCadence: "daily", provenance: "The deep reference connector discovers article links on browser-rendered section pages and optionally enriches them through bounded __data.json article endpoints; citations only.",
     notes: "Excluded from LLM curation, embeddings, training inputs, and public article-content export.",
   }),
   source({
@@ -305,6 +353,9 @@ export function getSourceRegistry(): SourceDefinition[] {
   return stableRegistry().map(item => ({ ...item, discoveredFrom: [...item.discoveredFrom] }));
 }
 
+/** Exact monitor-to-registry adapter; callers choose their declared source family. */
+export function sourceIdForMonitor(monitor: string): string | undefined { return SOURCE_REGISTRY.find(item => item.configuredMonitor === monitor)?.id; }
+
 export function validateSourceRegistry(registry = getSourceRegistry()): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();
@@ -315,6 +366,9 @@ export function validateSourceRegistry(registry = getSourceRegistry()): string[]
     ids.add(item.id);
     const canonical = normalizeSourceUrl(item.canonicalUrl);
     if (!/^https?:\/\//.test(canonical)) errors.push(`invalid source URL: ${item.id}`);
+    for (const value of [item.canonicalUrl, item.endpointUrl, ...item.discoveredFrom].filter((value): value is string => !!value)) {
+      try { const url = new URL(value); if (!/^https?:$/.test(url.protocol) || url.username || url.password || redactUrl(value) !== url.toString()) errors.push(`credential-bearing or invalid source URL: ${item.id}`); } catch { errors.push(`invalid source URL: ${item.id}`); }
+    }
     const prior = urls.get(canonical);
     if (prior) errors.push(`duplicate canonical source URL: ${canonical} (${prior}, ${item.id})`);
     urls.set(canonical, item.id);
@@ -352,57 +406,47 @@ async function knownHealth(): Promise<SourceHealth[]> {
   ])).flat();
 }
 
-function healthFor(item: SourceDefinition, health: SourceHealth[]): SourceHealth | undefined {
-  const monitor = item.configuredMonitor?.split(":").at(-1);
-  const urls = new Set([item.endpointUrl, item.canonicalUrl].filter((url): url is string => Boolean(url)));
-  return health.find(candidate => candidate.source === monitor || candidate.source === item.name || (candidate.url !== undefined && urls.has(candidate.url)));
+function healthFor(item: SourceDefinition, health: SourceHealth[]): SourceHealth[] {
+  const idBound = health.filter(candidate => (candidate as SourceHealth & { sourceId?: string }).sourceId === item.id);
+  if (idBound.length) {
+    if (item.id !== "city-meetings-evogov") return idBound;
+    const represented = new Set(idBound.map(candidate => candidate.source));
+    // This source has two independent parser subfeeds. Migrating one receipt
+    // to IDs cannot erase the other subfeed's historical failure/age.
+    return [...idBound, ...health.filter(candidate => !candidate.sourceId && ["City Council", "Planning Commission"].includes(candidate.source) && !represented.has(candidate.source))];
+  }
+  // Explicit adapters for historical name-only receipts. URLs alone cannot bind
+  // unrelated parsers which happen to share a provider landing page.
+  const aliases = new Set([item.name]);
+  const monitor = item.configuredMonitor;
+  if (monitor?.startsWith("alert:")) {
+    const index = MONITOR_KEYS.indexOf(monitor.slice(6) as typeof MONITOR_KEYS[number]);
+    if (index >= 0) aliases.add(ALERT_MONITOR_SOURCE_NAMES[index]!);
+  } else if (monitor?.startsWith("news:") || monitor?.startsWith("meetings:")) aliases.add(monitor.split(":").slice(1).join(":"));
+  if (item.id === "city-meetings-evogov") { aliases.add("City Council"); aliases.add("Planning Commission"); }
+  if (item.id === "city-youtube") aliases.add("YouTube");
+  if (item.id === "triplicate-home-reference") aliases.add("Del Norte Triplicate");
+  if (item.id === "triplicate-news-reference") aliases.add("Del Norte Triplicate deep content");
+  return health.filter(candidate => !(candidate as SourceHealth & { sourceId?: string }).sourceId && aliases.has(candidate.source));
 }
 
-/** Block SSRF by rejecting URLs that resolve to internal/private networks. */
-const BLOCKED_HOST_PATTERNS: ReadonlyArray<RegExp> = [
-  /^localhost$/i, /^127\.\d+\.\d+\.\d+$/, /^::1$/,
-  /^10\.\d+\.\d+\.\d+$/, /^192\.168\.\d+\.\d+$/,
-  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
-  /^169\.254\.\d+\.\d+$/, /^0\.0\.0\.0$/,
-];
-
-function isBlockedUrl(url: string): boolean {
-  // Skip SSRF guard in test environments — test fixtures use localhost.
-  if (process.env.NODE_ENV === "test") return false;
-  try {
-    const hostname = new URL(url).hostname;
-    return BLOCKED_HOST_PATTERNS.some(p => p.test(hostname));
-  } catch { return true; }
-}
-
-export async function probeSource(item: SourceDefinition): Promise<SourceHealth> {
+export async function probeSource(item: SourceDefinition, transport: TransportOptions = {}): Promise<SourceHealth> {
   const checkedAt = new Date().toISOString();
   const started = performance.now();
   const targetUrl = item.endpointUrl ?? item.canonicalUrl;
-  if (isBlockedUrl(targetUrl)) {
-    return {
-      source: item.name,
-      status: "unavailable",
-      checkedAt,
-      itemCount: 0,
-      url: targetUrl,
-      error: "Source URL resolves to an internal/private network — blocked by SSRF guard",
-      durationMs: Math.round(performance.now() - started),
-      provenance: "Bounded source-discovery probe; content collection remains monitor-specific.",
-    };
-  }
   try {
-    const response = await fetch(targetUrl, {
-      method: "GET",
+    const response = await boundedHttpFetch(targetUrl, {
+      ...transport, maxBytes: Math.min(4 * 1024 * 1024, transport.maxBytes ?? 4 * 1024 * 1024),
       headers: { "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)" },
-      signal: AbortSignal.timeout(Number(process.env.SOURCE_DISCOVERY_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
+      timeoutMs: Number(process.env.SOURCE_DISCOVERY_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS),
     });
-    const durationMs = Math.round(performance.now() - started);
+    const durationMs = Math.round(performance.now() - started); const completedAt = new Date().toISOString();
     return {
       source: item.name,
+      sourceId: item.id,
       status: response.ok ? "ok" : "unavailable",
-      checkedAt,
-      fetchedAt: checkedAt,
+      checkedAt: completedAt,
+      fetchedAt: completedAt,
       itemCount: 0,
       url: item.endpointUrl ?? item.canonicalUrl,
       httpStatus: response.status,
@@ -413,6 +457,7 @@ export async function probeSource(item: SourceDefinition): Promise<SourceHealth>
   } catch (error) {
     return {
       source: item.name,
+      sourceId: item.id,
       status: "unavailable",
       checkedAt,
       itemCount: 0,
@@ -437,12 +482,20 @@ async function boundedProbes(items: SourceDefinition[]): Promise<SourceHealth[]>
   return results;
 }
 
+export interface SourceDiscoveryEvidenceRecord extends SourceDiscoveryRecord {
+  reachability: { status: SourceHealthStatus | "not-checked"; checkedAt?: string; httpStatus?: number; error?: string };
+  collection: SourceHealthStatus | "partial" | "not-configured" | "not-checked";
+  healthBinding: "source-id" | "explicit-legacy-alias" | "none";
+  healthReceipts: Array<{ source: string; sourceId: string; status: SourceHealthStatus; checkedAt: string; fetchedAt?: string; ageMs?: number; freshness?: SourceHealth["freshness"]; error?: string }>;
+}
+export type SourceDiscoveryEvidenceReport = Omit<SourceDiscoveryReport, "sources"> & { sources: SourceDiscoveryEvidenceRecord[]; probe: { checked: number; unavailable: number } };
+
 export async function buildSourceDiscoveryReport(options: {
   checkedAt?: string;
   probe?: boolean;
   health?: SourceHealth[];
   registry?: SourceDefinition[];
-} = {}): Promise<SourceDiscoveryReport> {
+} = {}): Promise<SourceDiscoveryEvidenceReport> {
   const registry = (options.registry ?? getSourceRegistry()).sort((a, b) => a.id.localeCompare(b.id));
   const fingerprint = await sourceRegistryFingerprint(registry);
   const seen = new IdempotencyStore(paths.sourceDiscoverySeen);
@@ -451,16 +504,32 @@ export async function buildSourceDiscoveryReport(options: {
   const checkedAt = options.checkedAt ?? new Date().toISOString();
   const health = options.health ?? await knownHealth();
   const probeHealth = options.probe ? await boundedProbes(registry.filter(item => item.enabled && item.automation !== "reference-only")) : [];
-  const allHealth = [...health, ...probeHealth];
-  const sources: SourceDiscoveryRecord[] = registry.map(item => {
-    const observed = healthFor(item, allHealth);
+
+  const sources: SourceDiscoveryEvidenceRecord[] = registry.map(item => {
+    const originals = healthFor(item, health);
+    const observations = originals.map(original => {
+      if (!isSourceHealthReceipt(original)) return sourceHealth(item.name, "unavailable", checkedAt, { itemCount: 0, error: "Malformed collection receipt" });
+      const { source, status, checkedAt: originalCheckedAt, ...details } = original;
+      const current = sourceHealth(source, status, checkedAt, details); current.checkedAt = originalCheckedAt;
+      if (!original.fetchedAt && (current.status === "ok" || current.status === "empty")) { current.status = "unavailable"; current.error = "Collection receipt has no acquisition timestamp"; }
+      if (!Number.isFinite(Date.parse(originalCheckedAt)) || Date.parse(originalCheckedAt) > Date.parse(checkedAt)) { current.status = "unavailable"; current.error = "Invalid or future collection check timestamp"; }
+      return current;
+    });
+    const statuses = observations.map(observation => observation.status);
+    const operationalStatus = statuses.includes("unavailable") ? "unavailable" : statuses.includes("stale") ? "stale" : statuses.includes("ok") ? "ok" : statuses.length ? "empty" : "not-checked";
+    const reachable = probeHealth.find(probe => probe.source === item.name);
+    const mixed = statuses.some(status => status === "ok" || status === "empty") && statuses.some(status => status === "unavailable" || status === "stale");
     return {
       ...item,
-      operationalStatus: observed?.status ?? "not-checked",
-      checkedAt: observed?.checkedAt,
-      itemCount: observed?.itemCount ?? 0,
-      error: observed?.error,
-      healthSource: observed?.source,
+      operationalStatus,
+      checkedAt: observations.map(observation => observation.checkedAt).sort().at(-1),
+      itemCount: observations.reduce((count, observation) => count + observation.itemCount, 0),
+      error: observations.filter(observation => observation.error).map(observation => `${observation.source}: ${observation.error}`).join("; ") || undefined,
+      healthSource: observations.map(observation => observation.source).sort().join("; ") || undefined,
+      reachability: reachable ? { status: reachable.status, checkedAt: reachable.checkedAt, httpStatus: reachable.httpStatus, error: reachable.error } : { status: "not-checked" },
+      collection: item.automation === "monitored" ? mixed ? "partial" : operationalStatus : "not-configured",
+      healthBinding: !originals.length ? "none" : originals.some(original => (original as SourceHealth & { sourceId?: string }).sourceId === item.id) ? "source-id" : "explicit-legacy-alias",
+      healthReceipts: observations.map(observation => ({ source: observation.source, sourceId: item.id, status: observation.status, checkedAt: observation.checkedAt, fetchedAt: observation.fetchedAt, ageMs: observation.ageMs, freshness: observation.freshness, error: observation.error })),
     };
   });
   const countsByKind: Record<string, number> = {};
@@ -469,7 +538,7 @@ export async function buildSourceDiscoveryReport(options: {
     countsByKind[item.kind] = (countsByKind[item.kind] ?? 0) + 1;
     countsByAuthority[item.authority] = (countsByAuthority[item.authority] ?? 0) + 1;
   }
-  const report: SourceDiscoveryReport = {
+  const report: SourceDiscoveryEvidenceReport = {
     schemaVersion: "1.0.0",
     generatedAt: checkedAt,
     scope: SOURCE_REGISTRY_SCOPE,
@@ -485,16 +554,17 @@ export async function buildSourceDiscoveryReport(options: {
     countsByAuthority,
     coverageGaps: [
       "City and county child pages are inventoried but not yet collected by a dedicated monitor.",
-      "Harbor agendas, recordings, updates, and RFPs are discovered but not yet normalized into the meeting pipeline.",
+      "Harbor/County document links are bounded acquisitions; archive pagination, PDF text, recordings and calendar completeness are not established.",
       "County Board of Supervisors, Solid Waste Management Authority, and Redwood Coast Transit Authority meeting streams need dedicated connectors.",
       "Probe availability does not replace parser-level validation or source-health emitted by a configured monitor.",
     ],
     sources,
+    probe: { checked: probeHealth.length, unavailable: probeHealth.filter(item => item.status === "unavailable").length },
   };
   return report;
 }
 
-export async function writeSourceDiscoveryArtifacts(options: { probe?: boolean; checkedAt?: string } = {}): Promise<SourceDiscoveryReport> {
+export async function writeSourceDiscoveryArtifacts(options: { probe?: boolean; checkedAt?: string } = {}): Promise<SourceDiscoveryEvidenceReport> {
   const registry = getSourceRegistry();
   const fingerprint = await sourceRegistryFingerprint(registry);
   const seen = new IdempotencyStore(paths.sourceDiscoverySeen);
@@ -522,7 +592,7 @@ if (import.meta.main) {
     monitoredCount: report.monitoredCount,
     discoveryOnlyCount: report.discoveryOnlyCount,
     referenceOnlyCount: report.referenceOnlyCount,
-    checked: report.sources.filter(source => source.operationalStatus !== "not-checked").length,
-    unavailable: report.sources.filter(source => source.operationalStatus === "unavailable").length,
+    checked: report.probe.checked,
+    unavailable: report.probe.unavailable,
   }, null, 2));
 }

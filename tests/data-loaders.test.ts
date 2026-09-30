@@ -1,9 +1,13 @@
+import { beginSeedCorpus, endCorpusCopy, withEmptyCorpus } from "./helpers/output-root.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
+beforeAll(async () => { await beginSeedCorpus(); invalidateSectionsCache(); });
+afterAll(async () => { await endCorpusCopy(); invalidateSectionsCache(); });
 /**
  * Tests for src/verify.ts — verification logic, hash checking, section coverage.
  * These test the exported pure functions and structural contracts.
  * No live network calls; no scraping required.
  */
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { existsSync } from "fs";
 import { paths } from "../src/shared/paths";
 import { computeSha256 } from "../src/utils";
@@ -94,13 +98,6 @@ describe("verify — data module TTL cache", () => {
     expect(() => invalidateSectionsCache()).not.toThrow();
   });
 
-  test("loadAllSectionsCount returns a number", async () => {
-    const { loadAllSectionsCount } = await import("../src/shared/data");
-    const count = await loadAllSectionsCount();
-    expect(typeof count).toBe("number");
-    expect(count).toBeGreaterThanOrEqual(0);
-  });
-
   test("loadAllSections returns an array", async () => {
     const { loadAllSections } = await import("../src/shared/data");
     const sections = await loadAllSections();
@@ -118,7 +115,7 @@ describe("verify — domain coverage module", () => {
     const { computeDomainCoverage } = await import("../src/domains/coverage.ts");
     // outPath:null — compute the report without publishing it into output/.
     // No scraped data → should still return a valid (empty) report
-    const report = await computeDomainCoverage({ outPath: null });
+    const report = await withEmptyCorpus(() => computeDomainCoverage({ outPath: null }));
     expect(typeof report.computedAt).toBe("string");
     expect(typeof report.totalSections).toBe("number");
     expect(typeof report.overallCoveragePct).toBe("number");

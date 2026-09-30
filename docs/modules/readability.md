@@ -90,10 +90,9 @@ Writes:
 - `output/readability.json` — per-run snapshot report (unchanged shape)
 - `output/readability/history.jsonl` — bounded per-run history
 
-## Wave-2 API contract
+## API contract
 
-`GET /api/readability/history?limit=&offset=` (registered by the routes agent
-this wave) serves the shared envelope:
+`GET /api/readability/history?limit=&offset=` serves the shared envelope:
 
 ```json
 {

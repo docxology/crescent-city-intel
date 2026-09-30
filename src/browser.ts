@@ -63,15 +63,23 @@ export async function launchBrowser(): Promise<BrowserContext> {
 }
 
 export async function closeBrowser(): Promise<void> {
-  if (context) {
-    await context.close();
-    context = null;
+  const closingContext = context; const closingBrowser = browser;
+  context = null; browser = null;
+  if (closingContext) await boundedClose(() => closingContext.close(), "Browser context", 3000);
+  if (closingBrowser) {
+    if (await boundedClose(() => closingBrowser.close(), "Browser", 5000)) log.info("Browser closed");
   }
-  if (browser) {
-    await browser.close();
-    browser = null;
-    log.info("Browser closed");
-  }
+}
+
+async function boundedClose(close: () => Promise<void>, label: string, timeoutMs: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try { await Promise.race([close(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} close exceeded ${timeoutMs}ms`)), timeoutMs); })]); return true; }
+  catch (error) { log.warn(`${label} cleanup incomplete`, { error: String(error) }); return false; }
+  finally { clearTimeout(timer); }
+}
+/** Cleanup has its own bound; this does not claim that a wedged browser process was reaped. */
+export async function closePageBounded(page: Page | null, timeoutMs = 3000): Promise<void> {
+  if (page) await boundedClose(() => page.close(), "Page", timeoutMs);
 }
 
 /**
@@ -81,10 +89,10 @@ export async function closeBrowser(): Promise<void> {
 export async function navigateWithCloudflare(
   page: Page,
   url: string,
-  opts: { timeout?: number } = {}
+  opts: { timeout?: number; renderMs?: number } = {}
 ): Promise<void> {
   const timeout = opts.timeout ?? SCRAPE_TIMEOUT_MS;
-
+  await withPageDeadline(page, async () => {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout });
 
   // Wait for Cloudflare Turnstile challenge to resolve
@@ -101,11 +109,27 @@ export async function navigateWithCloudflare(
         && !body.includes("verify you are human")
         && !challengeWidgetVisible;
     },
+    undefined,
     { timeout }
   );
 
   // Give the SPA time to render content
-  await page.waitForTimeout(CLOUDFLARE_WAIT_MS);
+  await page.waitForTimeout(opts.renderMs ?? CLOUDFLARE_WAIT_MS);
+  }, timeout);
+}
+
+/** Close the page on a total deadline so its pending navigation/evaluation cannot continue. */
+export async function withPageDeadline<T>(page: Page, operation: (signal: AbortSignal) => Promise<T>, timeoutMs: number): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("Invalid browser deadline");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
+  const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => {
+    controller.abort(new Error("Browser deadline exceeded"));
+    void closePageBounded(page);
+    reject(new Error(`Browser operation exceeded ${timeoutMs}ms total deadline`));
+  }, timeoutMs); });
+  try { return await Promise.race([operation(controller.signal), timeout]); }
+  finally { clearTimeout(timer); }
 }
 
 /**

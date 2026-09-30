@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "fs/promises";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { tmpdir } from "node:os";
 import {
   PAGES_GEO_VIEW_PLACEHOLDER,
   PAGES_STATIC_PAGES,
@@ -9,6 +10,7 @@ import {
   PAGES_ROBOTS_TXT,
   PAGES_SITEMAP_XML,
   buildPagesGeoIntel,
+  buildPagesSnapshot,
   buildPagesMethodsCounts,
   buildPagesRobotsTxt,
   buildPagesSitemapXml,
@@ -58,7 +60,7 @@ describe("pages SEO discoverability", () => {
   });
 
   test("exportPagesSnapshot writes robots.txt and sitemap.xml into the artifact", async () => { // 120s: external-drive mkdtemp IO
-    const root = await mkdtemp(join(process.cwd(), ".pages-seo-test-"));
+    const root = await mkdtemp(join(tmpdir(), "cci-pages-seo-test-"));
     try {
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: join(root, "missing-output"), destination, generatedAt: "2026-08-26T00:00:00Z", seedDir: join(root, "no-seed") });
@@ -214,7 +216,7 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
   });
 
   test("counts are injected from the snapshot manifest at export time", async () => { // 120s: external-drive temp IO
-    const root = await mkdtemp(join(process.cwd(), ".pages-methods-test-"));
+    const root = await mkdtemp(join(tmpdir(), "cci-pages-methods-test-"));
     try {
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: join(root, "missing-output"), destination, generatedAt: "2026-08-26T00:00:00Z", seedDir: join(root, "no-seed") });
@@ -229,22 +231,18 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
     }
   }, 120000);
 
-  test("buildPagesMethodsCounts escapes angle brackets in injected values", () => {
-    const snapshot = {
-      schemaVersion: "1.0.0",
-      generatedAt: "2026-08-26T00:00:00Z",
-      status: "ok",
-      sourceHealth: [],
-      sourceRegistry: [],
-      news: [],
-      meetings: [],
-      youtube: [],
-      curated: [],
-      events: { count: 3, events: [] },
-    };
-    const html = buildPagesMethodsCounts(snapshot as never);
-    expect(html).toContain("<strong>Calendar events:</strong> 3</li>");
-    expect(html.startsWith('<ul id="methods-counts-list">')).toBe(true);
+  test("buildPagesMethodsCounts escapes angle brackets in injected values", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cci-pages-methods-values-"));
+    try {
+      const snapshot = await buildPagesSnapshot(root, "2026-08-26T00:00:00Z", join(root, "no-seed"));
+      snapshot.generatedAt = "<img src=x onerror=alert(1)>";
+      snapshot.events.count = 3;
+      const html = buildPagesMethodsCounts(snapshot);
+      expect(html).toContain("<strong>Calendar events:</strong> 3</li>");
+      expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
+      expect(html).not.toContain("<img");
+      expect(html.startsWith('<ul id="methods-counts-list">')).toBe(true);
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 });
 
@@ -313,7 +311,7 @@ describe("standalone static pages", () => {
   });
 
   test("exportPagesSnapshot emits every standalone page into the artifact with no dead internal nav links", async () => { // 120s: external-drive temp IO
-    const root = await mkdtemp(join(process.cwd(), ".pages-static-test-"));
+    const root = await mkdtemp(join(tmpdir(), "cci-pages-static-test-"));
     try {
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: join(root, "missing-output"), destination, generatedAt: "2026-08-26T00:00:00Z", seedDir: join(root, "no-seed") });

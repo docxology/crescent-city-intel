@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch, type TransportOptions } from "./shared/transport.js";
 /**
- * Deeper meeting-minutes extraction (TODO Phase 4.2, part 2 — offline-verifiable pieces).
+ * Deterministic meeting-minutes extraction and document hash-drift reports.
  *
  * Three capabilities, all deterministic and testable without live network:
  *
@@ -168,11 +169,12 @@ export function isTextualContentType(contentType: string | null | undefined): bo
  * Bounded fetch of one document's text; null on any failure, on a non-OK
  * status, or on a body that is not verifiably text (never throws).
  */
-export async function fetchDocumentText(url: string, timeoutMs: number): Promise<string | null> {
+export async function fetchDocumentText(url: string, timeoutMs: number, transport: TransportOptions = {}): Promise<string | null> {
   try {
-    const response = await fetch(url, {
+    const response = await boundedHttpFetch(url, {
+      ...transport, maxBytes: 4 * 1024 * 1024,
       headers: { "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)" },
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: transport.signal ? AbortSignal.any([transport.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return null;
     if (!isTextualContentType(response.headers.get("content-type"))) return null;

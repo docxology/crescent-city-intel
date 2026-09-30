@@ -73,7 +73,7 @@ describe("fetchBulletinBody", () => {
       port: 0,
       fetch: () => new Response("not found", { status: 404 }),
     });
-    const result = await fetchBulletinBody(`http://localhost:${server.port}/missing`);
+    const result = await fetchBulletinBody(`http://localhost:${server.port}/missing`, { allowPrivateHosts: ["localhost"] });
     server.stop();
     expect(result).toBe("");
   });
@@ -84,7 +84,7 @@ describe("fetchBulletinBody", () => {
       port: 0,
       fetch: () => new Response(html, { status: 200, headers: { "Content-Type": "text/html" } }),
     });
-    const result = await fetchBulletinBody(`http://localhost:${server.port}/test`);
+    const result = await fetchBulletinBody(`http://localhost:${server.port}/test`, { allowPrivateHosts: ["localhost"] });
     server.stop();
     expect(result).toBe("Full article body text for testing.");
   });

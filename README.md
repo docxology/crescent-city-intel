@@ -8,11 +8,11 @@
   </p>
   <p align="center">
     <a href="https://github.com/docxology/crescent-city-intel"><img src="https://img.shields.io/badge/GitHub-docxology%2Fcrescent--city--intel-181717?logo=github" alt="GitHub"></a>
-    <a href="#-quick-start"><img src="https://img.shields.io/badge/Bun-v1.0+-black?logo=bun" alt="Bun"></a>
+    <a href="#-quick-start"><img src="https://img.shields.io/badge/Bun-1.4.2-black?logo=bun" alt="Bun"></a>
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-2.7.0-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.0.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -111,10 +111,10 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 | ✅ **Verify** | SHA-256 integrity checks + TOC cross-reference + live re-fetch sampling | ✓ | [→](docs/modules/verification.md) |
 | 📦 **Export** | JSON · Markdown · plain text · CSV index | ✓ | [→](docs/modules/export.md) |
 | 🖥️ **View** | Web viewer: TOC, BM25 search, analytics dashboard, dark/light mode | ✓ | [→](docs/modules/gui.md) |
-| 💬 **Chat** | Ollama or OpenRouter chat with Ollama embeddings + ChromaDB · source citations (municipal code + YouTube transcripts) · RAG query logging | ✓ | [→](docs/modules/llm.md) |
+| 💬 **Chat** | Ollama or OpenRouter chat with Ollama embeddings + ChromaDB · citation checks (municipal code + YouTube transcripts) · opt-in content-free diagnostics | ✓ | [→](docs/modules/llm.md) |
 | 📡 **Monitor** | Municipal code change detection + RSS/Atom news + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare), with per-source health | ✓ | [→](docs/modules/monitoring.md) |
 | 📰 **Curate** | Source-grounded, bounded LLM summaries + domain tagging across news/meetings/YouTube with provider/model-aware retry-safe idempotency | ✓ | [→](docs/modules/monitoring.md) |
-| 🚨 **Alert** | NOAA tsunami · USGS earthquake · NWS weather · NOAA tides · CDFW fishing · EPA AirNow · CAL FIRE · NDBC marine · +7 extended monitors | ✓ | [→](docs/modules/alerts.md) |
+| 🚨 **Alert** | 20 monitors: 8 core hazard feeds + 12 extended civic and marine feeds | ✓ | [→](docs/modules/alerts.md) |
 | 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | ✓ | [→](docs/modules/gui.md) |
 | 🌐 **Publish** | Bounded static snapshot for GitHub Pages with source health and provenance | ✓ | [→](docs/modules/pages.md) |
 | 📝 **Manuscript** | Evidence-bound IMRAD paper with formal contracts, claim ledger, and template-rendered PDF/HTML | ✓ | [→](docs/manuscript.md) |
@@ -157,10 +157,10 @@ flowchart LR
 
 | Tool | Version | Install |
 | :--- | :------ | :------ |
-| [Bun](https://bun.sh) | v1.0+ | `curl -fsSL https://bun.sh/install \| bash` |
-| [Playwright](https://playwright.dev) | auto | `bun x playwright install chromium` |
+| [Bun](https://bun.sh) | 1.4.2 (CI pin) | `curl -fsSL https://bun.sh/install \| bash` |
+| [Playwright](https://playwright.dev) | locked package + Chromium | `bunx playwright install chromium` after `bun install` |
 | [Ollama](https://ollama.ai) | any | [ollama.ai/download](https://ollama.ai/download) — embeddings and default local chat; still required for retrieval when OpenRouter handles chat |
-| [ChromaDB](https://trychroma.com) | any | `pip install chromadb` — for RAG chat only |
+| [ChromaDB](https://trychroma.com) | Compose pin 1.5.9 | Optional `llm` Compose profile, published locally on port 8001 — for RAG chat only |
 
 ### Install & Run
 
@@ -168,7 +168,9 @@ flowchart LR
 # 1. Clone and install
 git clone https://github.com/docxology/crescent-city-intel.git
 cd crescent-city-intel
-bun install
+bun install --frozen-lockfile
+bunx playwright install chromium
+bun run source-discovery # Refresh optional generated registry/health evidence
 
 # 2. Run the full pipeline: scrape → verify → export
 bun run all
@@ -186,26 +188,28 @@ bun run validate
 
 ## 🎛️ Interactive Menu (`run.sh`)
 
-The top-level `run.sh` provides a **full interactive text menu** covering every project feature:
+The top-level `run.sh` delegates to the Bun launcher in `src/interactive_menu.ts`.
+It shows a menu or runs a declared `package.json` command with the supplied arguments:
 
 ```bash
 ./run.sh          # Interactive menu
 ./run.sh gui      # Launch web viewer directly
 ./run.sh test     # Run test suite directly
-./run.sh setup    # Install dependencies + Playwright
-./run.sh status   # System status dashboard
-./run.sh api-test # Test all API endpoints (requires running GUI)
+./run.sh setup    # Install dependencies and generate registry evidence
+./run.sh status   # LLM/vector-stack status
+./run.sh test:browser # Browser/API smoke against the running GUI
+bunx playwright install chromium # Install the browser separately
 ```
 
-Menu sections:
+The menu includes:
 
 | Section | Options |
 | :------ | :------ |
 | **Setup & Data Pipeline** | Install deps · Run tests · Scrape · Verify · Export |
-| **Web Interface** | Launch GUI → browser · Test 12 API endpoints live |
-| **AI / RAG** | Index ChromaDB · Interactive chat · Single query · Status · Pull models |
+| **Web Interface** | Launch GUI · Real browser/API smoke |
+| **AI / RAG** | Index ChromaDB · Interactive chat; query and status are available as direct package commands |
 | **Monitoring & Alerts** | Code monitor · News (configured RSS/Atom feeds) · Gov meetings · Tides · Fishing · Tsunami · Earthquake · Weather · All alerts · Weekly check |
-| **Analytics** | Readability scoring · Domain coverage · JSON summary views · RAG query log |
+| **Analytics & Publication** | Readability · Domain coverage · Reports · Analytics · Pages · Manuscript |
 | **Full Pipeline** | Auto: Setup → Test → Scrape → Verify → Export → GUI in one shot |
 
 The API tester (`option 7`) live-checks 12 endpoints and reports HTTP status codes:
@@ -272,12 +276,17 @@ curl -X POST http://localhost:3000/api/chat \
 ```
 
 The RAG pipeline:
-1. Embeds questions via `nomic-embed-text` (768-dim vectors)
-2. Retrieves top-10 most relevant chunks from ChromaDB using cosine similarity
-3. Generates cited answers via `gemma3:4b` with section number references
-4. Returns a query ID, grounding flag, context fingerprint, retrieval count,
-   provider/model, embedding model, and Chroma collection; query telemetry is
-   logged to `output/rag-queries.jsonl`
+1. Embeds questions via the configured embedding model (default `nomic-embed-text`).
+2. Retrieves similar chunks from the activated ChromaDB collection.
+3. Generates an answer through the selected chat provider with section references.
+4. Checks cited section identities and returns retrieval/model lineage with
+   `grounded: false`: generated output stays `generated-unverified`, or the
+   response abstains when required citations are missing or invalid. Citation
+   presence does not establish semantic support or legal currency.
+
+Questions, answers, and conversation history are not persisted. Optional
+`CC_QUERY_LOGGING=metadata` records bounded content-free diagnostics under
+`output/private/`; public exports exclude those records.
 
 > 🔧 **LLM internals**: [docs/modules/llm.md](docs/modules/llm.md) — config, chunking strategy, embedding pipeline
 
@@ -371,7 +380,7 @@ bun run alerts:earthquake   # USGS GeoJSON → M4.0+ within 200 km of Crescent C
 bun run alerts:weather      # NWS → Del Norte coastal zone CAZ006 advisories
 bun run alerts              # all concurrently
 bun run weekly-check        # full health-check + summary report
-bun run cron-setup          # install as weekly scheduled job (macOS/Linux)
+bun run cron-setup -- --dry-run # print the escaped scheduler plan; installs nothing
 ```
 
 | Alert Type | Source | Threshold |
@@ -464,7 +473,7 @@ re-scraping this platform.
 | **Coverage** | `output/domain-coverage.json` | Domain cross-reference coverage % |
 | **Geo-Intel** | `pages-data/geo-intel.json` + `output/geo-intel.json` | Transferable machine-readable municipality contract (Crescent City default civic + hazard) for geospatial consumers (GEO-INFER) |
 | **Geo-Observations** | `pages-data/geo-observations.json` + `output/geo-observations.json` | `crescent-city-geo-observations/v1` live hazard-observation envelope (composite severity, per-monitor states, hazard summary, contract freshness) for GEO-INFER consumers |
-| **RAG Log** | `output/rag-queries.jsonl` | All RAG queries with latency and sources |
+| **Private diagnostics (opt-in)** | `output/private/request-receipts.jsonl` | Bounded allowlisted request metadata; no questions, answers, or history; excluded from Pages |
 | **Pipeline run** | `output/state/latest-pipeline-run.json` | Stage-level status, duration, output paths, and source-health summary — produced by `bun run weekly-check`, so it is absent until the first weekly run |
 | **Curation run** | `output/state/curation-report.json` | Provider/model, success counts, fingerprints, and retryable failures |
 | **Report metadata** | `output/reports/monthly-YYYY-MM.json` | Period bounds, numeric metrics, warnings, and health |
@@ -515,12 +524,12 @@ artifact boundaries, and local preview instructions.
 
 ---
 
-## 🔒 Integrity Guarantees
+## 🔒 Integrity Checks and Evidence
 
 - 🔐 Every article page **SHA-256 hashed** at scrape time (async, WebCrypto API)
 - 🔄 Verification **re-computes hashes** from saved files and compares against manifest
-- 📋 Every section in the official TOC **cross-referenced** against scraped data
-- 🌐 Random sample of 5 pages **re-fetched from live site** to confirm byte-level freshness
+- 📋 Section presence **cross-referenced** against the saved TOC
+- 🌐 Publication requires passing **local replay, current live TOC, and a nonempty live sample**; errors, mismatches, or unattempted required checks deny eligibility. Sampling checks the selected pages, not every live page.
 - ⏱️ Manifest records **exact timestamps** for audit trail
 - 💾 **Resume support** — interrupt and restart safely; only exact current-TOC artifacts are skipped
 - 🧱 **Atomic artifacts** — TOC, article, manifest, and curation outputs are replaced without truncated JSON
@@ -534,7 +543,7 @@ artifact boundaries, and local preview instructions.
 
 An orientation map, not an inventory. The exhaustive tree — every module under
 `src/`, gated so it cannot drift — lives in
-[AGENTS.md](AGENTS.md#directory-structure).
+[AGENTS.md](AGENTS.md#directory-map).
 
 ```text
   src/
@@ -605,7 +614,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
     openrouter.ts       # OpenRouter API wrapper with model validation
     chroma.ts           # ChromaDB client (collections, add, query)
     embeddings.ts       # Chunk → embed → index pipeline (fingerprinted, stale-chunk deletion)
-    rag.ts              # RAG pipeline (embed → retrieve → generate → log, adaptive topK)
+    rag.ts              # RAG pipeline with retrieval lineage and citation-identity checks
     streaming_rag.ts    # SSE streaming RAG (provider-native Server-Sent Events)
     index.ts            # CLI entry point (index, chat, query, status, preflight)
   pages_snapshot.ts     # Bounded public GitHub Pages static snapshot exporter
@@ -635,14 +644,14 @@ scripts/
   hydrate-manuscript.ts # Write evidence-bound manuscript into output/manuscript/
   repair-output.ts      # Historical output repair/quarantine utility
   z_generate_manuscript_variables.py # Python manuscript-variable generation for template render
-  cron-setup.sh         # macOS Launchd / Linux cron installer
+  cron-setup.sh         # dry-run launchd/cron plan wrapper
 tests/                  # deterministic zero-mock suite; run `bun run validate` for the current count
 docs/                   # Full module documentation suite
 docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts and claim ledger
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v2.7.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v3.0.0)
 ```
 
 ---
@@ -696,7 +705,8 @@ Run tests:
 
 ```bash
 bun test              # deterministic suite
-bun run validate      # strict TypeScript + tests + contract/output checks
+bun run test:typecheck # separate strict tests/source typecheck
+bun run validate      # strict source/test types + fenced suites + actual-line coverage + contracts
 bun test tests/search.test.ts   # single file
 ```
 
@@ -739,7 +749,7 @@ bun test tests/search.test.ts   # single file
 | `bun run alerts:tides` | NOAA CO-OPS tides (station 9419750, 48h) |
 | `bun run alerts:fishing` | CDFW crab season + marine bulletins |
 | `bun run weekly-check` | Full weekly health check + summary report |
-| `bun run cron-setup` | Install weekly-check as OS scheduled job |
+| `bun run cron-setup -- --dry-run` | Print the host scheduler plan; review before manual installation |
 | `bun run pages:export` | Build a bounded static snapshot from `output/` |
 | `bun run geo:intel` | Build the machine-readable municipality contract (Crescent City default civic + hazard; `pages-data/geo-intel.json` + `output/geo-intel.json`) |
 | `bun run pages:seed` | Refresh the tracked verified municipal-code seed |
@@ -802,7 +812,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v2.7.0)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.0.0)
 
 ---
 
@@ -846,9 +856,9 @@ All settings support environment variable overrides:
 | :------- | :---------- |
 | 🚀 [Setup Guide](docs/setup.md) | Step-by-step: install, scrape, view, chat |
 | 📐 [Architecture](docs/architecture.md) | System design, data flow, module dependency graph |
-| 📋 [API Reference](docs/api-reference.md) | All exported functions, interfaces, and types |
+| 📋 [API Reference](docs/api-reference.md) | Selected module exports; OpenAPI defines the route surface |
 | ⚙️ [Configuration](docs/configuration.md) | Environment variables, constants, tuning |
-| 🗺️ [Roadmap](docs/roadmap.md) | Feature backlog and progress tracking |
+| 🗺️ [Roadmap](docs/roadmap.md) | Future priorities, dependencies, and delivery sequence |
 | 🕷️ [Scraping](docs/modules/scraping.md) | Browser, TOC, content extraction |
 | ✅ [Verification](docs/modules/verification.md) | SHA-256 checks, section presence, live re-fetch |
 | 📦 [Export](docs/modules/export.md) | JSON, Markdown, plain text, CSV |
@@ -874,24 +884,21 @@ present state:
 | Release gate (types + tests + contracts) | `bun run validate` |
 | Latest pipeline run | `output/state/latest-pipeline-run.json` (produced by `bun run weekly-check`; absent until the first weekly run) |
 | Latest analytics | `output/state/analytics-overview.json` |
-| Source health | `bun run source-discovery` |
+| Source inventory and stored health joins (offline) | `bun run source-discovery`; use `-- --check` for bounded reachability probes |
 | Manuscript state | [`docs/manuscript/MANUSCRIPT_STATUS.md`](docs/manuscript/MANUSCRIPT_STATUS.md) |
 | Changelog (release history) | [CHANGELOG.md](CHANGELOG.md) |
 
-Shipped: **v2.7.0** (2026-09-08) — the geo-observations envelope, readability
-run history, the 15th alert monitor (USCG broadcasts), and a modularized GUI.
-The full entry lives in [CHANGELOG.md](CHANGELOG.md).
-
-Verified in this repo as of 2026-08-31: `bun test tests/geo-intel.test.ts` →
-13 pass / 0 fail; the weekly-check run of 2026-08-31T05:15Z reports
-`status: ok`.
+The [current-state review](docs/project-review.md) records the audit baseline,
+known verification gaps, and cleanup checks. Release history belongs in
+[CHANGELOG.md](CHANGELOG.md); old local results do not establish current source
+availability.
 
 ---
 
 ## 🧭 What To Do Next
 
 Next actions live in **[TODO.md](TODO.md)** — the single backlog file
-(priorities: 🔴 Major / 🟡 Medium / 🟢 Minor, plus Completed/Closed history).
+(sizes: minor / medium / major; priorities: P1 / P2 / P3; open items only).
 Agents should also read [AGENTS.md](AGENTS.md) for conventions and the
 release-gate pipeline before editing.
 
@@ -906,8 +913,9 @@ release-gate pipeline before editing.
 - **Rate-limit in-memory store** resets on server restart — not suitable for multi-instance deployments without shared cache (e.g., Redis)
 - **CDFW crab season** is estimated by regulatory calendar — check [CDFW North Coast bulletins](https://wildlife.ca.gov/regions/1) for emergency closures (domoic acid, whale entanglement)
 - **Tsunami monitor** fetches active CAP alerts — no historical data without archiving
-- **CAL FIRE wildfire API** — the retired `fire.ca.gov/imap/imapdata/all` endpoint was blocked, so the monitor now uses the current official incident JSON endpoint linked from the [CAL FIRE incidents page](https://www.fire.ca.gov/incidents); a valid empty Del Norte-region result is reported as `empty`, not unavailable
-- **Government meeting tracker** — the legacy commission agenda URLs are retired. The monitor now uses the city's live EvoGov JSON endpoint (`crescentcity.org/meetings/get_list`); City Council and Planning Commission items were live in the 2026-07-24 smoke run, while Harbor Commission currently has no matching records and remains explicitly `empty` in source health.
+- **CAL FIRE wildfire API** — the monitor uses the official incident JSON endpoint linked from the [CAL FIRE incidents page](https://www.fire.ca.gov/incidents); a valid empty Del Norte-region result is reported as `empty`, and fetch failure as unavailable.
+- **Government meeting tracker** — the monitor reads the city's EvoGov JSON endpoint (`crescentcity.org/meetings/get_list`). Each run records source health; an empty commission listing establishes only what that endpoint returned.
+- **Review and next work** — [current-state audit](docs/project-review.md) records verification limits and known reliability gaps. [TODO.md](TODO.md) contains only open improvement scopes; [docs/roadmap.md](docs/roadmap.md) defines their sequencing.
 
 ---
 
@@ -937,8 +945,7 @@ intelligence (Del Norte + Humboldt), anchored on Crescent City — not Crescent 
   (Pulse renders graceful empty states). `meta.overview` carries the live composite alert
   + code stats.
 - `scripts/lifeos-daily.sh` (`bun run lifeos:daily`) refreshes news/meetings/alerts then
-  writes the digest. Schedule it with your platform scheduler (a Hermes cron job was
-  used previously; re-create it if the daily digest stops arriving).
-- The LifeOS `LocalIntelligence` skill is configured for **Crescent City, CA** (ZIP 95531,
-  Del Norte County): `**Hometown:**` set in `PRINCIPAL_IDENTITY.md`, with the verified
-  local news RSS feeds registered in `NEWS_FEEDS` (`src/news_monitor.ts`).
+  writes the digest. Scheduling is an explicit operator action; the project does
+  not establish that a job is installed or delivering updates.
+- Configure the downstream consumer separately. Source availability and unknown
+  dates stay explicit in the digest; receiving a file does not verify its facts.

@@ -11,8 +11,9 @@ import {
   buildPagesObservationsHtml,
   embedPagesObservations,
   validatePagesGeoObservations,
-  type GeoObservationsEnvelope,
 } from "../src/pages_snapshot.ts";
+
+import type { GeoObservationsEnvelope } from "../src/geo_observations.ts";
 
 const STATIC_DIR = join(import.meta.dir, "../src/pages/static");
 

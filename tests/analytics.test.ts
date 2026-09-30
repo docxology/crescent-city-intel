@@ -15,7 +15,7 @@ describe("Analytics", () => {
         ];
         const dim = 2;
 
-        const result = powerIteration(data, dim, null);
+        const result = powerIteration(data, dim);
 
         // Should find [1, 0] or [-1, 0]
         expect(result.eigenvalue).toBeCloseTo(4, 0.1);
@@ -29,7 +29,7 @@ describe("Analytics", () => {
             new Float64Array([0, 0]),
             new Float64Array([0, 0]),
         ];
-        const result = powerIteration(data, 2, null);
+        const result = powerIteration(data, 2);
         expect(result.eigenvalue).toBe(0);
     });
 

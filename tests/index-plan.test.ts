@@ -1,11 +1,9 @@
 /**
  * Per-article incremental index planning (`src/llm/index_plan.ts`).
  *
- * The TODO item this closes: `indexAllSections` skipped the rebuild only when
- * the WHOLE-corpus chunk fingerprint was unchanged, so a one-section edit
- * re-embedded all ~3,100 chunks. These tests pin the decision logic — which
- * articles to re-embed, which chunks to delete — with fixtures, so the
- * behaviour is verified without a live embedder or vector store.
+ * These tests pin the decision logic — which articles to re-embed, which
+ * chunks to delete — with fixtures, so the behaviour is verified without a
+ * live embedder or vector store.
  *
  * The load-bearing cases are the ones where being *almost* incremental is worse
  * than not being incremental at all: an embedding-model swap leaves every
@@ -108,8 +106,7 @@ describe("planIncrementalIndex — the incremental win", () => {
     expect(plan.changed).toEqual(["a2"]);
     expect(plan.added).toEqual([]);
     expect(plan.removed).toEqual([]);
-    // The whole point: only a2's two chunks are embedded, not all five. The old
-    // whole-corpus fingerprint would have re-embedded every chunk in the code.
+    // Only a2's two chunks are embedded; the other articles remain unchanged.
     expect(plan.chunksToEmbed).toBe(2);
     expect(plan.totalChunks).toBe(5);
     expect(plan.noop).toBe(false);
@@ -315,5 +312,22 @@ describe("buildIndexManifest", () => {
     expect(after.fingerprint).not.toBe(before.fingerprint);
     // ...while the untouched article's own fingerprint does not.
     expect(after.articles.a1!.fingerprint).toBe(before.articles.a1!.fingerprint);
+  });
+});
+
+describe("actual-store repair and configuration shrink counterexamples", () => {
+  test("empty or partial actual IDs cannot no-op over a matching manifest", async () => {
+    const articles = [await article("a1", "one", "two")];
+    const previous = await buildIndexManifest({ articles, configSignature: SIG, embeddingModel: CONFIG.embeddingModel, source: "test" });
+    for (const ids of [new Set<string>(), new Set(["a1_s0_0"])]) {
+      const plan = planIncrementalIndex(articles, previous, SIG, ids);
+      expect(plan.noop).toBe(false); expect(plan.changed).toEqual(["a1"]); expect(plan.chunksToEmbed).toBe(2);
+    }
+  });
+  test("a surviving article's obsolete IDs are removed on model change", async () => {
+    const before = [await article("a1", "one", "two", "three")];
+    const previous = await buildIndexManifest({ articles: before, configSignature: SIG, embeddingModel: CONFIG.embeddingModel, source: "test" });
+    const plan = planIncrementalIndex([await article("a1", "one")], previous, "changed", new Set(["a1_s0_0", "a1_s1_1", "a1_s2_2", "youtube_abcdefghijk_0"]));
+    expect(plan.staleChunkIds.sort()).toEqual(["a1_s1_1", "a1_s2_2"]);
   });
 });

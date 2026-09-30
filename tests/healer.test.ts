@@ -110,6 +110,19 @@ describe("Healer — getHealerState", () => {
 describe("Healer — runHealingCycle", () => {
   beforeEach(cleanState);
 
+  test("omitted subset sources are not new attempts and duplicate health rows count once", async () => {
+    const { runHealingCycle } = await importHealer();
+    await mkdir(join(OUTPUT_DIR, "alerts"), { recursive: true });
+    await writeFile(ALERTS_HEALTH_PATH, JSON.stringify({ sources: [{ source: "EPA AirNow", status: "unavailable" }, { source: "NOAA Tsunami", status: "unavailable" }, { source: "NOAA Tsunami", status: "unavailable" }], attempts: [{ key: "airquality", requested: false }, { key: "tsunami", requested: true }] }));
+    const result = await runHealingCycle(); expect(result.monitorsChecked).toBe(1); expect(result.state.monitors["EPA AirNow"].consecutiveFailures).toBe(0); expect(result.state.monitors["NOAA Tsunami"].consecutiveFailures).toBe(1);
+  });
+
+  test("same-root overlapping cycles serialize state updates and the first advisory notice uses five minutes", async () => {
+    const { runHealingCycle } = await importHealer(); await writeHealth([{ source: "EPA AirNow", status: "unavailable" }]);
+    await Promise.all([runHealingCycle(), runHealingCycle()]); const final = await runHealingCycle(); const entry = final.state.monitors["EPA AirNow"];
+    expect(entry.consecutiveFailures).toBe(3); expect(final.monitorsRetried).toContain("EPA AirNow"); expect(Date.parse(entry.backoffUntil) - Date.parse(entry.lastRetriedAt)).toBe(5 * 60_000);
+  });
+
   test("returns zero checks when no source-health.json exists", async () => {
     const { runHealingCycle } = await importHealer();
     const result = await runHealingCycle();
@@ -234,7 +247,7 @@ describe("Healer — runHealingCycle", () => {
     expect(fourth.monitorsRetried).toEqual([]);
   });
 
-  test("extended monitor failures accumulate and trigger retries (15-monitor roster)", async () => {
+  test("extended monitor failures accumulate and trigger retries across the monitor roster", async () => {
     const { runHealingCycle } = await importHealer();
     const extendedFailing = { source: "Caltrans Roads", status: "unavailable" };
     const coreOk = [

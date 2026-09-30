@@ -9,10 +9,11 @@
  */
 import { join } from "path";
 import { homedir } from "os";
+import { outputRoot } from "../src/shared/paths.ts";
 import { buildDigest, writeDigest } from "../src/lifeos_bridge.ts";
 
 async function main() {
-  const repoOutput = process.env.REPO_OUTPUT_DIR ?? join(process.cwd(), "output");
+  const repoOutput = process.env.REPO_OUTPUT_DIR ?? outputRoot();
   const home = homedir();
   const customizationsDir =
     process.env.LIFEOS_CUSTOMIZATIONS_DIR ??

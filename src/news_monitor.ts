@@ -18,11 +18,18 @@ import { DOMParser } from '@xmldom/xmldom';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
+import { boundedHttpFetch as fetch, type TransportOptions, withinDeadline, waitWithSignal } from './shared/transport.js';
 import { paths } from './shared/paths.js';
 import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
+import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
 
 const logger = createLogger('news_monitor');
+
+function newsSourceHealth(...args: Parameters<typeof sourceHealth>): SourceHealth {
+  const [name, status, checkedAt, details] = args;
+  return sourceHealth(name, status, checkedAt, { ...details, sourceId: sourceIdForMonitor(name === 'Del Norte Triplicate' ? 'triplicate' : `news:${name}`) });
+}
 
 /** RSS feed URLs for local news sources covering the NorCal coast */
 export const NEWS_FEEDS: Record<string, string> = {
@@ -55,7 +62,7 @@ export const NEWS_DISABLED_SOURCES = (process.env.NEWS_DISABLED_SOURCES ?? "")
   .map(source => source.trim())
   .filter(Boolean);
 
-const NEWS_OUTPUT_DIR = paths.news;
+const NEWS_OUTPUT_DIR = () => paths.news;
 /** Persistent deduplication index — survives restarts. Lives under
  * output/state/, NOT output/news/, so it never collides with a naive
  * "list output/news/*.json and take the latest" consumer (this exact bug
@@ -63,18 +70,19 @@ const NEWS_OUTPUT_DIR = paths.news;
  * state file was colocated with its batch output — see gov_meeting_monitor.ts).
  * IdempotencyStore.load() transparently migrates the legacy bare string[]
  * shape on first read, so no separate migration step is needed. */
-const SEEN_IDS_PATH = paths.newsSeenIds;
+const SEEN_IDS_PATH = () => paths.newsSeenIds;
 
-async function fetchFeedWithRetry(url: string, init: RequestInit): Promise<Response> {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const response = await fetch(url, init);
-    if (response.status !== 429 || attempt === 2) return response;
-    const retryAfter = Number(response.headers.get('retry-after') ?? 0);
-    const delayMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : (attempt + 1) * 1000;
-    logger.warn(`Feed rate-limited for ${delayMs}ms; retrying`, { sourceUrl: url, attempt: attempt + 1 });
-    await new Promise(resolve => setTimeout(resolve, delayMs));
-  }
-  throw new Error('Feed retry loop exhausted');
+async function fetchFeedWithRetry(url: string, init: TransportOptions): Promise<Response> {
+  return withinDeadline(async signal => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await fetch(url, { ...init, signal });
+      if (response.status !== 429 || attempt === 2) return response;
+      const retryAfter = Number(response.headers.get('retry-after') ?? 0);
+      const delayMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : (attempt + 1) * 1000;
+      await waitWithSignal(delayMs, signal);
+    }
+    throw new Error('Feed retry loop exhausted');
+  }, init.timeoutMs ?? Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS), init.signal);
 }
 
 /** Normalize a URL to a stable dedup key (strip tracking params, trailing slash) */
@@ -142,8 +150,7 @@ export interface NewsItem {
 }
 
 /**
- * Fetch and parse a single RSS feed, returning only Crescent City–relevant items.
- * Returns an empty array on any network or parse error (graceful degradation).
+ * Read a configured HTML news fallback and return relevant items with source health.
  */
 async function fetchHtmlNewsFallback(
   url: string,
@@ -176,7 +183,7 @@ async function fetchHtmlNewsFallback(
   return {
     source: sourceName,
     items,
-    health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+    health: newsSourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
       url,
       fetchedAt: checkedAt,
       itemCount: items.length,
@@ -187,13 +194,15 @@ async function fetchHtmlNewsFallback(
 
 export async function fetchRSSFeedDetailed(
   url: string,
-  sourceName: string
+  sourceName: string,
+  transport: TransportOptions = {}
 ): Promise<NewsFeedResult> {
   const checkedAt = new Date().toISOString();
   try {
     logger.info(`Fetching RSS feed from ${sourceName}`, { url });
 
     const response = await fetchFeedWithRetry(url, {
+      ...transport,
       headers: {
         'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
         'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1',
@@ -213,7 +222,7 @@ export async function fetchRSSFeedDetailed(
       return {
         source: sourceName,
         items: [],
-        health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+        health: newsSourceHealth(sourceName, 'unavailable', checkedAt, {
           url,
           itemCount: 0,
           httpStatus: response.status,
@@ -278,7 +287,7 @@ export async function fetchRSSFeedDetailed(
     return {
       source: sourceName,
       items,
-      health: sourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
+      health: newsSourceHealth(sourceName, items.length > 0 ? 'ok' : 'empty', checkedAt, {
         url,
         fetchedAt: checkedAt,
         itemCount: items.length,
@@ -302,7 +311,7 @@ export async function fetchRSSFeedDetailed(
     return {
       source: sourceName,
       items: [],
-      health: sourceHealth(sourceName, 'unavailable', checkedAt, {
+      health: newsSourceHealth(sourceName, 'unavailable', checkedAt, {
         url,
         itemCount: 0,
         error: errorMessage(error),
@@ -312,22 +321,14 @@ export async function fetchRSSFeedDetailed(
   }
 }
 
-/** Backwards-compatible item-only feed API. Diagnostics are available via the detailed variant. */
-export async function fetchRSSFeed(
-  url: string,
-  sourceName: string,
-): Promise<Array<Omit<NewsItem, 'source' | 'fetchedAt'>>> {
-  return (await fetchRSSFeedDetailed(url, sourceName)).items;
-}
-
 /**
  * Persist a batch of news items to output/news/ as a timestamped JSON file.
  */
 export async function saveNewsItems(items: NewsItem[]): Promise<string> {
-  await mkdir(NEWS_OUTPUT_DIR, { recursive: true });
+  await mkdir(NEWS_OUTPUT_DIR(), { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = join(NEWS_OUTPUT_DIR, `news-${timestamp}.json`);
+  const filename = join(NEWS_OUTPUT_DIR(), `news-${timestamp}.json`);
 
   const payload = {
     fetchedAt: new Date().toISOString(),
@@ -368,7 +369,7 @@ export async function monitorNews(
 
   // Load persistent dedup index (shared store — survives restarts, same file
   // path as the legacy seen-ids.json, transparently migrated on first load)
-  const idempotency = new IdempotencyStore(SEEN_IDS_PATH);
+  const idempotency = new IdempotencyStore(SEEN_IDS_PATH());
   if (!options.noDedup) await idempotency.load();
   const allItems: NewsItem[] = [];
   let newCount = 0;
@@ -380,7 +381,7 @@ export async function monitorNews(
       sourceName,
       source: sourceName,
       items: [],
-      health: sourceHealth(sourceName, 'unavailable', new Date().toISOString(), {
+      health: newsSourceHealth(sourceName, 'unavailable', new Date().toISOString(), {
         url,
         itemCount: 0,
         error: 'Feed disabled by NEWS_DISABLED_SOURCES configuration',
@@ -398,7 +399,7 @@ export async function monitorNews(
           sourceName,
           source: sourceName,
           items: [],
-          health: sourceHealth(sourceName, 'unavailable', new Date().toISOString(), {
+          health: newsSourceHealth(sourceName, 'unavailable', new Date().toISOString(), {
             url,
             error: errorMessage(error),
             provenance: 'RSS/Atom feed fetch',

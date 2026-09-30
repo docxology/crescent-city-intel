@@ -26,7 +26,7 @@ async function checkPrerequisites(): Promise<boolean> {
   if (!ollama) {
     log.error(`Ollama is not running at ${llmConfig.ollamaUrl}`);
     log.error("Start Ollama: ollama serve");
-    log.error("Install: brew install ollama || curl -fsSL https://ollama.ai/install.sh | sh");
+    log.error("Install on macOS: brew install ollama. Other platforms: https://docs.ollama.com/quickstart");
     log.error(`Pull models: ollama pull ${llmConfig.embeddingModel} && ollama pull ${llmConfig.chatModel}`);
     return false;
   }
@@ -35,8 +35,8 @@ async function checkPrerequisites(): Promise<boolean> {
     const ok = await waitForChroma(3, 1000);
     if (!ok) {
       log.error(`ChromaDB is not running at ${llmConfig.chromaUrl}`);
-      log.error(`Start ChromaDB: chroma run --path chroma_data --port ${new URL(llmConfig.chromaUrl).port}`);
-      log.error("Install: pip install chromadb");
+      log.error("Start the pinned local vector service: docker compose --profile llm up -d chroma");
+      log.error("See docs/setup.md for the current optional-stack configuration.");
       return false;
     }
   }
@@ -75,7 +75,10 @@ async function checkPrerequisites(): Promise<boolean> {
 async function runIndex() {
   log.info("=== Crescent City Municipal Code — Indexing Pipeline ===");
   if (!(await checkPrerequisites())) process.exit(1);
-  await indexAllSections();
+  const flag = process.argv.slice(3).find(arg => arg.startsWith("--deadline-ms="));
+  const deadlineMs = flag ? Number(flag.slice("--deadline-ms=".length)) : 300_000;
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 3_600_000) throw new Error("--deadline-ms must be an integer from 1 to 3600000");
+  await indexAllSections({ deadlineMs });
 }
 
 async function runChat() {
@@ -142,7 +145,6 @@ async function runQuery() {
     process.exit(1);
   }
 
-  log.info(`Question: ${question}`);
   const response = await ragQuery(question);
   console.log(`\nAnswer: ${response.answer}\n`);
 
@@ -201,7 +203,7 @@ switch (command) {
   default:
     console.log("Crescent City Municipal Code — LLM Module\n");
     console.log("Commands:");
-    console.log("  bun run src/llm/index.ts index    Index all sections into ChromaDB");
+    console.log("  bun run src/llm/index.ts index    Index all sections into ChromaDB [--deadline-ms=300000]");
     console.log("  bun run src/llm/index.ts chat     Interactive RAG chat");
     console.log('  bun run src/llm/index.ts query "question"  Single query');
     console.log("  bun run src/llm/index.ts status   Show index stats and model info");

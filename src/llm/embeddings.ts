@@ -1,13 +1,15 @@
 /** Indexing pipeline — loads sections, chunks, embeds, and stores in ChromaDB */
-import { loadAllSections } from "../shared/data.js";
-import { embed, embedBatch } from "./ollama.js";
-import { addDocuments, deleteDocuments, getDocumentIds, getStats } from "./chroma.js";
+import { loadAllArticles } from "../shared/data.js";
+import { embedBatch } from "./ollama.js";
+import { addDocuments, getDocuments, getDocumentIds, discardCollection, servingCollectionName } from "./chroma.js";
+import { withFileLease } from "../shared/storage.js";
+import { join } from "path";
+import { boundedSignal } from "./runtime.js";
 import { llmConfig } from "./config.js";
 import { EMBED_BATCH_SIZE } from "../constants.js";
 import { createLogger } from "../logger.js";
 import type { FlatSection } from "../types.js";
 import { paths } from "../shared/paths.js";
-import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { writeJsonAtomic } from "../shared/source_health.js";
 import {
@@ -18,7 +20,6 @@ import {
   planIncrementalIndex,
   type ArticleChunkSet,
   type IndexManifest,
-  type PlannedChunk,
 } from "./index_plan.js";
 
 const log = createLogger("embeddings");
@@ -29,6 +30,7 @@ export function chunkText(
   chunkSize = llmConfig.chunkSize,
   overlap = llmConfig.chunkOverlap
 ): string[] {
+  if (!Number.isSafeInteger(chunkSize) || chunkSize < 1 || !Number.isSafeInteger(overlap) || overlap < 0 || overlap >= chunkSize) throw new Error("Invalid chunk size/overlap");
   if (text.length <= chunkSize) return [text];
 
   const chunks: string[] = [];
@@ -41,166 +43,93 @@ export function chunkText(
   return chunks;
 }
 
-/** Check if the collection already has the expected number of documents */
-export async function isIndexed(): Promise<boolean> {
+/** A serving receipt must match configuration and every owned ID actually stored. */
+export async function isIndexed(options: { signal?: AbortSignal } = {}): Promise<boolean> {
   try {
-    const stats = await getStats();
-    return stats.count > 0;
-  } catch {
-    return false;
-  }
+    options.signal?.throwIfAborted();
+    const manifest = JSON.parse(await readFile(paths.indexManifest, "utf8")) as IndexManifest;
+    options.signal?.throwIfAborted();
+    if (manifest.schemaVersion !== 2 || manifest.configSignature !== indexConfigSignature(llmConfig) || !manifest.articles) return false;
+    const corpusManifest = await readFile(paths.manifest, "utf8").catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; });
+    options.signal?.throwIfAborted();
+    if (corpusManifest !== null && manifest.corpusManifestSha256 !== sourceHash(corpusManifest)) return false;
+    const ids = new Set(await getDocumentIds({ signal: options.signal, collection: manifest.servingCollection }));
+    options.signal?.throwIfAborted();
+    const owned = Object.values(manifest.articles).flatMap(article => article.chunkIds);
+    return owned.length > 0 && owned.length === manifest.chunkCount && owned.every(id => ids.has(id));
+  } catch { options.signal?.throwIfAborted(); return false; }
 }
 
 /**
  * Index all sections into ChromaDB.
  *
  * Incremental at ARTICLE granularity (see `index_plan.ts`): a one-section edit
- * re-embeds that article's chunks and nothing else, where the previous
- * whole-corpus fingerprint check re-embedded all ~3,100. The plan also carries
+ * re-embeds that article's chunks. The plan also carries
  * the embedding model and chunking parameters, so a model swap forces a full
  * re-embed rather than silently mixing two models' vectors in one cosine space.
  */
-export async function indexAllSections(): Promise<void> {
-  log.info("Loading all sections...");
-  const sections = await loadAllSections();
-  log.info(`Found ${sections.length} sections to index`);
+export async function indexAllSections(options: { signal?: AbortSignal; deadlineMs?: number } = {}): Promise<void> {
+  const manifest = await readFile(paths.manifest, "utf8"), corpusManifestSha256 = sourceHash(manifest);
+  const articles = await loadAllArticles();
+  const sections: FlatSection[] = articles.flatMap(article => article.sections.map(section => ({ guid: section.guid, number: section.number, title: section.title, text: section.text, history: section.history, articleGuid: article.guid, articleTitle: article.title, articleNumber: article.number })));
+  if (sourceHash(await readFile(paths.manifest, "utf8")) !== corpusManifestSha256) throw new Error("Source corpus changed during indexing; retry the complete edition");
+  await indexSections(sections, { ...options, corpusManifestSha256 });
+}
 
-  const stats = await getStats();
-  const existingCount = stats.count;
-  if (existingCount > 0) {
-    log.info(`Collection already has ${existingCount} documents`);
-  }
+function sourceHash(text: string): string { return new Bun.CryptoHasher("sha256").update(text).digest("hex"); }
 
-  // Group chunks by article. Order is the corpus order, so the manifest and the
-  // logs are reproducible for identical input.
-  const byArticle = new Map<string, ArticleChunkSet>();
-  for (const section of sections) {
-    const chunks = chunksForArticle(section, chunkText);
-    const entry = byArticle.get(section.articleGuid);
-    if (entry) {
-      entry.chunks.push(...chunks);
-    } else {
-      byArticle.set(section.articleGuid, { articleGuid: section.articleGuid, chunks: [...chunks], fingerprint: "" });
+/** Stage a complete edition; the old serving collection is never modified. */
+export async function indexSections(sections: FlatSection[], options: { signal?: AbortSignal; deadlineMs?: number; corpusManifestSha256?: string } = {}): Promise<void> {
+  if (options.corpusManifestSha256 !== undefined && !/^[a-f0-9]{64}$/.test(options.corpusManifestSha256)) throw new Error("Invalid corpus manifest hash");
+  const deadlineMs = options.deadlineMs ?? 300_000;
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 3_600_000) throw new Error("Index deadline must be an integer from 1 to 3600000 ms");
+  const signal = boundedSignal(options.signal, deadlineMs);
+  await withFileLease(join(paths.state, "index-writer.lock"), async () => {
+    signal.throwIfAborted();
+    const byArticle = new Map<string, ArticleChunkSet>();
+    for (const section of sections) {
+      const entry = byArticle.get(section.articleGuid) ?? { articleGuid: section.articleGuid, chunks: [], fingerprint: "" };
+      entry.chunks.push(...chunksForArticle(section, chunkText)); byArticle.set(section.articleGuid, entry);
     }
-  }
-  const articles: ArticleChunkSet[] = [...byArticle.values()];
-  for (const article of articles) {
-    article.fingerprint = await fingerprintChunks(article.chunks);
-  }
-
-  const configSignature = indexConfigSignature({
-    embeddingModel: llmConfig.embeddingModel,
-    chunkSize: llmConfig.chunkSize,
-    chunkOverlap: llmConfig.chunkOverlap,
-  });
-
-  let previous: IndexManifest | null = null;
-  if (existsSync(paths.indexManifest)) {
+    const articles = [...byArticle.values()];
+    for (const article of articles) article.fingerprint = await fingerprintChunks(article.chunks);
+    const configSignature = indexConfigSignature(llmConfig);
+    let previous: IndexManifest | null = null;
+    try { previous = JSON.parse(await readFile(paths.indexManifest, "utf8")); } catch { /* first index or unreadable receipt */ }
+    const priorCollection = await servingCollectionName();
+    const existingIds = new Set(await getDocumentIds({ signal, collection: priorCollection }));
+    const plan = planIncrementalIndex(articles, previous, configSignature, existingIds);
+    const desiredIds = new Set(articles.flatMap(article => article.chunks.map(chunk => chunk.id)));
+    const canKeepTranscripts = previous?.configSignature === configSignature;
+    if (plan.noop && previous?.corpusManifestSha256 === options.corpusManifestSha256 && [...existingIds].every(id => desiredIds.has(id) || canKeepTranscripts && id.startsWith("youtube_"))) return;
+    const staged = `${llmConfig.collectionName}-stage-${crypto.randomUUID()}`;
     try {
-      previous = JSON.parse(await readFile(paths.indexManifest, "utf-8")) as IndexManifest;
-    } catch {
-      log.warn("Ignoring unreadable index manifest; rebuilding deterministically");
-    }
-  }
-
-  // Only sweep the store for ids when a plan might need to delete something —
-  // it is a full collection read.
-  const existingIds = existingCount > 0 ? new Set(await getDocumentIds()) : undefined;
-  const plan = planIncrementalIndex(articles, previous, configSignature, existingIds);
-
-  if (plan.fullRebuildReason) {
-    log.info(`Full re-embed required: ${plan.fullRebuildReason}`);
-  }
-  if (plan.removed.length > 0) log.info(`${plan.removed.length} article(s) no longer in the corpus`);
-  if (plan.unchanged.length > 0) {
-    log.info(`${plan.unchanged.length}/${articles.length} article(s) unchanged; skipping their chunks`);
-  }
-  if (plan.changed.length > 0) log.info(`${plan.changed.length} article(s) changed; re-embedding them`);
-  if (plan.added.length > 0) log.info(`${plan.added.length} new article(s) to embed`);
-
-  // Delete BEFORE embedding. A changed article is upserted by id, so an article
-  // that shrank would otherwise leave its trailing chunks holding stale text
-  // that nothing will ever overwrite. Deleting the union of recorded stale ids
-  // and the changed articles' own current ids is the safe order: the upsert
-  // re-adds them with fresh vectors.
-  const deleteIds = new Set(plan.staleChunkIds);
-  for (const articleGuid of [...plan.changed, ...plan.added]) {
-    for (const chunk of byArticle.get(articleGuid)!.chunks) deleteIds.add(chunk.id);
-  }
-  const toDelete = [...deleteIds].filter(id => !existingIds || existingIds.has(id));
-  if (toDelete.length > 0) {
-    await deleteDocuments(toDelete);
-    log.info(`Removed ${toDelete.length} index chunk(s) before re-embedding`);
-  }
-
-  if (plan.noop) {
-    log.info("Index already current; nothing to embed");
-    return;
-  }
-
-  const toEmbed: PlannedChunk[] = [];
-  for (const articleGuid of [...plan.changed, ...plan.added]) {
-    toEmbed.push(...byArticle.get(articleGuid)!.chunks);
-  }
-  log.info(`Total chunks to embed: ${toEmbed.length} of ${plan.totalChunks}`);
-
-  let indexed = 0;
-  const failedIds: string[] = [];
-
-  for (let i = 0; i < toEmbed.length; i += EMBED_BATCH_SIZE) {
-    const batch = toEmbed.slice(i, i + EMBED_BATCH_SIZE);
-    const texts = batch.map((c) => c.text);
-
-    try {
-      const embeddings = await embedBatch(texts);
-
-      await addDocuments({
-        ids: batch.map((c) => c.id),
-        embeddings,
-        documents: texts,
-        metadatas: batch.map((c) => c.metadata),
-      });
-
-      indexed += batch.length;
-      if (indexed % 100 === 0 || indexed === toEmbed.length) {
-        log.info(`Indexed ${indexed}/${toEmbed.length} chunks...`);
+      // Copy only known unchanged code IDs and same-geometry transcript records.
+      const unchanged = new Set(articles.filter(article => plan.unchanged.includes(article.articleGuid)).flatMap(article => article.chunks.map(chunk => chunk.id)));
+      const copyIds = [...existingIds].filter(id => unchanged.has(id) || (canKeepTranscripts && id.startsWith("youtube_")));
+      for (let offset = 0; offset < copyIds.length; offset += EMBED_BATCH_SIZE) {
+        const batch = await getDocuments(copyIds.slice(offset, offset + EMBED_BATCH_SIZE), { signal, collection: priorCollection });
+        if (batch.ids.length !== Math.min(EMBED_BATCH_SIZE, copyIds.length - offset)) throw new Error("Serving vectors changed during rebuild");
+        await addDocuments(batch, { signal, collection: staged });
       }
-    } catch (err: any) {
-      log.error(`Error indexing batch at ${i}`, { error: err.message });
-      // Try one at a time as fallback
-      for (const chunk of batch) {
-        try {
-          const embedding = await embed(chunk.text);
-          await addDocuments({
-            ids: [chunk.id],
-            embeddings: [embedding],
-            documents: [chunk.text],
-            metadatas: [chunk.metadata],
-          });
-          indexed++;
-        } catch (e: any) {
-          log.error(`Failed to index chunk ${chunk.id}`, { error: e.message });
-          failedIds.push(chunk.id);
-        }
+      const toEmbed = articles.filter(article => !plan.unchanged.includes(article.articleGuid)).flatMap(article => article.chunks);
+      for (let offset = 0; offset < toEmbed.length; offset += EMBED_BATCH_SIZE) {
+        signal.throwIfAborted();
+        const chunks = toEmbed.slice(offset, offset + EMBED_BATCH_SIZE);
+        await addDocuments({ ids: chunks.map(chunk => chunk.id), embeddings: await embedBatch(chunks.map(chunk => chunk.text), { signal }), documents: chunks.map(chunk => chunk.text), metadatas: chunks.map(chunk => chunk.metadata) }, { signal, collection: staged });
       }
+      const expected = new Set([...articles.flatMap(article => article.chunks.map(chunk => chunk.id)), ...copyIds.filter(id => !unchanged.has(id))]);
+      const actual = new Set(await getDocumentIds({ signal, collection: staged }));
+      if (actual.size !== expected.size || [...expected].some(id => !actual.has(id))) throw new Error("Staged index is incomplete; serving edition retained");
+      const manifest = await buildIndexManifest({ articles, configSignature, embeddingModel: llmConfig.embeddingModel, source: "municipal-code" });
+      signal.throwIfAborted();
+      if (options.corpusManifestSha256 && sourceHash(await readFile(paths.manifest, "utf8")) !== options.corpusManifestSha256) throw new Error("Source corpus changed before activation; serving edition retained");
+      // One atomic receipt activates both collection identity and corpus identity.
+      await writeJsonAtomic(paths.indexManifest, { ...manifest, ...(options.corpusManifestSha256 ? { corpusManifestSha256: options.corpusManifestSha256 } : {}), servingCollection: staged, previousCollection: priorCollection, transcriptReindexRequired: !canKeepTranscripts && [...existingIds].some(id => id.startsWith("youtube_")) });
+      log.info("Complete staged index activated", { chunkCount: String(manifest.chunkCount), collection: staged });
+    } catch (error) {
+      await discardCollection(staged).catch(() => undefined);
+      throw error;
     }
-  }
-
-  if (failedIds.length > 0) {
-    throw new Error(`Indexing failed for ${failedIds.length} chunk(s): ${failedIds.slice(0, 5).join(", ")}`);
-  }
-
-  // Write the manifest only after every chunk succeeded, so a failed run leaves
-  // the previous state intact and the next run re-does the work rather than
-  // trusting a manifest describing chunks that were never written.
-  const manifest = await buildIndexManifest({
-    articles,
-    configSignature,
-    embeddingModel: llmConfig.embeddingModel,
-    source: "municipal-code",
-  });
-  await writeJsonAtomic(paths.indexManifest, manifest);
-
-  const finalStats = await getStats();
-  log.info(`Indexing complete: ${finalStats.count} documents in collection (${indexed} embedded this run)`);
+  }, { waitMs: 1000, staleMs: 30_000 });
 }

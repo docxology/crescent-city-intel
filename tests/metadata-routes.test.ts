@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { withEmptyCorpus, withMinimalCorpus } from "./helpers/output-root.ts";
+import { paths } from "../src/shared/paths.ts";
+import { rm } from "node:fs/promises";
 import { handleApiRoute } from "../src/gui/routes.ts";
 
 describe("metadata and machine-readable reporting routes", () => {
@@ -16,7 +19,9 @@ describe("metadata and machine-readable reporting routes", () => {
     expect(JSON.stringify(body)).not.toMatch(/OPENROUTER_API_KEY|sk-[A-Za-z0-9]/);
   });
 
-  test("GET /api/analytics/overview returns the shared evidence envelope", async () => {
+  test("GET /api/analytics/overview returns the shared evidence envelope", async () => withMinimalCorpus(2, async () => {
+    // Exercise the deterministic fallback, independently of an ambient saved overview.
+    await rm(paths.analyticsOverview, { force: true });
     const response = await handleApiRoute(new URL("http://localhost:3000/api/analytics/overview"));
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -25,21 +30,16 @@ describe("metadata and machine-readable reporting routes", () => {
     expect(["ok", "degraded", "unavailable"]).toContain(body.status);
     expect(body.entryPoint.startHere).toBeTruthy();
     expect(Array.isArray(body.signals)).toBe(true);
+    expect(body.llm.status).toBe("not-requested");
     expect(body.llm).toHaveProperty("promptVersion");
-  });
+    expect(body.metrics.code.articles).toBe(2);
+  }));
 
-  test("GET /api/report/latest.json returns a typed not-found response when metadata is absent", async () => {
+  test("GET /api/report/latest.json returns a typed not-found response when metadata is absent", async () => withEmptyCorpus(async () => {
     const response = await handleApiRoute(new URL("http://localhost:3000/api/report/latest.json"));
-    expect([200, 404]).toContain(response.status);
-    const body = await response.json();
-    if (response.status === 200) {
-      expect(body.schemaVersion).toBe("1.0.0");
-      expect(body.reportType).toBe("monthly-civic-health");
-      expect(body.sourceHealth).toHaveProperty("degraded");
-    } else {
-      expect(body.error).toBeTruthy();
-    }
-  });
+    expect(response.status).toBe(404);
+    expect((await response.json()).error).toBeTruthy();
+  }));
 
   test("GET /api/curation/status never claims a successful run when no artifact exists", async () => {
     const response = await handleApiRoute(new URL("http://localhost:3000/api/curation/status"));

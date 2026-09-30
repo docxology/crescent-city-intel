@@ -60,19 +60,23 @@ export async function queryStructured<T>(
 ): Promise<StructuredResult<T>> {
   const baseMessages: ChatMessage[] = [{ role: "user", content: `${prompt}\n\nReturn ONLY valid JSON matching this shape: ${options.schemaHint}. No prose, no markdown fences.` }];
   const attempt = async (messages: ChatMessage[]): Promise<T | null> => {
+    options.signal?.throwIfAborted();
     try {
       const raw = await chatWithProvider(messages, undefined, undefined, { signal: options.signal, systemPrompt: options.systemPrompt });
+      options.signal?.throwIfAborted();
       const candidate = extractJsonCandidate(raw);
       if (!candidate) return null;
       const parsed: unknown = JSON.parse(candidate);
       if (validate && !validate(parsed)) return null;
       return parsed as T;
     } catch {
+      options.signal?.throwIfAborted();
       return null;
     }
   };
 
   const first = await attempt(baseMessages);
+  options.signal?.throwIfAborted();
   if (first !== null) return { value: first, source: "json" };
 
   log.warn("Structured query returned malformed JSON; issuing one repair request");

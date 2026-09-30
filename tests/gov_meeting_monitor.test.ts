@@ -1,34 +1,35 @@
 /**
  * Tests for gov_meeting_monitor.ts
  *
- * Tests the pure-logic aspects:
- * - Network error handling (graceful [] return)
+ * Tests with real local HTTP and filesystem fixtures:
+ * - Network error handling with typed unavailable health
  * - saveMeetingItems contract (writes to disk in correct shape)
- * - monitorGovMeetings overall execution path
  */
 import { describe, expect, test } from "bun:test";
-import { fetchGovMeetings, saveMeetingItems } from "../src/gov_meeting_monitor";
+import { fetchGovMeetingsDetailed, saveMeetingItems } from "../src/gov_meeting_monitor";
 import { existsSync } from "fs";
 import { mkdtemp, readdir, readFile, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 
-describe("fetchGovMeetings", () => {
-  test("returns empty array when URL is unreachable", async () => {
-    const result = await fetchGovMeetings("http://localhost:0/nonexistent", "TestSource");
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
+describe("fetchGovMeetingsDetailed", () => {
+  test("reports an unavailable source when URL is unreachable", async () => {
+    const result = await fetchGovMeetingsDetailed("http://localhost:0/nonexistent", "TestSource");
+    expect(result.items).toHaveLength(0);
+    expect(result.health.status).toBe("unavailable");
+    expect(result.health.error).toBeTruthy();
   });
 
-  test("returns empty array on HTTP 404", async () => {
+  test("reports an unavailable source on HTTP 404", async () => {
     const server = Bun.serve({
       port: 0,
       fetch: () => new Response("not found", { status: 404 }),
     });
-    const result = await fetchGovMeetings(`http://localhost:${server.port}/missing`, "TestSource");
+    const result = await fetchGovMeetingsDetailed(`http://localhost:${server.port}/missing`, "TestSource", { allowPrivateHosts: ["localhost"] });
     server.stop();
-    expect(Array.isArray(result)).toBe(true);
-    expect(result).toHaveLength(0);
+    expect(result.items).toHaveLength(0);
+    expect(result.health.status).toBe("unavailable");
+    expect(result.health.error).toContain("HTTP 404");
   });
 });
 

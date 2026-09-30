@@ -1,24 +1,25 @@
-import { describe, expect, test, beforeAll } from "bun:test";
+import { beginSeedCorpus, endCorpusCopy, withEmptyCorpus } from "./helpers/output-root.ts";
+import { invalidateSectionsCache } from "../src/shared/data.ts";
+beforeAll(async () => { await beginSeedCorpus(); invalidateSectionsCache(); });
+afterAll(async () => { await endCorpusCopy(); invalidateSectionsCache(); });
+import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { existsSync } from "fs";
 import { paths } from "../src/shared/paths";
-import type { FlatSection, SearchResult } from "../src/types";
 import type { PagedSearchResult } from "../src/gui/search";
 
 // We test the search module by importing it directly.
-// search() now returns PagedSearchResult (not an array).
+// search() returns a paged envelope; its results field carries ranked matches.
 
-const hasOutput = existsSync(paths.toc) && existsSync(paths.manifest);
+const hasOutput = true; // Every corpus case uses the reviewed seed fixture below.
 
 let initSearch: () => Promise<void>;
 let searchFn: (query: string, options?: any) => PagedSearchResult;
-let searchSimpleFn: (query: string, limit?: number) => SearchResult[];
 let getIndexedCount: () => number;
 
 beforeAll(async () => {
     const mod = await import("../src/gui/search");
     initSearch = mod.initSearch;
     searchFn = mod.search;
-    searchSimpleFn = mod.searchSimple;
     getIndexedCount = mod.getIndexedCount;
 });
 
@@ -84,11 +85,12 @@ describe("search module", () => {
         }
     });
 
-    test("searchSimple backward-compat returns an array", async () => {
+    test("search results field contains bounded ranked matches", async () => {
         if (!hasOutput) return;
         await initSearch();
-        const results = searchSimpleFn("permit", 5);
+        const results = searchFn("permit", { limit: 5 }).results;
         expect(Array.isArray(results)).toBe(true);
+        expect(results.length).toBeGreaterThan(0);
         expect(results.length).toBeLessThanOrEqual(5);
     });
 

@@ -2,8 +2,7 @@
  * The geo-observations envelope is stated three times: the TypeScript interface
  * in `src/geo_observations.ts`, the hand-written checks in
  * `validatePagesGeoObservations` (`src/pages_snapshot.ts`), and the inline
- * OpenAPI response schema. This file proves they agree, which is the TODO item's
- * acceptance criterion.
+ * OpenAPI response schema. This file cross-checks their runtime contract.
  *
  * Why it matters: the interface is what TypeScript enforces on the builder, the
  * validator is what gates the published artifact, and the OpenAPI schema is
@@ -46,43 +45,14 @@ function validEnvelope(): GeoObservationsEnvelope {
   };
 }
 
-/**
- * The OpenAPI response schema's top-level property names, read out of the spec
- * rather than restated. Scoped to the `/api/geo-observations` response so a
- * schema change anywhere else in the spec cannot perturb this.
- *
- * Throws rather than returning an empty list: a vacuous pass here would make
- * every other test in this file true for the wrong reason, which is how an
- * earlier draft of this check "passed" while extracting nothing at all.
- */
-function openApiTopLevelProperties(): string[] {
-  const lines = readFileSync(join(REPO_ROOT, "openapi.yaml"), "utf-8").split("\n");
-  const pathStart = lines.indexOf("  /api/geo-observations:");
-  if (pathStart === -1) throw new Error("openapi.yaml has no /api/geo-observations path");
-
-  // The response schema's own `properties:` is the one nested under the '200'
-  // response, not the one under the parameters or the inner objects. Find it by
-  // indentation relative to the path: 16 spaces, inside application/json.
-  let propertiesAt = -1;
-  for (let i = pathStart; i < Math.min(pathStart + 60, lines.length); i++) {
-    if (lines[i] === " ".repeat(16) + "properties:") { propertiesAt = i; break; }
-  }
-  if (propertiesAt === -1) throw new Error("openapi.yaml /api/geo-observations has no response properties block");
-
-  const keys: string[] = [];
-  for (let i = propertiesAt + 1; i < lines.length; i++) {
-    const line = lines[i]!;
-    if (!line.trim()) continue;
-    const indent = line.length - line.trimStart().length;
-    if (indent <= 16) break; // dedented out of the block
-    if (indent === 18) {
-      const match = /^ {18}([A-Za-z][A-Za-z0-9]*):/.exec(line);
-      if (match) keys.push(match[1]!);
-    }
-  }
-  if (keys.length === 0) throw new Error("openapi.yaml /api/geo-observations response publishes no properties");
-  return keys;
+/** Parse the actual response schema; YAML formatting is not an API contract. */
+function openApiResponseSchema(): { properties: Record<string, any> } {
+  const spec = Bun.YAML.parse(readFileSync(join(REPO_ROOT, "openapi.yaml"), "utf8")) as any;
+  const schema = spec.paths?.["/api/geo-observations"]?.get?.responses?.["200"]?.content?.["application/json"]?.schema;
+  if (!schema?.properties || Object.keys(schema.properties).length === 0) throw new Error("OpenAPI geo-observations response publishes no properties");
+  return schema;
 }
+function openApiTopLevelProperties(): string[] { return Object.keys(openApiResponseSchema().properties); }
 
 describe("the geo-observations envelope is stated once in practice", () => {
   test("a real built envelope carries exactly the fields the OpenAPI schema publishes", () => {
@@ -98,11 +68,9 @@ describe("the geo-observations envelope is stated once in practice", () => {
   });
 
   test("the schema string is the one the builder emits", () => {
-    const spec = readFileSync(join(REPO_ROOT, "openapi.yaml"), "utf-8");
-    const start = spec.indexOf("  /api/geo-observations:");
-    const block = spec.slice(start, spec.indexOf("\n  /api/", start + 10));
-    expect(block).toContain(`enum: [${GEO_OBSERVATIONS_SCHEMA}]`);
-    expect(block).toContain(`enum: [${validEnvelope().freshness.contractSchema}]`);
+    const properties = openApiResponseSchema().properties;
+    expect(properties.schema.enum).toEqual([GEO_OBSERVATIONS_SCHEMA]);
+    expect(properties.freshness.properties.contractSchema.enum).toEqual([validEnvelope().freshness.contractSchema]);
   });
 
   test("the validator accepts the envelope the builder produces", () => {
@@ -141,9 +109,7 @@ describe("the geo-observations envelope is stated once in practice", () => {
     // The one field allowed to be null, so a missing composite artifact is an
     // honest "no data" rather than a failure.
     expect(validatePagesGeoObservations({ ...validEnvelope(), composite: null })).toEqual([]);
-    const spec = readFileSync(join(REPO_ROOT, "openapi.yaml"), "utf-8");
-    const start = spec.indexOf("  /api/geo-observations:");
-    const block = spec.slice(start, spec.indexOf("\n  /api/", start + 10));
-    expect(block).toMatch(/composite:\n\s+type: object\n\s+nullable: true/);
+    expect(openApiResponseSchema().properties.composite.type).toBe("object");
+    expect(openApiResponseSchema().properties.composite.nullable).toBe(true);
   });
 });

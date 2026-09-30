@@ -66,11 +66,10 @@ describe("GET /api/search", () => {
     expect(Array.isArray(body.results)).toBe(true);
   });
 
-  test("returns empty results for blank query", async () => {
+  test("rejects blank query before search", async () => {
     const res = await fetch(`${BASE}/api/search?q=`);
-    expect(res.status).toBe(200);
-    const body = await res.json() as { total: number };
-    expect(body.total).toBe(0);
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("too short");
   });
 
   test("respects limit param", async () => {

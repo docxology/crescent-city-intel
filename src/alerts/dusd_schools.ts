@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * Del Norte Unified School District (DUSD) Closure Monitor.
  *
@@ -36,9 +38,9 @@ const TARGET_SCHOOLS = [
   "Del Norte Community School", "DNUSD",
 ];
 
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "schools");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "schools"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 let lastSchoolsError: string | undefined;
 
 export function getLastSchoolsError(): string | undefined {
@@ -94,9 +96,9 @@ const STATUS_SEVERITY: Record<SchoolStatus, number> = {
 
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }
@@ -106,9 +108,9 @@ function loadProcessedIds(): Set<string> {
 
 function appendHistory(event: SchoolClosureItem): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const record = JSON.stringify({ ...event, fetchedAt: new Date().toISOString() });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn("Failed to append school closure history", { error: String(err) });
   }
@@ -326,8 +328,8 @@ export async function runSchoolClosureMonitor(): Promise<SchoolClosureReport | n
           ". " + events.map(e => e.title + " (" + e.reason + ")").join("; "),
     };
 
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, report);
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), report);
 
     if (events.length > 0) {
       const processedIds = loadProcessedIds();

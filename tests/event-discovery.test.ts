@@ -92,9 +92,18 @@ describe("ICS parsing", () => {
     expect(icsTimeNote("20261012T230000Z")).toBe("16:00");
   });
 
-  test("a floating/TZID dtstart is already local and is read as written", () => {
+  test("floating and Pacific DTSTART values retain local date and clock time", () => {
     expect(icsDateToIso("20261012T140000")).toBe("2026-10-12");
     expect(icsTimeNote("20261012T140000")).toBe("14:00");
+    expect(icsDateToIso("20261012T140000", "America/Los_Angeles")).toBe("2026-10-12");
+    expect(icsTimeNote("20261012T140000", "America/Los_Angeles")).toBe("14:00");
+  });
+
+  test("explicit UTC TZID converts the date and clock together; other zones remain unknown", () => {
+    expect(icsDateToIso("20261001T020000", "UTC")).toBe("2026-09-30");
+    expect(icsTimeNote("20261001T020000", "UTC")).toBe("19:00");
+    expect(icsDateToIso("20261001T020000", "Europe/London")).toBeNull();
+    expect(icsTimeNote("20261001T020000", "Europe/London")).toBeNull();
   });
 
   test("a date-only dtstart carries no time", () => {
@@ -203,18 +212,17 @@ describe("LLM resolution parsing", () => {
     expect(nullDate?.date).toBeNull();
   });
 
-  test("drops events instead of guessing when the LLM is unavailable", async () => {
-    const source: EventSourceRecord = {
-      name: "Test HTML",
-      url: "https://example.invalid/feed",
-      type: "html",
-      notes: "",
-    };
-    const drops = counters();
-    const result = await discoverFromSource(source, drops, {
-      resolveLlm: async () => ({ date: null, timeNote: null, location: null }),
-    });
-    expect(result.status).toBe("error");
+  test("a real failed HTML source produces no guessed event or date", async () => {
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("temporarily unavailable", { status: 503 }) });
+    try {
+      const origin = `http://127.0.0.1:${server.port}`;
+      const source: EventSourceRecord = { name: "Local failed HTML", url: `${origin}/feed`, type: "html", notes: "" };
+      const drops = counters();
+      const result = await discoverFromSource(source, drops, { fixtureOrigin: origin });
+      expect(result.status).toBe("error");
+      expect(result.events).toEqual([]);
+      expect(drops).toEqual({ droppedAmbiguous: 0, droppedUndated: 0 });
+    } finally { server.stop(true); }
   });
 });
 

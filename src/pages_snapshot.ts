@@ -7,7 +7,7 @@
  * chat history, credentials, vector indexes, and Triplicate content are not
  * included; Triplicate metadata remains reference/citation-only.
  */
-import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "fs/promises";
 import { dirname, join, relative, resolve } from "path";
 import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealthStatus, SourceHealthSummary } from "./types.js";
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
@@ -20,6 +20,9 @@ import { buildGeoIntel } from "./geo.js";
 import { buildGeoIntelSurface, buildGeoViewSvg, type GeoIntelSurface, type GeoIntelView } from "./geo_view.js";
 import { buildEventsArtifact, buildEventsIcs, collectEvents, type EventsArtifact } from "./events.js";
 import { GEO_INTEL_CONTRACT_SCHEMA, GEO_OBSERVATIONS_SCHEMA, type GeoObservationsEnvelope } from "./geo_observations.js";
+
+import { selectPublicationBundle, promotePublicationDirectory, writePublicationInputReceipt, hashPublicationTree, publicationHash, type PublicationBundle, type PublicationReceipt } from "./publication_bundle.js";
+import { publicAnalytics, publicAlerts, publicEvents, publicReports, publicSourceRegistry, publicSourceDiscovery, assertPublicArtifact } from "./pages_public.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const NEWSPAPER_NAME = "The Quadruplicate";
@@ -39,14 +42,6 @@ export const PAGES_GEO_OBSERVATIONS_ARTIFACT = "data/geo-observations.json";
 export const PAGES_GEO_OBSERVATIONS_UNAVAILABLE_SCHEMA = "crescent-city-geo-observations-unavailable/v1";
 export const PAGES_ALERTS_ARTIFACT = "data/alerts.json";
 export const PAGES_ANALYTICS_ARTIFACT = "data/analytics.json";
-/**
- * §5.5 (lane A r2): operator-only channel artifact. Mirrors the routed
- * `operatorSignalsNoticed` from the analytics overview (neutral rewritten copy,
- * no binary names/PATH strings/stack traces) so the routed operator detail is
- * durably persisted without ever being rendered on a public page. Also lists
- * the raw build-log signals when the operator backend recorded them.
- */
-export const PAGES_OPERATOR_SIGNALS_ARTIFACT = "data/operator-signals.json";
 export const PAGES_SEARCH_INDEX_ARTIFACT_PREFIX = "data/code-search.";
 /** Per-field shard artifacts (lane D §2): the title/number shard (~0.5 MB) and
  * the body shard (~2.4 MB) are emitted alongside the combined index so a client
@@ -231,6 +226,7 @@ export interface PagesSnapshot {
   sourceRegistry: SourceDefinition[];
   sourceRegistryFingerprint: string;
   sourceDiscovery: SourceDiscoveryReport | null;
+  publication: PublicationReceipt;
   municipalCode: {
     available: boolean;
     source: string;
@@ -260,7 +256,7 @@ export interface PagesSnapshot {
     curation: Record<string, unknown> | null;
   };
   /** Shared deterministic + optional LLM overview used as the public entry point. */
-  analytics: AnalyticsOverview | null;
+  analytics: Omit<AnalyticsOverview, "operatorSignalsNoticed"> | null;
   files: {
     code: string | null;
     toc: string | null;
@@ -314,6 +310,7 @@ export interface PagesGeoIntelSummary {
 }
 
 export interface PagesExportResult {
+  previousDestination?: string | null;
   destination: string;
   generatedAt: string;
   status: PagesSnapshot["status"];
@@ -1461,13 +1458,14 @@ async function collectHealth(outputDir: string, checkedAt: string): Promise<Sour
       const status = source.status;
       if (!(["ok", "empty", "unavailable", "stale"] as string[]).includes(String(status))) continue;
       health.push({
+        sourceId: typeof source.sourceId === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(source.sourceId) ? source.sourceId : undefined,
         source: typeof source.source === "string" ? source.source : "Unknown source",
         status: status as SourceHealthStatus,
         checkedAt: isoValue(source.checkedAt) ?? new Date(0).toISOString(),
         fetchedAt: isoValue(source.fetchedAt) ?? undefined,
         itemCount: typeof source.itemCount === "number" && Number.isFinite(source.itemCount) ? source.itemCount : 0,
         url: typeof source.url === "string" && /^https?:\/\//i.test(source.url) ? source.url : undefined,
-        error: typeof source.error === "string" ? source.error : undefined,
+        error: ["unavailable", "stale"].includes(String(status)) ? "Source unavailable for this edition; follow the cited source." : undefined,
         httpStatus: typeof source.httpStatus === "number" ? source.httpStatus : undefined,
         ageMs: typeof source.ageMs === "number" ? source.ageMs : undefined,
         provenance: typeof source.provenance === "string" ? source.provenance : undefined,
@@ -1523,6 +1521,9 @@ export function buildPagesMethodsCounts(snapshot: PagesSnapshot): string {
     ["Snapshot schema version", snapshot.schemaVersion],
     ["Generated", snapshot.generatedAt],
     ["Export status", snapshot.status],
+    ["Municipal-code edition", snapshot.publication.selection],
+    ["Source verification recorded", snapshot.publication.sourceVerifiedAt],
+    ["Source export recorded", snapshot.publication.sourceExportedAt],
     ["Source-health records", snapshot.sourceHealth.length],
     ["Discovered sources", snapshot.sourceRegistry.length],
     ["News items", snapshot.news.length],
@@ -1565,16 +1566,20 @@ export async function buildPagesSnapshot(
   outputDir = "output",
   generatedAt = new Date().toISOString(),
   seedDir = "pages-data",
+  selectedBundle?: PublicationBundle,
+  selectedArtifacts?: { geoIntel: GeoIntelSurface; geoObservations: GeoObservationsEnvelope | null; directory: DirectoryArtifact | null },
 ): Promise<PagesSnapshot> {
   const resolvedOutput = resolve(outputDir);
   const resolvedSeed = resolve(seedDir);
   async function readFirstJson<T>(filename: string): Promise<T | null> {
     return await readJson<T>(join(resolvedOutput, filename)) ?? await readJson<T>(join(resolvedSeed, filename));
   }
-  const manifest = await readFirstJson<JsonRecord>("manifest.json");
-  const verification = await readFirstJson<JsonRecord>("verification-report.json");
-  const coverage = await readFirstJson<JsonRecord>("domain-coverage.json");
-  const readability = await readFirstJson<JsonRecord>("readability.json");
+  const bundle = selectedBundle ?? await selectPublicationBundle(resolvedOutput, resolvedSeed);
+  const coreJson = (name: string): JsonRecord | null => bundle.bytes[name] ? JSON.parse(bundle.bytes[name]!) as JsonRecord : null;
+  const manifest = coreJson("manifest.json");
+  const verification = coreJson("verification-report.json");
+  const coverage = coreJson("domain-coverage.json");
+  const readability = coreJson("readability.json");
   const health = await collectHealth(resolvedOutput, generatedAt);
   const healthSummary = summarizeSourceHealth(health, generatedAt);
   const registryPayload = await readFirstJson<{ sources?: SourceDefinition[] }>("source-registry.json");
@@ -1604,15 +1609,15 @@ export async function buildPagesSnapshot(
   const pipelineRun = await readJson<JsonRecord>(join(resolvedOutput, "state/latest-pipeline-run.json"));
   const curation = await readJson<JsonRecord>(join(resolvedOutput, "state/curation-report.json"));
   const analytics = await readJson<AnalyticsOverview>(join(resolvedOutput, "state/analytics-overview.json"));
-  const codeAvailable = await readFirstJson<unknown>("crescent-city-code.json") !== null;
-  const geoIntel = await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
+  const codeAvailable = bundle.root !== null;
+  const geoIntel = selectedArtifacts?.geoIntel ?? await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
   const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
-  const geoObservations = await loadPagesGeoObservations(resolvedOutput, resolvedSeed);
+  const geoObservations = selectedArtifacts ? selectedArtifacts.geoObservations : await loadPagesGeoObservations(resolvedOutput, resolvedSeed);
   // Local-establishments directory: seed first (hand-curated, source-cited),
   // then any prior edition artifact. A present-but-invalid seed fails loudly.
   const directorySeedRaw = await readJson<unknown>(join(resolvedSeed, "directory.json"))
     ?? await readJson<unknown>(join(resolvedOutput, "directory.json"));
-  const directory = directorySeedSafeBuild(directorySeedRaw, generatedAt);
+  const directory = selectedArtifacts?.directory ?? directorySeedSafeBuild(directorySeedRaw, generatedAt);
   const directorySummary = summarizeDirectory(directory);
   const persistedEvents = await readFirstJson<EventsArtifact>("events/events.json");
   const events: EventsArtifact =
@@ -1637,9 +1642,10 @@ export async function buildPagesSnapshot(
     commit,
     status: snapshotStatus(codeAvailable, pipelineRun),
     healthSummary,
-    sourceRegistry,
+    sourceRegistry: publicSourceRegistry(sourceRegistry) as SourceDefinition[],
     sourceRegistryFingerprint: registryFingerprint,
-    sourceDiscovery,
+    sourceDiscovery: publicSourceDiscovery(sourceDiscovery) as SourceDiscoveryReport | null,
+    publication: bundle.receipt,
     municipalCode: {
       available: codeAvailable,
       source: MUNICIPAL_CODE_URL,
@@ -1650,19 +1656,19 @@ export async function buildPagesSnapshot(
     },
     geoIntel: geoIntelSummary,
     directory: directorySummary,
-    events,
+    events: publicEvents(events) as EventsArtifact,
     sourceHealth: health,
     news: dedupe(news, ["id", "link"]),
     meetings: dedupe(meetings, ["id", "link"]),
     youtube,
     triplicate,
     curated,
-    alerts,
-    report: { monthly, metadata: reportMetadata, weeklySummary, pipelineRun, curation },
-    analytics: analytics?.schemaVersion === "1.0.0" ? analytics : null,
+    alerts: publicAlerts(alerts) as PagesSnapshot["alerts"],
+    report: { monthly, metadata: publicReports(reportMetadata) as JsonRecord | null, weeklySummary: publicReports(weeklySummary) as JsonRecord | null, pipelineRun: publicReports(pipelineRun) as JsonRecord | null, curation: publicReports(curation) as JsonRecord | null },
+    analytics: analytics?.schemaVersion === "1.0.0" ? publicAnalytics(analytics) as Omit<AnalyticsOverview, "operatorSignalsNoticed"> : null,
     files: {
       code: codeAvailable ? "data/code.json" : null,
-      toc: (await readFirstJson<unknown>("toc.json")) !== null ? "data/toc.json" : null,
+      toc: bundle.bytes["toc.json"] ? "data/toc.json" : null,
       manifest: manifest ? "data/manifest.json" : null,
       verification: verification ? "data/verification-report.json" : null,
       coverage: coverage ? "data/domain-coverage.json" : null,
@@ -1683,7 +1689,7 @@ export async function buildPagesSnapshot(
       meetings: PAGES_MEETINGS_ARTIFACT,
       alerts: PAGES_ALERTS_ARTIFACT,
       analytics: analytics?.schemaVersion === "1.0.0" ? PAGES_ANALYTICS_ARTIFACT : null,
-      operatorSignals: analytics?.schemaVersion === "1.0.0" ? PAGES_OPERATOR_SIGNALS_ARTIFACT : null,
+      operatorSignals: null,
       codeSearchIndex: null,
       codeSearchTitleIndex: null,
       codeSearchBodyIndex: null,
@@ -1695,6 +1701,7 @@ export async function buildPagesSnapshot(
       excludedFromSnapshot: ["chat-history", "request-log", "search-queries", "rag-queries", "chroma-data", "Triplicate article content"],
     },
   };
+  assertPublicArtifact(snapshot);
   return snapshot;
 }
 
@@ -1711,18 +1718,19 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-export async function exportPagesSnapshot(options: { outputDir?: string; destination?: string; generatedAt?: string; seedDir?: string } = {}): Promise<PagesExportResult> {
+export async function exportPagesSnapshot(options: { outputDir?: string; municipalDir?: string; destination?: string; generatedAt?: string; seedDir?: string } = {}): Promise<PagesExportResult> {
   const destination = resolve(options.destination ?? ".pages");
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const seedDir = options.seedDir ?? "pages-data";
   const sourceRoot = resolve(options.outputDir ?? "output");
   const seedRoot = resolve(seedDir);
-  const snapshot = await buildPagesSnapshot(sourceRoot, generatedAt, seedRoot);
+  const bundle = await selectPublicationBundle(options.municipalDir ? resolve(options.municipalDir) : sourceRoot, seedRoot);
   const geoIntel = await loadPagesGeoIntel(sourceRoot, seedRoot);
   const geoObservations = await loadPagesGeoObservations(sourceRoot, seedRoot);
   const directorySeedRaw = await readJson<unknown>(join(seedRoot, "directory.json"))
     ?? await readJson<unknown>(join(sourceRoot, "directory.json"));
   const directory = directorySeedSafeBuild(directorySeedRaw, generatedAt);
+  const snapshot = await buildPagesSnapshot(sourceRoot, generatedAt, seedRoot, bundle, { geoIntel, geoObservations, directory });
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
@@ -1912,22 +1920,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
     if (snapshot.analytics) {
       await writeJson(join(temporary, PAGES_ANALYTICS_ARTIFACT), snapshot.analytics);
       files.push(PAGES_ANALYTICS_ARTIFACT);
-      // §5.5 (lane A r2): persist the routed operator-only signals. The
-      // overview carries the public notice copy only; this artifact is the
-      // operator channel — honest about what was noticed, never rendered.
-      await writeJson(join(temporary, PAGES_OPERATOR_SIGNALS_ARTIFACT), {
-        schemaVersion: "crescent-city-operator-signals/v1",
-        generatedAt,
-        inputFingerprint: snapshot.analytics.inputFingerprint,
-        operatorSignalsNoticed: snapshot.analytics.operatorSignalsNoticed,
-        publicSignalsNotice: "Operator-only conditions were routed out of the public analytics surface; public copy states each affected source is unavailable this edition.",
-      });
-      files.push(PAGES_OPERATOR_SIGNALS_ARTIFACT);
+
     }
 
-    async function copyFirstPresent(filename: string, destinationPath: string): Promise<boolean> {
-      return await copyIfPresent(join(sourceRoot, filename), destinationPath) || await copyIfPresent(join(seedRoot, filename), destinationPath);
-    }
     const optionalCopies: Array<[string, string]> = [
       ["crescent-city-code.json", "data/code.json"],
       ["toc.json", "data/toc.json"],
@@ -1937,7 +1932,12 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       ["readability.json", "data/readability.json"],
     ];
     for (const [source, target] of optionalCopies) {
-      if (await copyFirstPresent(source, join(temporary, target))) files.push(target);
+      if (bundle.bytes[source] !== undefined) {
+        const parsed = JSON.parse(bundle.bytes[source]!);
+        assertPublicArtifact(parsed);
+        await writeFile(join(temporary, target), bundle.bytes[source]!);
+        files.push(target);
+      }
     }
     // --- Sharded municipal-code search index (§1.3), content-hashed for normal caching (§1.6) ---
     // Lane D §2: the combined index (client-compat, referenced by index.html's
@@ -1977,6 +1977,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
         available: snapshot.municipalCode.available,
         source: snapshot.municipalCode.source,
         counts: snapshot.municipalCode.counts,
+        edition: { selection: bundle.receipt.selection, verification: bundle.receipt.verification, sourceVerifiedAt: bundle.receipt.sourceVerifiedAt ?? null, sourceExportedAt: bundle.receipt.sourceExportedAt ?? null },
         files: {
           code: snapshot.files.code,
           codeSearchIndex: searchIndexPath,
@@ -2012,10 +2013,19 @@ export async function exportPagesSnapshot(options: { outputDir?: string; destina
       files.push("data/analytics-overview.json");
     }
 
-    await rm(destination, { recursive: true, force: true });
-    await rename(temporary, destination);
+    await writePublicationInputReceipt(temporary, bundle.receipt);
+    const cname = await readFile(join(import.meta.dir, "..", "CNAME"), "utf8").catch(() => null);
+    if (cname !== null) await writeFile(join(temporary, "CNAME"), cname);
+    const hashes = await hashPublicationTree(temporary);
+    await writeJson(join(temporary, "publication-manifest.json"), { schemaVersion: "crescent-city-publication/v1", editionId: publicationHash(JSON.stringify(hashes)), input: bundle.receipt, files: hashes });
+    const { validatePagesArtifact } = await import("./pages_validation.js");
+    const checked = await validatePagesArtifact(temporary);
+    if (checked.length) throw new Error(`Staged publication rejected: ${checked.join("; ")}`);
+    const promotion = await promotePublicationDirectory(temporary, destination);
+    files.push("publication-input.json", "publication-manifest.json");
     return {
       destination,
+      previousDestination: promotion.previous,
       generatedAt,
       status: snapshot.status,
       files,

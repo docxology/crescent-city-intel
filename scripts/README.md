@@ -1,16 +1,17 @@
 # Scripts
 
-Thin TypeScript orchestrators for the Crescent City pipeline. Every script does
-arg parsing, path bootstrap, logging, and a single delegated call; all business
-logic lives in `src/` (importable and tested).
+Bun/TypeScript entry points for the Crescent City pipeline delegate project
+logic to importable modules in `src/`. Shell wrappers handle setup and scheduling;
+the thin Python manuscript adapter delegates to the Bun hydrator for the external
+template renderer.
 
 ## Quick Reference
 
 | Script | Purpose | Delegates to | Command |
 | :--- | :--- | :--- | :--- |
-| `weekly-check.ts` | Full weekly health check (all monitors) | `src/monitor.ts`, `scripts/run-alerts.ts`, `src/events.ts`, `src/news_monitor.ts`, `src/gov_meeting_monitor.ts`, `src/youtube_monitor.ts`, `src/triplicate_monitor.ts`, `src/curation.ts`, `src/source_registry.ts`, `src/monthly_report.ts`, `src/analytics_backend.ts`, `src/shared/orchestration.ts` | `bun run weekly-check` |
+| `weekly-check.ts` | Full weekly health check (all monitors) | `src/weekly_pipeline.ts` | `bun run weekly-check` |
 | `run-monitor.ts` | Municipal code change detection | `src/monitor.ts` | `bun run monitor` |
-| `run-alerts.ts` | All 15 alert monitors (8 core + 7 extended) plus availability-aware composite | `src/alerts/*` | `bun run alerts` / `bun run alerts:all` |
+| `run-alerts.ts` | All 20 alert monitors (8 core + 12 extended) plus availability-aware composite | `src/alerts/batch.ts` | `bun run alerts` / `bun run alerts:all` |
 | `run-news.ts` | RSS/Atom local news aggregation with source health | `src/news_monitor.ts` | `bun run news` |
 | `run-meetings.ts` | City meeting agenda scraper | `src/gov_meeting_monitor.ts` | `bun run gov-meetings` |
 | `run-youtube.ts` | YouTube transcript extraction/indexing with retryable failures | `src/youtube_monitor.ts` | `bun run youtube` |
@@ -21,9 +22,9 @@ logic lives in `src/` (importable and tested).
 | `run-readability.ts` | Flesch-Kincaid + Gunning Fog scoring | `src/shared/readability.ts`, `src/shared/data.ts` | `bun run readability` |
 | `run-source-discovery.ts` | Canonical source inventory, fingerprint, and optional bounded probes | `src/source_registry.ts` | `bun run source-discovery [-- --check]` |
 | `run-geo-observations.ts` | GEO-INFER hazard-observation envelope (`crescent-city-geo-observations/v1`) from composite + source-health artifacts | `src/geo_observations.ts` | `bun run geo:observations` |
-| `check-geo-sync.ts` | Deterministic geo-intel contract drift guard (rebuild + bundled sha256 compare) | `src/geo.ts`, `src/utils.ts` | `bun run geo:sync-check` |
-| `validate-manuscript.ts` | IMRAD, citations, labels, claim ledger, and token contract | `src/manuscript_variables.ts` | `bun run manuscript:check` |
-| `hydrate-manuscript.ts` | Resolve source manuscript tokens from the analytics overview | `src/manuscript_variables.ts`, `src/analytics_backend.ts` | `bun run manuscript:hydrate` |
+| `check-geo-sync.ts` | Deterministic geo-intel contract drift guard (rebuild + bundled sha256 compare) | `src/geo_sync.ts` | `bun run geo:sync-check` |
+| `validate-manuscript.ts` | IMRAD, citations, labels, claim ledger, and token contract | `src/manuscript_document.ts` | `bun run manuscript:check` |
+| `hydrate-manuscript.ts` | Resolve source manuscript tokens from the analytics overview | `src/manuscript_hydration.ts` | `bun run manuscript:hydrate` |
 | `z_generate_manuscript_variables.py` | Template renderer hook | `scripts/hydrate-manuscript.ts` (via Bun) | (template renderer) |
 | `export-pages.ts` | Build a bounded static GitHub Pages snapshot | `src/pages_snapshot.ts` | `bun run pages:export` |
 | `refresh-pages-data.ts` | Refresh the tracked verified municipal-code seed | `src/pages_seed.ts` | `bun run pages:seed` |
@@ -33,7 +34,10 @@ logic lives in `src/` (importable and tested).
 | `browser-smoke.ts` | Playwright/Chromium smoke test of the running GUI | `src/browser_smoke.ts` | `bun run test:browser` |
 | `lifeos-bridge.ts` | Write the LifeOS/Pulse LocalIntelligence digest from platform outputs | `src/lifeos_bridge.ts` | `bun run lifeos:bridge` |
 | `lifeos-daily.sh` | Refresh news/meetings/alerts then write the LifeOS digest; non-zero exit if any step fails | `scripts/run-news.ts`, `scripts/run-meetings.ts`, `scripts/run-alerts.ts`, `scripts/lifeos-bridge.ts` | `bun run lifeos:daily` |
-| `cron-setup.sh` | macOS Launchd / Linux cron installer | — (shell installer) | `bun run cron-setup` |
+| `cron-setup.sh` / `scheduler-plan.ts` | Print an escaped host scheduler plan without installing it | `src/scheduler.ts` | `bun run cron-setup -- --dry-run` |
+| `stack-readiness.ts` | Bounded real-service/model readiness receipt | `src/stack_readiness.ts` | `bun run scripts/stack-readiness.ts` |
+| `ci-affected-tests.ts` | Conservative recursive dependency selection; uncertain changes run the full suite | `src/ci_support.ts` | CI internal |
+| `ci-monitor-smoke.ts` | Validate the child exit and exact current-cycle roster; emit public health receipt | `src/ci_support.ts`, `src/pages_public.ts` | CI internal |
 
 ## Data Flow
 
@@ -60,15 +64,32 @@ collects live sources, preserves unavailable/stale health states, builds the
 static export, validates it, and deploys the artifact. It does not publish the
 runtime `output/` directory wholesale.
 
-## Cron Setup
+## Scheduling plans
 
-```bash
-# Weekly check every Sunday at 2 AM (append to existing log)
-0 2 * * 0 cd /path/to/crescent-city && bun run weekly-check >> output/weekly-check.log 2>&1
+`bun run cron-setup -- --dry-run` prints a Sunday 07:00 Pacific launchd/cron
+plan and installs nothing. The renderer uses escaped argument arrays and XML on
+macOS, POSIX quoting and cron percent escaping on Linux. Confirm the macOS host
+timezone and review project/log paths before manual installation. Runtime source
+collection and a scheduler's installed/running status require separate receipts.
 
-# Hourly alert polling
-0 * * * * cd /path/to/crescent-city && bun run alerts >> output/alerts.log 2>&1
-```
+## Verification
+
+`bun run test:typecheck` checks tests under `tsconfig.tests.json`; production
+`tsconfig.json` remains scoped to source and scripts. The full gate runs both
+strict checks, manuscript/source contracts, and plain plus covered test runs.
+Each child uses a total process-group deadline/output cap and checks both the
+real checkout output and any selected `CC_OUTPUT_DIR` in `finally`. Coverage
+reads the named `% Lines` column; absent branch coverage is not reported as a
+measurement. Contract-only mode is `bun run validate -- --only=contracts` and
+explicitly reports the skipped runtime/type/coverage work.
+
+The Pages exporter stages and validates the entire tree before promotion. Its
+core municipal bundle is selected as one edition; `--municipal-source` can
+separate a verified municipal candidate from the live-feed `--source` directory.
+Fresh candidates require current-source verification binding the exact TOC,
+manifest, and canonical exported article text. Reviewed seed fallback is visible
+and does not establish current live source acceptance. Family DTOs omit operator
+fields, and full-tree hash/privacy checks bind the public publication receipt.
 
 ## Exit Codes
 
@@ -110,3 +131,11 @@ envelope is written.
 ## Adding Scripts
 
 See [AGENTS.md](AGENTS.md) for conventions.
+
+
+`bun run meeting-documents -- --limit=10 --deadline-ms=300000` collects bounded
+public meeting-document links into `output/meeting_documents/` with raw PDF hashes,
+HTTP/source receipts, and optional native `pdftotext` page spans. Limits are capped
+at 50 documents and 15 minutes. Missing extraction tooling is explicit; no OCR,
+legal interpretation, field verification, or comprehensive archive coverage is
+implied. Raw/operator custody artifacts are not transferred wholesale to Pages.

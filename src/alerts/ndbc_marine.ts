@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * NDBC Marine Weather / Buoy Monitor for Crescent City.
  *
@@ -36,9 +38,9 @@ const MONITORED_STATIONS = [
   { id: "46214", name: "Humboldt Bay CA", lat: 40.88, lng: -124.36, distanceNm: 60 },
 ];
 
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "marine");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "marine"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 
 /**
  * Last failure reason, for the runner's health record. Set on every exit path
@@ -106,9 +108,9 @@ const WAVE_PERIOD_LONG_SEC = 15;       // Long-period swell → tsunami-like sur
 
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }
@@ -118,10 +120,10 @@ function loadProcessedIds(): Set<string> {
 
 function appendHistory(obs: BuoyObservation): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const id = `${obs.stationId}-${obs.timestamp}`;
     const record = JSON.stringify({ id, ...obs, fetchedAt: new Date().toISOString() });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn("Failed to append marine history", { error: String(err) });
   }
@@ -314,8 +316,8 @@ export async function runMarineMonitor(): Promise<MarineReport | null> {
       advisory,
     };
 
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, report);
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), report);
 
     if (advisory) {
       logger.warn(`Marine advisory: ${advisory}`);

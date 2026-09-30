@@ -22,7 +22,7 @@ describe("middleware — sliding window rate limiter", () => {
     expect(result).toBeNull();
   });
 
-  test("applyMiddleware returns null for localhost IP (rate limit bypass)", async () => {
+  test("applyMiddleware returns null for public operation even with untrusted headers", async () => {
     const { applyMiddleware } = await import("../src/api/middleware.ts");
     const req = new Request("http://localhost:3000/api/stats", {
       method: "GET",
@@ -124,12 +124,12 @@ describe("middleware — path helpers", () => {
 });
 
 describe("middleware — isTrustedLocalIp (gates whether gui/server.ts hands the real API key to a requester)", () => {
-  test("loopback and private-LAN addresses are trusted", async () => {
+  test("only loopback addresses are trusted", async () => {
     const { isTrustedLocalIp } = await import("../src/api/middleware.ts");
     expect(isTrustedLocalIp("127.0.0.1")).toBe(true);
     expect(isTrustedLocalIp("::1")).toBe(true);
-    expect(isTrustedLocalIp("192.168.1.50")).toBe(true);
-    expect(isTrustedLocalIp("10.0.0.5")).toBe(true);
+    expect(isTrustedLocalIp("192.168.1.50")).toBe(false);
+    expect(isTrustedLocalIp("10.0.0.5")).toBe(false);
   });
 
   test("a public IP is not trusted", async () => {
@@ -140,12 +140,12 @@ describe("middleware — isTrustedLocalIp (gates whether gui/server.ts hands the
 });
 
 describe("middleware — resolveIp", () => {
-  test("proxy headers take priority over the socket fallback", async () => {
+  test("untrusted proxy headers cannot change the socket identity", async () => {
     const { resolveIp } = await import("../src/api/middleware.ts");
     const req = new Request("http://localhost:3000/api/stats", {
       headers: { "x-real-ip": "203.0.113.42" },
     });
-    expect(resolveIp(req, "127.0.0.1")).toBe("203.0.113.42");
+    expect(resolveIp(req, "127.0.0.1")).toBe("127.0.0.1");
   });
 
   test("falls back to the socket address when no proxy header is present", async () => {

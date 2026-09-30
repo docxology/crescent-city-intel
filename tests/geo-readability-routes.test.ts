@@ -236,14 +236,12 @@ describe("GET /api/readability/history", () => {
     expect(body.trend.count).toBe(5);
   });
 
-  test("limit clamps into 1..200 and echoes the resolved bound", async () => {
+  test("limit rejects values outside the declared 1..200 bound", async () => {
     const zero = await get("/api/readability/history?limit=0");
-    expect(zero.status).toBe(200);
-    expect((await zero.json()).limit).toBe(1);
+    expect(zero.status).toBe(400);
 
     const huge = await get("/api/readability/history?limit=999");
-    expect(huge.status).toBe(200);
-    expect((await huge.json()).limit).toBe(200);
+    expect(huge.status).toBe(400);
   });
 
   test("non-numeric limit or offset is a 400", async () => {
@@ -257,18 +255,15 @@ describe("GET /api/readability/history", () => {
 });
 
 describe("openapi.yaml registration", () => {
-  const spec = () => readFileSync(join(process.cwd(), "openapi.yaml"), "utf-8");
+  const spec = () => Bun.YAML.parse(readFileSync(join(process.cwd(), "openapi.yaml"), "utf-8")) as { info: { version: string }; paths: Record<string, { get: { operationId: string } }> };
 
   test("both wave-2 paths are registered", () => {
-    const text = spec();
-    expect(text).toContain("  /api/geo-observations:");
-    expect(text).toContain("  /api/readability/history:");
-    expect(text).toContain("operationId: getGeoObservations");
-    expect(text).toContain("operationId: getReadabilityHistory");
+    expect(spec().paths["/api/geo-observations"]?.get.operationId).toBe("getGeoObservations");
+    expect(spec().paths["/api/readability/history"]?.get.operationId).toBe("getReadabilityHistory");
   });
 
-  test("the spec version is bumped to 2.7.0", () => {
-    expect(spec()).toContain("  version: 2.7.0");
+  test("the spec version matches the package version", () => {
+    expect(spec().info.version).toBe(JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version);
     expect(existsSync(join(process.cwd(), "src", "gui", "routes.ts"))).toBe(true);
   });
 });

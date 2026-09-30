@@ -11,12 +11,14 @@ queries, legal analysis, and civic intelligence domains.
 | [Setup Guide](setup.md) | Step-by-step installation and first-run instructions |
 | [Architecture](architecture.md) | System design, data flow diagrams, full module dependency graph |
 | [Configuration](configuration.md) | All env vars, constants, and tuning parameters |
-| [API Reference](api-reference.md) | Complete table of all exported functions, interfaces, and types |
-| [Roadmap](roadmap.md) | Project phases, feature backlog, and progress tracking |
+| [API Reference](api-reference.md) | Selected module exports; OpenAPI is the HTTP route authority |
+| [Project Review](project-review.md) | Current-state findings, cleanup decisions, and verification receipts |
+| [Roadmap](roadmap.md) | Future priorities, dependencies, and delivery sequence |
+| [Open Backlog](../TODO.md) | Minor, medium, and major improvement scopes with acceptance criteria |
 | [Manuscript](manuscript.md) | Evidence-bound IMRAD paper, claim ledger, hydration, and template rendering |
 | **Module Guides** | |
 | [Scraping](modules/scraping.md) | Browser, TOC, content extraction, and scraper orchestrator |
-| [Verification](modules/verification.md) | SHA-256 integrity checks, section presence, live re-fetch |
+| [Verification](modules/verification.md) | Local custody/replay, current TOC, live sample, and publication binding |
 | [Export](modules/export.md) | JSON, Markdown, plain text, and CSV output |
 | [GitHub Pages](modules/pages.md) | Bounded static snapshots, provenance, and deployment workflow |
 | [GUI](modules/gui.md) | Web viewer, API routes, search engine, analytics, alerts dashboard |
@@ -26,10 +28,14 @@ queries, legal analysis, and civic intelligence domains.
 | [Domains](modules/domains.md) | 12 civic intelligence domains with code cross-references |
 | [Monitoring](modules/monitoring.md) | Code change detection, news, and government meeting monitors |
 | [Alerts](modules/alerts.md) | 20 real-time alert monitors + composite severity + alert analytics |
+| [Expansion Monitors](modules/expansion-monitors.md) | Permit/report catalogs, harbor posts, fuel observations, and configured vessel traffic |
+| [USCG Broadcasts](modules/uscg_broadcasts.md) | Public District 11 notices and North Coast relevance |
+| [Events](modules/events.md) | Occurrence dates, publication timestamps, bounded discovery, and calendar exports |
+| [Corpus Intelligence](modules/corpus-intelligence.md) | Section graph, word statistics, and recorded amendment chronology |
 | [Geo-Intel](modules/geo-intel.md) | Transferable municipality geo-intel contract + tiles-free map-ready feature view |
 | [Geo-Observations](modules/geo-observations.md) | Live hazard-observation envelope for GEO-INFER + the geo contract drift guard |
 | [Readability](modules/readability.md) | Flesch-Kincaid scoring, bounded run history, and trend analytics |
-| [v2 Intelligence](modules/v2-intelligence.md) | New v2.0 modules: structured queries, legal parser, fuzzy, streaming, analytics |
+| [Additional Intelligence](modules/v2-intelligence.md) | Structured queries, legal parser, fuzzy search, streaming, and analytics |
 | [API Middleware](modules/api.md) | Rate limiting, API key authentication, request logging |
 
 ## Quick Links
@@ -38,7 +44,7 @@ queries, legal analysis, and civic intelligence domains.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v2.7.0)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.0.0)
 
 ## Updating Docs
 

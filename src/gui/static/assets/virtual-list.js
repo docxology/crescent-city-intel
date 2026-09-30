@@ -1,4 +1,4 @@
-// virtual-list.js — windowed list renderer for the Quadruplicate SPA (v2.7.0).
+// virtual-list.js — windowed list renderer for the Quadruplicate SPA.
 //
 // The SPA has no build step and several panels render long flat lists. This
 // module windows rendering to the visible slice plus `overscan` items above
@@ -7,13 +7,13 @@
 // A ResizeObserver on the scroll container and a scroll listener re-render
 // the window on scroll and size changes.
 //
-// Applications (v2.7.0), chosen as the SPA's longest safely-windowable flat
+// Applications, chosen as the SPA's longest safely-windowable flat
 // list renderers:
 // - Search results (#search-results): result sets larger than
 //   SEARCH_VIRTUAL_THRESHOLD (24) render through this module; smaller sets
-//   keep the exact legacy innerHTML path. Per-item markup (.search-result
+//   use the full-list innerHTML path. Per-item markup (.search-result
 //   with data-guid / data-article-guid and .sr-number/.sr-title/.sr-snippet
-//   children) is byte-identical to the legacy template, so the first
+//   children) is byte-identical to the full-list template, so the first
 //   rendered window is observably the same as the unwindowed list. Click
 //   delegation on the container keeps working (items are still descendants).
 // - Glossary (#glossary-content): definition tables with more than

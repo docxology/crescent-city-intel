@@ -2,9 +2,6 @@ import { describe, test, expect } from "bun:test";
 import {
   detectCloudflareStall,
   withRetry,
-  isMaintenanceMode,
-  formatProgressBar,
-  ScrapeMetricsCollector,
   isArticleArtifactShapeValid,
   isTocShapeValid,
 } from "../src/scraper_utils.js";
@@ -47,7 +44,11 @@ describe("detectCloudflareStall", () => {
 describe("isArticleArtifactShapeValid", () => {
   test("rejects an empty or partial article artifact before resume-skip", () => {
     expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "", sha256: "a".repeat(64), sections: [] }, ["section-1"])).toBe(false);
-    expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "", sha256: "a".repeat(64), sections: [{ guid: "section-1" }] }, ["section-1"])).toBe(true);
+    expect(isArticleArtifactShapeValid({ guid: "a", rawHtml: "", sha256: "a".repeat(64), sections: [{ guid: "section-1" }] }, ["section-1"])).toBe(false);
+    const section = { guid: "section-1", number: "1", title: "Title", html: "<p>Text</p>", text: "Text", history: "" };
+    const valid = { guid: "a", url: "https://ecode360.com/a", title: "Article", number: "1", scrapedAt: "2026-09-30T00:00:00Z", rawHtml: "<p>Text</p>", sha256: "a".repeat(64), sections: [section] };
+    expect(isArticleArtifactShapeValid(valid, ["section-1"], true)).toBe(true);
+    expect(isArticleArtifactShapeValid({ ...valid, sections: [section, section] }, ["section-1"], true)).toBe(false);
   });
 
   test("rejects malformed hashes and non-object sections", () => {
@@ -99,85 +100,5 @@ describe("withRetry", () => {
       expect(err.message).toBe("always fail");
       expect(calls).toBe(3); // initial + 2 retries
     }
-  });
-});
-
-describe("isMaintenanceMode", () => {
-  test("detects 503", () => {
-    expect(isMaintenanceMode(503, "https://example.com", "https://example.com")).toBe(true);
-  });
-
-  test("detects redirect to different URL", () => {
-    expect(isMaintenanceMode(302, "https://example.com", "https://other.com")).toBe(true);
-  });
-
-  test("returns false for 200", () => {
-    expect(isMaintenanceMode(200, "https://example.com", "https://example.com")).toBe(false);
-  });
-
-  test("returns false for 404", () => {
-    expect(isMaintenanceMode(404, "https://example.com", "https://example.com")).toBe(false);
-  });
-
-  test("returns false for redirect to same URL", () => {
-    expect(isMaintenanceMode(301, "https://example.com", "https://example.com")).toBe(false);
-  });
-});
-
-describe("formatProgressBar", () => {
-  test("renders 0%", () => {
-    const bar = formatProgressBar(0, 100);
-    expect(bar).toContain("0%");
-    expect(bar).toContain("(0/100)");
-    expect(bar).toContain("░");
-  });
-
-  test("renders 50%", () => {
-    const bar = formatProgressBar(50, 100);
-    expect(bar).toContain("50%");
-    expect(bar).toContain("█");
-  });
-
-  test("renders 100%", () => {
-    const bar = formatProgressBar(100, 100);
-    expect(bar).toContain("100%");
-  });
-
-  test("handles zero total", () => {
-    const bar = formatProgressBar(0, 0);
-    expect(bar).toContain("0%");
-  });
-});
-
-describe("ScrapeMetricsCollector", () => {
-  test("records and retrieves metrics", () => {
-    const collector = new ScrapeMetricsCollector();
-    collector.record({ guid: "g1", title: "Test 1", durationMs: 500, sectionCount: 10, success: true });
-    collector.record({ guid: "g2", title: "Test 2", durationMs: 1000, sectionCount: 5, success: false, error: "timeout" });
-    const metrics = collector.getMetrics();
-    expect(metrics).toHaveLength(2);
-    expect(metrics[0].guid).toBe("g1");
-    expect(metrics[1].success).toBe(false);
-  });
-
-  test("computes summary", () => {
-    const collector = new ScrapeMetricsCollector();
-    collector.record({ guid: "g1", title: "A", durationMs: 500, sectionCount: 10, success: true });
-    collector.record({ guid: "g2", title: "B", durationMs: 1500, sectionCount: 5, success: true });
-    collector.record({ guid: "g3", title: "C", durationMs: 300, sectionCount: 0, success: false, error: "err" });
-    const summary = collector.getSummary();
-    expect(summary.total).toBe(3);
-    expect(summary.succeeded).toBe(2);
-    expect(summary.failed).toBe(1);
-    expect(summary.avgDurationMs).toBe(1000); // (500 + 1500) / 2
-    expect(summary.maxDurationMs).toBe(1500);
-    expect(summary.minDurationMs).toBe(500);
-  });
-
-  test("empty collector returns zeros", () => {
-    const collector = new ScrapeMetricsCollector();
-    const summary = collector.getSummary();
-    expect(summary.total).toBe(0);
-    expect(summary.avgDurationMs).toBe(0);
   });
 });

@@ -1,21 +1,20 @@
 # .github — agent notes
 
-Three workflows (verified 2026-09-28). See
-[workflows/AGENTS.md](workflows/AGENTS.md) for the per-workflow contract and the
-rules that `tests/ci-config.test.ts` enforces.
+See [workflows/AGENTS.md](workflows/AGENTS.md) for the per-workflow contract.
+All three workflows pin Bun 1.4.2, use frozen dependencies, and explicitly install
+Chromium before browser work. Configuration tests establish local agreement;
+hosted execution and deployment require their own receipts.
 
-- **`pr-gate.yml`** (added 2026-09-28) gates every pull request to `main`: the
-  offline contract checks plus the tests a change could plausibly affect. It
-  exists because the authoritative release gate previously ran only on
-  `push: main` and a schedule, so a regression could be merged before anything
-  noticed.
-- **`pages.yml`** builds and publishes the static snapshot to GitHub Pages
-  (permissions: contents read, pages write, id-token write; concurrency group
-  `github-pages`; env includes AIRNOW_API_KEY secret, SOURCE_DISCOVERY_LIVE_CHECK=1,
-  PAGES_BUILD=1). It runs the FULL release gate and a failure stops the publish.
-- **`weekly.yml`** runs the weekly intelligence cycle (schedule +
-  `workflow_dispatch` with a `run_scrape` boolean; permissions contents read +
-  actions read; concurrency group `weekly-cycle`).
+- `pr-gate.yml`: production and separate test strict types, the canonical
+  contract-only gate, recursively selected affected tests with conservative
+  full-suite fallback, and real GUI browser smoke.
+- `pages.yml`: the full deterministic gate, a job-private municipal candidate
+  with an 18 minute total budget, fresh live feeds, whole-edition code/seed
+  selection, full public-tree validation, then unchanged artifact upload/deploy.
+- `weekly.yml`: current-cycle whole-roster monitoring, full tests, and explicit
+  scraper→artifact upload→downstream verification/analysis handoff on manual
+  scrape runs. Failed children or missing current evidence fail the job.
 
-All three pin Bun via `BUN_VERSION` to the same version. Keep trigger times, env
-names, and the table in `workflows/AGENTS.md` in sync when editing them.
+Keep environment names, trigger/job topology, and the guide synchronized with
+workflow edits. Public uploads use allowed source-health fields; raw operator
+errors, credentials, and local artifact paths remain local.

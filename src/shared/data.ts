@@ -9,6 +9,7 @@ import type {
   MonitorReport,
 } from "../types.js";
 import { paths, outputRoot } from "./paths.js";
+import { validateArticleCustody } from "../corpus_editions.js";
 import { createLogger } from "../logger.js";
 
 const logger = createLogger("data");
@@ -23,7 +24,7 @@ let _sectionsCacheTs = 0;
  * root's sections through this cache. */
 let _sectionsCacheRoot = "";
 /** In-flight load promise — prevents concurrent callers from duplicating work. */
-let _sectionsLoad: Promise<FlatSection[]> | null = null;
+const _sectionsLoads = new Map<string, Promise<FlatSection[]>>();
 const SECTIONS_CACHE_TTL_MS = 60_000; // 60 seconds
 
 /** Invalidate the sections cache (call after re-scrape or export). */
@@ -57,28 +58,43 @@ export async function loadManifest(): Promise<ScrapeManifest> {
 
 /** Load a single article by GUID */
 export async function loadArticle(guid: string): Promise<ArticlePage> {
-  const articlePath = paths.article(guid);
-  try {
-    const raw = await readFile(articlePath, "utf-8");
-    return JSON.parse(raw) as ArticlePage;
-  } catch (err: any) {
-    throw new Error(`Failed to load article '${guid}' from ${articlePath}: ${err.message}`);
-  }
+  if (!/^[A-Za-z0-9_-]+$/.test(guid)) throw new Error("Invalid article GUID");
+  const root = outputRoot();
+  const manifest = JSON.parse(await readFile(`${root}/manifest.json`, "utf8")) as ScrapeManifest;
+  const entry = manifest.articles?.[guid];
+  if (!entry) throw new Error(`Article '${guid}' is absent from current manifest`);
+  const value: unknown = JSON.parse(await readFile(`${root}/articles/${guid}.json`, "utf8"));
+  const errors = validateArticleCustody(value, undefined, true);
+  if (errors.length) throw new Error(`Article '${guid}' failed custody: ${errors.join("; ")}`);
+  const article = value as ArticlePage;
+  if (article.guid !== guid || article.sha256 !== entry.sha256 || article.sections.length !== entry.sectionCount) throw new Error(`Article '${guid}' differs from manifest`);
+  return article;
 }
 
 /** Load all article files from the articles directory (in parallel) */
-export async function loadAllArticles(): Promise<ArticlePage[]> {
-  const dir = paths.articles;
+export async function loadAllArticles(root = outputRoot()): Promise<ArticlePage[]> {
+  const dir = `${root}/articles`;
   if (!existsSync(dir)) return [];
   // Sort for deterministic corpus ordering — `readdir` order is filesystem-
   // dependent, and every downstream consumer (search, export, structured
   // queries, index fingerprints) would otherwise inherit run-to-run
   // nondeterminism (see embeddings.ts index-fingerprint determinism claim).
-  const files = (await readdir(dir)).sort();
-  const jsonFiles = files.filter(f => f.endsWith(".json"));
+  const manifest = JSON.parse(await readFile(`${root}/manifest.json`, "utf8")) as ScrapeManifest;
+  if (!manifest.articles || typeof manifest.articles !== "object" || Array.isArray(manifest.articles)) throw new Error("Invalid corpus manifest membership");
+  const jsonFiles = Object.keys(manifest.articles).sort().map(guid => {
+    if (!/^[A-Za-z0-9_-]+$/.test(guid)) throw new Error("Unsafe article GUID in manifest");
+    return `${guid}.json`;
+  });
   // Load all articles in parallel for speed
   const articles = await Promise.allSettled(
-    jsonFiles.map(f => readFile(`${dir}/${f}`, "utf-8").then(raw => JSON.parse(raw) as ArticlePage))
+    jsonFiles.map(async f => {
+      const article: unknown = JSON.parse(await readFile(`${dir}/${f}`, "utf-8"));
+      const errors = validateArticleCustody(article, undefined, true);
+      if (errors.length) throw new Error(`${f}: ${errors.join("; ")}`);
+      const value = article as ArticlePage; const entry = manifest.articles[value.guid];
+      if (!entry || value.guid !== f.slice(0, -5) || entry.sha256 !== value.sha256 || entry.sectionCount !== value.sections.length) throw new Error(`${f}: manifest membership/hash/count differs`);
+      return value;
+    })
   );
   const result: ArticlePage[] = [];
   let skipped = 0;
@@ -94,7 +110,7 @@ export async function loadAllArticles(): Promise<ArticlePage[]> {
     }
   }
   if (skipped > 0) {
-    logger.error(`loadAllArticles: ${skipped} of ${jsonFiles.length} article file(s) failed to load and were skipped; corpus is incomplete`);
+    throw new Error(`loadAllArticles: ${skipped} of ${jsonFiles.length} manifest article(s) failed validation; corpus is incomplete`);
   }
   return result;
 }
@@ -111,10 +127,11 @@ export async function loadAllSections(): Promise<FlatSection[]> {
   if (_sectionsCache && _sectionsCacheRoot === root && now - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
     return _sectionsCache;
   }
-  if (_sectionsLoad) return _sectionsLoad;
-  _sectionsLoad = (async () => {
+  const pending = _sectionsLoads.get(root);
+  if (pending) return pending;
+  const load = (async () => {
     try {
-      const articles = await loadAllArticles();
+      const articles = await loadAllArticles(root);
       const sections: FlatSection[] = [];
       for (const article of articles) {
         for (const s of article.sections) {
@@ -135,20 +152,11 @@ export async function loadAllSections(): Promise<FlatSection[]> {
       _sectionsCacheRoot = root;
       return sections;
     } finally {
-      _sectionsLoad = null;
+      _sectionsLoads.delete(root);
     }
   })();
-  return _sectionsLoad;
-}
-
-/** Return just the count of all sections without loading text bodies.
- * Uses the cache if warm, otherwise counts file-by-file. */
-export async function loadAllSectionsCount(): Promise<number> {
-  if (_sectionsCache && Date.now() - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
-    return _sectionsCache.length;
-  }
-  const articles = await loadAllArticles();
-  return articles.reduce((n, a) => n + a.sections.length, 0);
+  _sectionsLoads.set(root, load);
+  return load;
 }
 
 /**
@@ -160,24 +168,6 @@ export async function loadAllSectionsCount(): Promise<number> {
 export async function loadSection(guid: string): Promise<FlatSection | undefined> {
   const sections = await loadAllSections();
   return sections.find(s => s.guid === guid);
-}
-
-
-// ─── Search ──────────────────────────────────────────────────────
-
-/** Simple substring search across all sections (number, title, text) */
-export async function searchSections(
-  query: string,
-  sections?: FlatSection[]
-): Promise<FlatSection[]> {
-  const all = sections ?? (await loadAllSections());
-  const lower = query.toLowerCase();
-  return all.filter(
-    (s) =>
-      s.number.toLowerCase().includes(lower) ||
-      s.title.toLowerCase().includes(lower) ||
-      s.text.toLowerCase().includes(lower)
-  );
 }
 
 // ─── Monitoring data ─────────────────────────────────────────────

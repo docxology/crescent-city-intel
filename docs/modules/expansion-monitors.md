@@ -1,13 +1,14 @@
 # Expansion Monitors (#16–#20) — permits, dredging, fuel, PacFIN, AIS
 
-Shipped 2026-09-28 from the TODO open set (🔴 "New monitors: permits,
-dredging, fuel" and 🟡 "Marine expansion: PacFIN landing data + AIS vessel
-tracking"). Data-budget discipline: every connector is ONE bounded fetch per
-run (explicit timeout from `SOURCE_FETCH_TIMEOUT_MS`, one retry, hard size
-caps where the source can grow), and every parser is fixture-tested offline
-against a real capture in `tests/fixtures/` with a negative control — an
-empty, garbage, or wrong-format body THROWS so extraction drift surfaces as
-a loud unavailable error, never a silent "nothing new".
+These monitors observe the public permit catalog, harbor construction posts,
+California gasoline prices, the PacFIN report catalog, and configured AIS
+positions. Connectors bound requests by timeout, retries, and body size. Parsers
+are tested offline against captures in `tests/fixtures/` with negative controls;
+invalid source formats produce explicit unavailable states.
+
+Source dates below identify the recorded live captures used as parser evidence.
+Current availability comes from each bounded run's source-health receipt;
+access to a public catalog does not establish access to its underlying records.
 
 The roster authority remains `MONITOR_KEYS` in `alerts/composite.ts`; these
 five are appended there and flow through every derived roster
@@ -53,14 +54,13 @@ five are appended there and flow through every derived roster
   all-grades all-formulations retail gasoline price (series
   `EMM_EPM0_PTE_SCA_DPG`), a server-rendered HTML table; keyless.
 - **What it reads:** the full weekly observed series (1,300+ weeks in the
-  current capture); the report carries the latest OBSERVED week, the
+  recorded capture); the report carries the latest OBSERVED week, the
   trailing 8 observed weeks, and their median.
-- **What it does NOT read:** no forecast exists in this feed and none is
-  manufactured (the 2026-09-26/27 correctness-pass doctrine: never present
-  a forecast max as a current reading). It is a STATEWIDE observed average,
-  not a Crescent City street price — `scopeNote` says so; station-level
-  feeds (GasBuddy, AAA) block automated access and their terms do not
-  permit it.
+- **What it does NOT read:** this feed supplies observed prices, not a
+  forecast. The connector does not manufacture predictions or present a
+  forecast maximum as a current reading. It is a STATEWIDE observed average,
+  not a Crescent City street price — `scopeNote` says so. Station-level
+  sources require separate access assessment under TODO L05.
 - **Level:** ADVISORY when the latest observed price exceeds the trailing
   8-week median by more than `FUEL_SPIKE_THRESHOLD` (15%), else CALM.
   Every observed week is appended to `history.jsonl` (deduped by week), so
@@ -71,7 +71,7 @@ five are appended there and flow through every derived roster
 - **Source (verified live 2026-09-28):** the PSMFC PacFIN APEX Reports
   Dashboard (`https://reports.psmfc.org/pacfin/`), publicly reachable and
   server-rendering the full report catalog as an embedded JSON tree
-  (`gTree<session-id>Data = {…}`) — 76 public reports today.
+  (`gTree<session-id>Data = {…}`) — 76 public reports in the recorded capture.
 - **What it reads:** the public report catalog (report ids like `ALL001`,
   labels, category paths, methodology tooltips), watched for new or edited
   reports via the shared `IdempotencyStore`.
@@ -79,8 +79,9 @@ five are appended there and flow through every derived roster
   and dollars by port and species) require a PacFIN account — every
   uncredentialed probe lands on the Public Login wall — so
   `landingDataAvailable` is `false`, the summary says the figures are NOT
-  read, and no catch total is ever fabricated. A session cookie can later
-  be supplied via `PACFIN_SESSION_COOKIE` to extend the connector.
+  read, and no catch total is ever fabricated. `PACFIN_SESSION_COOKIE` can
+  supply a cookie, but the current connector still extracts catalog metadata;
+  access to landing figures requires separate integration and acceptance.
 - **Level:** CALM (catalog unchanged) / ADVISORY (catalog changed).
 
 ## `src/alerts/ais.ts` — AIS Vessel Traffic (`ais`)

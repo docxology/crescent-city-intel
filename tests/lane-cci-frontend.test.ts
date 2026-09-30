@@ -11,6 +11,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { exportPagesSnapshot, splitMeetingContent } from "../src/pages_snapshot.ts";
 import { loadSiteJs, type SiteJsApi } from "./helpers/site-js.ts";
+import { writePublicationFixture } from "./helpers/publication-fixture.ts";
 
 const STATIC_DIR = join(process.cwd(), "src", "pages", "static");
 
@@ -233,7 +234,7 @@ describe("lane cci-frontend: authored markup + export gate", () => {
 
   test("exported Pages artifact passes validate-pages with the new cci-frontend gate assertions", async () => {
     await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
+      await writePublicationFixture(root);
       await put(root, "state/analytics-overview.json", {
         schemaVersion: "1.0.0",
         generatedAt: "2026-08-28T00:00:00Z",
@@ -241,12 +242,12 @@ describe("lane cci-frontend: authored markup + export gate", () => {
         operatorSignalsNoticed: [],
       });
       const destination = join(root, "pages");
-      await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-08-28T00:00:00Z" });
+      await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
       const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
       const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
-      // The empty fixture intentionally trips unrelated empty-feed gates (cf.
-      // lane A); the positive control here is that NONE of the cci-frontend
-      // gate assertions fire on a real export of the real authored pages.
+      // This bounded edition is a complete positive control, including the
+      // legitimate empty-feed contract. Every negative below must break it.
+      expect(validate.exitCode).toBe(0);
       for (const fragment of ["This-week quick filter", "This-month quick filter", "aria-pressed", ".ics What-is-this", "calendarEventKindChip", "calendarWindowFilter", "accessible label", "freshness meta", "sticky month-header", "per-kind chip styles"]) {
         expect(output).not.toContain(fragment);
       }
@@ -262,7 +263,7 @@ describe("lane cci-frontend: authored markup + export gate", () => {
    */
   test("negative controls: each R3 gate assertion fails on a mutated export", async () => {
     await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
+      await writePublicationFixture(root);
       await put(root, "state/analytics-overview.json", {
         schemaVersion: "1.0.0",
         generatedAt: "2026-08-28T00:00:00Z",
@@ -283,7 +284,7 @@ describe("lane cci-frontend: authored markup + export gate", () => {
         }],
       });
       const destination = join(root, "pages");
-      await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-08-28T00:00:00Z" });
+      await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
       // Positive control: the exporter strips the raw URL into a labelled document.
       const exportedMeetings = JSON.parse(await readFile(join(destination, "data", "meetings.json"), "utf8")) as Array<Record<string, unknown>>;
       expect(exportedMeetings[0]?.content).toBe("");
@@ -321,8 +322,8 @@ describe("lane cci-frontend: authored markup + export gate", () => {
         { name: "site.js loses the shared window wiring", file: `assets/${siteJsName}`, from: "function wireCalendarWindowButtons", to: "function legacyWireWindowButtons", expect: "does not evaluate, or no longer exports the calendar helpers" },
         // §1.1 — the envelope must reference the standalone artifacts, not carry
         // them. (This assertion was a loop whose only statement was `continue`.)
-        { name: "the envelope re-inlines the readability artifact", file: "data/snapshot.json", from: '"files":', to: '"readability": {"score": 1, "grade": "x"}, "files":', expect: "inlines the readability artifact" },
-        { name: "the envelope drops its reference to the verification artifact", file: "data/snapshot.json", from: '"verification":', to: '"verificationMoved":', expect: "no reference for the verification artifact" },
+        { name: "the envelope re-inlines the readability artifact", file: "data/snapshot.json", from: '"municipalCode":', to: '"readability": {"score": 1, "grade": "x"}, "municipalCode":', expect: "inlines the readability artifact" },
+        { name: "the envelope drops its reference to the verification artifact", file: "data/snapshot.json", from: '"verification": "data/verification-report.json"', to: '"verificationMoved": "data/verification-report.json"', expect: "no reference for the verification artifact" },
         // The contrast gate must see the SHIPPED palette, not its own constants:
         // lightening a variable in the emitted stylesheet has to fail it.
         { name: "the palette lightens below the contrast floor", file: `assets/${siteCssName}`, from: "--ink-faint:#666666", to: "--ink-faint:#bbbbbb", expect: "contrast regression: .meta on --paper" },

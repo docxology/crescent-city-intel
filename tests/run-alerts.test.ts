@@ -13,8 +13,7 @@
  * monitor report data, so this exact regression can't silently recur.
  */
 import { describe, test, expect } from "bun:test";
-import { buildTidesInput, buildFishingInput } from "../scripts/run-alerts.ts";
-import { buildExtendedCompositeInput } from "../src/alerts/composite.ts";
+import { buildTidesInput, buildFishingInput, buildExtendedCompositeInput } from "../src/alerts/composite.ts";
 import type { TideReport } from "../src/alerts/noaa_tides.ts";
 import type { FishingReport } from "../src/alerts/cdfw_fishing.ts";
 

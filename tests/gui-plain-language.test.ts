@@ -2,11 +2,9 @@
  * Phase 7 plain-language rewrite — string contracts for user-facing GUI copy.
  *
  * The GUI is a no-build SPA whose markup lives in src/gui/static/index.html
- * and whose JS lives in src/gui/static/assets/modules/*.js (v2.7.0 asset
- * split), so string contracts are the only deterministic offline assertions
- * available; the live path is covered by `bun run test:browser`. These tests
- * lock the Phase 7 rewrite of the TODO.md Deferred GUI/UX set: headings,
- * button/label tooltips, alert-state wording, empty states, and legends must
+ * and whose JS lives in src/gui/static/assets/modules/*.js. These string
+ * contracts complement rendered-page tests and `bun run test:browser`.
+ * Headings, button/label tooltips, alert-state wording, empty states, and legends must
  * read as plain English for a Crescent City resident — not a civic-data
  * engineer. Internal stack names (RAG, Ollama, Chroma, BM25, GUID, tf-idf)
  * never appear in end-user copy, and every rewritten surface carries an
@@ -17,6 +15,7 @@
 import { describe, test, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { MONITOR_KEYS } from "../src/alerts/composite.ts";
 
 const root = join(process.cwd(), "src", "gui", "static");
 const html = readFileSync(join(root, "index.html"), "utf-8");
@@ -61,14 +60,15 @@ describe("Phase 7 plain language — chat surface", () => {
   });
 
   test("chat failure and empty answers are explicit states", () => {
-    expect(chat).toContain("Could not reach the chat helper. Check that the optional AI service is running.");
+    expect(chat).toContain("The chat helper could not complete this response.");
+    expect(chat).toContain("Any partial response is incomplete.");
     expect(chat).toContain("No answer was returned.");
     expect(chat).not.toContain("Failed to connect to chat service");
   });
 });
 
 describe("Phase 7 plain language — alerts surface", () => {
-  test("the dashboard heading matches the real 15-monitor roster", () => {
+  test("the dashboard heading avoids an obsolete fixed roster count", () => {
     expect(html).toContain("🚨 Live Safety Alerts");
     expect(html).not.toContain("8-Monitor Alert Dashboard");
     expect(alerts).not.toContain("8-monitor");
@@ -196,8 +196,8 @@ describe("Phase 7 plain language — news & feeds surface", () => {
     expect(feeds).toContain("Current EPA air-quality index (AQI)");
     expect(feeds).toContain("Streaming chat answers (server-sent events)");
     expect(feeds).toContain("Reading-difficulty scores (Flesch-Kincaid, Gunning Fog)");
-    expect(feeds).toContain("15-monitor alert aggregation + composite");
-    expect(feeds).toContain("15-monitor composite severity");
+    expect(feeds).toContain(`${MONITOR_KEYS.length}-monitor alert aggregation + composite`);
+    expect(feeds).toContain(`${MONITOR_KEYS.length}-monitor composite severity`);
     expect(feeds).not.toContain("BM25 search with fuzzy fallback");
     expect(feeds).not.toContain("Streaming RAG chat");
     expect(feeds).not.toContain("8-monitor");

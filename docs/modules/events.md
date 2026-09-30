@@ -10,11 +10,12 @@ monitor output into one calendar feed plus an iCalendar export.
    (`gov_meetings/`, `news/`, `youtube/`). The events module never fetches;
    it only reads those artifacts.
 2. `collectEvents()` maps each raw item onto a `StructuredEvent` candidate,
-   dedupes by normalized title + date (unioning source links), classifies by
-   date (`scheduled` / `completed` / `unknown`), sorts ascending with undated
-   last, and caps at `MAX_EVENTS` (200).
-3. `bun run events` writes `output/events/events.json` and, since this pass,
-   also `output/events/events.ics`.
+   dedupes by title, occurrence identity, and meeting body (unioning source
+   links), then classifies by occurrence date (`scheduled` / `completed` /
+   `unknown`). The bounded feed keeps upcoming occurrences first, recent past
+   occurrences next, and unknown-date entries last, up to `MAX_EVENTS` (200).
+3. `bun run events` writes `output/events/events.json` and
+   `output/events/events.ics`.
 4. The Pages exporter (`src/pages_snapshot.ts`) prefers the persisted artifact
    and emits both `data/events.json` and `data/events.ics` into the snapshot.
 
@@ -22,8 +23,11 @@ monitor output into one calendar feed plus an iCalendar export.
 
 - `parseEventDate()` never guesses: ISO dates pass through; "Mar 18, 2026"
   style names map to ISO; placeholders (TBD/TBA/N/A/unknown) and unparseable
-  values return null. Undated news/listings are excluded from the calendar;
-  undated meetings and YouTube entries are kept as `status: unknown`.
+  values return null. Publication/upload timestamps are retained separately as
+  `publicationAt`; they cannot schedule an occurrence or create a VEVENT.
+  Undated meetings, videos, and publication-dated news remain `status: unknown`;
+  completely undated news/listings are excluded. Meeting body and source event
+  identity prevent unrelated same-title meetings from merging.
 
 ## iCalendar export
 
@@ -60,35 +64,43 @@ behavior. All tests are offline and deterministic (no clocks, no network).
 
 ## Boundaries
 
-- LLM summaries are advisory previews grounded only in provided event fields;
-  verify against linked sources.
+- LLM summaries are advisory previews generated from supplied event fields;
+  semantic support is not verified. Inspect linked sources before relying on them.
 - No live fetching happens in this module — artifacts come from prior monitor
   runs.
 
-## Event discovery (`src/event_discovery.ts`, round 2)
+## Event discovery (`src/event_discovery.ts`)
 
 `src/event_discovery.ts` adds bounded-timeout **live discovery** of community
 events from configured public feeds in `pages-data/event_sources.json`
 (schema `crescent-city-event-sources/v1`) — each entry records `{name, url,
 type: 'html'|'rss'|'ics', notes, probe}` with a real HTTP probe status. The
-round-2 roster covers the Crescent City calendar, Del Norte County community
+configured roster covers the Crescent City calendar, Del Norte County community
 events, the library district, the Chamber/visit site, DNACA, and DNUSD.
 
 ### Pipeline
 
-1. `fetchFeed(url, timeoutMs)` — hard-bounded fetch (default 10s); failures
-   degrade to an errored source record, never a thrown run failure.
+1. `fetchFeed(url, timeoutMs, transport?)` — shared bounded transport (default
+   10s, 4 MiB), with public-address validation and redirect checks. Source
+   failures become explicit errored source records.
 2. Parsers produce candidates per source type:
-   - `ics`: RFC 5545 VEVENT blocks (line unfolding, escapes, DATE/DATE-TIME).
-   - `rss`: RSS `<item>` + Atom `<entry>` via cheerio XML mode.
+   - `ics`: RFC 5545 subset (line unfolding, escapes, DATE/DATE-TIME). Pacific,
+     UTC, and floating local dates are supported; other TZIDs stay unresolved.
+     Cancelled and RRULE records are counted as unsupported; recurrence is not
+     expanded into invented occurrences.
+   - `rss`: RSS `<item>` + Atom `<entry>` via cheerio XML mode. Publication
+     timestamps remain `publicationAt`; only explicit event-start fields can
+     supply an occurrence date.
    - `html`: generic event/listing selectors; rows are date-context flagged.
    - strategy `"evogov-json"` (EvoGov platform sites): read calendar ids off
      the listing page, query the public `meetings/get_list` JSON endpoint.
-3. **Grounding:** dates come only from feed data. Date-like but unparseable
+3. **Date evidence:** dates come only from feed data. Date-like but unparseable
    markup may go through an optional local-LLM resolver
    (`extractionMethod: 'llm'`, confidence 0.55); everything else stays
    `'markup'`. Anything without a resolvable date is dropped and counted
-   (`droppedUndated` / `droppedAmbiguous`) — never guessed.
+   (`droppedUndated` / `droppedAmbiguous`); unsupported calendar records have
+   their own `droppedUnsupported` counter. A model-resolved date remains an
+   extraction proposal, not a verified claim.
 4. Every event carries `sourceUrl`, `sourceName`, `sourceLinks`,
    `extractionMethod` ('markup' | 'llm'), and a 0..1 `confidence`.
 5. **Reconciliation** vs `output/events/events.json`: same normalized title
@@ -98,10 +110,12 @@ events, the library district, the Chamber/visit site, DNACA, and DNUSD.
 ### Public API
 
 `GET /api/events/discover` returns the discovery artifact
-(`crescent-city-events-discovery/v1`); pass `?live=false` to skip network
-fetching. The CLI writes `output/events/event_discovery.json`
-(`bun src/event_discovery.ts`). Rendering on the public page belongs to the
-pages lane this round.
+(`crescent-city-events-discovery/v1`) with `source: persisted`, `network`, or
+`offline-shell`. The default reads the saved artifact and otherwise builds an
+offline shell; `?refresh=true` explicitly requests bounded network discovery.
+The compatibility parameter `?live=false` requests the offline shell. The CLI
+writes `output/events/event_discovery.json` (`bun src/event_discovery.ts`), and
+Pages projects allowed event fields into its public calendar artifacts.
 
 ### Tests
 
@@ -109,4 +123,6 @@ pages lane this round.
 real probed feeds (`tests/fixtures/event-discovery/`, provenance recorded in
 file headers): ICS/RSS/HTML parsing, EvoGov id extraction, LLM-response
 strict-parsing, reconciliation merge/conflict logic, registry loading, and
-no-network determinism of `buildDiscoveryArtifact`.
+no-network determinism of `buildDiscoveryArtifact`. Real local HTTP fixtures
+use an explicit exact loopback `fixtureOrigin`; production callers cannot gain
+private-network access through an ambient test-mode environment variable.

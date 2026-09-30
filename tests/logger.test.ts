@@ -72,3 +72,13 @@ describe("Logger", () => {
         setLogLevel(original);
     });
 });
+
+test("structured diagnostics remove nested credentials and provider URL queries", async () => {
+  const { redactLogValue } = await import("../src/logger.js");
+  const result = JSON.stringify(redactLogValue({ error: "GET https://user:password@example.org/data?api_key=private-value failed Bearer credential-value", nested: { apiKey: "private-value", prompt: "private-question" }, status: 503 }));
+  expect(result).not.toContain("private-value");
+  expect(result).not.toContain("private-question");
+  expect(result).not.toContain("credential-value");
+  expect(result).not.toContain("user:password");
+  expect(result).toContain("503");
+});

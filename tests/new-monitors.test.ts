@@ -220,17 +220,18 @@ describe("ais — open-AIS vessel positions", () => {
       expect(Number.isInteger(position.mmsi)).toBe(true);
       expect(position.lat).toBeGreaterThanOrEqual(-90);
       expect(position.lat).toBeLessThanOrEqual(90);
-      expect(position.positionAt.length).toBeGreaterThan(0);
+      expect(position.positionAt).not.toBeNull();
+      expect(position.positionAt!.length).toBeGreaterThan(0);
     }
   });
 
-  test("the captured (non-US) feed yields an explicit empty watch-box state", () => {
+  test("the captured foreign feed cannot establish local traffic coverage", () => {
     const positions = parseAisLocations(json);
     const report = buildAisReport(positions, NOW);
     expect(report.vesselsObserved).toBe(50);
     expect(report.vesselsInWatchArea).toEqual([]);
     expect(report.worstLevel).toBe("CALM");
-    expect(report.summary).toContain("No AIS vessels in the Del Norte watch box");
+    expect(report.summary).toContain("Local vessel coverage is not established");
     // The report is honest about the feed's coverage scope.
     expect(report.coversDelNorteWaters).toBe(false);
   });
@@ -267,7 +268,7 @@ describe("ais — open-AIS vessel positions", () => {
 describe("the five expansion monitors are wired into the derived rosters", () => {
   test("EXTENDED_MONITOR_SPECS carries all five with bounded-fetch provenance", () => {
     const keys = ["permits", "dredging", "fuel", "pacfin", "ais"];
-    for (const key of keys) expect(MONITOR_KEYS).toContain(key);
+    for (const key of keys) expect(MONITOR_KEYS.map(String)).toContain(key);
     const specs = EXTENDED_MONITOR_SPECS.filter(([, specKey]) => keys.includes(specKey));
     expect(specs.length).toBe(5);
     for (const [, , , url, provenance] of specs) {

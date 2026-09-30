@@ -97,8 +97,7 @@ Content is included if it matches any of: `crescent city`, `del norte`, `tsunami
 | :--- | :--- | :--- |
 | `monitorNews` | `(filterKeywords?: string[], options?) → Promise<NewsItem[]>` | Fetch all feeds, deduplicate, filter, save, and write per-source health |
 | `fetchRSSFeedDetailed` | `(url, source) → Promise<NewsFeedResult>` | RSS/Atom items plus `ok`/`empty`/`unavailable` health |
-| `fetchRSSFeed` | `(source, url) → Promise<NewsItem[]>` | Parse one RSS feed |
-| `NewsItem` | `interface` | `{id, title, link, pubDate, source, description, fetchedAt}` |
+| `NewsItem` | `interface` | `{title, link, pubDate, content, source, fetchedAt}` |
 
 ### Output
 
@@ -112,10 +111,8 @@ feed. `--keywords=a,b` replaces the default relevance list and
 bun run news     # via scripts/run-news.ts
 ```
 
-**Fixed 2026-07-23**: `scripts/run-news.ts` previously called `monitorNews`
-with an object instead of the `string[] | undefined` array `monitorNews`
-actually expects, which broke the news monitor completely in normal use (no
-`--keywords` flag). It now passes the parsed keyword array correctly.
+`scripts/run-news.ts` passes the parsed keyword array to `monitorNews`; when
+`--keywords` is absent, the monitor uses its default relevance list.
 
 ---
 
@@ -124,16 +121,10 @@ actually expects, which broke the news monitor completely in normal use (no
 Pulls upcoming and recent-past agendas/minutes for City Council, Planning
 Commission, and (when a source exists — see below) Harbor Commission.
 
-### Sources (fixed 2026-07-24)
+### Sources
 
-The old `crescentcity.org/government/{city-council,planning-commission,
-harbor-commission}/agendas` URLs 404 — the city migrated `crescentcity.org`
-to the EvoGov CMS at some point after this module was originally written.
-EvoGov's `/meetings` calendar is rendered client-side (the initial HTML
-contains no meeting data at all), but the widget itself calls a same-origin
-JSON endpoint to populate it. That endpoint — found by capturing real network
-traffic with Playwright against `https://www.crescentcity.org/meetings` — is
-what `fetchGovMeetings()` now calls directly:
+`fetchGovMeetingsDetailed()` reads the same-origin EvoGov JSON endpoint used
+by the city's `/meetings` calendar:
 
 ```
 GET https://www.crescentcity.org/meetings/get_list
@@ -146,25 +137,19 @@ It returns a flat JSON array of meeting objects (`title`, `start_date_short`,
 `agenda_links`, `minute_links`, etc. — see the `EvoGovMeetingItem` interface
 in `gov_meeting_monitor.ts`). City Council and Planning Commission meetings
 both live on the same underlying calendar ("Meetings and Events", id `666`)
-and are distinguished only by matching `title` against the source name, not
-by a separate URL or calendar id — confirmed against a full year of real
-response data.
+and are distinguished by matching `title` against the source name rather than
+by a separate URL or calendar id.
 
 | Body | How it's identified |
 | :--- | :--- |
 | City Council | `title` contains "City Council" (e.g. "City Council Meeting", "Special City Council Meeting") |
 | Planning Commission | `title` contains "Planning Commission" |
-| Harbor Commission | not present on this endpoint at all — see below |
+| Harbor Commission | `title` contains "Harbor Commission"; no matches produce an explicit `empty` result |
 
-> **Harbor Commission has no known digital agenda source right now**
-> (confirmed 2026-07-24). It doesn't appear anywhere in a full year of the
-> EvoGov feed's `title` values, and its own domain
-> (`crescentcityharbor.com` / `www.crescentcityharbor.com`, linked from this
-> project's own README) no longer resolves in DNS at all. `GOV_SOURCES`
-> keeps a "Harbor Commission" entry pointed at the same EvoGov endpoint so
-> the monitor honestly reports 0 matches every run rather than 404ing —
-> finding a real source (a successor domain, a county/harbor-district
-> portal) needs manual research, not more scraping code.
+`GOV_SOURCES` points the Harbor Commission entry at the same EvoGov endpoint.
+An empty result establishes only that the returned listing had no matching
+records. A dedicated Harbor agenda source requires separate source assessment
+under [TODO L05](../../TODO.md).
 
 ### Change Detection
 
@@ -174,10 +159,11 @@ Uses SHA-256 hashing of each meeting item to detect new or changed content. In-p
 
 | Export | Signature | Description |
 | :--- | :--- | :--- |
-| `monitorGovMeetings` | `() → Promise<MeetingItem[]>` | Full monitor run (fetch + filter + save) |
-| `fetchGovMeetings` | `(name, url) → Promise<MeetingItem[]>` | Scrape one meeting source |
-| `saveMeetingItems` | `(items) → Promise<void>` | Persist to `output/gov_meetings/` |
-| `MeetingItem` | `interface` | `{id, title, body, source, url, fetchedAt, hash}` |
+| `monitorGovMeetings` | `() → Promise<GovMeetingItem[]>` | Full monitor run (fetch + filter + save) |
+| `fetchGovMeetingsDetailed` | `(url, source) → Promise<GovMeetingFetchResult>` | Meeting items plus `ok`/`empty`/`unavailable` source health |
+| `saveMeetingItems` | `(items, documentDrift?, dataDir?) → Promise<void>` | Persist meeting items and document drift to JSON |
+| `GovMeetingItem` | `interface` | `{title, link, date, content, source, fetchedAt, isNew, changed, vote?, docHashes?, voteTable?}` |
+| `GovMeetingFetchResult` | `interface` | `{items, health}` with source-specific meeting items and typed source health |
 
 ### Output
 
@@ -187,12 +173,10 @@ Saves to `output/gov_meetings/meetings-<timestamp>.json`.
 bun run gov-meetings   # via scripts/run-meetings.ts
 ```
 
-**Fixed 2026-07-24**: `monitorGovMeetings()` returns its collected items and
-persists per-source health. The live EvoGov endpoint currently returns City
-Council and Planning Commission records; Harbor Commission is retained as an
-explicit `empty` source until a real agenda feed is found.
+`monitorGovMeetings()` returns its collected items and persists per-source
+health, distinguishing successful empty listings from unavailable sources.
 
-### Meeting-minutes depth (Phase 4.2)
+### Meeting-minutes depth
 
 `src/minutes_extraction.ts` extracts every parseable vote tally from minutes
 text (`extractVotes`), hashes each fetched agenda/minutes document for change
@@ -251,13 +235,17 @@ failures and selector drift are represented in
 bun run src/triplicate_monitor.ts
 ```
 
-## Alert monitors (15)
+## Alert monitors
 
 The real-time hazard family has its own deep-dive in
-[alerts.md](alerts.md); the count matters here because the source-health
+[alerts.md](alerts.md). `MONITOR_KEYS` defines the roster, and the source-health
 denominator includes every monitor in the batch. `scripts/run-alerts.ts`
-runs all 20 concurrently (graceful degradation — a failing monitor is a typed
-`unavailable`, never a failed run) and feeds the composite severity:
+runs all 20 concurrently and feeds the composite severity. Upstream failures
+are reported as typed `unavailable` coverage records. Each batch records its
+attempt and per-monitor outcomes; current-cycle CI checks reject child failure,
+missing or duplicate roster entries, invalid counts/statuses, and old timestamps.
+A source outage remains a coverage fact rather than a successful empty result.
+The roster contains:
 **8 core** (tsunami, earthquake, weather, tides, fishing, air quality,
 wildfire, marine), **7 base extended** (drought, PSPS, smoke, roads, school
 closures, marine forecast, USCG broadcasts), and **5 expansion** (permits,
@@ -267,7 +255,7 @@ dredging, fuel, PacFIN reports, AIS vessel traffic).
 | :--- | :--- | :--- | :--- |
 | `uscg_broadcasts.ts` | USCG NAVCEN District 11 Broadcast Notice to Mariners listing (no API key) | New/updated BNMs relevant to the North Coast | `output/alerts/uscg/` |
 
-The USCG monitor is the 15th and newest: it reads the public District 11 BNM
+The USCG monitor reads the public District 11 BNM
 listing, filters items for North Coast relevance (no API key required),
 deduplicates by content hash into `output/alerts/uscg/`, and feeds the 15th
 positional input of `computeAlertSeverity` (its findings enter the composite
@@ -310,10 +298,12 @@ stable run ID, runtime/commit metadata, every stage's status/duration/error,
 output paths, and aggregate source health. Source health is a coverage
 measurement: `ok` and `empty` are present checks, while `unavailable` and
 `stale` are missing checks. The summary exposes `present`, `missing`,
-`coveragePercent`, `coverageStatus`, and named source lists; source gaps do
-not change a successful run to `degraded` or produce a nonzero exit. Exit code
-`1` is reserved for an explicit operational condition such as a detected code
-change; exit code `2` means a pipeline stage failed.
+`coveragePercent`, `coverageStatus`, and named source lists. A source gap alone
+does not produce a nonzero exit. Stage classifiers can report `degraded` for
+conditions such as an entirely unavailable alert batch or an honestly empty
+calendar; the aggregate run preserves those stage verdicts. Exit code `1`
+signals an explicit review condition such as a detected code change; exit
+code `2` means a pipeline stage failed.
 
 ### Tests
 

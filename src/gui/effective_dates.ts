@@ -1,17 +1,16 @@
 /**
- * Effective-date field (Phase 10 of the deferred GUI/UX set).
+ * Effective-date field (Phase 10).
  *
- * The roadmap's deferred item is a date field for sections and views. The
- * honest data layer for it already exists: every section carries a `history`
+ * The field derives from section history: every section carries a `history`
  * line ("Ord. 565 § 2, 1980; Ord. 817 § 2, 2020"), and
  * `legal_parser.extractOrdinanceAmendments` parses those lines into dated
  * actions with a documented no-fabrication rule (an ordinance number is never
  * mistaken for a year). This module derives the field from that parser:
  *
- *  - effective year = the most recent dated action in the section's history
- *    (the date the section last took effect as written);
+ *  - the legacy effectiveYear field = the latest recorded amendment year;
+ *    this does not establish the section's legal effective date;
  *  - `null` when the history carries no parseable year — surfaced as an
- *    explicit "no effective date on record" state by every consumer, never
+ *    explicit "no amendment year on record" state by every consumer, never
  *    guessed from the ordinance number, the scrape date, or anything else.
  *
  * The corpus-level report covers the same ground for views: which sections
@@ -47,7 +46,7 @@ export interface EffectiveDatesReport {
     sectionsScanned: number;
     sectionsWithDate: number;
     sectionsWithoutDate: number;
-    /** Earliest and latest effective years actually on record. */
+    /** Earliest and latest recorded amendment years. */
     earliestYear: number | null;
     latestYear: number | null;
   };

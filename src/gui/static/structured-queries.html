@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>The Quadruplicate — Structured Queries</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
+  <script src="assets/gui-runtime.js"></script>
   <style>
     body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
     header{background:#c41e1e;color:#fff;padding:18px 24px}
@@ -78,8 +79,7 @@
   <script>
     const key = window.__CC_API_KEY__;
     function apiFetch(url) {
-      const headers = key && !key.startsWith("__CC_API_KEY") ? { "X-API-Key": key } : {};
-      return fetch(url, { headers });
+      return CCGui.apiFetch(url);
     }
     function show(id){document.getElementById(id).classList.remove("hidden");}
     function hide(id){document.getElementById(id).classList.add("hidden");}

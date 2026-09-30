@@ -24,7 +24,7 @@ describe("Crescent City geospatial view-assembler", () => {
     expect(surface.schema).toBe("crescent-city-geo-intel/v1");
     expect(surface.domainCount).toBe(contract.domainCount);
     expect(surface.view.schema).toBe("crescent-city-geo-view/v1");
-    expect(surface.view.generatedAt).toBe(contract.generatedAt);
+    expect(surface.view.generatedAt).toBe(String(contract.generatedAt));
   });
 
   test("view carries the Crescent City / Del Norte anchor", () => {

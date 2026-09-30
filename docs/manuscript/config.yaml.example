@@ -1,6 +1,6 @@
 # Fork template — copy to config.yaml and replace TODO-OWNER values.
-# Derived from this repository's own manuscript/config.yaml; structural
-# fields mirror the live config. See manuscript/AGENTS.md for the token protocol.
+# Derived from this repository's own docs/manuscript/config.yaml; structural
+# fields mirror the live config. See docs/manuscript/AGENTS.md for the token protocol.
 
 # Manuscript configuration for the Crescent City Intelligence Platform.
 #
@@ -9,10 +9,11 @@
 # writes the evidence-bound, run-specific copy to output/manuscript/.
 
 paper:
+  # Paper edition metadata, independent of the application package version.
   title: "Evidence-Bounded Civic Intelligence: The Quadruplicate Platform"
   subtitle: "A provenance-preserving platform for municipal code, local sources, safety signals, and grounded summaries"
-  version: "2.5.1"
-  date: "2026-07-30"
+  version: "3.0.0"
+  date: "2026-09-30"
 
 authors:
   - name: "TODO-OWNER: author name"
@@ -41,10 +42,10 @@ keywords:
   - "local government"
 
 metadata:
-  license: "MIT"
+  license: "CC BY-SA 4.0"
   language: "en"
 
-manuscript_dir: "manuscript"
+manuscript_dir: "docs/manuscript"
 
 prose:
   target_grade_level_min: 12.0
@@ -55,7 +56,7 @@ prose:
   forbid_skipped_levels: true
 
 bibliography:
-  references_path: "manuscript/references.bib"
+  references_path: "docs/manuscript/references.bib"
   fail_on_missing: true
   fail_on_unused: true
 

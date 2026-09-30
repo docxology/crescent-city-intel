@@ -20,19 +20,31 @@
  */
 import { createLogger } from './logger.js';
 import { IdempotencyStore } from './shared/idempotency.js';
-import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
+import { mkdir, writeFile, readFile, unlink, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { chunkText } from './llm/embeddings.js';
 import { embedBatch } from './llm/ollama.js';
-import { addDocuments } from './llm/chroma.js';
+import { addDocuments, getDocuments, getDocumentIds, servingCollectionName, discardCollection } from './llm/chroma.js';
 import { llmConfig } from './llm/config.js';
-import { paths } from './shared/paths.js';
+import { paths, outputRoot } from './shared/paths.js';
+import { boundedHttpFetch, withinDeadline, throwIfAborted } from './shared/transport.js';
+import { withFileLease } from './shared/storage.js';
+import { indexConfigSignature, type IndexManifest, type PlannedChunk } from './llm/index_plan.js';
+import { custodyHash } from './corpus_editions.js';
+import { EMBED_BATCH_SIZE } from './constants.js';
+import { runBoundedChild } from './shared/subprocess.js';
 import { sourceHealth, errorMessage, writeJsonAtomic } from './shared/source_health.js';
+import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
 import { DOMParser } from '@xmldom/xmldom';
 
 const logger = createLogger('youtube_monitor');
+
+function youtubeSourceHealth(...args: Parameters<typeof sourceHealth>): SourceHealth {
+  const [name, status, checkedAt, details] = args;
+  return sourceHealth(name, status, checkedAt, { ...details, sourceId: sourceIdForMonitor('youtube') });
+}
 
 /** Official City of Crescent City, California YouTube channel — confirmed live 2026-07-23. */
 export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/c/CityofCrescentCityCalifornia/videos';
@@ -40,11 +52,11 @@ export const YOUTUBE_CHANNEL_ID = 'UCc8LIkDxscuciAFNB9yEEMA';
 export const YOUTUBE_RSS_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`;
 const YOUTUBE_CHANNEL_NAME = 'City of Crescent City, California';
 
-const YOUTUBE_OUTPUT_DIR = join(process.cwd(), 'output', 'youtube');
+const youtubeOutputDir = () => join(outputRoot(), 'youtube');
 /** Lives under output/state/, NOT output/youtube/ — keeps every consumer
  * that lists output/youtube/*.json (e.g. curation.ts's gatherYouTubeItems)
  * from having to remember to filter this state file out. */
-const SEEN_VIDEOS_PATH = join(process.cwd(), 'output', 'state', 'youtube-seen-videos.json');
+const seenVideosPath = () => join(outputRoot(), 'state', 'youtube-seen-videos.json');
 const YT_DLP_TIMEOUT_MS = Number(process.env.YT_DLP_TIMEOUT_MS ?? '45000');
 
 /**
@@ -99,35 +111,8 @@ export interface YouTubeTranscript {
 }
 
 async function runYtDlp(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  try {
-    const proc = Bun.spawn(['yt-dlp', ...args], { stdout: 'pipe', stderr: 'pipe' });
-    type Completed = { stdout: string; stderr: string; exitCode: number };
-    const completed = Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-      proc.exited,
-    ]).then(([stdout, stderr, exitCode]) => ({ stdout, stderr, exitCode } satisfies Completed));
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timedOut = new Promise<Completed>((resolve) => {
-      timer = setTimeout(() => {
-        // Kill immediately and resolve independently of pipe closure. Some
-        // yt-dlp failure paths leave a descendant holding stdout/stderr open;
-        // waiting for those streams would defeat the timeout contract.
-        try { proc.kill(9); } catch { /* process already exited */ }
-        resolve({
-          stdout: '',
-          stderr: `yt-dlp timed out after ${YT_DLP_TIMEOUT_MS}ms`,
-          exitCode: -2,
-        });
-      }, YT_DLP_TIMEOUT_MS);
-    });
-    const result = await Promise.race([completed, timedOut]);
-    if (timer) clearTimeout(timer);
-    return result;
-  } catch (err: any) {
-    // yt-dlp not on PATH, or spawn failure
-    return { stdout: '', stderr: err.message ?? String(err), exitCode: -1 };
-  }
+  const result = await runBoundedChild(['yt-dlp', ...args], { timeoutMs: YT_DLP_TIMEOUT_MS });
+  return { stdout: result.stdout, stderr: result.status === 'timeout' ? `yt-dlp timed out after ${YT_DLP_TIMEOUT_MS}ms (process group reaped: ${result.reaped})` : result.stderr, exitCode: result.status === 'ok' || result.status === 'failed' ? result.exitCode : -2 };
 }
 
 async function listChannelVideosFromRss(
@@ -135,7 +120,7 @@ async function listChannelVideosFromRss(
   limit: number,
 ): Promise<YouTubeListingResult> {
   const checkedAt = new Date().toISOString();
-  const response = await fetch(YOUTUBE_RSS_URL, {
+  const response = await boundedHttpFetch(YOUTUBE_RSS_URL, {
     headers: { Accept: 'application/atom+xml, application/xml' },
     signal: AbortSignal.timeout(YT_DLP_TIMEOUT_MS),
   });
@@ -159,7 +144,7 @@ async function listChannelVideosFromRss(
   }
   return {
     videos,
-    health: sourceHealth('YouTube', videos.length > 0 ? 'ok' : 'empty', checkedAt, {
+    health: youtubeSourceHealth('YouTube', videos.length > 0 ? 'ok' : 'empty', checkedAt, {
       url: channelUrl,
       fetchedAt: checkedAt,
       itemCount: videos.length,
@@ -188,7 +173,7 @@ export async function listChannelVideosDetailed(
   } catch {
     return {
       videos: [],
-      health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+      health: youtubeSourceHealth('YouTube', 'unavailable', checkedAt, {
         url: channelUrl,
         itemCount: 0,
         error: 'Invalid YouTube channel URL',
@@ -196,13 +181,13 @@ export async function listChannelVideosDetailed(
       }),
     };
   }
-  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+  if (parsedUrl.protocol !== 'https:' || parsedUrl.username || parsedUrl.password || !['youtube.com', 'www.youtube.com'].includes(parsedUrl.hostname)) {
     return {
       videos: [],
-      health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+      health: youtubeSourceHealth('YouTube', 'unavailable', checkedAt, {
         url: channelUrl,
         itemCount: 0,
-        error: `Unsupported channel URL protocol: ${parsedUrl.protocol}`,
+        error: 'Channel URL must be a public HTTPS YouTube URL without credentials',
         provenance: 'yt-dlp channel listing',
       }),
     };
@@ -223,7 +208,7 @@ export async function listChannelVideosDetailed(
     } catch (fallbackError) {
       return {
         videos: [],
-        health: sourceHealth('YouTube', 'unavailable', checkedAt, {
+        health: youtubeSourceHealth('YouTube', 'unavailable', checkedAt, {
           url: channelUrl,
           itemCount: 0,
           error: `${stderr.trim().slice(0, 500) || `yt-dlp exited with code ${exitCode}`}; RSS fallback failed: ${errorMessage(fallbackError)}`,
@@ -245,7 +230,7 @@ export async function listChannelVideosDetailed(
 
   return {
     videos,
-    health: sourceHealth('YouTube', videos.length > 0 ? 'ok' : 'empty', checkedAt, {
+    health: youtubeSourceHealth('YouTube', videos.length > 0 ? 'ok' : 'empty', checkedAt, {
       url: channelUrl,
       fetchedAt: checkedAt,
       itemCount: videos.length,
@@ -327,7 +312,7 @@ export function parseVtt(vttContent: string): TranscriptSegment[] {
  */
 export async function extractTranscript(
   video: YouTubeVideoListing,
-  outDir: string = YOUTUBE_OUTPUT_DIR
+  outDir: string = youtubeOutputDir()
 ): Promise<YouTubeTranscript> {
   const fetchedAt = new Date().toISOString();
   const base = {
@@ -418,37 +403,129 @@ function timestampForOffset(offset: number, timeline: OffsetTimeline): string {
   return result;
 }
 
-/**
- * Chunk and index a transcript into ChromaDB, tagged `sourceType:
- * "youtube_transcript"` so RAG citations can distinguish it from municipal
- * code chunks (ISC-19, ISC-20). No-op (returns 0) for a non-'ok' transcript.
- */
-export async function indexYouTubeTranscript(transcript: YouTubeTranscript): Promise<number> {
-  if (transcript.status !== 'ok' || transcript.segments.length === 0) return 0;
-
+/** Exact transcript chunks shared by the individual producer and local reindex. */
+export function planTranscriptChunks(transcript: YouTubeTranscript, sourceSha256: string): PlannedChunk[] {
+  if (transcript.status !== 'ok') return [];
+  if (!/^[A-Za-z0-9_-]{11}$/.test(transcript.videoId) || !Array.isArray(transcript.segments) || !transcript.segments.length || typeof transcript.title !== 'string' || typeof transcript.uploadDate !== 'string' || !/^[a-f0-9]{64}$/.test(sourceSha256)) throw new Error('Malformed successful transcript');
+  for (const segment of transcript.segments) {
+    if (!segment || typeof segment.text !== 'string' || !segment.text.trim() || typeof segment.start !== 'string' || !/^\d{2,}:([0-5]\d):([0-5]\d)\.\d{3}$/.test(segment.start)) throw new Error('Malformed transcript cue');
+  }
   const timeline = buildOffsetTimeline(transcript.segments);
   const chunks = chunkText(timeline.text);
-  if (chunks.length === 0) return 0;
+  const configSignature = indexConfigSignature(llmConfig);
+  return chunks.map((text, i) => ({
+    id: `youtube_${transcript.videoId}_${i}`, text,
+    metadata: { sourceType: 'youtube_transcript', videoId: transcript.videoId, videoTitle: transcript.title,
+      uploadDate: transcript.uploadDate, timestamp: timestampForOffset(i * (llmConfig.chunkSize - llmConfig.chunkOverlap), timeline),
+      chunkIndex: String(i), sourceSha256, configSignature },
+  }));
+}
 
-  const ids: string[] = [];
-  const metadatas: Record<string, string>[] = [];
-  let cursor = 0;
-  for (let i = 0; i < chunks.length; i++) {
-    ids.push(`youtube_${transcript.videoId}_${i}`);
-    metadatas.push({
-      sourceType: 'youtube_transcript',
-      videoId: transcript.videoId,
-      videoTitle: transcript.title,
-      uploadDate: transcript.uploadDate,
-      timestamp: timestampForOffset(cursor, timeline),
-      chunkIndex: String(i),
-    });
-    cursor += Math.max(1, chunks[i].length - llmConfig.chunkOverlap);
+/**
+ * Index one acquired transcript. The shared writer lease prevents a concurrent
+ * municipal edition from activating while the serving collection is selected.
+ */
+export async function indexYouTubeTranscript(transcript: YouTubeTranscript, options: { signal?: AbortSignal; deadlineMs?: number } = {}): Promise<number> {
+  if (transcript.status !== 'ok' || transcript.segments.length === 0) return 0;
+  const chunks = planTranscriptChunks(transcript, custodyHash(JSON.stringify(transcript)));
+  return withinDeadline(async signal => withFileLease(join(paths.state, 'index-writer.lock'), async () => {
+    const collection = await servingCollectionName();
+    const embeddings = await embedBatch(chunks.map(chunk => chunk.text), { signal });
+    await addDocuments({ ids: chunks.map(chunk => chunk.id), embeddings, documents: chunks.map(chunk => chunk.text), metadatas: chunks.map(chunk => chunk.metadata) }, { signal, collection });
+    return chunks.length;
+  }, { signal, waitMs: 1000 }), options.deadlineMs ?? 300_000, options.signal);
+}
+
+export interface TranscriptReindexReceipt {
+  schemaVersion: 'retained-transcript-index/v1'; generatedAt: string; configSignature: string;
+  servingCollection: string; previousCollection: string; transcriptCount: number; chunkCount: number;
+  sources: Array<{ file: string; videoId: string; sourceSha256: string; chunkIds: string[] }>;
+  evidenceBoundary: string;
+}
+
+async function retainedTranscriptSources(directory: string, signal: AbortSignal): Promise<Array<{ file: string; rawSha256: string; transcript: YouTubeTranscript | null }>> {
+  throwIfAborted(signal);
+  const entries = (await readdir(directory, { withFileTypes: true })).filter(entry => /^[A-Za-z0-9_-]{11}\.json$/.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name));
+  if (entries.length > 200) throw new Error('Retained transcript inventory exceeds 200 files');
+  const sources = []; let bytes = 0;
+  for (const entry of entries) {
+    throwIfAborted(signal);
+    if (!entry.isFile()) throw new Error('Retained transcript source must be a regular file');
+    const file = Bun.file(join(directory, entry.name));
+    if (file.size > 8 * 1024 * 1024 || (bytes += file.size) > 64 * 1024 * 1024) throw new Error('Retained transcript inventory exceeds byte cap');
+    const bytesRead = new Uint8Array(await file.arrayBuffer());
+    const raw = new TextDecoder('utf-8', { fatal: true }).decode(bytesRead); const parsed = JSON.parse(raw) as YouTubeTranscript;
+    if (!parsed || parsed.videoId !== entry.name.slice(0, -5) || !['ok', 'unavailable', 'extraction_failed'].includes(parsed.status)) throw new Error('Retained transcript source identity/status mismatch');
+    if (parsed.status === 'ok') planTranscriptChunks(parsed, custodyHash(bytesRead));
+    sources.push({ file: entry.name, rawSha256: custodyHash(bytesRead), transcript: parsed.status === 'ok' ? parsed : null });
   }
+  return sources;
+}
 
-  const embeddings = await embedBatch(chunks);
-  await addDocuments({ ids, embeddings, documents: chunks, metadatas });
-  return chunks.length;
+/**
+ * Re-embed retained successful artifacts without listing/fetching YouTube.
+ * Municipal vectors and transcripts are staged together, verified by exact IDs,
+ * then activated by one atomic serving receipt. Old serving bytes are retained.
+ */
+export async function reindexRetainedYouTubeTranscripts(options: { signal?: AbortSignal; deadlineMs?: number; sourceDirectory?: string } = {}): Promise<TranscriptReindexReceipt> {
+  const deadlineMs = options.deadlineMs ?? 900_000;
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 3_600_000) throw new Error('Invalid retained-transcript index deadline');
+  return withinDeadline(async signal => withFileLease(join(paths.state, 'index-writer.lock'), async () => {
+    const directory = options.sourceDirectory ?? youtubeOutputDir();
+    const sources = await retainedTranscriptSources(directory, signal);
+    const eligible = sources.filter((source): source is typeof source & { transcript: YouTubeTranscript } => source.transcript !== null);
+    if (!eligible.length) throw new Error('No retained successful transcript sources; reindex remains required');
+    const previousBytes = await readFile(paths.indexManifest, 'utf8');
+    const previous = JSON.parse(previousBytes) as IndexManifest;
+    const configSignature = indexConfigSignature(llmConfig);
+    if (previous.schemaVersion !== 2 || previous.configSignature !== configSignature || !previous.articles) throw new Error('Municipal serving geometry is not current; rebuild it before transcripts');
+    if (previous.corpusManifestSha256 && custodyHash(await readFile(paths.manifest)) !== previous.corpusManifestSha256) throw new Error('Municipal source edition changed; rebuild it before transcripts');
+    const priorCollection = await servingCollectionName();
+    const codeIds = Object.values(previous.articles).flatMap(article => article.chunkIds);
+    if (!codeIds.length || codeIds.length !== previous.chunkCount || new Set(codeIds).size !== codeIds.length) throw new Error('Invalid municipal index membership receipt');
+    const available = new Set(await getDocumentIds({ signal, collection: priorCollection }));
+    if (codeIds.some(id => !available.has(id))) throw new Error('Serving municipal vectors are incomplete');
+    const staged = `${llmConfig.collectionName}-stage-${crypto.randomUUID()}`;
+    try {
+      for (let offset = 0; offset < codeIds.length; offset += EMBED_BATCH_SIZE) {
+        const requested = codeIds.slice(offset, offset + EMBED_BATCH_SIZE);
+        const batch = await getDocuments(requested, { signal, collection: priorCollection });
+        if (batch.ids.length !== requested.length || new Set(batch.ids).size !== requested.length || batch.ids.some(id => !requested.includes(id))) throw new Error('Serving municipal vectors changed during transcript staging');
+        await addDocuments(batch, { signal, collection: staged });
+      }
+      const chunks = eligible.flatMap(source => planTranscriptChunks(source.transcript, source.rawSha256));
+      for (let offset = 0; offset < chunks.length; offset += EMBED_BATCH_SIZE) {
+        throwIfAborted(signal);
+        const batch = chunks.slice(offset, offset + EMBED_BATCH_SIZE);
+        const embeddings = await embedBatch(batch.map(chunk => chunk.text), { signal });
+        await addDocuments({ ids: batch.map(chunk => chunk.id), embeddings, documents: batch.map(chunk => chunk.text), metadatas: batch.map(chunk => chunk.metadata) }, { signal, collection: staged });
+      }
+      const expected = new Set([...codeIds, ...chunks.map(chunk => chunk.id)]);
+      const actual = new Set(await getDocumentIds({ signal, collection: staged }));
+      if (actual.size !== expected.size || [...expected].some(id => !actual.has(id))) throw new Error('Staged transcript membership is incomplete');
+      for (let offset = 0; offset < chunks.length; offset += EMBED_BATCH_SIZE) {
+        const requested = chunks.slice(offset, offset + EMBED_BATCH_SIZE);
+        const actualChunks = await getDocuments(requested.map(chunk => chunk.id), { signal, collection: staged });
+        for (const chunk of requested) {
+          const i = actualChunks.ids.indexOf(chunk.id);
+          if (i < 0 || actualChunks.documents[i] !== chunk.text || actualChunks.metadatas[i]?.sourceSha256 !== chunk.metadata.sourceSha256 || actualChunks.metadatas[i]?.configSignature !== configSignature || !actualChunks.embeddings[i]?.every(Number.isFinite)) throw new Error('Staged transcript content/geometry receipt mismatch');
+        }
+      }
+      const repeated = await retainedTranscriptSources(directory, signal);
+      if (JSON.stringify(sources.map(source => [source.file, source.rawSha256])) !== JSON.stringify(repeated.map(source => [source.file, source.rawSha256]))) throw new Error('Retained transcript sources changed during indexing');
+      if (await readFile(paths.indexManifest, 'utf8') !== previousBytes) throw new Error('Serving receipt changed during transcript indexing');
+      if (previous.corpusManifestSha256 && custodyHash(await readFile(paths.manifest)) !== previous.corpusManifestSha256) throw new Error('Municipal source edition changed during transcript indexing');
+      const receipt: TranscriptReindexReceipt = { schemaVersion: 'retained-transcript-index/v1', generatedAt: new Date().toISOString(), configSignature, servingCollection: staged, previousCollection: priorCollection,
+        transcriptCount: eligible.length, chunkCount: chunks.length, sources: eligible.map(source => ({ file: source.file, videoId: source.transcript.videoId, sourceSha256: source.rawSha256, chunkIds: chunks.filter(chunk => chunk.metadata.videoId === source.transcript.videoId).map(chunk => chunk.id) })),
+        evidenceBoundary: 'Vectors bind exact retained transcript bytes and current embedding/chunk geometry. No source re-fetch or independent spoken-content verification was performed.' };
+      throwIfAborted(signal);
+      await writeJsonAtomic(paths.indexManifest, { ...previous, servingCollection: staged, previousCollection: priorCollection, transcriptReindexRequired: false, transcriptIndex: receipt }, { signal });
+      return receipt;
+    } catch (error) {
+      await discardCollection(staged, { timeoutMs: 1000 }).catch(() => undefined);
+      throw error;
+    }
+  }, { signal, waitMs: 1000, staleMs: 30_000 }), deadlineMs, options.signal);
 }
 
 // ─── Main monitor ──────────────────────────────────────────────────────
@@ -464,7 +541,7 @@ export async function indexYouTubeTranscript(transcript: YouTubeTranscript): Pro
 export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
   logger.info('=== Starting Crescent City YouTube Meeting Monitoring ===');
 
-  const idempotency = new IdempotencyStore(SEEN_VIDEOS_PATH);
+  const idempotency = new IdempotencyStore(seenVideosPath());
   await idempotency.load();
 
   const listing = await listChannelVideosDetailed(YOUTUBE_CHANNEL_URL, limit);
@@ -489,8 +566,8 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
     const transcript = await extractTranscript(video);
     results.push(transcript);
 
-    await mkdir(YOUTUBE_OUTPUT_DIR, { recursive: true });
-    await writeFile(join(YOUTUBE_OUTPUT_DIR, `${video.id}.json`), JSON.stringify(transcript, null, 2));
+    await mkdir(youtubeOutputDir(), { recursive: true });
+    await writeJsonAtomic(join(youtubeOutputDir(), `${video.id}.json`), transcript);
 
     if (transcript.status === 'ok') {
       const indexed = await indexYouTubeTranscript(transcript).catch((err: any) => {
@@ -528,7 +605,7 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
   const health: SourceHealth = listing.health.status === 'unavailable'
     ? listing.health
     : transcriptGap
-      ? sourceHealth('YouTube', 'ok', new Date().toISOString(), {
+      ? youtubeSourceHealth('YouTube', 'ok', new Date().toISOString(), {
         url: YOUTUBE_CHANNEL_URL,
         fetchedAt: listing.health.fetchedAt,
         itemCount: videos.length,

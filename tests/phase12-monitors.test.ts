@@ -2,8 +2,6 @@
  * Offline-verifiable tests for the five Phase-12 external-source alert
  * monitors (drought / PSPS / smoke / roads / schools).
  *
- * These monitors were added in v2.6.0 but shipped without any test coverage
- * and without runner wiring (tracked in TODO.md as a deferred Medium item).
  * The fetch paths require live external feeds, but each module exports pure
  * classification/aggregation functions whose behavior is fully verifiable
  * offline with real inputs — which is what these tests exercise. No mock
@@ -19,8 +17,9 @@ import {
   classifyPspsStatus,
 } from "../src/alerts/pge_psps.ts";
 import {
-  classifyPm25,
-  getSmokeAdvisory,
+  buildHmsSmokeReport,
+  isHmsSmokeReport,
+  legacySmokeDisplay,
 } from "../src/alerts/hrrr_smoke.ts";
 import {
   classifyRoadSeverity,
@@ -89,30 +88,24 @@ describe("pge_psps classification", () => {
   });
 });
 
-describe("hrrr_smoke PM2.5 -> AQI/level", () => {
-  test("threshold boundaries land in the correct EPA bucket", () => {
-    expect(classifyPm25(0).level).toBe("GOOD");
-    expect(classifyPm25(12.0).level).toBe("GOOD");
-    expect(classifyPm25(12.1).level).toBe("MODERATE");
-    expect(classifyPm25(35.4).level).toBe("MODERATE");
-    expect(classifyPm25(35.5).level).toBe("UNHEALTHY_SENSITIVE");
-    expect(classifyPm25(55.5).level).toBe("UNHEALTHY");
-    expect(classifyPm25(150.5).level).toBe("VERY_UNHEALTHY");
-    expect(classifyPm25(250.5).level).toBe("HAZARDOUS");
-  });
-
-  test("AQI is a positive integer scaled within the bucket", () => {
-    const { level, aqi } = classifyPm25(6);
-    expect(level).toBe("GOOD");
-    expect(aqi).toBe(25);
-    expect(Number.isInteger(classifyPm25(20).aqi)).toBe(true);
-  });
-
-  test("advisory text exists exactly when air is not GOOD", () => {
-    for (const level of ["MODERATE", "UNHEALTHY_SENSITIVE", "UNHEALTHY", "VERY_UNHEALTHY", "HAZARDOUS"] as const) {
-      expect(getSmokeAdvisory(level)).not.toBeNull();
+describe("HMS smoke product evidence", () => {
+  test("every density preserves unknown concentration/AQI and source product date", () => {
+    for (const maxDensity of ["Light", "Medium", "Heavy", "Unknown"] as const) {
+      const report = buildHmsSmokeReport({ mapDate: "20260928", plumes: 2, maxDensity }, "2026-09-30T12:00:00Z");
+      expect(isHmsSmokeReport(report)).toBe(true);
+      expect(report.maxPm25).toBeNull(); expect(report.peakAqi).toBeNull(); expect(report.peakLevel).toBe("UNKNOWN");
+      expect(report.forecasts).toEqual([]); expect(report.timestamp).toBe("2026-09-28T00:00:00.000Z");
+      expect(report.observedAt).toBeNull(); expect(report.fetchedAt).toBe("2026-09-30T12:00:00Z");
     }
-    expect(getSmokeAdvisory("GOOD")).toBeNull();
+  });
+  test("invalid calendar days and malformed products are rejected", () => {
+    expect(() => buildHmsSmokeReport({ mapDate: "20260230", plumes: 1, maxDensity: "Heavy" })).toThrow();
+    expect(isHmsSmokeReport({ schemaVersion: "2.0.0", peakAqi: 50 })).toBe(false);
+  });
+  test("historical inferred numbers remain visibly unverified without recomputation", () => {
+    const original = { peakAqi: 100, maxPm25: 35, timestamp: "2026-01-01" };
+    const display = legacySmokeDisplay(original);
+    expect(display.original).toEqual(original); expect(display.evidence).toBe("legacy-inferred-unverified");
   });
 });
 

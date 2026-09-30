@@ -2,7 +2,7 @@ import type { ChatMessage } from "../types.js";
 import { llmConfig } from "./config.js";
 import { chat as ollamaChat, isOllamaRunning } from "./ollama.js";
 import { chat as openrouterChat, checkOpenRouterHealth, isOpenRouterConfigured } from "./openrouter.js";
-import { recordLlmUsage } from "./usage.js";
+import { boundedSignal, generationGate } from "./runtime.js";
 
 export type ChatProvider = "ollama" | "openrouter";
 
@@ -28,6 +28,7 @@ export interface ProviderFallbackResult {
   providerUsed: ChatProvider | "none";
   model: string;
   errors: string[];
+  attempts: ChatProvider[];
 }
 
 /** Deterministic source-grounded extraction used when every provider is down. */
@@ -87,20 +88,26 @@ export async function chatWithProviderFallback(
   options?: ChatRequestOptions,
 ): Promise<ProviderFallbackResult> {
   const errors: string[] = [];
-  let lastModel = llmConfig.provider === "openrouter" ? llmConfig.openrouterModel : llmConfig.chatModel;
-  for (const step of primaryChain()) {
+  const attempts: ChatProvider[] = [];
+  const signal = boundedSignal(options?.signal, 120_000);
+  for (const [index, step] of primaryChain().entries()) {
     try {
-      const health = await checkChatProviderFor(step.provider);
-      lastModel = health.model;
+      signal.throwIfAborted();
+      attempts.push(step.provider);
+      const health = await checkChatProviderFor(step.provider, signal);
       if (!health.configured || !health.reachable) {
-        errors.push(`${step.provider}: ${health.error ?? "unavailable"}`);
+        errors.push(`${step.provider}: unavailable`);
         continue;
       }
-      const answer = await step.chat(messages, context, modelOverride, options);
+      const model = modelOverride ?? health.model;
+      const release = await generationGate.acquire(signal);
+      let answer: string;
+      try { answer = await step.chat(messages, context, model, { ...options, signal }); } finally { release(); }
       if (!answer.trim()) throw new Error("empty response");
-      return { answer, outcome: "primary", providerUsed: step.provider, model: health.model, errors };
+      return { answer, outcome: index === 0 ? "primary" : "secondary", providerUsed: step.provider, model, errors, attempts };
     } catch (error) {
-      errors.push(`${step.provider}: ${error instanceof Error ? error.message : String(error)}`);
+      signal.throwIfAborted();
+      errors.push(`${step.provider}: unavailable`);
     }
   }
   return {
@@ -109,18 +116,19 @@ export async function chatWithProviderFallback(
     providerUsed: "none",
     model: "deterministic-extract",
     errors,
+    attempts,
   };
 }
 
-async function checkChatProviderFor(provider: ChatProvider): Promise<ProviderHealth> {
+async function checkChatProviderFor(provider: ChatProvider, signal?: AbortSignal): Promise<ProviderHealth> {
   if (provider === "openrouter") {
     if (!isOpenRouterConfigured()) {
       return { provider, configured: false, reachable: false, model: llmConfig.openrouterModel, error: "OPENROUTER_API_KEY is not set" };
     }
-    const health = await checkOpenRouterHealth();
+    const health = await checkOpenRouterHealth({ signal });
     return { provider, configured: true, reachable: health.reachable, model: llmConfig.openrouterModel, ...(health.error ? { error: health.error } : {}) };
   }
-  const reachable = await isOllamaRunning(llmConfig.providerPreflightTimeoutMs);
+  const reachable = await isOllamaRunning(llmConfig.providerPreflightTimeoutMs, signal);
   return { provider, configured: true, reachable, model: llmConfig.chatModel, ...(reachable ? {} : { error: `Ollama is not reachable at ${llmConfig.ollamaUrl}` }) };
 }
 
@@ -131,10 +139,10 @@ export async function chatWithProvider(
   modelOverride?: string,
   options?: ChatRequestOptions,
 ): Promise<string> {
-  if (llmConfig.provider === "openrouter") {
-    return openrouterChat(messages, context, modelOverride, options);
-  }
-  return ollamaChat(messages, context, modelOverride, options);
+  const signal = boundedSignal(options?.signal, 120_000);
+  const release = await generationGate.acquire(signal);
+  try { return await (llmConfig.provider === "openrouter" ? openrouterChat : ollamaChat)(messages, context, modelOverride, { ...options, signal }); }
+  finally { release(); }
 }
 
 export interface ProviderHealth {
@@ -146,27 +154,6 @@ export interface ProviderHealth {
 }
 
 /** Check only the selected chat provider. Embedding/Chroma checks are separate. */
-export async function checkChatProvider(): Promise<ProviderHealth> {
-  if (llmConfig.provider === "openrouter") {
-    if (!isOpenRouterConfigured()) {
-      return { provider: "openrouter", configured: false, reachable: false, model: llmConfig.openrouterModel, error: "OPENROUTER_API_KEY is not set" };
-    }
-    const health = await checkOpenRouterHealth();
-    return {
-      provider: "openrouter",
-      configured: true,
-      reachable: health.reachable,
-      model: llmConfig.openrouterModel,
-      ...(health.error ? { error: health.error } : {}),
-    };
-  }
-
-  const reachable = await isOllamaRunning(llmConfig.providerPreflightTimeoutMs);
-  return {
-    provider: "ollama",
-    configured: true,
-    reachable,
-    model: llmConfig.chatModel,
-    ...(reachable ? {} : { error: `Ollama is not reachable at ${llmConfig.ollamaUrl}` }),
-  };
+export async function checkChatProvider(options: { signal?: AbortSignal } = {}): Promise<ProviderHealth> {
+  return checkChatProviderFor(llmConfig.provider, options.signal);
 }

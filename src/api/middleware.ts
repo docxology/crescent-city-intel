@@ -5,7 +5,14 @@
  * every check, so the window truly slides rather than resetting in a block.
  */
 import { createLogger } from "../logger.js";
-import { appendFile } from "fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
+import { join, dirname } from "node:path";
+import { isIP } from "node:net";
+import { createHmac } from "node:crypto";
+import { apiContract } from "./contracts.js";
+import { outputRoot } from "../shared/paths.js";
+import { writeJsonAtomic } from "../shared/source_health.js";
+import { withFileLease } from "../shared/storage.js";
 import { randomBytes } from "crypto";
 
 const logger = createLogger("api-middleware");
@@ -15,29 +22,8 @@ const logger = createLogger("api-middleware");
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour sliding window
 const RATE_LIMIT_MAX_REQUESTS = 100; // per IP per window
 
-/** Stricter per-endpoint limits. Key = path prefix, value = max requests per window. */
-const ENDPOINT_LIMITS: Record<string, number> = {
-  "/api/chat": 20,
-  "/api/summarize": 20,
-  "/api/analytics/embeddings": 10,
-};
-
-/** Paths exempt from rate limiting (health, monitoring, static assets). */
-const BYPASS_PATHS = ["/api/health", "/api/monitor/status", "/api/openapi.yaml"];
-
-/** Paths that are public (no API key required). */
-const PUBLIC_PATHS = [
-  "/api/health",
-  "/api/stats",
-  "/api/stats/count",
-  "/api/toc",
-  "/api/domains",
-  "/api/search",
-  "/api/sections",
-  "/api/openapi.yaml",
-  "/api/docs",
-  "/api/curated",
-];
+/** Exact operational probes have a separate, still bounded quota. */
+const MAX_RATE_BUCKETS = 10_000;
 
 // ─── API Key Store ────────────────────────────────────────────────
 
@@ -51,9 +37,8 @@ let VALID_API_KEYS = buildValidKeySet();
  * any deployment that forgets the env var would otherwise authenticate with a
  * credential that is present in source and could be handed to every LAN node
  * via `getPrimaryApiKey()`. Instead we generate a random per-boot credential
- * and log a warning, mirroring how other local-first services produce a
- * throwaway key. `getPrimaryApiKey()` still injects it into the served page,
- * so the GUI keeps working with no additional configuration.
+ * and log a warning. The server injects it only into pages requested through
+ * an actual loopback socket and loopback hostname, outside a configured proxy.
  */
 function buildValidKeySet(): Set<string> {
   const raw = process.env.CRESCENT_CITY_API_KEY;
@@ -64,7 +49,7 @@ function buildValidKeySet(): Set<string> {
     generatedDefaultKey = `boot-${randomBytes(24).toString("hex")}`;
     logger.warn(
       "CRESCENT_CITY_API_KEY is not set; generated a random per-boot API key. " +
-        `Set CRESCENT_CITY_API_KEY in the environment for a stable credential (${generatedDefaultKey.slice(0, 12)}…).`
+        "Set CRESCENT_CITY_API_KEY in the environment for a stable credential."
     );
   }
   return new Set([generatedDefaultKey]);
@@ -76,12 +61,9 @@ export function reloadApiKeys(): void {
 }
 
 /**
- * The key the GUI's own served page should use to authenticate its own fetch()
- * calls back to this same server. Same-origin browser access to this key is not
- * a privilege escalation — anyone who can load the page can already reach the
- * API directly with the same network access (and CORS is wide open besides) —
- * it just closes the gap where the frontend never sent a key at all (2026-07,
- * TODO.md Phase 1.2). External API-only callers still need to know/configure it.
+ * The key used for the GUI's authenticated requests. server.ts injects it only
+ * for a trusted loopback socket peer; a served page is not itself proof of
+ * trust. External API callers supply their configured key in X-API-Key.
  */
 export function getPrimaryApiKey(): string {
   return VALID_API_KEYS.values().next().value ?? "";
@@ -114,10 +96,13 @@ setInterval(() => {
 function slidingWindowCount(ip: string, now: number): number {
   const windowStart = now - RATE_LIMIT_WINDOW_MS;
   const timestamps = (rateLimitStore.get(ip) ?? []).filter(t => t > windowStart);
-  timestamps.push(now);
+  if (timestamps.length < effectiveLimitForBucket(ip)) timestamps.push(now);
+  else return timestamps.length + 1;
   rateLimitStore.set(ip, timestamps);
   return timestamps.length;
 }
+
+function effectiveLimitForBucket(bucket: string): number { return bucket.startsWith("probe:") ? 1000 : bucket.startsWith("chat:") ? 20 : bucket.startsWith("vector:") ? 10 : RATE_LIMIT_MAX_REQUESTS; }
 
 /** Seconds until the oldest request in the window expires. */
 function retryAfterSeconds(ip: string, now: number): number {
@@ -127,31 +112,22 @@ function retryAfterSeconds(ip: string, now: number): number {
   return Math.max(1, Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - now) / 1000));
 }
 
-/** Get the effective max-requests for a path. */
-function effectiveLimit(path: string): number {
-  for (const [prefix, limit] of Object.entries(ENDPOINT_LIMITS)) {
-    if (path.startsWith(prefix)) return limit;
-  }
-  return RATE_LIMIT_MAX_REQUESTS;
-}
-
 // ─── Request log ─────────────────────────────────────────────────
 
-const REQUEST_LOG_PATH = "output/request-log.jsonl";
-
-async function logRequest(
-  method: string,
-  path: string,
-  ip: string,
-  status: number,
-  ms: number
-): Promise<void> {
-  const entry = JSON.stringify({ ts: new Date().toISOString(), method, path, ip, status, ms });
+const requestLogSalt = randomBytes(32);
+const MAX_LOG_RECORDS = 1000;
+function safeContract(path: string, method: string) { try { return apiContract(path, method); } catch { return null; } }
+async function logRequest(method: string, path: string, ip: string, status: number, ms: number): Promise<void> {
+  const file = join(outputRoot(), "state", "request-log.json");
+  const entry = { ts: new Date().toISOString(), method, route: safeContract(path, method)?.path ?? "unknown", client: createHmac("sha256", requestLogSalt).update(ip).digest("hex").slice(0, 16), status, ms };
   try {
-    await appendFile(REQUEST_LOG_PATH, entry + "\n");
-  } catch {
-    // Non-fatal — output dir may not exist before first scrape
-  }
+    await mkdir(dirname(file), { recursive: true });
+    await withFileLease(`${file}.lock`, async () => {
+      const records = await readFile(file, "utf8").then(raw => JSON.parse(raw)).catch(() => []);
+      const recent = Array.isArray(records) ? records.filter(item => Number.isFinite(Date.parse(item?.ts)) && Date.now() - Date.parse(item.ts) < 7 * 86400000) : [];
+      await writeJsonAtomic(file, [...recent, entry].slice(-MAX_LOG_RECORDS));
+    });
+  } catch { /* Logging does not change the response. No query, body, key or raw IP is retained. */ }
 }
 
 /**
@@ -176,48 +152,39 @@ export function recordRequestLog(
 // ─── Middleware functions ─────────────────────────────────────────
 
 /**
- * Resolve the caller's IP: proxy headers first (for deployments behind a
- * reverse proxy), falling back to the real socket address Bun observed for
- * this connection. Without the socket fallback, a browser talking directly
- * to `bun run gui` (the primary, intended way to use this local-first app)
- * sends neither header, so every local user collapsed into one shared
- * "unknown" rate-limit bucket instead of hitting the loopback bypass below —
- * confirmed live 2026-07-24: a real browser session 429'd on
- * /api/analytics/embeddings after a handful of clicks.
+ * Resolve the socket peer. Forwarded headers are accepted only from an exact
+ * explicitly configured proxy IP. A local peer remains subject to quotas.
  */
 export function resolveIp(req: Request, socketIp?: string): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
-    req.headers.get("x-real-ip") ??
-    socketIp ??
-    "unknown"
-  );
-}
-
-/**
- * True for loopback/private-LAN addresses — the same trust boundary the rate
- * limiter already used. Exported so `gui/server.ts` can reuse it to decide
- * whether it's safe to hand the real API key to whoever is loading the page
- * (see `serveIndexHtml()` — a remote/public requester must NOT receive it,
- * or the key becomes visible via view-source to anyone who can load the URL,
- * defeating the point of a key on any deployment that isn't purely local).
- */
-export function isTrustedLocalIp(ip: string): boolean {
-  // Bun's requestIP() can return an IPv4-mapped IPv6 form (::ffff:127.0.0.1)
-  // for dual-stack sockets — normalize before matching, or a real loopback
-  // connection fails this check (a fail-closed gap, not a leak, but it
-  // defeats the check's own stated intent).
-  const normalized = ip.startsWith("::ffff:") ? ip.slice(7) : ip;
-  if (normalized === "127.0.0.1" || normalized === "::1") return true;
-  if (normalized.startsWith("192.168.") || normalized.startsWith("10.")) return true;
-  // 172.16.0.0/12 = second octet 16-31, not just the literal "172.16." prefix
-  // (missing this let e.g. 172.20.x.x wrongly fail as "not local").
-  const octets = normalized.split(".");
-  if (octets.length === 4 && octets[0] === "172") {
-    const second = Number(octets[1]);
-    if (Number.isInteger(second) && second >= 16 && second <= 31) return true;
+  const peer = normalizeIp(socketIp ?? "");
+  if (isTrustedProxyPeer(peer)) {
+    const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip")?.trim() ?? "";
+    const value = normalizeIp(forwarded);
+    if (isIP(value)) return value;
   }
-  return false;
+  return isIP(peer) ? peer : "unknown";
+}
+function normalizeIp(ip: string): string {
+  if (isIP(ip) !== 6) return ip;
+  // WHATWG URL canonicalizes valid IPv6 case, compression and embedded IPv4.
+  let canonical: string;
+  try { canonical = new URL(`http://[${ip}]/`).hostname.slice(1, -1); }
+  catch { return ""; } // Scoped/unsupported literals cannot establish proxy trust.
+  const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(canonical);
+  if (!mapped) return canonical;
+  const high = parseInt(mapped[1]!, 16), low = parseInt(mapped[2]!, 16);
+  return `${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`;
+}
+/** One normalized proxy identity policy for forwarded headers and HTML credentials. */
+export function isTrustedProxyPeer(socketIp?: string): boolean {
+  const peer = normalizeIp(socketIp ?? "");
+  return !!isIP(peer) && (process.env.CRESCENT_TRUSTED_PROXY_IPS ?? "").split(",")
+    .map(ip => normalizeIp(ip.trim())).some(ip => !!isIP(ip) && ip === peer);
+}
+/** Only an actual loopback socket may receive the local GUI credential. */
+export function isTrustedLocalIp(ip: string): boolean {
+  const value = normalizeIp(ip);
+  return value === "::1" || (isIP(value) === 4 && value.split(".")[0] === "127");
 }
 
 /** Rate limiting with sliding window algorithm. */
@@ -225,39 +192,22 @@ export function rateLimitMiddleware() {
   return async (req: Request, socketIp?: string): Promise<Response | null> => {
     const path = new URL(req.url).pathname;
 
-    // Bypass list
-    if (BYPASS_PATHS.some(p => path.startsWith(p))) return null;
-
-    // The trusted-local bypass must be decided on the REAL socket address
-    // (Bun's server.requestIP), exactly like serveIndexHtml's key-injection
-    // gate. `resolveIp()` prefers x-forwarded-for/x-real-ip for rate-limit
-    // bucketing behind a real reverse proxy, but those headers are
-    // attacker-controllable on any deployment without a proxy that strips or
-    // rewrites them — a remote client sending `X-Forwarded-For: 127.0.0.1`
-    // must NOT be handed an unlimited rate-limit bucket by being classified
-    // as loopback (confirmed as a live spoof vector 2026-07-24 for the key
-    // injection; the same header reaches this decision). When a socket IP is
-    // available (real server) it is authoritative and cannot be spoofed. Only
-    // when no socket is present (unit tests, unusual programmatic callers) do
-    // we fall back to the header-derived IP so the loopback bypass still works
-    // in the test harness.
-    if (socketIp !== undefined) {
-      if (isTrustedLocalIp(socketIp)) return null;
-    } else if (isTrustedLocalIp(resolveIp(req, undefined))) {
-      return null;
-    }
-
     const ip = resolveIp(req, socketIp);
+    const bucket = ["/api/health", "/api/monitor/status", "/api/openapi.yaml"].includes(path) ? "probe"
+      : /^\/api\/(chat|summarize)(?:\/|$)/.test(path) ? "chat"
+        : path === "/api/analytics/embeddings" || path === "/api/search/semantic" ? "vector" : "public";
+    const key = `${bucket}:${ip}`;
+    if (!rateLimitStore.has(key) && rateLimitStore.size >= MAX_RATE_BUCKETS) return Response.json({ error: "Request capacity is busy" }, { status: 503, headers: { "Retry-After": "60" } });
 
     const now = _getNow();
-    const limit = effectiveLimit(path);
-    const count = slidingWindowCount(ip, now);
+    const limit = effectiveLimitForBucket(key);
+    const count = slidingWindowCount(key, now);
     const remaining = Math.max(0, limit - count);
 
     if (count > limit) {
       rateLimitBlockedCount += 1;
-      const retryAfter = retryAfterSeconds(ip, now);
-      logger.warn(`Rate limit exceeded for ${ip} on ${path}`, { count, limit, retryAfter });
+      const retryAfter = retryAfterSeconds(key, now);
+      logger.warn("Rate limit exceeded", { route: safeContract(path, req.method)?.path ?? "unknown", count, limit, retryAfter });
       return new Response(
         JSON.stringify({
           error: "Rate limit exceeded",
@@ -290,7 +240,12 @@ export function rateLimitMiddleware() {
 export function apiKeyMiddleware() {
   return async (req: Request, _socketIp?: string): Promise<Response | null> => {
     const path = new URL(req.url).pathname;
-    if (PUBLIC_PATHS.some(p => path.startsWith(p))) return null;
+    let contract;
+    try { contract = apiContract(path, req.method); } catch { return Response.json({ error: "Invalid encoded path" }, { status: 400 }); }
+    if (!contract) return Response.json({ error: "Not found" }, { status: 404 });
+    if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: { "Allow": [...contract.methods, "OPTIONS"].join(", "), "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": contract.methods.join(", "), "Access-Control-Allow-Headers": "Content-Type, X-API-Key" } });
+    if (!contract.methods.includes(req.method)) return Response.json({ error: "Method not allowed" }, { status: 405, headers: { Allow: contract.methods.join(", ") } });
+    if (contract.public) return null;
 
     // Header-only auth. The prior `?api_key=` query-parameter fallback leaked
     // credentials into proxy/access logs and browser history, so it is no
@@ -323,10 +278,7 @@ export function requestLoggingMiddleware() {
   return async (req: Request, socketIp?: string): Promise<Response | null> => {
     const url = new URL(req.url);
     const method = req.method;
-    const ip = resolveIp(req, socketIp) === "unknown" ? "local" : resolveIp(req, socketIp);
-    const start = Date.now();
-
-    logger.info(`${method} ${url.pathname}`, { ip, ua: req.headers.get("user-agent")?.substring(0, 60) });
+    logger.debug("API request", { method, route: safeContract(url.pathname, method)?.path ?? "unknown" });
 
     // The JSONL request-log entry is written by the server (recordRequestLog)
     // once the real Response exists, so it carries an honest status instead of

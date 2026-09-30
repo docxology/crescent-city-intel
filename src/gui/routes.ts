@@ -1,5 +1,8 @@
 /** API route handlers for the GUI server */
-import { join } from "path";
+import { join, basename } from "path";
+import { withProviderBudget } from "../llm/openrouter.js";
+import { withApiAdmission } from "../api/admission.js";
+import { validateApiRequest, apiContract, apiInventory, validateApiResponse, publicSourceHealthRows } from "../api/contracts.js";
 import { loadToc, loadArticle, loadSection, loadManifest, loadAllSections } from "../shared/data.js";
 import { search, logSearchQuery, getIndexedCount, type PagedSearchResult } from "./search.js";
 import { createLogger } from "../logger.js";
@@ -14,6 +17,7 @@ import { buildHazardObservations, loadObservationInputs } from "../geo_observati
 import { buildReadabilityTrend, readReadabilityHistory } from "../readability_history.js";
 import { buildGeoIntel } from "../geo.js";
 import { buildGeoIntelSurface } from "../geo_view.js";
+import { packageVersion } from "../shared/orchestration.js";
 
 const log = createLogger("routes");
 
@@ -38,7 +42,6 @@ async function loadLlmModules() {
 }
 
 let llmModules: Awaited<ReturnType<typeof loadLlmModules>> = null;
-let llmModulesLoaded = false;
 /** Set true only on a SUCCESSFUL load, so a transient first-load failure
  * (e.g. chromadb unavailable for a moment) is retried on the next request
  * instead of permanently disabling chat/analytics for the server's lifetime. */
@@ -48,26 +51,9 @@ let llmModulesLoadedOk = false;
 async function getLlm() {
   if (!llmModulesLoadedOk || !llmModules) {
     llmModules = await loadLlmModules();
-    llmModulesLoaded = true;
     if (llmModules) llmModulesLoadedOk = true;
   }
   return llmModules;
-}
-
-/**
- * Reset the OpenRouter per-run request budget at each top-level GUI request.
- * The counter otherwise accumulates across the whole server lifetime and, at
- * the 100/run cap, permanently locks every later generation until restart.
- * Curation batches (a separate `bun run curate` process) still bind the whole
- * batch to one budget — only the shared server is scoped per-request. GUI
- * request volume is separately bounded by the rate limiter.
- */
-async function resetProviderBudget(): Promise<void> {
-  if (llmConfig.provider !== "openrouter") return;
-  try {
-    const m = await import("../llm/openrouter.js");
-    m.resetOpenRouterRequestCount();
-  } catch { /* module unavailable — nothing to reset */ }
 }
 
 // ─── Cached alert-trend diagnostics for GET /api/health ──────────
@@ -143,7 +129,13 @@ export async function handleApiRoute(url: URL, req?: Request): Promise<Response>
 
   let response: Response;
   try {
-    response = await routeRequest(path, url, req);
+    const invalid = await validateApiRequest(url, req);
+    response = invalid ?? await withApiAdmission(url, req, bounded => withProviderBudget(() => routeRequest(path, url, bounded)));
+    if (!invalid) {
+      const contractErrors = await validateApiResponse(url, req?.method ?? "GET", response);
+      if (contractErrors.length) { log.error("Response contract failed", { route: apiContract(path)?.path, errors: contractErrors }); response = json({ error: "Response contract unavailable" }, 500); }
+    }
+    if (req?.method === "HEAD") response = new Response(null, { status: response.status, headers: response.headers });
   } catch (err: any) {
     log.error(`Unhandled error on ${path}`, { error: err.message });
     response = json({ error: "Internal server error" }, 500);
@@ -151,6 +143,12 @@ export async function handleApiRoute(url: URL, req?: Request): Promise<Response>
 
   const ms = (performance.now() - start).toFixed(1);
   log.debug(`${path} -> ${response.status} (${ms}ms)`);
+  let publicRoute = false;
+  try { publicRoute = apiContract(path, req?.method ?? "GET")?.public ?? false; } catch { /* malformed paths keep private error headers */ }
+  if (!publicRoute) {
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Vary", "X-API-Key, Accept-Encoding");
+  }
   return response;
 }
 
@@ -223,7 +221,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const { semanticSearch } = await import("./semantic_search.js");
       const limit = Math.min(100, parseInt(url.searchParams.get("limit") ?? "20", 10) || 20);
       const offset = Math.max(0, parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
-      const result = await semanticSearch(q, { limit, offset });
+      const result = await semanticSearch(q, { limit, offset, signal: req?.signal });
       return json(result);
     } catch (err: any) {
       return json({ error: `Semantic search failed: ${publicApiDetail(err.message)}` }, 500);
@@ -256,7 +254,8 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         });
       }
 
-      const page = filtered.slice(0, limitParam);
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const page = filtered.slice(offset, offset + limitParam);
       return json({
         title: titleParam ?? null,
         chapter: chapterParam ?? null,
@@ -335,7 +334,6 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // Note: must not match POST /api/chat below — that path carries a JSON body,
   // not a `q` query param, and needs its own handler further down.
   if (path === "/api/chat" && req?.method !== "POST") {
-    await resetProviderBudget();
     const q = url.searchParams.get("q") ?? "";
     const modelOverride = url.searchParams.get("model") ?? undefined;
     if (!q.trim()) {
@@ -348,25 +346,25 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
 
     try {
-      const provider = await llm.provider.checkChatProvider();
+      const provider = await llm.provider.checkChatProvider({ signal: req?.signal });
       if (!provider.configured || !provider.reachable) {
-        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+        return json({ error: `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
       }
-      const ollama = await llm.ollama.isOllamaRunning();
+      const ollama = await llm.ollama.isOllamaRunning(undefined, req?.signal);
       if (!ollama) {
         return json({ error: "Ollama is not running. Start it with: ollama serve" }, 503);
       }
-      const chroma = await llm.chroma.isChromaRunning();
+      const chroma = await llm.chroma.isChromaRunning(undefined, req?.signal);
       if (!chroma) {
         return json({ error: "ChromaDB is not running. Start it with: chroma run --path chroma_data" }, 503);
       }
-      const indexed = await llm.embeddings.isIndexed();
+      const indexed = await llm.embeddings.isIndexed({ signal: req?.signal });
       if (!indexed) {
         return json({ error: "No documents indexed. Run: bun run index" }, 503);
       }
 
-      log.info(`[chat] Query: ${q}`);
-      const result = await llm.rag.ragQuery(q, modelOverride);
+      log.info("[chat] Query accepted", { characters: q.length });
+      const result = await llm.rag.ragQuery(q, modelOverride, undefined, { signal: req?.signal });
 
       return json({
         answer: result.answer,
@@ -375,6 +373,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         provider: result.provider,
         queryId: result.queryId,
         metadata: result.metadata,
+        evidence: result.evidence,
       });
     } catch (err: any) {
       log.error("[chat] RAG error", { error: err.message });
@@ -383,7 +382,6 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   }
   // POST /api/chat — RAG query via JSON body (for longer questions)
   if (path === "/api/chat" && req?.method === "POST") {
-    await resetProviderBudget();
     let body: { q?: string; context?: string; model?: string; history?: Array<{ role: "user" | "assistant"; content: string }> } = {};
     try {
       body = await req.json();
@@ -397,20 +395,20 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     if (!llm) return json({ error: "LLM modules unavailable" }, 503);
 
     try {
-      const provider = await llm.provider.checkChatProvider();
+      const provider = await llm.provider.checkChatProvider({ signal: req?.signal });
       if (!provider.configured || !provider.reachable) {
-        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+        return json({ error: `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
       }
-      const ollama = await llm.ollama.isOllamaRunning();
+      const ollama = await llm.ollama.isOllamaRunning(undefined, req?.signal);
       if (!ollama) return json({ error: "Ollama is not running. Start: ollama serve" }, 503);
-      const chroma = await llm.chroma.isChromaRunning();
+      const chroma = await llm.chroma.isChromaRunning(undefined, req?.signal);
       if (!chroma) return json({ error: "ChromaDB is not running. Start: chroma run --path chroma_data" }, 503);
-      const indexed = await llm.embeddings.isIndexed();
+      const indexed = await llm.embeddings.isIndexed({ signal: req?.signal });
       if (!indexed) return json({ error: "No documents indexed. Run: bun run index" }, 503);
 
-      log.info(`[chat POST] Query: ${q.substring(0, 80)}`);
-      const result = await llm.rag.ragQuery(q, body.model, body.history);
-      return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider, queryId: result.queryId, metadata: result.metadata });
+      log.info("[chat POST] Query accepted", { characters: q.length });
+      const result = await llm.rag.ragQuery(q, body.model, body.history, { signal: req.signal });
+      return json({ answer: result.answer, sources: result.sources, model: result.model, provider: result.provider, queryId: result.queryId, metadata: result.metadata, evidence: result.evidence });
     } catch (err: any) {
       log.error("[chat POST] RAG error", { error: err.message });
       return json({ error: `RAG query failed: ${publicApiDetail(err.message)}` }, dependencyFailureStatus(err.message));
@@ -441,12 +439,12 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       return json({ error: "Analytics modules unavailable" }, 503);
     }
     try {
-      const chroma = await llm.chroma.isChromaRunning();
+      const chroma = await llm.chroma.isChromaRunning(undefined, req?.signal);
       if (!chroma) {
         return json({ error: "ChromaDB is not running" }, 503);
       }
       log.info("[analytics] Computing PCA projection...");
-      const projection = await llm.analytics.getEmbeddingProjection();
+      const projection = await llm.analytics.getEmbeddingProjection({ signal: req?.signal });
       log.info(`[analytics] PCA computed: ${projection.points.length} points`);
       return json(projection);
     } catch (err: any) {
@@ -457,15 +455,14 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
   // POST /api/summarize — summarize a section using Ollama
   if (path === "/api/summarize") {
-    await resetProviderBudget();
     const llm = await getLlm();
     if (!llm) {
       return json({ error: "LLM modules unavailable" }, 503);
     }
     try {
-      const provider = await llm.provider.checkChatProvider();
+      const provider = await llm.provider.checkChatProvider({ signal: req?.signal });
       if (!provider.configured || !provider.reachable) {
-        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+        return json({ error: `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
       }
 
       const body = req ? await req.json() : {};
@@ -485,6 +482,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         "(3) Enforcement mechanisms or penalties if applicable, " +
         "(4) Notable definitions or exceptions. " +
         "Be thorough but concise. Use bullet points where appropriate.",
+        undefined, { signal: req?.signal },
       );
 
       log.info(`[summarize] Summary generated for ${number} (${summary.length} chars)`);
@@ -858,11 +856,11 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
-  // GET /api/monitor/alerts — latest entry from each of the 14 alert monitors
+  // GET /api/monitor/alerts — latest entry from each registered alert monitor
   if (path === "/api/monitor/alerts") {
     const { existsSync } = await import("fs");
     const { readdir, readFile } = await import("fs/promises");
-    // All 14, not the 8 hazard-core. This route is what the GUI's per-monitor
+    // The registered monitor roster drives the GUI's per-monitor
     // grid reads, so road closures, school closures, PSPS, smoke, drought and the
     // coastal-waters forecast were invisible on it even though the composite
     // already included them. Derived from MONITOR_KEYS so it cannot drift.
@@ -916,7 +914,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/alerts/airquality — current air quality reading
   if (path === "/api/alerts/airquality") {
     const { existsSync, readFileSync } = await import("fs");
-    const filePath = "output/alerts/airquality/current.json";
+    const filePath = join(outputRoot(), "alerts", "airquality", "current.json");
     if (!existsSync(filePath)) return json({ error: "No air quality data. Run: bun run alerts:airquality" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
     catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
@@ -925,7 +923,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/alerts/wildfire — current wildfire report
   if (path === "/api/alerts/wildfire") {
     const { existsSync, readFileSync } = await import("fs");
-    const filePath = "output/alerts/wildfire/current.json";
+    const filePath = join(outputRoot(), "alerts", "wildfire", "current.json");
     if (!existsSync(filePath)) return json({ error: "No wildfire data. Run: bun run alerts:wildfire" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
     catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
@@ -934,16 +932,16 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/alerts/marine — current marine buoy report
   if (path === "/api/alerts/marine") {
     const { existsSync, readFileSync } = await import("fs");
-    const filePath = "output/alerts/marine/current.json";
+    const filePath = join(outputRoot(), "alerts", "marine", "current.json");
     if (!existsSync(filePath)) return json({ error: "No marine data. Run: bun run alerts:marine" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
     catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
   }
 
-  // GET /api/alerts/composite — composite 8-monitor severity
+  // GET /api/alerts/composite — registered-monitor composite severity
   if (path === "/api/alerts/composite") {
     const { existsSync, readFileSync } = await import("fs");
-    const filePath = "output/alerts/composite/current.json";
+    const filePath = join(outputRoot(), "alerts", "composite", "current.json");
     if (!existsSync(filePath)) return json({ error: "No composite severity. Run: bun run alerts" }, 404);
     try { return json(JSON.parse(readFileSync(filePath, "utf-8"))); }
     catch (err: any) { return json({ error: `Failed to read: ${publicApiDetail(err.message)}` }, 500); }
@@ -1033,25 +1031,11 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     }
   }
 
-  // GET /api/docs — Swagger UI
+  // GET /api/docs — offline documentation from the authoritative contract.
   if (path === "/api/docs" || path === "/api/docs/") {
-    try {
-      const { readFile } = await import("fs/promises");
-      const { existsSync } = await import("fs");
-      const htmlPath = new URL("./static/docs.html", import.meta.url).pathname;
-      if (!existsSync(htmlPath)) {
-        return json({ error: "Swagger UI not found" }, 404);
-      }
-      const html = await readFile(htmlPath, "utf-8");
-      return new Response(html, {
-        headers: {
-          "Content-Type": "text/html",
-          "Access-Control-Allow-Origin": "*"
-        }
-      });
-    } catch (err: any) {
-      return json({ error: `Failed to serve Swagger UI: ${publicApiDetail(err.message)}` }, 500);
-    }
+    const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!));
+    const rows = apiInventory().map(item => `<tr><td><code>${escape(item.path)}</code></td><td>${item.methods.join(", ")}</td><td>${item.publicMethods.join(", ") || "API key required"}</td></tr>`).join("");
+    return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>API contract — The Quadruplicate</title><body><main><h1>API contract</h1><p>Requests use the declared methods and bounded inputs in the <a href="/api/openapi.yaml">OpenAPI specification</a>. Protected operations require X-API-Key.</p><table><caption>Declared routes</caption><thead><tr><th>Route</th><th>Methods</th><th>Public methods</th></tr></thead><tbody>${rows}</tbody></table></main></body></html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff" } });
   }
 
   // GET /api/metadata — build, provider, artifact, and source-lineage metadata
@@ -1068,12 +1052,15 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       } catch { /* one corrupt diagnostic must not hide the registry */ }
     }
     const completeHealth = completeSourceHealth(sourceHealth);
-    const discovery = existsSync(paths.sourceDiscovery)
+    const recordedDiscovery = existsSync(paths.sourceDiscovery)
       ? (() => { try { return JSON.parse(readFileSync(paths.sourceDiscovery, "utf8")); } catch { return null; } })()
-      : await buildSourceDiscoveryReport({ health: completeHealth, registry });
+      : null;
+    const registryFingerprint = await sourceRegistryFingerprint(registry);
+    const discovery = recordedDiscovery?.registryFingerprint === registryFingerprint
+      ? recordedDiscovery : await buildSourceDiscoveryReport({ health: completeHealth, registry });
     const payload = {
       schemaVersion: "1.0.0",
-      registryFingerprint: await sourceRegistryFingerprint(registry),
+      registryFingerprint,
       registry,
       discovery,
       sourceHealth: summarizeSourceHealth(completeHealth),
@@ -1092,7 +1079,10 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   if (path === "/api/source-discovery") {
     const { existsSync, readFileSync } = await import("fs");
     if (existsSync(paths.sourceDiscovery)) {
-      try { return jsonWithETag(JSON.parse(readFileSync(paths.sourceDiscovery, "utf8")), req); }
+      try {
+        const recorded = JSON.parse(readFileSync(paths.sourceDiscovery, "utf8"));
+        if (recorded.registryFingerprint === await sourceRegistryFingerprint()) return jsonWithETag(recorded, req);
+      }
       catch { return json({ error: "Source discovery artifact is malformed" }, 500); }
     }
     return json(await buildSourceDiscoveryReport({ registry: getSourceRegistry() }));
@@ -1109,12 +1099,17 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       } catch { /* metadata remains available even if one diagnostic is corrupt */ }
     }
     const completeHealth = completeSourceHealth(sourceHealth);
+    let pipelineAttempt: Record<string, unknown> | null = null;
+    try {
+      const parsed = JSON.parse(readFileSync(join(paths.state, "latest-pipeline-attempt.json"), "utf8"));
+      if (["running", "complete", "failed"].includes(parsed.status)) pipelineAttempt = Object.fromEntries(["runId", "pipeline", "status", "startedAt", "completedAt", "result"].filter(key => typeof parsed[key] === "string").map(key => [key, parsed[key]]));
+    } catch { /* An absent or invalid attempt cannot establish a successful run. */ }
     return json({
       schemaVersion: "1.0.0",
       generatedAt: new Date().toISOString(),
       application: {
         name: "crescent-city-intel",
-        version: process.env.APP_VERSION ?? "2.5.1",
+        version: process.env.APP_VERSION ?? packageVersion(),
         commit: process.env.GITHUB_SHA ?? process.env.GIT_COMMIT ?? null,
         runtime: `bun/${process.versions.bun ?? "unknown"}`,
       },
@@ -1127,15 +1122,17 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         collection: llmConfig.collectionName,
       },
       artifacts: {
-        weeklySummary: existsSync(paths.weeklyCheckSummary) ? paths.weeklyCheckSummary : null,
-        pipelineRun: existsSync(paths.pipelineRun) ? paths.pipelineRun : null,
-        analyticsOverview: existsSync(paths.analyticsOverview) ? paths.analyticsOverview : null,
-        curation: existsSync(paths.curationReport) ? paths.curationReport : null,
-        reportMetadata: existsSync(paths.latestReportMetadata) ? paths.latestReportMetadata : null,
-        sourceRegistry: existsSync(paths.sourceRegistry) ? paths.sourceRegistry : null,
-        sourceDiscovery: existsSync(paths.sourceDiscovery) ? paths.sourceDiscovery : null,
+        weeklySummary: existsSync(paths.weeklyCheckSummary) ? basename(paths.weeklyCheckSummary) : null,
+        pipelineRun: existsSync(paths.pipelineRun) ? basename(paths.pipelineRun) : null,
+        pipelineAttempt: existsSync(join(paths.state, "latest-pipeline-attempt.json")) ? "latest-pipeline-attempt.json" : null,
+        analyticsOverview: existsSync(paths.analyticsOverview) ? basename(paths.analyticsOverview) : null,
+        curation: existsSync(paths.curationReport) ? basename(paths.curationReport) : null,
+        reportMetadata: existsSync(paths.latestReportMetadata) ? basename(paths.latestReportMetadata) : null,
+        sourceRegistry: existsSync(paths.sourceRegistry) ? basename(paths.sourceRegistry) : null,
+        sourceDiscovery: existsSync(paths.sourceDiscovery) ? basename(paths.sourceDiscovery) : null,
       },
       sourceHealth: summarizeSourceHealth(completeHealth),
+      pipelineAttempt,
       sourceCoverage: {
         registryFingerprint: await sourceRegistryFingerprint(),
         registryCount: getSourceRegistry().length,
@@ -1157,20 +1154,18 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       embeddingProvider: {
         provider: "ollama",
         model: llmConfig.embeddingModel,
-        url: llmConfig.ollamaUrl,
       },
       vectorStore: {
         provider: "chroma",
         collection: llmConfig.collectionName,
-        url: llmConfig.chromaUrl,
       },
     };
 
     try {
       const llm = await getLlm();
       if (llm) {
-        const providerHealth = await llm.provider.checkChatProvider();
-        health.providerHealth = providerHealth;
+        const providerHealth = await llm.provider.checkChatProvider({ signal: req?.signal });
+        health.providerHealth = { ...providerHealth, error: providerHealth.error ? "Provider unavailable" : undefined };
         if (!providerHealth.configured || !providerHealth.reachable) health.status = "degraded";
       }
     } catch (error: unknown) {
@@ -1180,7 +1175,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         configured: false,
         reachable: false,
         model: llmConfig.provider === "openrouter" ? llmConfig.openrouterModel : llmConfig.chatModel,
-        error: error instanceof Error ? error.message : String(error),
+        error: "Provider unavailable",
       };
     }
 
@@ -1241,14 +1236,14 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       if (!existsSync(healthPath)) continue;
       try {
         const sourceReport = JSON.parse(readFileSync(healthPath, "utf-8"));
-        health[`${key}Sources`] = sourceReport.sources ?? [];
+        health[`${key}Sources`] = publicSourceHealthRows(sourceReport.sources);
       } catch { /* diagnostics never break liveness */ }
     }
 
     if (existsSync(paths.alertsHealth)) {
       try {
         const alertHealth = JSON.parse(readFileSync(paths.alertsHealth, "utf-8"));
-        health.alertSources = alertHealth.sources ?? [];
+        health.alertSources = publicSourceHealthRows(alertHealth.sources);
       } catch { /* diagnostics never break liveness */ }
     }
 
@@ -1262,7 +1257,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
     const completeHealth = completeSourceHealth(allSourceHealth);
     const expectedMonitor = new Map(EXPECTED_SOURCE_HEALTH.map(expected => [expected.source, expected.monitor]));
     for (const monitor of ["news", "meetings", "youtube", "triplicate", "alerts"] as const) {
-      health[`${monitor === "alerts" ? "alert" : monitor}Sources`] = completeHealth.filter(source => expectedMonitor.get(source.source) === monitor);
+      health[`${monitor === "alerts" ? "alert" : monitor}Sources`] = publicSourceHealthRows(completeHealth.filter(source => expectedMonitor.get(source.source) === monitor));
     }
     health.sourceCoverage = summarizeSourceHealth(completeHealth);
 
@@ -1275,7 +1270,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/report/latest — serve most recent monthly civic health report
   if (path === "/api/report/latest") {
     const { existsSync, readdirSync, readFileSync } = await import("fs");
-    const reportsDir = "output/reports";
+    const reportsDir = paths.reports;
     if (!existsSync(reportsDir)) return json({ error: "No reports generated. Run: bun run report" }, 404);
     try {
       const files = readdirSync(reportsDir)
@@ -1298,7 +1293,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
   // GET /api/report/latest.json — machine-readable metadata for the latest report
   if (path === "/api/report/latest.json") {
     const { existsSync, readdirSync, readFileSync } = await import("fs");
-    const reportsDir = "output/reports";
+    const reportsDir = paths.reports;
     if (!existsSync(reportsDir)) return json({ error: "No reports generated. Run: bun run report" }, 404);
     const files = readdirSync(reportsDir).filter(f => f.startsWith("monthly-") && f.endsWith(".json")).sort().reverse();
     if (files.length === 0) return json({ error: "No report metadata found" }, 404);
@@ -1537,7 +1532,7 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         source = "offline-shell";
       } else {
         const { existsSync, readFileSync } = await import("fs");
-        const persistedPath = join(process.cwd(), "output", "events", "event_discovery.json");
+        const persistedPath = join(outputRoot(), "events", "event_discovery.json");
         if (existsSync(persistedPath)) {
           try {
             artifact = JSON.parse(readFileSync(persistedPath, "utf-8")) as import("../event_discovery.js").DiscoveryArtifact;
@@ -1566,7 +1561,6 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
 
   // POST /api/chat/stream — streaming RAG via Server-Sent Events
   if (path === "/api/chat/stream" && req?.method === "POST") {
-    await resetProviderBudget();
     try {
       const body = await req.json();
       const q = body.q;
@@ -1575,39 +1569,17 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
       const llm = await getLlm();
       if (!llm) return json({ error: "LLM modules unavailable" }, 503);
 
-      // Retrieve context from ChromaDB
-      const { ollama, chroma } = llm;
-      const provider = await llm.provider.checkChatProvider();
+      const provider = await llm.provider.checkChatProvider({ signal: req?.signal });
       if (!provider.configured || !provider.reachable) {
-        return json({ error: provider.error ?? `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
+        return json({ error: `${provider.provider} chat provider is unavailable`, provider: provider.provider, model: provider.model }, 503);
       }
-      const ollamaHealthy = await ollama.isOllamaRunning();
-      if (!ollamaHealthy) return json({ error: "Ollama is not running" }, 503);
-
-      const queryEmbedding = await ollama.embed(q);
-      const chromaResult = await chroma.query(queryEmbedding, llmConfig.topK);
-
-      const { buildRagSource } = await import("../llm/rag.js");
-      const documents = chromaResult.documents ?? [];
-      if (documents.length === 0) return json({ error: "No retrieved context is available" }, 503);
-      const sources: import("../types.js").RagSource[] = documents.map((doc: string, i: number) =>
-        buildRagSource(doc, chromaResult.metadatas?.[i] ?? {}, chromaResult.distances?.[i] ?? 0)
-      );
-
-      const context = documents.map((doc: string, i: number) => {
-        const meta = chromaResult.metadatas?.[i] ?? {};
-        const label = meta.sourceType === "youtube_transcript"
-          ? `[YouTube: ${meta.videoTitle ?? "unknown"} @ ${meta.timestamp ?? "unknown"}]`
-          : `[${meta.sectionNumber ?? "unknown section"}: ${meta.sectionTitle ?? ""}]`;
-        return `${label}\n${doc}`;
-      }).join("\n\n");
-
+      const context = await llm.rag.retrieveRagContext(q, { signal: req.signal });
       const { createStreamingRagResponse } = await import("../llm/streaming_rag.js");
-      return createStreamingRagResponse(q, { sources, context }, body.model, body.history);
+      return createStreamingRagResponse(q, context, body.model, body.history, req.signal);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       log.error(`Streaming chat failed`, { error: message });
-      return json({ error: `Streaming chat failed: ${message}` }, 500);
+      return json({ error: `Streaming chat failed: ${publicApiDetail(message)}` }, dependencyFailureStatus(message));
     }
   }
 

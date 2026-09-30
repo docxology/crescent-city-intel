@@ -15,6 +15,7 @@ import { llmConfig } from "./llm/config.js";
 import { checkChatProvider, chatWithProvider, configuredChatModel } from "./llm/provider.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
 import { isActiveNewsSource } from "./news_monitor.js";
+import { isCivilDate } from "./events.js";
 import { paths } from "./shared/paths.js";
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { computeSha256, truncateText } from "./utils.js";
@@ -202,7 +203,7 @@ async function readSearchAnalytics(): Promise<{ totalQueries: number; evidenceHa
 }
 
 function itemDate(item: JsonRecord): number {
-  for (const key of ["pubDate", "date", "fetchedAt", "curatedAt", "uploadDate"]) {
+  for (const key of ["publishedAt", "pubDate", "date", "uploadDate"]) {
     const value = item[key];
     if (typeof value === "string" && Number.isFinite(Date.parse(value))) return Date.parse(value);
   }
@@ -215,13 +216,16 @@ function normalizeItem(item: JsonRecord, fallbackSource: string): OverviewItem |
   const url = typeof item.link === "string" && /^https?:\/\//i.test(item.link)
     ? item.link
     : typeof item.url === "string" && /^https?:\/\//i.test(item.url) ? item.url : null;
-  const dateKey = ["pubDate", "date", "fetchedAt", "curatedAt", "uploadDate"].find(key => typeof item[key] === "string");
+  const dateKey = ["publishedAt", "pubDate", "date", "uploadDate"].find(key => typeof item[key] === "string" && !!String(item[key]).trim());
+  const rawDate = dateKey ? String(item[dateKey]) : null;
+  const sourceDate = dateKey === "uploadDate" && rawDate && /^\d{8}$/.test(rawDate) ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}` : rawDate;
+  const date = sourceDate && (/^\d{4}-\d{2}-\d{2}$/.test(sourceDate) ? isCivilDate(sourceDate) : Number.isFinite(Date.parse(sourceDate))) ? sourceDate : null;
   return {
     id: typeof item.id === "string" ? item.id : typeof item.videoId === "string" ? item.videoId : url ?? title,
     title,
     source: typeof item.source === "string" ? item.source : typeof item.channel === "string" ? item.channel : fallbackSource,
     url,
-    date: dateKey ? String(item[dateKey]) : null,
+    date,
     ...(typeof item.summary === "string" ? { summary: truncateText(item.summary, 500) } : {}),
   };
 }

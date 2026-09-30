@@ -15,9 +15,10 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm } from "fs/promises";
 import { existsSync, readdirSync } from "fs";
 import { tmpdir } from "os";
-import { extname, join, normalize } from "path";
+import { extname, join, normalize, resolve } from "path";
 import { chromium, type Browser, type ConsoleMessage, type Page } from "playwright";
 import { exportPagesSnapshot } from "../src/pages_snapshot.ts";
+import { writeReviewedPublicationFixture } from "./helpers/publication-fixture.ts";
 
 const ORIGIN = "https://quadruplicate.test";
 const PAGES = ["index.html", "gui.html", "news.html", "meetings.html", "events.html", "directory.html", "code.html", "sources.html", "404.html"];
@@ -79,10 +80,19 @@ let destination: string;
 
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), "cci-render-"));
-  destination = join(root, "pages");
-  // A real export of the repo's real artifacts — the same code path the
-  // published edition is built with, not a fixture of it.
-  await exportPagesSnapshot({ outputDir: "output", destination, seedDir: "pages-data" });
+  const suppliedArtifact = process.env.PAGES_SMOKE_DIR;
+  destination = suppliedArtifact ? resolve(suppliedArtifact) : join(root, "pages");
+  // An explicit artifact path tests those exact saved bytes without rebuilding
+  // or modifying them. Normal suite execution builds a separate temporary tree.
+  if (suppliedArtifact) {
+    for (const name of PAGES) {
+      if (!existsSync(join(destination, name))) throw new Error(`Pages smoke artifact is missing ${name}`);
+    }
+  } else {
+    const output = join(root, "output");
+    await writeReviewedPublicationFixture(output);
+    await exportPagesSnapshot({ outputDir: output, destination, seedDir: join(root, "no-seed") });
+  }
   browser = await launchChromium();
 }, 180000);
 
@@ -324,7 +334,9 @@ describe("lane 5: an edition missing its optional artifacts still renders", () =
     const seedOutput = join(seedRoot, "empty-output");
     const seedDestination = join(seedRoot, "pages");
     await mkdir(seedOutput, { recursive: true });
-    await exportPagesSnapshot({ outputDir: seedOutput, destination: seedDestination, seedDir: "pages-data" });
+    const fixtureSeed = join(seedRoot, "reviewed-seed");
+    await writeReviewedPublicationFixture(fixtureSeed);
+    await exportPagesSnapshot({ outputDir: seedOutput, destination: seedDestination, seedDir: fixtureSeed });
 
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();

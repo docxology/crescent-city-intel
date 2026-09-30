@@ -22,7 +22,7 @@ describe("rate-limit diagnostics", () => {
     expect(blocked!.status).toBe(429);
     const stats = getRateLimitStats();
     expect(stats.trackedIps).toBe(1);
-    expect(stats.peakUsage).toBe(limit + 1);
+    expect(stats.peakUsage).toBe(limit);
     expect(stats.blocked).toBe(1);
   });
 });

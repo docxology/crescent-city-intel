@@ -15,11 +15,13 @@
  *   silently started from empty and treated everything as new. Using this
  *   store instead of that Map is a real idempotency fix, not just a refactor.
  */
-import { mkdir, readFile, rename, open } from "fs/promises";
+import { readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { dirname } from "path";
+import { withFileLease } from "./storage.js";
+import { writeJsonAtomic } from "./source_health.js";
 import { computeSha256 } from "../utils.js";
 import { createLogger } from "../logger.js";
+import { throwIfAborted } from "./transport.js";
 
 const logger = createLogger("idempotency");
 
@@ -49,6 +51,8 @@ export class IdempotencyStore {
   private readonly cap: number;
   private records = new Map<string, IdempotencyRecord>();
   private loaded = false;
+  private dirty = new Set<string>();
+  private loadFailure: Error | null = null;
 
   constructor(path: string, cap = 10_000) {
     this.path = path;
@@ -69,10 +73,9 @@ export class IdempotencyStore {
       // original seen-ids.json). Treated as presence-only records so none
       // of that history is lost and nothing gets reprocessed as "new".
       if (Array.isArray(parsed)) {
-        const now = new Date().toISOString();
         for (const id of parsed) {
           if (typeof id === "string") {
-            this.records.set(id, { hash: "", firstSeen: now, lastSeen: now });
+            this.records.set(id, { hash: "", firstSeen: "", lastSeen: "", meta: { dateEvidence: "legacy-unknown" } });
           }
         }
         // A migrated legacy array larger than the cap must be trimmed now,
@@ -82,13 +85,16 @@ export class IdempotencyStore {
         return;
       }
 
+      if (!parsed || typeof parsed !== "object") throw new Error("Malformed idempotency store");
       for (const [id, rec] of Object.entries(parsed as Record<string, IdempotencyRecord>)) {
+        if (!rec || typeof rec !== "object" || typeof rec.hash !== "string" || typeof rec.firstSeen !== "string" || typeof rec.lastSeen !== "string") throw new Error("Malformed idempotency record");
         this.records.set(id, rec);
       }
     } catch (err: any) {
       // Corrupt or unreadable — start empty rather than crash the calling monitor.
       logger.warn(`Failed to load idempotency store at ${this.path}, starting empty`, { error: err.message });
       this.records = new Map();
+      this.loadFailure = err instanceof Error ? err : new Error(String(err));
     }
   }
 
@@ -111,6 +117,7 @@ export class IdempotencyStore {
    */
   seen(id: string, hash: string = "", meta?: Record<string, unknown>): SeenResult {
     const now = new Date().toISOString();
+    this.dirty.add(id);
     const existing = this.records.get(id);
 
     if (!existing) {
@@ -143,30 +150,32 @@ export class IdempotencyStore {
   private cleanup(): void {
     if (this.records.size <= this.cap) return;
     const entries = [...this.records.entries()].sort(
-      (a, b) => new Date(a[1].firstSeen).getTime() - new Date(b[1].firstSeen).getTime()
+      (a, b) => (Date.parse(a[1].firstSeen) || 0) - (Date.parse(b[1].firstSeen) || 0)
     );
     const toDrop = entries.length - this.cap;
     for (let i = 0; i < toDrop; i++) this.records.delete(entries[i][0]);
   }
 
   /** Persist current state to disk via a temp-file-then-rename atomic write. */
-  async save(): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const obj: Record<string, IdempotencyRecord> = {};
-    for (const [id, rec] of this.records) obj[id] = rec;
-
-    const tmpPath = `${this.path}.tmp-${process.pid}-${Math.random().toString(36).slice(2)}`;
-    // fsync the temp file before rename: without it a power loss between write
-    // and rename can persist a partially-written file under the real path, and
-    // the corrupt file is then silently discarded as "start empty" on next
-    // load — losing all dedup state and reprocessing everything as new.
-    const handle = await open(tmpPath, "w");
-    try {
-      await handle.writeFile(JSON.stringify(obj, null, 2), "utf-8");
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    await rename(tmpPath, this.path);
+  async save(options: { signal?: AbortSignal } = {}): Promise<void> {
+    if (options.signal) throwIfAborted(options.signal);
+    if (this.loadFailure) throw new Error("Refusing to replace corrupt idempotency evidence; preserve/quarantine the original first");
+    await withFileLease(`${this.path}.lock`, async () => {
+      if (options.signal) throwIfAborted(options.signal);
+      const disk = new IdempotencyStore(this.path, this.cap);
+      await disk.load();
+      if (options.signal) throwIfAborted(options.signal);
+      if (disk.loadFailure) throw new Error("Refusing to replace corrupt idempotency evidence");
+      for (const [id, record] of this.records) {
+        if (!this.dirty.has(id) && disk.records.has(id)) continue;
+        const existing = disk.records.get(id);
+        if (!existing || (Date.parse(record.lastSeen) || 0) >= (Date.parse(existing.lastSeen) || 0)) disk.records.set(id, { ...record, firstSeen: existing ? existing.firstSeen : record.firstSeen });
+      }
+      disk.cleanup();
+      if (options.signal) throwIfAborted(options.signal);
+      await writeJsonAtomic(this.path, Object.fromEntries(disk.records), options);
+      this.records = disk.records; this.dirty.clear();
+      if (options.signal) throwIfAborted(options.signal);
+    }, options);
   }
 }

@@ -8,8 +8,8 @@
  * than the backoff allows.
  *
  * Scope, stated plainly: this module identifies and schedules. It does not
- * itself re-invoke a monitor; `scripts/run-alerts.ts` owns the batch and acts on
- * `retriedMonitors` by re-running those monitors on the next cycle. A monitor
+ * itself re-invoke a monitor; the alert batch independently checks its requested
+ * roster. A monitor
  * named here is "eligible for retry", not "has been retried by this module".
  *
  * State is persisted to output/state/healer-state.json so it survives restarts.
@@ -21,8 +21,10 @@
  */
 import { createLogger } from "../logger.js";
 import { outputRoot } from "../shared/paths.js";
-import { ALERT_MONITOR_SOURCE_NAMES as MONITOR_SOURCE_NAMES } from "./composite.js";
-import { mkdir, readFile, writeFile, rename } from "fs/promises";
+import { ALERT_MONITOR_SOURCE_NAMES as MONITOR_SOURCE_NAMES, MONITOR_KEYS } from "./composite.js";
+import { readFile } from "fs/promises";
+import { writeJsonAtomic } from "../shared/source_health.js";
+import { withFileLease } from "../shared/storage.js";
 import { existsSync } from "fs";
 import { join } from "path";
 
@@ -69,11 +71,11 @@ export interface HealerEntry {
   source: string;
   /** Current consecutive failure count (unavailable or stale runs). */
   consecutiveFailures: number;
-  /** How many times a retry has been attempted for this monitor. */
+  /** Number of retry-eligibility notices; this is not an execution count. */
   retryCount: number;
   /** When this entry was last updated (ISO-8601). */
   lastUpdated: string;
-  /** ISO-8601 timestamp of the last triggered retry, or empty if none yet. */
+  /** Last retry-eligibility notice, or empty; no retry execution is implied. */
   lastRetriedAt: string;
   /** ISO-8601 timestamp of when the current backoff period ends, or empty. */
   backoffUntil: string;
@@ -128,8 +130,8 @@ async function readSourceHealthFile(): Promise<Record<string, unknown> | null> {
 
 /** Compute exponential backoff end time given the retry count. */
 function computeBackoffUntil(retryCount: number, now: number): string {
-  const stepIndex = Math.min(retryCount, BACKOFF_STEPS_MS.length - 1);
-  const delayMs = BACKOFF_STEPS_MS[stepIndex];
+  const stepIndex = Math.min(Math.max(0, retryCount - 1), BACKOFF_STEPS_MS.length - 1);
+  const delayMs = Math.min(BACKOFF_STEPS_MS[stepIndex], envInt("HEALER_RETRY_BACKOFF_CAP_MS", 4 * 60 * 60 * 1000));
   return new Date(now + delayMs).toISOString();
 }
 
@@ -180,10 +182,7 @@ async function loadState(): Promise<HealerState> {
 /** Persist healer state atomically. Never throws. */
 async function saveState(state: HealerState): Promise<void> {
   try {
-    await mkdir(join(healerOutputDir(), "state"), { recursive: true });
-    const tmp = `${healerStatePath()}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tmp, JSON.stringify(state, null, 2) + "\n", "utf-8");
-    await rename(tmp, healerStatePath());
+    await writeJsonAtomic(healerStatePath(), state);
   } catch (err) {
     log.warn("Failed to persist healer state (non-fatal)", {
       error: err instanceof Error ? err.message : String(err),
@@ -215,7 +214,7 @@ export async function getHealerState(): Promise<HealerState> {
  *
  * NEVER throws. Returns a summary of what happened.
  */
-export async function runHealingCycle(): Promise<{
+async function runHealingCycleUnlocked(): Promise<{
   cycleRun: string;
   monitorsChecked: number;
   monitorsRetried: string[];
@@ -244,15 +243,20 @@ export async function runHealingCycle(): Promise<{
       return { cycleRun: nowIso, monitorsChecked: 0, monitorsRetried: retried, monitorsRecovered: recovered, state };
     }
 
+    const notRequested = new Set(Array.isArray(health.attempts) ? health.attempts.filter(entry => entry && typeof entry === "object" && (entry as Record<string, unknown>).requested === false).map(entry => (entry as Record<string, unknown>).key) : []);
+    const checked = new Set<string>();
     for (const entry of sources) {
       const sourceName = entry?.source;
-      if (typeof sourceName !== "string") continue;
+      if (typeof sourceName !== "string" || checked.has(sourceName)) continue;
 
       const monitor = state.monitors[sourceName];
       if (!monitor) continue;
+      const key = MONITOR_SOURCE_NAMES.indexOf(sourceName as typeof MONITOR_SOURCE_NAMES[number]);
+      if (notRequested.has(MONITOR_KEYS[key])) continue;
+      checked.add(sourceName);
 
       const status: string = entry?.status ?? "";
-      const isFailing = status === "unavailable" || status === "stale";
+      const isFailing = status !== "ok" && status !== "empty";
 
       if (isFailing) {
         monitor.consecutiveFailures += 1;
@@ -263,7 +267,7 @@ export async function runHealingCycle(): Promise<{
             monitor.lastRetriedAt = nowIso;
             monitor.backoffUntil = computeBackoffUntil(monitor.retryCount, now);
             retried.push(sourceName);
-            log.info(`Healing retry triggered for ${sourceName} (attempt ${monitor.retryCount})`);
+            log.info(`Retry eligibility notice for ${sourceName} (${monitor.retryCount})`);
           }
         }
       } else {
@@ -283,7 +287,7 @@ export async function runHealingCycle(): Promise<{
 
     return {
       cycleRun: nowIso,
-      monitorsChecked: sources.length,
+      monitorsChecked: checked.size,
       monitorsRetried: retried,
       monitorsRecovered: recovered,
       state,
@@ -299,5 +303,14 @@ export async function runHealingCycle(): Promise<{
       monitorsRecovered: recovered,
       state: await getHealerState(),
     };
+  }
+}
+
+/** Serialize the complete state transition, including independent CLI callers. */
+export async function runHealingCycle(): Promise<Awaited<ReturnType<typeof runHealingCycleUnlocked>>> {
+  try { return await withFileLease(`${healerStatePath()}.lock`, runHealingCycleUnlocked); }
+  catch (error) {
+    log.warn("Healing ownership unavailable; no state transition", { error: error instanceof Error ? error.message : String(error) });
+    return { cycleRun: new Date().toISOString(), monitorsChecked: 0, monitorsRetried: [], monitorsRecovered: [], state: await getHealerState() };
   }
 }

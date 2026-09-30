@@ -1,61 +1,80 @@
-version: "3.9"
-
 services:
-  # ─── GUI Server (Bun) ──────────────────────────────────────────────
   gui:
     build: .
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - PORT=3000
-      - LOG_LEVEL=info
-      - OLLAMA_URL=http://ollama:11434
-      - CHROMA_URL=http://chroma:8000
-      - CRESCENT_CITY_API_KEY=${CRESCENT_CITY_API_KEY:-}
-      - AIRNOW_API_KEY=${AIRNOW_API_KEY:-}
-      # OpenRouter (optional) — forward so the containerized GUI/curation can
-      # actually use the hosted provider instead of silently falling back or
-      # failing. Unset LLM_PROVIDER keeps the default all-local 'ollama' path.
-      - LLM_PROVIDER=${LLM_PROVIDER:-}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-}
-      - OPENROUTER_MAX_REQUESTS=${OPENROUTER_MAX_REQUESTS:-100}
-      - YT_DLP_TIMEOUT_MS=${YT_DLP_TIMEOUT_MS:-15000}
+      PORT: "3000"
+      LOG_LEVEL: info
+      OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
+      CHROMA_URL: "${CHROMA_URL:-http://chroma:8000}"
+      CRESCENT_CITY_API_KEY: "${CRESCENT_CITY_API_KEY:-}"
+      AIRNOW_API_KEY: "${AIRNOW_API_KEY:-}"
+      LLM_PROVIDER: "${LLM_PROVIDER:-ollama}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-}"
+      OPENROUTER_MAX_REQUESTS: "${OPENROUTER_MAX_REQUESTS:-100}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-nomic-embed-text}"
+      CHAT_MODEL: "${CHAT_MODEL:-gemma3:4b}"
     volumes:
       - ./output:/app/output
-    depends_on:
-      - ollama
-      - chroma
     restart: unless-stopped
 
-  # ─── Ollama (LLM inference) ────────────────────────────────────────
   ollama:
-    image: ollama/ollama:latest
+    profiles: [llm]
+    image: ollama/ollama:0.34.2
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
-    # GPU support — uncomment if NVIDIA GPU available
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
 
-  # ─── ChromaDB (vector store) ───────────────────────────────────────
   chroma:
-    image: chromadb/chroma:latest
+    profiles: [llm]
+    image: chromadb/chroma:1.5.9
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
-      - chroma_data:/chroma/chroma
+      - chroma_data:/data
     environment:
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
+      CHROMA_PERSIST_PATH: /data
+      ANONYMIZED_TELEMETRY: "FALSE"
     restart: unless-stopped
+
+  ollama-models:
+    profiles: [llm]
+    image: ollama/ollama:0.34.2
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-nomic-embed-text}"
+      CHAT_MODEL: "${CHAT_MODEL:-gemma3:4b}"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['ollama pull "$$EMBEDDING_MODEL" && ollama pull "$$CHAT_MODEL"']
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  readiness:
+    profiles: [llm]
+    build: .
+    command: ["bun", "scripts/stack-readiness.ts"]
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      CHROMA_URL: http://chroma:8000
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-nomic-embed-text}"
+      CHAT_MODEL: "${CHAT_MODEL:-gemma3:4b}"
+    depends_on:
+      ollama-models:
+        condition: service_completed_successfully
+      chroma:
+        condition: service_started
+    restart: "no"
 
 volumes:
   ollama_data:

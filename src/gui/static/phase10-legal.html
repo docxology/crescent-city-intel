@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The Quadruplicate — Ordinals, Citations &amp; Effective Dates</title>
+  <title>The Quadruplicate — Ordinals, Citations &amp; Recorded Amendment Years</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
+  <script src="assets/gui-runtime.js"></script>
   <style>
     body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
     header{background:#c41e1e;color:#fff;padding:18px 24px}
@@ -34,8 +35,8 @@
 </head>
 <body>
   <header>
-    <h1>Ordinals, Citations &amp; Effective Dates</h1>
-    <div class="sub">Phase 10 surfaces — numbering-sequence refinement, legal-citation cross-linking, and the derived effective-date field</div>
+    <h1>Ordinals, Citations &amp; Recorded Amendment Years</h1>
+    <div class="sub">Phase 10 surfaces — numbering-sequence refinement, legal-citation cross-linking, and recorded amendment years</div>
   </header>
   <nav>
     <a href="/">GUI</a>
@@ -65,13 +66,13 @@
     </section>
 
     <section id="effective-section">
-      <h2>Effective dates</h2>
-      <p style="color:#555;margin-bottom:6px">The most recent year in each section's legislative-history line — the year the section last took effect as written. Sections whose history carries no parseable year show <span class="nodate">no effective date on record</span>; a date is never guessed from an ordinance number.</p>
+      <h2>Recorded amendment years</h2>
+      <p style="color:#555;margin-bottom:6px">The most recent year recorded in each section’s legislative-history line. This identifies a recorded amendment year; it does not establish a legal effective date. Sections whose history carries no parseable year show <span class="nodate">no recorded amendment year on record</span>; a date is never guessed from an ordinance number.</p>
       <label for="effective-guid">Section GUID (optional)</label><br>
       <input id="effective-guid" placeholder="Leave empty for the corpus-wide report">
-      <button id="effective-load">Load effective dates</button>
-      <div id="effective-empty" class="empty-state"><p>No effective-date report loaded yet. Press Load — sections with their derived effective years appear here. Leave the GUID empty for the corpus-wide report.</p></div>
-      <div id="effective-empty-result" class="empty-state hidden"><p>No effective dates on record: the history lines in this slice carry no parseable years.</p></div>
+      <button id="effective-load">Load recorded amendment years</button>
+      <div id="effective-empty" class="empty-state"><p>No recorded-amendment report loaded yet. Press Load — sections with their latest recorded years appear here. Leave the GUID empty for the corpus-wide report.</p></div>
+      <div id="effective-empty-result" class="empty-state hidden"><p>No recorded amendment years on record: the history lines in this slice carry no parseable years.</p></div>
       <div id="effective-error" class="error-state hidden"></div>
       <div id="effective-content"></div>
     </section>
@@ -79,8 +80,7 @@
   <script>
     const key = window.__CC_API_KEY__;
     function apiFetch(url) {
-      const headers = key && !key.startsWith("__CC_API_KEY") ? { "X-API-Key": key } : {};
-      return fetch(url, { headers });
+      return CCGui.apiFetch(url);
     }
     function show(id){document.getElementById(id).classList.remove("hidden");}
     function hide(id){document.getElementById(id).classList.add("hidden");}
@@ -159,14 +159,14 @@
         if (!data.sections?.length) { out.innerHTML = ""; show("effective-empty-result"); return; }
         let html = `<div class="grid">`
           + `<div class="card"><h4>Sections scanned</h4><div class="metric">${data.summary.sectionsScanned}</div></div>`
-          + `<div class="card"><h4>With an effective year</h4><div class="metric">${data.summary.sectionsWithDate}</div></div>`
+          + `<div class="card"><h4>With a recorded year</h4><div class="metric">${data.summary.sectionsWithDate}</div></div>`
           + `<div class="card"><h4>No date on record</h4><div class="metric">${data.summary.sectionsWithoutDate}</div></div>`
           + `<div class="card"><h4>Year range</h4><div class="metric" style="font-size:18px">${data.summary.earliestYear ?? "—"}–${data.summary.latestYear ?? "—"}</div></div>`
           + `</div>`;
-        html += '<table><thead><tr><th>Section</th><th>Effective year</th><th>Most recent action</th><th>History line</th></tr></thead><tbody>';
+        html += '<table><thead><tr><th>Section</th><th>Recorded amendment year</th><th>Most recent action</th><th>History line</th></tr></thead><tbody>';
         for (const row of data.sections) {
           const year = row.effectiveYear === null
-            ? '<span class="nodate">no effective date on record</span>'
+            ? '<span class="nodate">no recorded amendment year on record</span>'
             : `<strong>${row.effectiveYear}</strong>`;
           const action = row.effectiveYear === null ? "—" : `${esc(row.ordinance ?? "")} ${esc(row.action ?? "")}`;
           html += `<tr><td>&sect; ${esc(row.sectionNumber)}</td><td>${year}</td><td>${action}</td><td style="font-size:.8rem;color:#555">${esc(row.derivedFrom || "—")}</td></tr>`;

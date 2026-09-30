@@ -20,7 +20,7 @@
 import { createLogger } from './logger.js';
 import { IdempotencyStore, type IdempotencyRecord } from './shared/idempotency.js';
 import { llmConfig } from './llm/config.js';
-import { chatWithProvider, checkChatProvider, configuredChatModel, type ChatProvider } from './llm/provider.js';
+import { chatWithProvider, checkChatProvider, configuredChatModel } from './llm/provider.js';
 import { domains } from './domains.js';
 import { mkdir, open, readFile, readdir, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -28,45 +28,24 @@ import { join } from 'path';
 import { paths } from './shared/paths.js';
 import { isActiveNewsSource } from './news_monitor.js';
 import { errorMessage, writeJsonAtomic } from './shared/source_health.js';
+import { acquireFileLease } from './shared/storage.js';
 import { createRunId } from './shared/orchestration.js';
 import { computeSha256 } from './utils.js';
+import { boundedSignal } from './llm/runtime.js';
+import { withProviderBudget } from './llm/openrouter.js';
+import { waitWithSignal } from './shared/transport.js';
 import type { CurationCitation, CurationRunReport } from './types.js';
 
 const logger = createLogger('curation');
 
-const CURATED_OUTPUT_DIR = paths.curated;
-/** Lives under output/state/, NOT output/curated/ — keeps every consumer
- * that lists output/curated/*.json (e.g. GET /api/curated) from having to
- * remember to filter this state file out. */
-const CURATION_SEEN_PATH = paths.curationSeen;
-const CURATION_LOCK_PATH = `${CURATION_SEEN_PATH}.lock`;
-const CURATION_LOCK_STALE_MS = 6 * 60 * 60 * 1000;
-
-const NEWS_DIR = join(process.cwd(), 'output', 'news');
-const GOV_MEETINGS_DIR = join(process.cwd(), 'output', 'gov_meetings');
-const YOUTUBE_DIR = join(process.cwd(), 'output', 'youtube');
-
-/** Acquire an exclusive curation-run lock; stale locks from terminated runs are recoverable. */
-async function acquireCurationLock(): Promise<() => Promise<void>> {
-  await mkdir(join(process.cwd(), 'output', 'state'), { recursive: true });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const handle = await open(CURATION_LOCK_PATH, 'wx');
-      await handle.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
-      await handle.close();
-      return async () => { await unlink(CURATION_LOCK_PATH).catch(() => undefined); };
-    } catch (error: any) {
-      if (error?.code !== 'EEXIST' || attempt > 0) {
-        throw new Error('A curation run is already in progress; retry after it completes.');
-      }
-      const lockStats = await stat(CURATION_LOCK_PATH).catch(() => null);
-      if (!lockStats || Date.now() - lockStats.mtimeMs <= CURATION_LOCK_STALE_MS) {
-        throw new Error('A curation run is already in progress; retry after it completes.');
-      }
-      await unlink(CURATION_LOCK_PATH).catch(() => undefined);
-    }
-  }
-  throw new Error('Unable to acquire curation run lock');
+function curatedDir(): string { return paths.curated; }
+function curationSeenPath(): string { return paths.curationSeen; }
+function newsDir(): string { return paths.news; }
+function meetingsDir(): string { return paths.govMeetings; }
+function youtubeDir(): string { return paths.youtube; }
+async function acquireCurationLock(signal?: AbortSignal): Promise<() => Promise<void>> {
+  // Batch ownership and the store's read/merge/write lease have distinct scopes.
+  return acquireFileLease(`${curationSeenPath()}.run.lock`, { waitMs: 1, staleMs: 30_000, signal });
 }
 
 export interface CurationInput {
@@ -79,11 +58,14 @@ export interface CurationInput {
   fetchedAt: string;
   /** Explicit source URL used for citations and provenance checks. */
   sourceUrl?: string;
+  /** A link catalogue entry supplies no reviewed document body. */
+  contentKind?: 'document-listing';
 }
 
 export interface CuratedItem {
   id: string;
   source: CurationInput['source'];
+  contentKind?: CurationInput['contentKind'];
   title: string;
   link?: string;
   summary: string;
@@ -120,11 +102,11 @@ export interface SummaryResult {
   retryable: boolean;
 }
 
-/** Only a successful, lineage-complete summary may suppress future work. */
+/** Successful generation or the explicit completed listing policy may suppress future work. */
 export function isCurationRecordComplete(
   record: IdempotencyRecord | undefined,
   expectedHash: string,
-  provider: ChatProvider,
+  provider: CuratedItem['provider'],
   model: string,
 ): boolean {
   return Boolean(
@@ -133,7 +115,9 @@ export function isCurationRecordComplete(
       && record.meta?.promptVersion === CURATION_PROMPT_VERSION
       && record.meta?.provider === provider
       && record.meta?.model === model
-      && record.meta?.summaryStatus === 'ok',
+      && (provider === 'none' && model === DOCUMENT_LISTING_MODEL
+        ? record.meta?.summaryStatus === 'source_only' && record.meta?.contentKind === 'document-listing' && record.meta?.retryable === false
+        : record.meta?.summaryStatus === 'ok'),
   );
 }
 
@@ -148,6 +132,7 @@ export const CURATION_PROMPT_VERSION = '2026-08-26-enriched-v3';
 /** Schema shape version for the additive enrichment record (tags/salience/summary). */
 export const CURATION_RECORD_SCHEMA_VERSION = '2.0.0';
 const SUMMARY_MAX_CHARS = 900;
+const DOCUMENT_LISTING_MODEL = 'document-listing/v1';
 const CURATION_SYSTEM_PROMPT =
   'You are a source-grounded civic-news editor. Summarize only the supplied public source excerpt. ' +
   'Do not answer municipal-code questions, infer missing facts, add a cause, identify a person, or invent a date, location, agency, or outcome. ' +
@@ -155,6 +140,20 @@ const CURATION_SYSTEM_PROMPT =
 
 function normalizeSourceText(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
+}
+
+/** Display only retained listing text, with no claim about the linked document's contents. */
+function documentListingSummary(item: CurationInput): SummaryResult {
+  const title = normalizeSourceText(item.title).slice(0, 220);
+  const excerpt = normalizeSourceText(item.text).slice(0, 600);
+  return { summary: `Document listing; linked content not reviewed. Title: ${title}${excerpt ? `\nSource excerpt: ${excerpt}` : ''}`,
+    status: 'source_only', provider: 'none', model: DOCUMENT_LISTING_MODEL, retryable: false };
+}
+
+function curationIdentity(item: CurationInput): { provider: CuratedItem['provider']; model: string } {
+  return item.contentKind === 'document-listing'
+    ? { provider: 'none', model: DOCUMENT_LISTING_MODEL }
+    : { provider: llmConfig.provider, model: configuredChatModel() };
 }
 
 /** Build deterministic citation/provenance fields before any provider call. */
@@ -192,11 +191,12 @@ async function readJsonFilesInDir(dir: string): Promise<any[]> {
 }
 
 /** Remove visible summaries whose upstream item is no longer in the active inputs. */
-async function pruneCuratedArtifacts(activeIds: Set<string>): Promise<void> {
-  if (!existsSync(CURATED_OUTPUT_DIR)) return;
-  const files = (await readdir(CURATED_OUTPUT_DIR)).filter(file => file.endsWith('.json')).sort();
+async function pruneCuratedArtifacts(activeIds: Set<string>, signal?: AbortSignal): Promise<void> {
+  if (!existsSync(curatedDir())) return;
+  const files = (await readdir(curatedDir())).filter(file => file.endsWith('.json')).sort();
   for (const file of files) {
-    const path = join(CURATED_OUTPUT_DIR, file);
+    signal?.throwIfAborted();
+    const path = join(curatedDir(), file);
     try {
       const parsed = JSON.parse(await readFile(path, 'utf-8'));
       if (!Array.isArray(parsed)) continue;
@@ -204,16 +204,65 @@ async function pruneCuratedArtifacts(activeIds: Set<string>): Promise<void> {
         const id = typeof item?.id === 'string' ? item.id : typeof item?.link === 'string' ? item.link : '';
         return activeIds.has(id);
       });
-      if (retained.length !== parsed.length) await writeJsonAtomic(path, retained);
+      if (retained.length !== parsed.length) { signal?.throwIfAborted(); await writeJsonAtomic(path, retained, { signal }); }
     } catch (error: any) {
+      signal?.throwIfAborted();
       logger.warn(`Skipping curated-artifact pruning for ${file}`, { error: error.message });
     }
   }
 }
 
+/** Retained completed output is a recovery journal, never a license to trust arbitrary JSON. */
+async function retainedCuratedRecords(signal: AbortSignal): Promise<Map<string, CuratedItem[]>> {
+  const records = new Map<string, CuratedItem[]>();
+  if (!existsSync(curatedDir())) return records;
+  const files = (await readdir(curatedDir())).filter(file => file.endsWith('.json')).sort();
+  if (files.length > 1000) throw new Error('Curated recovery file limit exceeded');
+  let count = 0;
+  for (const file of files) {
+    signal.throwIfAborted();
+    const path = join(curatedDir(), file);
+    if ((await stat(path)).size > 8_000_000) throw new Error('Curated recovery artifact exceeds its size limit');
+    let value: unknown;
+    try { value = JSON.parse(await readFile(path, 'utf8')); }
+    catch { throw new Error('Curated recovery artifact is corrupt; preserve it before repair'); }
+    signal.throwIfAborted();
+    if (!Array.isArray(value) || value.some(item => !item || typeof item !== 'object' || Array.isArray(item) || typeof item.id !== 'string')) throw new Error('Curated recovery artifact has an invalid shape; preserve it before repair');
+    for (const item of value as CuratedItem[]) {
+      if (++count > 10_000) throw new Error('Curated recovery record limit exceeded');
+      const candidates = records.get(item.id) ?? []; candidates.push(item); records.set(item.id, candidates);
+    }
+  }
+  return records;
+}
+
+/** Exact lineage and source binding; this does not establish semantic factual support. */
+export function isRetainedCurationComplete(record: CuratedItem, item: CurationInput, fingerprint: string, provider: CuratedItem['provider'], model: string): boolean {
+  const evidence = buildCurationEvidence(item, fingerprint);
+  const listing = item.contentKind === 'document-listing';
+  return record.id === item.id && record.source === item.source && record.title === item.title && record.link === item.link
+    && record.inputFingerprint === fingerprint && record.promptVersion === CURATION_PROMPT_VERSION
+    && record.provider === provider && record.model === model && record.summaryStatus === (listing ? 'source_only' : 'ok') && record.retryable === false
+    && (!listing || record.contentKind === item.contentKind && record.summary === documentListingSummary(item).summary)
+    && typeof record.summary === 'string' && record.summary.trim().length > 0 && record.summary.length <= SUMMARY_MAX_CHARS
+    && typeof record.curatedAt === 'string' && Number.isFinite(Date.parse(record.curatedAt))
+    && (listing ? normalizeSourceText(item.title).length > 0 : normalizeSourceText(item.text).length > 0)
+    && record.sourceExcerpt === normalizeSourceText(item.text).slice(0, 600)
+    && record.provenance === evidence.provenance && JSON.stringify(record.citations) === JSON.stringify(evidence.citations);
+}
+
+/** A no-op retains the original observation receipt instead of inventing a fresh citation. */
+function isRetainedCurationVisible(record: CuratedItem, item: CurationInput, fingerprint: string, provider: CuratedItem['provider'], model: string): boolean {
+  const prefix = `${item.source}:${item.sourceUrl ?? item.link ?? item.id}; fetchedAt=`;
+  if (typeof record.provenance !== 'string' || !record.provenance.startsWith(prefix)) return false;
+  const fetchedAt = record.provenance.slice(prefix.length);
+  if (fetchedAt !== 'unknown' && !Number.isFinite(Date.parse(fetchedAt))) return false;
+  return isRetainedCurationComplete(record, { ...item, fetchedAt }, fingerprint, provider, model);
+}
+
 /** Gather news items from every output/news/*.json batch file. */
 async function gatherNewsItems(): Promise<CurationInput[]> {
-  const batches = await readJsonFilesInDir(NEWS_DIR);
+  const batches = await readJsonFilesInDir(newsDir());
   const out: CurationInput[] = [];
   for (const batch of batches) {
     for (const item of batch.items ?? []) {
@@ -233,7 +282,7 @@ async function gatherNewsItems(): Promise<CurationInput[]> {
 
 /** Gather government meeting items from every output/gov_meetings/*.json batch file. */
 async function gatherGovMeetingItems(): Promise<CurationInput[]> {
-  const batches = await readJsonFilesInDir(GOV_MEETINGS_DIR);
+  const batches = await readJsonFilesInDir(meetingsDir());
   const out: CurationInput[] = [];
   for (const batch of batches) {
     for (const item of batch.items ?? []) {
@@ -245,6 +294,7 @@ async function gatherGovMeetingItems(): Promise<CurationInput[]> {
         text: item.content ?? '',
         link: item.link,
         fetchedAt: item.fetchedAt ?? batch.fetchedAt ?? 'unknown',
+        ...(item.recordKind === 'meeting-document' ? { contentKind: 'document-listing' as const } : {}),
       });
     }
   }
@@ -253,12 +303,12 @@ async function gatherGovMeetingItems(): Promise<CurationInput[]> {
 
 /** Gather YouTube transcripts from every output/youtube/<video-id>.json file. */
 async function gatherYouTubeItems(): Promise<CurationInput[]> {
-  if (!existsSync(YOUTUBE_DIR)) return [];
-  const files = (await readdir(YOUTUBE_DIR)).filter((f) => f.endsWith('.json')).sort();
+  if (!existsSync(youtubeDir())) return [];
+  const files = (await readdir(youtubeDir())).filter((f) => f.endsWith('.json')).sort();
   const out: CurationInput[] = [];
   for (const f of files) {
     try {
-      const raw = await readFile(join(YOUTUBE_DIR, f), 'utf-8');
+      const raw = await readFile(join(youtubeDir(), f), 'utf-8');
       const t = JSON.parse(raw);
       if (t.status !== 'ok' || !t.fullText) continue; // nothing to summarize for unavailable/failed transcripts
       out.push({
@@ -298,19 +348,11 @@ async function chatWithConfiguredProvider(prompt: string, signal: AbortSignal): 
  * summary degrades to a placeholder string rather than dropping the item
  * or failing the whole curation run (Anti-criterion ISC-52).
  */
-/**
- * Bound how long a single summarization call may take. Ollama's chat()
- * (unlike openrouter.ts's fetch calls) carries no built-in timeout — under
- * concurrent load a hung request would otherwise stall curation
- * indefinitely, which is exactly what ISC-52 (curation must never block
- * the underlying monitor run) exists to prevent. try/catch alone does not
- * help against a genuine hang, since the awaited promise never settles;
- * this needs a real race against a timeout.
- */
+/** The per-item cancellation deadline also inherits the total curation budget. */
 const configuredSummaryTimeout = Number(process.env.CURATION_SUMMARY_TIMEOUT_MS ?? '15000');
 const SUMMARY_TIMEOUT_MS = Number.isFinite(configuredSummaryTimeout) && configuredSummaryTimeout > 0 ? configuredSummaryTimeout : 15000;
 
-async function withAbortTimeout<T>(task: (signal: AbortSignal) => Promise<T>, ms: number, label: string): Promise<T> {
+async function withAbortTimeout<T>(task: (signal: AbortSignal) => Promise<T>, ms: number, label: string, parentSignal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -318,7 +360,9 @@ async function withAbortTimeout<T>(task: (signal: AbortSignal) => Promise<T>, ms
     controller.abort();
   }, ms);
   try {
-    const result = await task(controller.signal);
+    parentSignal?.throwIfAborted();
+    const result = await task(parentSignal ? AbortSignal.any([parentSignal, controller.signal]) : controller.signal);
+    parentSignal?.throwIfAborted();
     if (timedOut) throw new Error(`${label} timed out after ${ms}ms`);
     return result;
   } catch (error) {
@@ -337,7 +381,9 @@ function cleanSummary(raw: string): string {
     .trim();
 }
 
-export async function summarizeItemDetailed(item: CurationInput): Promise<SummaryResult> {
+export async function summarizeItemDetailed(item: CurationInput, parentSignal?: AbortSignal): Promise<SummaryResult> {
+  parentSignal?.throwIfAborted();
+  if (item.contentKind === 'document-listing') return documentListingSummary(item);
   const provider = llmConfig.provider;
   const model = provider === 'openrouter' ? llmConfig.openrouterModel : llmConfig.chatModel;
   const sourceExcerpt = normalizeSourceText(item.text).slice(0, 600);
@@ -349,11 +395,12 @@ export async function summarizeItemDetailed(item: CurationInput): Promise<Summar
       `source lacks enough information, say that it is a limited source excerpt. ` +
       `Be factual and concise, with no preamble.\n\n` +
       `Title: ${item.title}\n\nSource excerpt:\n${normalizeSourceText(item.text).slice(0, 4000) || '(no article body was supplied by the feed)'}`;
-    const summary = cleanSummary(await withAbortTimeout(signal => chatWithConfiguredProvider(prompt, signal), SUMMARY_TIMEOUT_MS, `Summary for ${item.id}`));
+    const summary = cleanSummary(await withAbortTimeout(signal => chatWithConfiguredProvider(prompt, signal), SUMMARY_TIMEOUT_MS, `Summary for ${item.id}`, parentSignal));
     if (!summary) throw new Error('Provider returned an empty summary');
     if (summary.length > SUMMARY_MAX_CHARS) throw new Error(`Provider returned a summary longer than ${SUMMARY_MAX_CHARS} characters`);
     return { summary, status: 'ok', provider, model, retryable: false };
   } catch (err: unknown) {
+    parentSignal?.throwIfAborted();
     logger.warn(`Summary unavailable for item ${item.id}`, { error: errorMessage(err), source: item.source });
     return {
       summary: sourceExcerpt ? `Source-only excerpt: ${sourceExcerpt}` : 'Summary unavailable: the source did not provide article text.',
@@ -364,11 +411,6 @@ export async function summarizeItemDetailed(item: CurationInput): Promise<Summar
       retryable: true,
     };
   }
-}
-
-/** Backwards-compatible string summary API. */
-export async function summarizeItem(item: CurationInput): Promise<string> {
-  return (await summarizeItemDetailed(item)).summary;
 }
 
 // ─── Domain tagging (keyword overlap against src/domains.ts) ─────────────
@@ -440,7 +482,9 @@ export function isCurationEnrichment(value: unknown): value is CurationEnrichmen
  * keyword tags already computed by tagWithDomains and simply omit the
  * enrichment fields (additive, never blocking).
  */
-export async function enrichCurationInput(item: CurationInput): Promise<CurationEnrichment | null> {
+export async function enrichCurationInput(item: CurationInput, signal?: AbortSignal): Promise<CurationEnrichment | null> {
+  signal?.throwIfAborted();
+  if (item.contentKind === 'document-listing') return null;
   try {
     const { queryStructured } = await import('./llm/structured.js');
     const prompt =
@@ -450,9 +494,12 @@ export async function enrichCurationInput(item: CurationInput): Promise<Curation
     const result = await queryStructured<CurationEnrichment>(prompt, {
       schemaHint: ENRICHMENT_SCHEMA_HINT,
       systemPrompt: ENRICHMENT_SYSTEM_PROMPT,
+      signal,
     }, isCurationEnrichment);
+    signal?.throwIfAborted();
     return result.value;
   } catch {
+    signal?.throwIfAborted();
     return null;
   }
 }
@@ -463,14 +510,37 @@ export async function enrichCurationInput(item: CurationInput): Promise<Curation
  * Curate every not-yet-curated item currently in output/{news,gov_meetings,youtube}.
  * Idempotent — re-running with no new upstream items curates nothing.
  */
-export async function runCuration(): Promise<CuratedItem[]> {
+/** Select the newest retained source revision; unknown acquisition dates never outrank recorded ones. */
+export function selectCurationRevisions(inputs: readonly CurationInput[]): CurationInput[] {
+  const timestamp = (value: string) => Number.isFinite(Date.parse(value)) ? Date.parse(value) : Number.NEGATIVE_INFINITY;
+  const selected = new Map<string, CurationInput>();
+  for (const item of [...inputs].sort((a, b) => a.id.localeCompare(b.id)
+    || (timestamp(b.fetchedAt) === timestamp(a.fetchedAt) ? 0 : timestamp(b.fetchedAt) - timestamp(a.fetchedAt))
+    || b.text.length - a.text.length || a.title.localeCompare(b.title) || a.text.localeCompare(b.text))) {
+    if (!selected.has(item.id)) selected.set(item.id, item);
+  }
+  return [...selected.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+export async function runCuration(options: { signal?: AbortSignal; deadlineMs?: number } = {}): Promise<CuratedItem[]> {
+  const deadlineMs = options.deadlineMs ?? 3_600_000;
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 3_600_000) throw new Error('Curation deadline must be 1..3600000 ms');
+  const signal = boundedSignal(options.signal, deadlineMs);
+  signal.throwIfAborted();
+  return withProviderBudget(() => runCurationWithinBudget(signal));
+}
+async function runCurationWithinBudget(signal: AbortSignal): Promise<CuratedItem[]> {
   logger.info('=== Starting Crescent City Curation ===');
   const startedAt = new Date().toISOString();
   const runId = createRunId('curation', startedAt);
-  const releaseLock = await acquireCurationLock();
+  const releaseLock = await acquireCurationLock(signal);
 
+  const attemptPath = join(paths.state, 'latest-curation-attempt.json');
+  let completedCount = 0;
+  let reusedCount = 0;
   try {
-    const idempotency = new IdempotencyStore(CURATION_SEEN_PATH);
+    signal.throwIfAborted();
+    await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, status: 'running', completedCount, reusedCount }, { signal });
+    const idempotency = new IdempotencyStore(curationSeenPath());
     await idempotency.load();
 
     const inputs = await gatherCurationInputs();
@@ -479,19 +549,11 @@ export async function runCuration(): Promise<CuratedItem[]> {
     // requests for an unchanged source record.
     // Pick one deterministic representation when the same source appears in
     // several historical batches: newest fetchedAt wins, with stable ties.
-    const uniqueInputs = [...new Map(
-      [...inputs]
-        .sort((a, b) => a.id.localeCompare(b.id)
-          || b.fetchedAt.localeCompare(a.fetchedAt)
-          || b.text.length - a.text.length
-          || a.title.localeCompare(b.title))
-        .map(item => [item.id, item] as const),
-    ).values()].sort((a, b) => a.id.localeCompare(b.id));
-    await pruneCuratedArtifacts(new Set(uniqueInputs.map(item => item.id)));
+    const uniqueInputs = selectCurationRevisions(inputs);
+    const retained = await retainedCuratedRecords(signal);
     const inputFingerprints = new Map<string, string>();
     for (const item of uniqueInputs) {
-      const provider = llmConfig.provider;
-      const model = configuredChatModel();
+      const { provider, model } = curationIdentity(item);
       inputFingerprints.set(item.id, await computeSha256(JSON.stringify({
         id: item.id,
         source: item.source,
@@ -500,11 +562,30 @@ export async function runCuration(): Promise<CuratedItem[]> {
         provider,
         model,
         promptVersion: CURATION_PROMPT_VERSION,
+        ...(item.contentKind ? { contentKind: item.contentKind } : {}),
       })));
     }
+    // A crash after artifact promotion but before store persistence must not
+    // repeat completed provider work. Reconcile only one exact source-bound
+    // record; ambiguity, altered lineage and degraded records require a retry.
+    for (const item of uniqueInputs) {
+      signal.throwIfAborted();
+      const fingerprint = inputFingerprints.get(item.id) ?? '';
+      const { provider, model } = curationIdentity(item);
+      if (isCurationRecordComplete(idempotency.get(item.id), fingerprint, provider, model)) continue;
+      const matches = (retained.get(item.id) ?? []).filter(record => isRetainedCurationComplete(record, item, fingerprint, provider, model));
+      if (matches.length !== 1) continue;
+      idempotency.seen(item.id, fingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION, provider, model, summaryStatus: item.contentKind ? 'source_only' : 'ok', ...(item.contentKind ? { contentKind: item.contentKind, retryable: false } : {}) });
+      reusedCount++;
+    }
+    if (reusedCount) await idempotency.save({ signal });
+    await pruneCuratedArtifacts(new Set(uniqueInputs.map(item => item.id)), signal);
     const toCurate = uniqueInputs.filter((item) => {
       const record = idempotency.get(item.id);
-      return !isCurationRecordComplete(record, inputFingerprints.get(item.id) ?? '', llmConfig.provider, configuredChatModel());
+      const { provider, model } = curationIdentity(item);
+      const fingerprint = inputFingerprints.get(item.id) ?? '';
+      const visible = (retained.get(item.id) ?? []).filter(row => isRetainedCurationVisible(row, item, fingerprint, provider, model));
+      return !isCurationRecordComplete(record, fingerprint, provider, model) || visible.length !== 1;
     });
 
     if (toCurate.length === 0) {
@@ -520,11 +601,14 @@ export async function runCuration(): Promise<CuratedItem[]> {
         succeededCount: 0,
         retryableCount: 0,
         sourceOnlyCount: 0,
+        reusedCount,
         outputPath: null,
         providerChecked: false,
         providerReachable: false,
       };
-      await writeJsonAtomic(paths.curationReport, emptyReport);
+      await writeJsonAtomic(paths.curationReport, emptyReport, { signal });
+      signal.throwIfAborted();
+      await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'complete', completedCount, reusedCount }, { signal });
       logger.info('No new items to curate');
       return [];
     }
@@ -534,8 +618,10 @@ export async function runCuration(): Promise<CuratedItem[]> {
     // on every input even though the whole run is already known to be degraded.
     // Items remain retryable because unavailable summaries are never recorded
     // as successfully curated below.
-    const providerHealth = await checkChatProvider();
-    const providerError = !providerHealth.configured || !providerHealth.reachable
+    const providerChecked = toCurate.some(item => item.contentKind !== 'document-listing');
+    const providerHealth = providerChecked ? await checkChatProvider({ signal }) : { provider: 'none' as const, model: DOCUMENT_LISTING_MODEL, configured: true, reachable: false, error: undefined };
+    signal.throwIfAborted();
+    const providerError = providerChecked && (!providerHealth.configured || !providerHealth.reachable)
       ? providerHealth.error ?? `${providerHealth.provider} chat provider is unavailable`
       : undefined;
     if (providerError) logger.warn('Curation provider preflight failed; retaining source-only items for retry', { error: providerError });
@@ -545,13 +631,14 @@ export async function runCuration(): Promise<CuratedItem[]> {
     let retryableCount = 0;
     let sourceOnlyCount = 0;
     for (const [i, item] of toCurate.entries()) {
+      signal.throwIfAborted();
       // Space out requests when using OpenRouter so a burst of new items
       // doesn't blow through the free-tier per-minute rate limit and degrade
       // every item to "summary unavailable". Ollama has no such external limit.
-      if (i > 0 && !providerError && llmConfig.provider === 'openrouter') {
-        await new Promise((resolve) => setTimeout(resolve, llmConfig.openrouterMinRequestIntervalMs));
+      if (i > 0 && item.contentKind !== 'document-listing' && !providerError && llmConfig.provider === 'openrouter') {
+        await waitWithSignal(llmConfig.openrouterMinRequestIntervalMs, signal);
       }
-      const summary = providerError
+      const summary = item.contentKind === 'document-listing' ? documentListingSummary(item) : providerError
         ? {
             summary: normalizeSourceText(item.text)
               ? `Source-only excerpt: ${normalizeSourceText(item.text).slice(0, 600)}`
@@ -562,7 +649,7 @@ export async function runCuration(): Promise<CuratedItem[]> {
             error: providerError,
             retryable: true,
           }
-        : await summarizeItemDetailed(item);
+        : await summarizeItemDetailed(item, signal);
       if (summary.status === 'ok') succeededCount++;
       if (summary.retryable) retryableCount++;
       if (summary.status === 'source_only') sourceOnlyCount++;
@@ -571,10 +658,11 @@ export async function runCuration(): Promise<CuratedItem[]> {
       const tags = tagWithDomains(item);
       // Structured enrichment is best-effort and additive: a failed/null
       // enrichment never downgrades or blocks the curation record itself.
-      const enrichment = summary.status === 'ok' ? await enrichCurationInput(item) : null;
+      const enrichment = summary.status === 'ok' ? await enrichCurationInput(item, signal) : null;
       curated.push({
         id: item.id,
         source: item.source,
+        ...(item.contentKind ? { contentKind: item.contentKind } : {}),
         title: item.title,
         link: item.link,
         summary: summary.summary,
@@ -601,14 +689,18 @@ export async function runCuration(): Promise<CuratedItem[]> {
       // A failed provider call stays retryable. The source-only fallback is
       // retained as evidence for this run but is not treated as a successful
       // LLM curation result.
-      if (summary.status === 'ok') {
-        idempotency.seen(item.id, inputFingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION, provider: summary.provider, model: summary.model, summaryStatus: 'ok' });
+      signal.throwIfAborted();
+      completedCount++;
+      await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, status: 'running', completedCount, reusedCount, inputCount: toCurate.length }, { signal });
+      if (summary.status === 'ok' || item.contentKind === 'document-listing' && !summary.retryable) {
+        idempotency.seen(item.id, inputFingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION, provider: summary.provider, model: summary.model, summaryStatus: summary.status, ...(item.contentKind ? { contentKind: item.contentKind, retryable: false } : {}) });
       }
     }
 
-    await mkdir(CURATED_OUTPUT_DIR, { recursive: true });
+    signal.throwIfAborted();
+    await mkdir(curatedDir(), { recursive: true });
     const dateStamp = new Date().toISOString().slice(0, 10);
-    const outPath = join(CURATED_OUTPUT_DIR, `${dateStamp}.json`);
+    const outPath = join(curatedDir(), `${dateStamp}.json`);
 
     // Upsert by stable source id. Failed/provider-unavailable attempts remain
     // retryable, but repeated runs must not append identical visible records.
@@ -617,12 +709,15 @@ export async function runCuration(): Promise<CuratedItem[]> {
       try {
         existing = JSON.parse(await readFile(outPath, 'utf-8'));
       } catch {
-        existing = [];
+        throw new Error('Curated artifact became corrupt during this run; preserve it before repair');
       }
+      if (!Array.isArray(existing)) throw new Error('Curated artifact became invalid during this run');
     }
-    await writeJsonAtomic(outPath, mergeCuratedItems(existing, curated));
+    signal.throwIfAborted();
+    await writeJsonAtomic(outPath, mergeCuratedItems(existing, curated), { signal });
 
-    await idempotency.save();
+    await idempotency.save({ signal });
+    signal.throwIfAborted();
 
     const curationReport: CurationRunReport = {
       schemaVersion: '1.0.0',
@@ -636,15 +731,21 @@ export async function runCuration(): Promise<CuratedItem[]> {
       succeededCount,
       retryableCount,
       sourceOnlyCount,
+      reusedCount,
       outputPath: outPath,
-      providerChecked: true,
+      providerChecked,
       providerReachable: providerHealth.reachable,
       ...(providerError ? { providerError } : {}),
     };
-    await writeJsonAtomic(paths.curationReport, curationReport);
-
-    logger.info(`=== Curation Complete: ${curated.length} item(s) curated ===`);
+    signal.throwIfAborted();
+    await writeJsonAtomic(paths.curationReport, curationReport, { signal });
+    signal.throwIfAborted();
+    await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'complete', completedCount, reusedCount }, { signal });
+    logger.info('Curation complete', { generatedCount: succeededCount, sourceOnlyCount, reusedCount, retryableCount });
     return curated;
+  } catch (error) {
+    await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'failed', completedCount, reusedCount, reason: signal.aborted ? 'cancelled-or-deadline' : 'run-failed' });
+    throw error;
   } finally {
     await releaseLock();
   }

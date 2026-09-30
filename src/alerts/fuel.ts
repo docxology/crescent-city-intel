@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * California retail gasoline price monitor (#18) — the 🔴 TODO "fuel" item.
+ * California retail gasoline price monitor (#18).
  *
  * There is no keyless public feed of station-level fuel prices for Crescent
  * City (GasBuddy and AAA block automated access and their terms do not permit

@@ -4,6 +4,7 @@ import { MANUSCRIPT_VARIABLE_NAMES, valuesFromOverview } from "../src/manuscript
 
 function fixture(): AnalyticsOverview {
   return {
+    operatorSignalsNoticed: [],
     schemaVersion: "1.0.0",
     generatedAt: "2026-07-24T21:47:24.750Z",
     inputFingerprint: "a".repeat(64),
@@ -18,7 +19,7 @@ function fixture(): AnalyticsOverview {
       alerts: { totalEvents: 25, mostActiveType: "marine", mostRecent: "tide" },
     },
     code: {} as AnalyticsOverview["code"],
-    sources: { degraded: [], coverageGaps: [], registryFingerprint: "b".repeat(64) },
+    sources: { missing: [], degraded: [], coverageGaps: [], registryFingerprint: "b".repeat(64) },
     alerts: { level: "WARNING", reason: "Tides: high tide", assessedAt: null, analytics: {} as AnalyticsOverview["alerts"]["analytics"] },
     content: { recent: [], curated: [] },
     pipeline: { status: "degraded", runId: null, completedAt: null, curationProvider: null, curationModel: null, reportPeriod: null },

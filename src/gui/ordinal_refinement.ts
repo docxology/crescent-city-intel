@@ -1,6 +1,5 @@
 /**
- * Ordinal refinement (Phase 10 of the deferred GUI/UX set —
- * "ordinal-sequence refinement" in the roadmap's original wording).
+ * Ordinal-sequence refinement (Phase 10).
  *
  * The existing `GET /api/ordinal-check` answers a narrower question: which
  * CHAPTER numbers are absent between two present ones inside one title. It

@@ -18,14 +18,14 @@ const chat = readFileSync(join(moduleDir, "50-chat.js"), "utf-8");
 describe("GUI chat-history wiring", () => {
   test("the chat tracks a history array and sends it with each request", () => {
     expect(core).toContain("const chatHistory = [];");
-    expect(chat).toContain("history: chatHistory");
+    expect(chat).toContain("history = chatHistory.slice(-6)");
     expect(chat).toContain('chatHistory.push({ role: "user"');
-    expect(chat).toContain('chatHistory.push({ role: "assistant"');
+    expect(chat).toContain('{ role: "assistant", content: text }');
   });
 
   test("the server chat routes accept a bounded history field", () => {
     expect(routes).toContain("body.history");
-    expect(routes).toContain("history?: Array");
+    expect(routes).toContain("validateApiRequest");
   });
 });
 
@@ -33,7 +33,7 @@ describe("GUI error banner", () => {
   test("a top-of-page error banner element and helper exist and apiFetch surfaces network failures", () => {
     expect(html).toContain('id="error-banner"');
     expect(core).toContain('function showErrorBanner(');
-    expect(core).toContain('showErrorBanner("Network error reaching the server: "');
+    expect(core).toContain('showErrorBanner("The server could not be reached.');
   });
 
   test("index.html references the extracted core and chat modules in load order", () => {

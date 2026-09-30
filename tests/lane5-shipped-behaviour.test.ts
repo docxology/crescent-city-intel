@@ -11,6 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { createStubDom, loadSiteJs, type StubElement } from "./helpers/site-js.ts";
+import { classifyCalendarRefresh } from "../src/weekly_pipeline.ts";
 
 /** Build the five-button window group exactly as events.html emits it. */
 function windowGroup(): { dom: ReturnType<typeof createStubDom>; buttons: StubElement[] } {
@@ -213,39 +214,24 @@ describe("lane 5: freshness, escaping and public copy (real site.js)", () => {
   });
 });
 
-describe("lane 5: weekly-check calendar honesty (executed from the real script)", () => {
-  /**
-   * The classifier is read out of scripts/weekly-check.ts and executed. The
-   * script itself cannot be imported — its module body runs the whole weekly
-   * pipeline — so the function's real source is transpiled and evaluated here.
-   * A re-hardcoded `classify: () => "ok"` deletes this function and fails the
-   * extraction, which is the regression this test exists to catch.
-   */
-  async function loadClassifier(): Promise<(result: { artifactRead: boolean; eventCount: number; inputItems: number }) => string> {
-    const source = await readFile(join(process.cwd(), "scripts", "weekly-check.ts"), "utf8");
-    const match = /export function classifyCalendarRefresh[\s\S]*?\n}/.exec(source);
-    if (!match) throw new Error("scripts/weekly-check.ts no longer exports classifyCalendarRefresh");
-    const js = new Bun.Transpiler({ loader: "ts" }).transformSync(`${match[0].replace(/^export /, "")}\nglobalThis.__classify = classifyCalendarRefresh;`);
-    new Function(js)();
-    return (globalThis as unknown as { __classify: (result: { artifactRead: boolean; eventCount: number; inputItems: number }) => string }).__classify;
-  }
+describe("weekly pipeline calendar honesty", () => {
 
   test("zero events out of real inputs is a failure, not a quiet week", async () => {
-    const classify = await loadClassifier();
+    const classify = classifyCalendarRefresh;
     expect(classify({ artifactRead: true, eventCount: 0, inputItems: 42 })).toBe("failed");
     expect(classify({ artifactRead: false, eventCount: 0, inputItems: 0 })).toBe("failed");
     expect(classify({ artifactRead: false, eventCount: 12, inputItems: 42 })).toBe("failed");
   });
 
   test("zero events out of zero inputs is honest, and events are ok", async () => {
-    const classify = await loadClassifier();
+    const classify = classifyCalendarRefresh;
     expect(classify({ artifactRead: true, eventCount: 0, inputItems: 0 })).toBe("degraded");
     expect(classify({ artifactRead: true, eventCount: 1, inputItems: 1 })).toBe("ok");
     expect(classify({ artifactRead: true, eventCount: 73, inputItems: 120 })).toBe("ok");
   });
 
   test("the weekly-check pipeline steps no longer hardcode a green classification", async () => {
-    const source = await readFile(join(process.cwd(), "scripts", "weekly-check.ts"), "utf8");
+    const source = await readFile(join(process.cwd(), "src", "weekly_pipeline.ts"), "utf8");
     // Comments quote the retired pattern on purpose, so scan the code only.
     const code = source.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter(line => !line.trim().startsWith("//")).join("\n");
     // Negative control for the lane's own work: any re-introduced constant

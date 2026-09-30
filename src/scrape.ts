@@ -15,13 +15,15 @@
  */
 import { mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
-import { newPage, closeBrowser } from "./browser.js";
+import { newPage, closeBrowser, closePageBounded } from "./browser.js";
 import { fetchToc, getArticlePages, getSections, tocSummary } from "./toc.js";
-import { getSectionGuids, scrapeArticlePage } from "./content.js";
-import { ARTICLES_DIR, RATE_LIMIT_MS, BASE_URL, MUNICIPALITY_CODE, MAX_RETRIES } from "./constants.js";
+import { getSectionGuids, scrapeArticlePage, articleDeadlineMs } from "./content.js";
+import { RATE_LIMIT_MS, BASE_URL, MUNICIPALITY_CODE, MAX_RETRIES } from "./constants.js";
 import { computeSha256, flattenToc } from "./utils.js";
 import { isArticleArtifactShapeValid, isTocShapeValid, withRetry } from "./scraper_utils.js";
-import { paths } from "./shared/paths.js";
+import { paths, outputRoot } from "./shared/paths.js";
+import { acquireFileLease } from "./shared/storage.js";
+import { captureCorpusEdition, quarantineRetiredArticles, validateArticleCustody } from "./corpus_editions.js";
 import { writeJsonAtomic } from "./shared/source_health.js";
 import { createLogger } from "./logger.js";
 import type { Page } from "playwright";
@@ -55,6 +57,7 @@ async function readCachedArticleIfValid(article: TocNode, manifest: ScrapeManife
     const data = JSON.parse(await readFile(filePath, "utf-8")) as Record<string, unknown>;
     const expectedGuids = getSectionGuids(article).map(section => section.guid);
     if (!isArticleArtifactShapeValid(data, expectedGuids, true) || data.guid !== article.guid) return false;
+    if (validateArticleCustody(data, expectedGuids, true).length) return false;
     const computedHash = await computeSha256(String(data.rawHtml));
     return data.sha256 === entry.sha256 && data.sha256 === computedHash;
   } catch {
@@ -62,19 +65,25 @@ async function readCachedArticleIfValid(article: TocNode, manifest: ScrapeManife
   }
 }
 
-async function scrapeWithRetries(article: TocNode, currentPage: Page | null): Promise<{ result: Awaited<ReturnType<typeof scrapeArticlePage>>; page: Page | null; attempts: number }> {
+async function scrapeWithRetries(article: TocNode, currentPage: Page | null, resumeDeepSections: boolean): Promise<{ result: Awaited<ReturnType<typeof scrapeArticlePage>>; page: Page | null; attempts: number }> {
   let page = currentPage;
+  let attemptsStarted = 0;
+  const deadline = Date.now() + articleDeadlineMs(article);
   const outcome = await withRetry(async () => {
     try {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) throw new Error("Article retry budget exhausted");
       page = await ensurePage(page);
-      const result = await scrapeArticlePage(page, article);
+      const result = await scrapeArticlePage(page, article, { timeoutMs: remainingMs, checkpointPath: `${outputRoot()}/state/deep-sections/${article.guid}.json`, resumeDeepSections: resumeDeepSections || attemptsStarted++ > 0 });
       const expectedGuids = getSectionGuids(article).map(section => section.guid);
       if (!isArticleArtifactShapeValid(result, expectedGuids, true)) {
         throw new Error(`Scrape for ${article.guid} did not contain all expected sections`);
       }
+      const custodyErrors = validateArticleCustody(result, expectedGuids, true);
+      if (custodyErrors.length) throw new Error(`Scrape custody failed: ${custodyErrors.join("; ")}`);
       return result;
     } catch (error) {
-      try { await page?.close(); } catch { /* force a fresh page on retry */ }
+      await closePageBounded(page);
       page = null;
       throw error;
     }
@@ -83,9 +92,13 @@ async function scrapeWithRetries(article: TocNode, currentPage: Page | null): Pr
 }
 
 async function main() {
+  const root = outputRoot();
+  const release = await acquireFileLease(`${root}/state/corpus.lock`, { waitMs: 1000 });
+  try {
   log.info("=== Crescent City Municipal Code Scraper ===");
+  await captureCorpusEdition(root, "Before scrape replacement");
 
-  await mkdir(ARTICLES_DIR, { recursive: true });
+  await mkdir(paths.articles, { recursive: true });
 
   let toc: TocNode;
   let manifest: ScrapeManifest;
@@ -134,6 +147,7 @@ async function main() {
   // Load existing manifest for resume support
   const runStartedAt = new Date().toISOString();
   const currentArticleGuids = new Set(articles.map(article => article.guid));
+  await quarantineRetiredArticles(root, currentArticleGuids);
   const existingManifest = existsSync(paths.manifest)
     ? await readFile(paths.manifest, "utf-8")
       .then(raw => JSON.parse(raw) as unknown)
@@ -200,7 +214,7 @@ async function main() {
     log.info(`[${processed}/${articles.length}] Scraping: ${article.indexNum} ${article.title}`, { guid: article.guid });
 
     try {
-      const outcome = await scrapeWithRetries(article, page);
+      const outcome = await scrapeWithRetries(article, page, !fullRescrape);
       page = outcome.page;
       const result = outcome.result;
 
@@ -258,8 +272,10 @@ async function main() {
   if (failed > 0) {
     log.error(`WARNING: ${failed} articles failed to scrape.`);
     log.error("Re-run 'bun run scrape' to retry (resume support will skip completed articles).");
-    process.exit(1);
+    process.exitCode = 1;
   }
+  await captureCorpusEdition(root, "After completed scrape attempt");
+  } finally { await closeBrowser(); await release(); }
 }
 
 // Guarded: importing this module (e.g. from a test) must never launch a

@@ -4,7 +4,7 @@
  * payload budgets, contrast, syndication, calendar honesty, leak gates).
  * All computation lives here; scripts/validate-pages.ts stays a thin CLI.
  */
-import { readFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import {
@@ -19,7 +19,6 @@ import {
   PAGES_GEO_OBSERVATIONS_UNAVAILABLE_SCHEMA,
   PAGES_GEO_VIEW_PLACEHOLDER,
   PAGES_OG_IMAGE_PNG,
-  PAGES_OPERATOR_SIGNALS_ARTIFACT,
   PAGES_ROBOTS_TXT,
   PAGES_SEARCH_BODY_ARTIFACT_PREFIX,
   PAGES_SEARCH_TITLE_ARTIFACT_PREFIX,
@@ -32,6 +31,8 @@ import {
   validatePagesGeoObservations,
   validatePagesHtml,
 } from "./pages_snapshot.js";
+import { hashPublicationTree, publicationHash } from "./publication_bundle.js";
+import { publicExposureErrors } from "./pages_public.js";
 import { EXPECTED_SOURCE_HEALTH } from "./shared/source_health.js";
 import { auditPagesCss, auditStylesheetBraces, type PageCssInput } from "./pages_css.js";
 import { scanPage } from "./pages_scan.js";
@@ -127,8 +128,8 @@ export async function validatePagesArtifact(destination: string): Promise<string
   }
 
   if (indexHtml.includes("<template data-pages-observations>")) errors.push("Pages observations placeholder was not replaced");
-  if (geoObservationsAvailable && !indexHtml.includes('data-observations-state="published"')) errors.push("Pages index does not render the published hazard observations envelope");
-  if (!geoObservationsAvailable && indexHtml.includes('data-observations-state="published"')) errors.push("Pages index claims published hazard observations but the artifact does not carry a valid envelope");
+  if (geoObservationsAvailable && !indexHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").includes('data-observations-state="published"')) errors.push("Pages index does not render the published hazard observations envelope");
+  if (!geoObservationsAvailable && indexHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").includes('data-observations-state="published"')) errors.push("Pages index claims published hazard observations but the artifact does not carry a valid envelope");
 
   if (snapshot) {
     if (snapshot.schemaVersion !== "1.0.0") errors.push(`unsupported snapshot schema: ${String(snapshot.schemaVersion)}`);
@@ -349,7 +350,7 @@ export async function validatePagesArtifact(destination: string): Promise<string
     if (!/<rss version="2\.0">/.test(feedXml)) errors.push("feed.xml is not RSS 2.0");
     if (!/<channel>/.test(feedXml) || !/<title>The Quadruplicate<\/title>/.test(feedXml)) errors.push("feed.xml is missing channel metadata");
     const feedItems = [...feedXml.matchAll(/<item>/g)].length;
-    if (feedItems === 0) errors.push("feed.xml carries no items");
+    // A valid empty channel is the honest syndication contract for an empty edition.
     if (feedItems > 60) errors.push("feed.xml exceeds the 60-item cap");
     for (const link of [...feedXml.matchAll(/<link>([^<]+)<\/link>/g)].map(match => match[1])) {
       if (!/^https?:\/\//i.test(link)) errors.push(`feed.xml item link is not an absolute URL: ${link}`);
@@ -857,37 +858,9 @@ export async function validatePagesArtifact(destination: string): Promise<string
     }
   }
 
-  // --- lane A r2 gate: §5.5 operator/public signal split persistence ---
-  // The operator channel artifact must exist when analytics exist, carry the
-  // neutral notice copy (no binary names, PATH strings, or stack traces), and
-  // match the overview's routed operatorSignalsNoticed array. Public pages must
-  // contain no operator leakage while the operator artifact preserves detail.
+  // Operator detail belongs only in local output, never in uploaded files.
   {
-    const analyticsJson = await readFile(join(destination, "data/analytics.json"), "utf8").catch(() => null);
-    if (analyticsJson !== null) {
-      // §5.5 correctness (2026-09-08): the exporter writes an honest
-      // "analytics-unavailable" envelope when no overview was produced for the
-      // edition, and in that case deliberately emits no operator channel —
-      // there are no routed signals to preserve. The gate therefore demands
-      // the operator artifact only when a real overview exists.
-      const analyticsParsed = JSON.parse(analyticsJson) as { available?: unknown; schemaVersion?: unknown; operatorSignalsNoticed?: unknown };
-      const analyticsUnavailable = analyticsParsed.available === false || analyticsParsed.schemaVersion === "crescent-city-analytics-unavailable/v1";
-      if (!analyticsUnavailable) {
-        const operatorJson = await readFile(join(destination, PAGES_OPERATOR_SIGNALS_ARTIFACT), "utf8").catch(() => null);
-        if (operatorJson === null) {
-          errors.push(`missing required Pages asset when analytics exist: ${PAGES_OPERATOR_SIGNALS_ARTIFACT}`);
-        } else {
-          const operator = JSON.parse(operatorJson) as { operatorSignalsNoticed?: unknown; schemaVersion?: unknown };
-          if (operator.schemaVersion !== "crescent-city-operator-signals/v1") errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} has an unsupported schemaVersion`);
-          if (JSON.stringify(operator.operatorSignalsNoticed ?? []) !== JSON.stringify(analyticsParsed.operatorSignalsNoticed ?? [])) {
-            errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} operatorSignalsNoticed does not match data/analytics.json (routed detail diverged)`);
-          }
-          for (const leaked of ["yt-dlp", "yt_dlp", "$PATH", "not found in", "stack trace", "error:"]) {
-            if (operatorJson.toLowerCase().includes(leaked.toLowerCase())) errors.push(`${PAGES_OPERATOR_SIGNALS_ARTIFACT} leaks operator-side detail: "${leaked}"`);
-          }
-        }
-      }
-    }
+    if (await readFile(join(destination, "data/operator-signals.json")).catch(() => null)) errors.push("operator-only artifact is forbidden in public publication");
     // Public surfaces: no operator-only error strings anywhere in the exported pages.
     for (const [page, html] of pageHtmlCache) {
       for (const leaked of ["yt-dlp", "$PATH", "not found in $PATH"]) {
@@ -966,6 +939,20 @@ export async function validatePagesArtifact(destination: string): Promise<string
     }
     for (const problem of auditPagesCss(cssInputs)) errors.push(problem);
   }
+
+  // Check the complete uploaded tree, including JSON and non-rendered assets.
+  try {
+    const hashes = await hashPublicationTree(destination);
+    const receipt = JSON.parse(await readFile(join(destination, "publication-manifest.json"), "utf8")) as { schemaVersion?: string; editionId?: string; files?: Record<string, string> };
+    if (receipt.schemaVersion !== "crescent-city-publication/v1" || JSON.stringify(receipt.files) !== JSON.stringify(hashes) || receipt.editionId !== publicationHash(JSON.stringify(hashes))) errors.push("publication file hashes or edition identity do not match");
+    for (const file of Object.keys(hashes)) {
+      if (!/\.(?:json|xml|html|js|css|md|txt|ics)$/.test(file)) continue;
+      const text = await readFile(join(destination, file), "utf8");
+      let value: unknown = text;
+      if (file.endsWith(".json")) { try { value = JSON.parse(text); } catch { errors.push(`${file} is malformed JSON`); } }
+      for (const problem of publicExposureErrors(value)) errors.push(`${file}: ${problem}`);
+    }
+  } catch { errors.push("publication custody receipt is missing or unreadable"); }
 
   return errors;
 }

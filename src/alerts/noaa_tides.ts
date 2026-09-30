@@ -1,3 +1,4 @@
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
 /**
  * NOAA CO-OPS Tides & Currents monitor for Crescent City.
  *

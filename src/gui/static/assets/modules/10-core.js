@@ -16,17 +16,9 @@
     }
 
     function apiFetch(url, opts) {
-      const key = window.__CC_API_KEY__;
-      const hasKey = key && !key.startsWith("__CC_API_KEY");
-      const doFetch = hasKey
-        ? (() => { const merged = Object.assign({}, opts); merged.headers = Object.assign({ "X-API-Key": key }, opts && opts.headers); return fetch(url, merged); })()
-        : fetch(url, opts || {});
-      // Surface genuine network/unreachable failures at the top of the page so a
-      // dead server is never mistaken for an empty result; per-route 4xx/5xx
-      // handling (inline error text) is preserved by rethrowing.
-      return doFetch.catch((err) => {
-        showErrorBanner("Network error reaching the server: " + (err && err.message ? err.message : "request failed"));
-        throw err;
+      return CCGui.apiFetch(url, opts).catch(error => {
+        if (error?.name !== "AbortError") showErrorBanner("The server could not be reached. Please retry.");
+        throw error;
       });
     }
 
@@ -60,13 +52,18 @@
     }
 
     async function loadToc() {
+      tocTree.setAttribute("aria-busy", "true");
       try {
         const resp = await apiFetch("/api/toc");
+        if (!resp.ok) throw new Error("Contents unavailable");
         tocData = await resp.json();
+        if (!tocData || typeof tocData.guid !== "string" || typeof tocData.title !== "string") throw new Error("Invalid contents");
         renderToc(tocData, tocTree, 0);
+        tocTree.dataset.state = "ready";
       } catch (e) {
+        tocTree.dataset.state = "unavailable";
         tocTree.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">Could not load the table of contents. Run the scraper first (bun run scrape).</div>';
-      }
+      } finally { tocTree.setAttribute("aria-busy", "false"); }
     }
 
     async function loadStats() {
@@ -143,7 +140,9 @@
       const div = document.createElement("div");
       div.className = "toc-node";
 
-      const label = document.createElement("div");
+      const label = document.createElement("button");
+      label.type = "button";
+      if (hasChildren && !isSection) label.setAttribute("aria-expanded", "false");
       label.className = "toc-label";
       label.style.paddingLeft = (depth * 4 + 8) + "px";
 
@@ -186,6 +185,7 @@
 
         label.addEventListener("click", (e) => {
           const isOpen = childContainer.classList.toggle("open");
+          label.setAttribute("aria-expanded", String(isOpen));
           const toggle = label.querySelector(".toc-toggle");
           if (toggle) toggle.textContent = isOpen ? "\u25BC" : "\u25B6";
 
@@ -225,16 +225,16 @@
         ccRememberArticleSections(article);
 
         let html = `<div class="section-header">
-          <h2>${article.number ? article.number + ": " : ""}${article.title}</h2>
+          <h2>${escapeHtml(article.number ? article.number + ": " : "")}${escapeHtml(article.title)}</h2>
         </div>`;
 
         html += '<div class="article-sections">';
         for (const s of article.sections) {
           html += `<div class="article-section" id="section-${s.guid}">
-            <h3>${s.number}: ${s.title}</h3>
+            <h3>${escapeHtml(s.number)}: ${escapeHtml(s.title)}</h3>
             <div class="section-text">${ccLinkifyCrossRefs(escapeHtml(s.text))}</div>
             ${s.history ? `<div class="section-history">${escapeHtml(s.history)}</div>` : ""}
-            <button class="summarize-btn" onclick="summarizeSection('${s.guid}', this)" data-number="${escapeHtml(s.number)}" data-title="${escapeHtml(s.title)}">✨ Summarize</button>
+            <button class="summarize-btn" data-action="summarize" data-guid="${escapeHtml(s.guid)}" data-number="${escapeHtml(s.number)}" data-title="${escapeHtml(s.title)}">✨ Summarize</button>
             <div id="summary-${s.guid}"></div>
           </div>`;
         }
@@ -266,24 +266,24 @@
         activeGuid = guid;
 
         // Check if bookmarked
-        const bookmarks = JSON.parse(localStorage.getItem("cc-bookmarks") || "[]");
+        const bookmarks = CCGui.storage.json("cc-bookmarks", []);
         const isBookmarked = bookmarks.some(b => b.guid === guid);
 
         content.innerHTML = `
           <div class="section-header">
             <div class="article-title">${escapeHtml(section.articleTitle || "")}</div>
-            <h2>${section.number}: ${section.title}</h2>
+            <h2>${escapeHtml(section.number)}: ${escapeHtml(section.title)}</h2>
             <div style="display:flex;gap:8px;margin-top:8px;">
-              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="copyPermalink('${guid}')" title="Copy permalink">🔗 Permalink</button>
-              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="toggleBookmark('${guid}', '${escapeHtml(section.number)}', '${escapeHtml(section.title)}')" id="bookmark-btn">${isBookmarked ? '★ Bookmarked' : '☆ Bookmark'}</button>
-              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="exportSection('${guid}')" title="Export as Markdown">📥 Export</button>
-              <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="window.print()" title="Print">🖨️ Print</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" data-action="permalink" data-guid="${escapeHtml(guid)}" title="Copy permalink">🔗 Permalink</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" data-action="bookmark" data-guid="${escapeHtml(guid)}" data-number="${escapeHtml(section.number)}" data-title="${escapeHtml(section.title)}" id="bookmark-btn">${isBookmarked ? '★ Bookmarked' : '☆ Bookmark'}</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" data-action="export" data-guid="${escapeHtml(guid)}" title="Export as Markdown">📥 Export</button>
+              <button class="btn" style="font-size:12px;padding:4px 10px;" data-action="print" title="Print">🖨️ Print</button>
             </div>
           </div>
           <div class="section-body">
             <div class="section-text">${ccLinkifyCrossRefs(escapeHtml(section.text))}</div>
             ${section.history ? `<div class="section-history">${escapeHtml(section.history)}</div>` : ""}
-            <button class="summarize-btn" onclick="summarizeSection('${guid}', this)" data-number="${escapeHtml(section.number)}" data-title="${escapeHtml(section.title)}">✨ Summarize</button>
+            <button class="summarize-btn" data-action="summarize" data-guid="${escapeHtml(guid)}" data-number="${escapeHtml(section.number)}" data-title="${escapeHtml(section.title)}">✨ Summarize</button>
             <div id="summary-${guid}"></div>
           </div>`;
         content.scrollTop = 0;
@@ -291,3 +291,15 @@
         content.innerHTML = '<div class="content-placeholder">Section not found</div>';
       }
     }
+
+    content.addEventListener("click", event => {
+      const button = event.target.closest("[data-action]");
+      if (!button || !content.contains(button)) return;
+      const guid = button.dataset.guid;
+      if (button.dataset.action === "print") return window.print();
+      if (!guid || !/^[a-zA-Z0-9_-]+$/.test(guid)) return;
+      if (button.dataset.action === "summarize") summarizeSection(guid, button);
+      if (button.dataset.action === "permalink") copyPermalink(guid, button);
+      if (button.dataset.action === "bookmark") toggleBookmark(guid, button.dataset.number, button.dataset.title);
+      if (button.dataset.action === "export") exportSection(guid);
+    });

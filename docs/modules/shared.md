@@ -36,11 +36,10 @@ Reads scraped output from disk. All loaders provide **actionable error messages*
 | `loadAllSections` | `() → Promise<FlatSection[]>` | Flatten all articles into section array with article context |
 | `loadSection` | `(guid) → Promise<FlatSection \| undefined>` | Find a single section by GUID across all articles |
 
-### Search and Monitoring
+### Monitoring
 
 | Function | Signature | Description |
 | :--- | :--- | :--- |
-| `searchSections` | `(query, sections?) → Promise<FlatSection[]>` | Substring search across section number, title, text |
 | `loadMonitorReport` | `() → Promise<MonitorReport \| undefined>` | Load latest monitor report; `undefined` if never run |
 
 ### Existence Checks
@@ -119,13 +118,18 @@ Tests: `tests/idempotency.test.ts`.
 
 ```bash
 bun test tests/shared-paths.test.ts   # 10 tests
-bun test tests/shared-data.test.ts    # 20 tests
+bun test tests/shared-data.test.ts
 bun test tests/idempotency.test.ts
 ```
 
 ## `src/shared/orchestration.ts` — Durable Run Envelopes
 
 Shared orchestration and build metadata helpers: `executePipelineStep()` and `buildPipelineRun()` wrap pipeline steps in durable step/run envelopes over the source-health primitives. Tests: `tests/orchestration.test.ts`.
+
+`packageVersion()` reads the application package version without running Git;
+an unreadable manifest yields `unknown`. GUI metadata uses it with the explicit
+`APP_VERSION` override. `runtimeMetadata()` adds commit/runtime/CI diagnostics
+for pipeline receipts.
 
 ## `src/shared/output_fence.ts` — The Output Fence
 

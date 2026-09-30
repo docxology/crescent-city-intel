@@ -7,10 +7,14 @@
  */
 import type { Page } from "playwright";
 import type { TocNode, ArticlePage, SectionContent } from "./types.js";
-import { navigateWithCloudflare } from "./browser.js";
+import { navigateWithCloudflare, withPageDeadline, newPage, closePageBounded } from "./browser.js";
+import { readFile } from "node:fs/promises";
 import { BASE_URL, RATE_LIMIT_MS, SCRAPE_TIMEOUT_MS, SPA_RENDER_MS } from "./constants.js";
 import { computeSha256 } from "./utils.js";
 import { createLogger } from "./logger.js";
+import { bindArticleExtraction, custodyHash, validateArticleCustody, type BoundArticle, type ExtractionReceipt } from "./corpus_editions.js";
+import { throwIfAborted, waitWithSignal } from "./shared/transport.js";
+import { writeJsonAtomic } from "./shared/source_health.js";
 
 const log = createLogger("content");
 
@@ -36,9 +40,11 @@ async function scrapeSectionPage(
   page: Page,
   sectionGuid: string,
   sectionNumber: string,
-  sectionTitle: string
-): Promise<SectionContent | null> {
+  sectionTitle: string,
+  signal: AbortSignal,
+): Promise<{ section: SectionContent; source: ExtractionReceipt["sourceFragments"][number] } | null> {
   const url = `${BASE_URL}/${sectionGuid}`;
+  throwIfAborted(signal);
   try {
     await navigateWithCloudflare(page, url);
     await page.waitForSelector("#codeContent", { timeout: SCRAPE_TIMEOUT_MS / 2 })
@@ -53,6 +59,7 @@ async function scrapeSectionPage(
         clone.querySelectorAll(".history, .footnotes").forEach((el) => el.remove());
         const historyEl = contentDiv.querySelector(".history");
         return {
+          sourceHtml: document.querySelector("#codeContent")?.innerHTML ?? "",
           html: contentDiv.innerHTML,
           text: clone.textContent?.trim() ?? "",
           history: historyEl?.textContent?.trim() ?? "",
@@ -66,6 +73,7 @@ async function scrapeSectionPage(
         clone.querySelectorAll(".history, .footnotes, .contentTitle").forEach((el) => el.remove());
         const historyEl = codeContent.querySelector(".history");
         return {
+          sourceHtml: codeContent.innerHTML,
           html: codeContent.innerHTML,
           text: clone.textContent?.trim() ?? "",
           history: historyEl?.textContent?.trim() ?? "",
@@ -75,17 +83,18 @@ async function scrapeSectionPage(
       return null;
     }, sectionGuid);
 
-    if (!result || !result.text) return null;
+    if (!result || (!result.text && !/reserved/i.test(sectionTitle))) return null;
 
-    return {
+    return { section: {
       guid: sectionGuid,
       number: sectionNumber,
       title: sectionTitle,
       html: result.html,
       text: result.text,
       history: result.history,
-    };
+    }, source: { guid: sectionGuid, url: page.url(), html: result.sourceHtml, sha256: custodyHash(result.sourceHtml) } };
   } catch (err: any) {
+    if (signal.aborted || page.isClosed()) throw err;
     log.warn(`Failed to deep-scrape section ${sectionNumber}`, { error: err.message?.split("\n")[0] });
     return null;
   }
@@ -98,8 +107,32 @@ async function scrapeSectionPage(
  */
 export async function scrapeArticlePage(
   page: Page,
-  article: TocNode
+  article: TocNode,
+  options: { timeoutMs?: number; checkpointPath?: string; resumeDeepSections?: boolean } = {},
 ): Promise<ArticlePage> {
+  const timeout = options.timeoutMs ?? articleDeadlineMs(article);
+  return withPageDeadline(page, signal => scrapeArticleWithinDeadline(page, article, signal, options), timeout);
+}
+export function articleDeadlineMs(article: TocNode): number {
+  const configured = process.env.ARTICLE_DEADLINE_MS === undefined ? Math.min(900_000, Math.max(180_000, getSectionGuids(article).length * 7000)) : Number(process.env.ARTICLE_DEADLINE_MS);
+  if (!Number.isFinite(configured) || configured <= 0 || configured > 1_800_000) throw new Error("ARTICLE_DEADLINE_MS must be positive and at most 1800000ms");
+  return configured;
+}
+export interface DeepSectionCheckpoint { schemaVersion: "deep-sections/v1"; createdAt: string; savedAt: string; expectedSectionsSha256: string; article: BoundArticle }
+/** Partial evidence is reusable only after source replay; it is never a publication article. */
+export function isDeepSectionCheckpointValid(value: unknown, article: TocNode, rawHtml: string, now = Date.now()): value is DeepSectionCheckpoint {
+  if (!value || typeof value !== "object") return false;
+  const checkpoint = value as DeepSectionCheckpoint;
+  const created = Date.parse(checkpoint.createdAt); const saved = Date.parse(checkpoint.savedAt);
+  if (checkpoint.schemaVersion !== "deep-sections/v1" || !Number.isFinite(created) || !Number.isFinite(saved) || created > saved || saved > now || now - created > 86_400_000) return false;
+  const expected = getSectionGuids(article);
+  if (checkpoint.expectedSectionsSha256 !== custodyHash(JSON.stringify(expected)) || checkpoint.article?.guid !== article.guid || checkpoint.article.title !== article.title || checkpoint.article.number !== article.number || checkpoint.article.rawHtml !== rawHtml || checkpoint.article.extraction?.mode !== "section-pages") return false;
+  const members = new Map(expected.map(section => [section.guid, section]));
+  if (!Array.isArray(checkpoint.article.sections) || checkpoint.article.sections.some(section => !members.has(section.guid) || members.get(section.guid)!.number !== section.number || members.get(section.guid)!.title !== section.title)) return false;
+  return validateArticleCustody(checkpoint.article, checkpoint.article.sections.map(section => section.guid), true).length === 0;
+}
+async function scrapeArticleWithinDeadline(page: Page, article: TocNode, signal: AbortSignal, options: { checkpointPath?: string; resumeDeepSections?: boolean }): Promise<ArticlePage> {
+  throwIfAborted(signal);
   const url = `${BASE_URL}/${article.guid}`;
   await navigateWithCloudflare(page, url);
 
@@ -162,23 +195,56 @@ export async function scrapeArticlePage(
   });
 
   let finalSections = sections as SectionContent[];
+  let mode: "inline" | "section-pages" = "inline";
+  const sourceFragments: ExtractionReceipt["sourceFragments"] = [];
 
   // Deep-scrape fallback: if article has child sections in TOC but none were extracted,
   // the article uses subarticle layout, so scrape each section page individually
   const expectedSections = getSectionGuids(article);
   if (finalSections.length === 0 && expectedSections.length > 0) {
+    mode = "section-pages";
     log.info(`Subarticle layout detected — deep-scraping ${expectedSections.length} sections individually`);
     const deepSections: SectionContent[] = [];
-
-    for (const { guid, number, title } of expectedSections) {
-      const sectionContent = await scrapeSectionPage(page, guid, number, title);
-      if (sectionContent) {
-        deepSections.push(sectionContent);
-      }
-      await new Promise((r) => setTimeout(r, RATE_LIMIT_MS / 2)); // Rate limit
+    let createdAt = new Date().toISOString();
+    if (options.checkpointPath && options.resumeDeepSections !== false) {
+      try {
+        const value: unknown = JSON.parse(await readFile(options.checkpointPath, "utf8"));
+        if (isDeepSectionCheckpointValid(value, article, rawHtml)) {
+          createdAt = value.createdAt; deepSections.push(...value.article.sections); sourceFragments.push(...value.article.extraction.sourceFragments);
+          log.info(`Resuming ${deepSections.length}/${expectedSections.length} source-bound deep sections`);
+        }
+      } catch { /* Missing or invalid partial evidence is reacquired. */ }
     }
+    let deepPage = page;
+    const closeOnAbort = () => { if (deepPage !== page) void closePageBounded(deepPage); };
+    signal.addEventListener("abort", closeOnAbort, { once: true });
+    try {
+      for (const { guid, number, title } of expectedSections) {
+        throwIfAborted(signal);
+        if (deepSections.some(section => section.guid === guid)) continue;
+        let sectionContent: Awaited<ReturnType<typeof scrapeSectionPage>> = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          throwIfAborted(signal);
+          try {
+            if (deepPage.isClosed()) { deepPage = await newPage(); if (signal.aborted) { await closePageBounded(deepPage); throwIfAborted(signal); } }
+            sectionContent = await scrapeSectionPage(deepPage, guid, number, title, signal);
+            if (sectionContent) break;
+          } catch (error) { throwIfAborted(signal); log.warn(`Deep section ${number} attempt ${attempt + 1} failed`, { error: String(error).split("\n")[0] }); }
+          await closePageBounded(deepPage); await waitWithSignal(RATE_LIMIT_MS, signal);
+        }
+        if (!sectionContent) throw new Error(`Deep section ${number} unavailable after three attempts; completed evidence checkpoint retained`);
+        deepSections.push(sectionContent.section); sourceFragments.push(sectionContent.source);
+        if (options.checkpointPath) {
+          throwIfAborted(signal);
+          const partial = bindArticleExtraction({ guid: article.guid, url, title: article.title, number: article.number, rawHtml, sha256: custodyHash(rawHtml), scrapedAt: createdAt, sections: deepSections }, "section-pages", sourceFragments);
+          await writeJsonAtomic(options.checkpointPath, { schemaVersion: "deep-sections/v1", createdAt, savedAt: new Date().toISOString(), expectedSectionsSha256: custodyHash(JSON.stringify(expectedSections)), article: partial } satisfies DeepSectionCheckpoint);
+        }
+        if (deepSections.length % 10 === 0 || deepSections.length === expectedSections.length) log.info(`Deep-section progress: ${deepSections.length}/${expectedSections.length}`);
+        await waitWithSignal(RATE_LIMIT_MS / 2, signal);
+      }
+    } finally { signal.removeEventListener("abort", closeOnAbort); if (deepPage !== page) await closePageBounded(deepPage); }
 
-    finalSections = deepSections;
+    finalSections = expectedSections.map(expected => deepSections.find(section => section.guid === expected.guid)!);
     log.info(`Deep-scraped ${deepSections.length}/${expectedSections.length} sections`);
   }
 
@@ -187,8 +253,9 @@ export async function scrapeArticlePage(
   }
 
   const sha256 = await computeSha256(rawHtml);
+  throwIfAborted(signal);
 
-  return {
+  return bindArticleExtraction({
     guid: article.guid,
     url,
     title: article.title,
@@ -197,5 +264,5 @@ export async function scrapeArticlePage(
     sections: finalSections,
     sha256,
     scrapedAt: new Date().toISOString(),
-  };
+  }, mode, sourceFragments);
 }

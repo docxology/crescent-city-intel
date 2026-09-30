@@ -2,9 +2,8 @@
  * Cross-reference hyperlinking in the SPA's section prose
  * (`src/gui/static/assets/modules/15-cross-ref-links.js`).
  *
- * Phase 2 of the deferred GUI/UX set. A civic-code reader who sees
- * "see § 8.04.010" in a section's prose currently has to hand-type the number
- * into the search box. The linkifier turns citations into in-app links.
+ * The linkifier turns citations such as "see § 8.04.010" into in-app links
+ * so a reader can navigate directly to the cited section.
  *
  * The behaviour that is deliberately NOT implemented is the important part:
  * a citation to a section the client has not seen stays plain text. Linking it

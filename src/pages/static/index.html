@@ -325,7 +325,7 @@
       <ol id="event-items" class="items"></ol>
     </section>
     <section id="alerts" class="section">
-      <div class="section-head"><span class="newspaper-label">Alert Log</span><h2>Safety bulletin</h2><span class="meta">15-monitor alert board</span></div>
+      <div class="section-head"><span class="newspaper-label">Alert Log</span><h2>Safety bulletin</h2><span class="meta">20-monitor alert board</span></div>
       <div id="alert-summary"></div>
       <div id="alert-items" class="items"></div>
     </section>
@@ -500,8 +500,9 @@
       const counts = snapshot.municipalCode && snapshot.municipalCode.counts;
       const articles = counts && counts.articlePageCount;
       const sections = counts && counts.sectionCount;
+      const editionNote = snapshot.publication?.selection === "reviewed-seed" ? "Reviewed archived code seed; this build does not establish current live source acceptance." : "Hash-bound code edition verified against the source during collection.";
       $("code-meta").innerHTML = snapshot.files?.code
-        ? `${esc(articles ?? "?")} articles and ${esc(sections ?? "?")} sections in this public code export. Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(snapshot.files.code)}" rel="noopener noreferrer">download code.json</a>.`
+        ? `${esc(articles ?? "?")} articles and ${esc(sections ?? "?")} sections in this public code export. ${esc(editionNote)} Search runs over a build-time sharded index, loaded on your first keystroke; the full export remains available: <a href="${esc(snapshot.files.code)}" rel="noopener noreferrer">download code.json</a>.`
         : "The municipal code export is not available in this snapshot.";
     }
     function renderCodeMatches(matches, needle) {

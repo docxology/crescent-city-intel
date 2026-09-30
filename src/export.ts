@@ -24,6 +24,7 @@ import { loadToc, loadManifest, loadAllArticles } from "./shared/data.js";
 import { writeJsonAtomic, writeTextAtomic } from "./shared/source_health.js";
 import { paths } from "./shared/paths.js";
 import { createLogger } from "./logger.js";
+import { exportedArticleSha256 } from "./corpus_editions.js";
 
 const log = createLogger("export");
 
@@ -40,6 +41,7 @@ export function buildConsolidatedJson(toc: TocNode, articles: ArticlePage[]): Re
       number: a.number,
       url: a.url,
       sha256: a.sha256,
+      exportedArticleSha256: exportedArticleSha256(a),
       sections: a.sections.map((s) => ({
         guid: s.guid,
         number: s.number,

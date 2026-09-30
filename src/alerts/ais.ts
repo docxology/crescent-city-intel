@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * AIS vessel-traffic monitor (#20) — part of the 🟡 TODO "Marine expansion".
+ * AIS vessel-traffic monitor (#20).
  *
  * Real-time AIS positions for US coastal waters are not publicly keyless:
  * the USCG NAVCEN live feed is restricted, and community feeds (AISHub) and
@@ -15,7 +15,7 @@
  *     digitraffic feed so the connector runs live end-to-end; point it at
  *     any provider that speaks the same FeatureCollection shape. For US
  *     water coverage an AISHub/USCG feed credential is required — absent a
- *     local feed, the monitor reports an explicit EMPTY local state over the
+ *     local feed, the monitor reports an explicit unavailable local-coverage state over the
  *     real upstream data, never a fabricated vessel.
  *   - Positions are filtered to the Del Norte watch box (Crescent City
  *     harbor approach). Zero vessels in the box is a legitimate empty state
@@ -37,6 +37,7 @@ import {
 } from "../shared/source_health.js";
 import { outputRoot } from "../shared/paths.js";
 import { boundedFetchText } from "./connector.js";
+import { redactUrl } from "../shared/transport.js";
 
 const logger = createLogger("ais_alert");
 
@@ -75,13 +76,13 @@ export interface AisVesselPosition {
   lon: number;
   lat: number;
   /** Speed over ground (kn). */
-  sog: number;
+  sog: number | null;
   /** Course over ground (deg). */
-  cog: number;
+  cog: number | null;
   /** True heading (deg). */
-  heading: number;
+  heading: number | null;
   /** Feed-reported position epoch, ISO. */
-  positionAt: string;
+  positionAt: string | null;
 }
 
 export interface AisReport {
@@ -129,21 +130,23 @@ export function parseAisLocations(body: string): AisVesselPosition[] {
   for (const feature of parsed.features) {
     const mmsi = Number(feature?.mmsi ?? feature?.properties?.mmsi);
     const coords = feature?.geometry?.coordinates;
-    if (!Number.isFinite(mmsi) || !Array.isArray(coords) || coords.length < 2) continue;
+    if (!Number.isSafeInteger(mmsi) || mmsi < 100000000 || mmsi > 999999999 || feature?.geometry?.type !== "Point" || !Array.isArray(coords) || coords.length < 2) continue;
     const [lon, lat] = coords;
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+    if (!Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) continue;
     const props = feature.properties ?? {};
-    const epoch = Number(feature.timestampExternal ?? props.timestampExternal);
+    const rawEpoch = feature.timestampExternal ?? props.timestampExternal;
+    const epoch = typeof rawEpoch === "number" && Number.isFinite(rawEpoch) ? rawEpoch : Number.NaN;
+    const epochDate = Number.isFinite(epoch) ? new Date(epoch) : null;
+    const timestamp = epochDate && Number.isFinite(epochDate.getTime()) ? epochDate.toISOString() : typeof props.posTimestamp === "string" && Number.isFinite(Date.parse(props.posTimestamp)) ? props.posTimestamp : null;
+    const measurement = (value: unknown, min: number, max: number): number | null => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max ? value : null;
     positions.push({
       mmsi,
       lon,
       lat,
-      sog: Number.isFinite(Number(props.sog)) ? Number(props.sog) : 0,
-      cog: Number.isFinite(Number(props.cog)) ? Number(props.cog) : 0,
-      heading: Number.isFinite(Number(props.heading)) ? Number(props.heading) : 0,
-      positionAt: Number.isFinite(epoch)
-        ? new Date(epoch).toISOString()
-        : (typeof props.posTimestamp === "string" ? props.posTimestamp : ""),
+      sog: measurement(props.sog, 0, 102.2),
+      cog: measurement(props.cog, 0, 359.9),
+      heading: measurement(props.heading, 0, 359),
+      positionAt: timestamp,
     });
   }
   return positions;
@@ -158,17 +161,17 @@ export function buildAisReport(
   const inBox = positions.filter(position => isInWatchBox(position.lon, position.lat));
   const worstLevel: AisLevel = inBox.length > 0 ? "ADVISORY" : "CALM";
   const summary = inBox.length === 0
-    ? `No AIS vessels in the Del Norte watch box (${positions.length} vessels in the feed; feed covers US west coast only when AIS_FEED_URL points at a US provider).`
+    ? `Local vessel coverage is not established by ${feedName} (${positions.length} upstream positions); no local traffic or calmness is inferred.`
     : `${inBox.length} AIS vessel(s) in the Del Norte watch box: ` +
-      inBox.slice(0, 3).map(vessel => `MMSI ${vessel.mmsi} (${vessel.sog.toFixed(1)} kn)`).join(", ") +
+      inBox.slice(0, 3).map(vessel => `MMSI ${vessel.mmsi} (${(vessel.sog === null ? "unknown" : vessel.sog.toFixed(1))} kn)`).join(", ") +
       (inBox.length > 3 ? `, +${inBox.length - 3} more` : "");
   return {
     fetchedAt: now,
-    sourceUrl: process.env[AIS_FEED_URL_ENV] || DIGITRAFFIC_AIS_URL,
+    sourceUrl: redactUrl(process.env[AIS_FEED_URL_ENV] || DIGITRAFFIC_AIS_URL),
     feedName,
     vesselsObserved: positions.length,
     vesselsInWatchArea: inBox,
-    coversDelNorteWaters: feedName !== "digitraffic open AIS",
+    coversDelNorteWaters: inBox.length > 0 || feedName !== "digitraffic open AIS" && process.env.AIS_LOCAL_COVERAGE_CONFIRMED === "1",
     worstLevel,
     summary,
   };
@@ -182,7 +185,8 @@ export async function appendAisHistory(
   if (inBox.length === 0) return;
   await mkdir(outputDir(), { recursive: true });
   for (const vessel of inBox) {
-    const id = `ais-${vessel.mmsi}-${vessel.positionAt || "unknown"}`;
+    if (!vessel.positionAt) continue;
+    const id = `ais-${vessel.mmsi}-${vessel.positionAt}`;
     appendBoundedJsonlSync(aisHistoryPath(), JSON.stringify({
       id,
       type: "ais",
@@ -193,7 +197,8 @@ export async function appendAisHistory(
       cog: vessel.cog,
       level: "ADVISORY",
       summary: `AIS vessel MMSI ${vessel.mmsi} in the Del Norte watch box`,
-      url: process.env[AIS_FEED_URL_ENV] || DIGITRAFFIC_AIS_URL,
+      url: redactUrl(process.env[AIS_FEED_URL_ENV] || DIGITRAFFIC_AIS_URL),
+      observedAt: vessel.positionAt,
       fetchedAt,
     }));
   }
@@ -228,7 +233,7 @@ function fetchAisFeed(url: string): Promise<string> {
 /** Run the monitor: fetch, parse, watch-box filter, persist current.json + deduped history. */
 export async function runAisMonitor(): Promise<AisReport | null> {
   const feedUrl = process.env[AIS_FEED_URL_ENV] || DIGITRAFFIC_AIS_URL;
-  logger.info("Checking AIS vessel traffic (feed: " + feedUrl + ")");
+  logger.info("Checking AIS vessel traffic (feed: " + redactUrl(feedUrl) + ")");
   lastAisError = undefined;
   try {
     const positions = parseAisLocations(await fetchAisFeed(feedUrl));

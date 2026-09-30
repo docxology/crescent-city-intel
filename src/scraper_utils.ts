@@ -3,31 +3,10 @@
  *
  * - Cloudflare stall detection
  * - Network error retry with exponential backoff
- * - HTTP 503/redirect detection
- * - Progress bar for terminal output
- * - Per-article timing metrics
+ * - TOC and persisted article shape validation
  */
 
-import type { TocNode } from "./types.js";
-
-export interface ScrapeMetrics {
-  guid: string;
-  title: string;
-  durationMs: number;
-  sectionCount: number;
-  success: boolean;
-  error?: string;
-  retried?: boolean;
-}
-
-export interface ScrapeProgress {
-  total: number;
-  scraped: number;
-  skipped: number;
-  failed: number;
-  current: string;
-  startTime: number;
-}
+import type { TocNode, ArticlePage } from "./types.js";
 
 const TOC_TYPES = new Set<TocNode["type"]>([
   "code",
@@ -52,7 +31,7 @@ export function isTocShapeValid(value: unknown): value is TocNode {
   const visit = (candidate: unknown): candidate is TocNode => {
     if (!candidate || typeof candidate !== "object") return false;
     const node = candidate as Record<string, unknown>;
-    if (typeof node.guid !== "string" || !node.guid.trim()) return false;
+    if (typeof node.guid !== "string" || !/^[A-Za-z0-9_-]+$/.test(node.guid)) return false;
     if (typeof node.type !== "string" || !TOC_TYPES.has(node.type as TocNode["type"])) return false;
     if (!Array.isArray(node.children)) return false;
     if (seen.has(node.guid)) return false;
@@ -67,18 +46,23 @@ export function isTocShapeValid(value: unknown): value is TocNode {
 }
 
 /** Minimal runtime guard for a persisted article artifact. */
-export function isArticleArtifactShapeValid(value: unknown, expectedSectionGuids: readonly string[] = [], exactSectionGuids = false): value is {
-  guid: string;
-  rawHtml: string;
-  sha256: string;
-  sections: Array<{ guid: string }>;
-} {
+export function isArticleArtifactShapeValid(value: unknown, expectedSectionGuids: readonly string[] = [], exactSectionGuids = false): value is ArticlePage {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  if (typeof record.guid !== "string" || typeof record.rawHtml !== "string" || typeof record.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.sha256)) return false;
+  if (typeof record.guid !== "string" || !/^[A-Za-z0-9_-]+$/.test(record.guid) || typeof record.rawHtml !== "string" || !record.rawHtml.trim() || typeof record.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.sha256)) return false;
+  if (!["url", "title", "number", "scrapedAt"].every(key => typeof record[key] === "string")) return false;
+  if (!Number.isFinite(Date.parse(record.scrapedAt as string))) return false;
+  try { const url = new URL(record.url as string); if (url.protocol !== "https:" || url.hostname !== "ecode360.com" || url.username || url.password || url.pathname !== `/${record.guid}`) return false; } catch { return false; }
   if (!Array.isArray(record.sections)) return false;
-  if (!record.sections.every(section => section && typeof section === "object" && typeof (section as Record<string, unknown>).guid === "string")) return false;
+  if (!record.sections.every(section => {
+    if (!section || typeof section !== "object") return false;
+    const item = section as Record<string, string>;
+    return ["guid", "number", "title", "html", "text", "history"].every(key => typeof item[key] === "string")
+      && /^[A-Za-z0-9_-]+$/.test(item.guid!) && !!item.html!.trim()
+      && (!!item.text!.trim() || /^\(?reserved\)?\.?$/i.test(item.title!.trim()));
+  })) return false;
   const sectionGuids = new Set(record.sections.map(section => (section as Record<string, string>).guid));
+  if (sectionGuids.size !== record.sections.length) return false;
   if (!expectedSectionGuids.every(guid => sectionGuids.has(guid))) return false;
   return !exactSectionGuids || sectionGuids.size === new Set(expectedSectionGuids).size;
 }
@@ -112,56 +96,4 @@ export async function withRetry<T>(
   }
 
   throw lastError!;
-}
-
-/** Check for HTTP 503 maintenance mode or redirect */
-export function isMaintenanceMode(status: number, url: string, finalUrl: string): boolean {
-  return status === 503 || (status >= 300 && status < 400 && finalUrl !== url);
-}
-
-/** Format a progress bar string */
-export function formatProgressBar(current: number, total: number, width: number = 30): string {
-  const pct = total > 0 ? current / total : 0;
-  const filled = Math.round(pct * width);
-  const empty = width - filled;
-  const bar = "█".repeat(filled) + "░".repeat(empty);
-  const pctStr = (pct * 100).toFixed(0).padStart(3, " ");
-  return `[${bar}] ${pctStr}% (${current}/${total})`;
-}
-
-/** Record per-article scrape timing */
-export class ScrapeMetricsCollector {
-  private metrics: ScrapeMetrics[] = [];
-
-  record(metric: ScrapeMetrics): void {
-    this.metrics.push(metric);
-  }
-
-  getMetrics(): ScrapeMetrics[] {
-    return [...this.metrics];
-  }
-
-  getSummary(): {
-    total: number;
-    succeeded: number;
-    failed: number;
-    avgDurationMs: number;
-    maxDurationMs: number;
-    minDurationMs: number;
-  } {
-    const succeeded = this.metrics.filter(m => m.success);
-    const durations = succeeded.map(m => m.durationMs);
-    return {
-      total: this.metrics.length,
-      succeeded: succeeded.length,
-      failed: this.metrics.filter(m => !m.success).length,
-      avgDurationMs: durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0,
-      maxDurationMs: durations.length > 0 ? Math.max(...durations) : 0,
-      minDurationMs: durations.length > 0 ? Math.min(...durations) : 0,
-    };
-  }
-
-  toJSON(): ScrapeMetrics[] {
-    return this.metrics;
-  }
 }

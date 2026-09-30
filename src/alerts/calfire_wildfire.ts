@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { boundedHttpFetch as fetch } from "../shared/transport.js";
+import { outputRoot } from "../shared/paths.js";
 /**
  * CAL FIRE Wildfire Monitor for Del Norte County.
  *
@@ -29,9 +31,9 @@ const CRESCENT_CITY_LAT = 41.7485;
 const CRESCENT_CITY_LNG = -124.2028;
 const SEARCH_RADIUS_KM = 150;
 
-const HISTORY_DIR = join(process.cwd(), "output", "alerts", "wildfire");
-const HISTORY_FILE = join(HISTORY_DIR, "history.jsonl");
-const CURRENT_FILE = join(HISTORY_DIR, "current.json");
+function HISTORY_DIR(): string { return join(outputRoot(), "alerts", "wildfire"); }
+function HISTORY_FILE(): string { return join(HISTORY_DIR(), "history.jsonl"); }
+function CURRENT_FILE(): string { return join(HISTORY_DIR(), "current.json"); }
 let lastWildfireError: string | undefined;
 
 /** Return the most recent failure without changing the monitor's null-result contract. */
@@ -85,9 +87,9 @@ export interface WildfireReport {
 
 function loadProcessedIds(): Set<string> {
   const ids = new Set<string>();
-  if (!existsSync(HISTORY_FILE)) return ids;
+  if (!existsSync(HISTORY_FILE())) return ids;
   try {
-    const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
+    const lines = readFileSync(HISTORY_FILE(), "utf-8").split("\n").filter(Boolean);
     for (const line of lines) {
       try { ids.add(JSON.parse(line).id); } catch { /* skip */ }
     }
@@ -97,9 +99,9 @@ function loadProcessedIds(): Set<string> {
 
 function appendHistory(incident: WildfireIncident): void {
   try {
-    mkdirSync(HISTORY_DIR, { recursive: true });
+    mkdirSync(HISTORY_DIR(), { recursive: true });
     const record = JSON.stringify({ ...incident, fetchedAt: new Date().toISOString() });
-    appendBoundedJsonlSync(HISTORY_FILE, record);
+    appendBoundedJsonlSync(HISTORY_FILE(), record);
   } catch (err) {
     logger.warn("Failed to append wildfire history", { error: String(err) });
   }
@@ -218,8 +220,8 @@ export async function runWildfireMonitor(): Promise<WildfireReport | null> {
         : `${incidents.length} active wildfire(s): ${incidents.map(i => `${i.name} (${i.acres} ac, ${i.containmentPercent}% contained)`).join("; ")}`,
     };
 
-    await mkdir(HISTORY_DIR, { recursive: true });
-    await writeJsonAtomic(CURRENT_FILE, report);
+    await mkdir(HISTORY_DIR(), { recursive: true });
+    await writeJsonAtomic(CURRENT_FILE(), report);
 
     if (level === "EMERGENCY") {
       logger.warn(`WILDFIRE EMERGENCY: ${report.summary}`);

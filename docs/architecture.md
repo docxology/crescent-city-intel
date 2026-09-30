@@ -47,9 +47,9 @@ Real-Time Intelligence Layer (20 monitors: 8 core + 12 extended):
 │  nws_weather.ts     NWS CAZ006        │
 │  noaa_tides.ts      CO-OPS 9419750    │
 │  cdfw_fishing.ts    CDFW crab season  │
-│  epa_airnow.ts      EPA AQI (v2.0)    │
-│  calfire_wildfire.ts CAL FIRE (v2.0)  │
-│  ndbc_marine.ts     NDBC buoys (v2.0) │
+│  epa_airnow.ts      EPA AQI           │
+│  calfire_wildfire.ts CAL FIRE         │
+│  ndbc_marine.ts     NDBC buoys        │
 │  nws_marine.ts     NWS CWF (PZZ450)   │
 │  usdm_drought.ts   USDM DSCI         │
 │  pge_psps.ts       PSPS shutoffs     │
@@ -104,7 +104,7 @@ quality `airQuality` (camelCase) where everything else says `airquality`;
 `MONITOR_KEYS` in `src/alerts/composite.ts` is the canonical roster. Every other
 list derives from it or is asserted against it — see `src/alerts/AGENTS.md`.
 
-Structured Query + Legal Analysis (v2.0):
+Structured Query + Legal Analysis:
 ┌──────────────────────────────────────┐
 │ structured_queries.ts                │
 │  Legislative history + section diff  │

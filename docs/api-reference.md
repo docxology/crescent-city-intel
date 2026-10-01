@@ -72,10 +72,13 @@ family boundaries and migration policy.
 
 | Function | Signature | Description |
 | :--- | :--- | :--- |
-| `launchBrowser` | `() → Promise<BrowserContext>` | Launches Chromium (non-headless) with Cloudflare bypass |
-| `closeBrowser` | `() → Promise<void>` | Closes context and browser, resets singletons |
-| `navigateWithCloudflare` | `(page: Page, url: string, opts?: {timeout?: number}) → Promise<void>` | Navigate and wait for Cloudflare to resolve |
-| `newPage` | `() → Promise<Page>` | Creates a page with `webdriver=false` injected |
+| `launchBrowser` | `(options?: BrowserOptions) → Promise<BrowserContext>` | Launches root-scoped Chromium with bounded caller cancellation; visible by default, headless with `HEADLESS_BROWSER=1` |
+| `closeBrowser` | `(options?: {timeoutMs?: number}) → Promise<ProcessShutdownReceipt \| null>` | Closes the current root's owned browser; successful process cleanup requires reaping and group termination, and incomplete cleanup remains retryable |
+| `navigateWithCloudflare` | `(page: Page, url: string, opts?: {timeout?: number; renderMs?: number; signal?: AbortSignal}) → Promise<void>` | Navigate and wait for Cloudflare within the owned page deadline |
+| `newPage` | `(options?: BrowserOptions) → Promise<Page>` | Creates an owned page with `webdriver=false` injected |
+
+The [generated exports inventory](generated/exports.md) binds current signatures.
+An unregistered page cannot authorize closing another root's browser.
 
 ---
 

@@ -32,6 +32,15 @@ reviewed-text fixture; that fixture check does not replace acceptance of the
 final full publication. Actions runs the exact-artifact command before uploading
 the unchanged directory.
 
+The offline validator checks the behavior of the exact emitted JavaScript in
+`src/pages_bundle_validation.ts`. It owns a finite Bun child and private input
+files, validates a bounded error-array response, and requires actual child
+reaping. Evaluation, helper calls, deferred-search callbacks and serialization
+stay within that child. VM interruption and realm-local browser fixtures
+supplement the owned process deadline; a stalled or malformed evaluator cannot
+be reported as successful validation. Validator test callers use the same
+bounded child-lifetime contract instead of blocking synchronous subprocesses.
+
 ## Local directory
 
 `data/directory.json` (`crescent-city-directory/v1`) is a source-cited

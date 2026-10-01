@@ -105,10 +105,11 @@ pages_publication_inputs.ts     # Exact Pages producer/seed/source capture, priv
 pages_scan.ts                   # Pages artifact scanner (links, assets, SEO)
 pages_css.ts                    # Generated Pages stylesheet builder
 pages_validation.ts             # Pages artifact validator (release-gate checks)
+pages_bundle_validation.ts      # Owned, bounded evaluation of shipped Pages helper behavior
 pages_seed.ts                   # Verified municipal-code seed refresh for Pages
 ci_support.ts                   # Dependency closure and current-cycle monitor acceptance
 corpus_editions.ts              # Source-bound extraction receipts and retained corpus lineage
-doc_inventory.ts                # Full source-path documentation inventory validation
+doc_inventory.ts                # Source/HTTP inventories and checked full GitHub README projection
 geo_sync.ts                     # Module contract and implementation
 manuscript_document.ts          # Manuscript evidence hydration and validation
 manuscript_hydration.ts         # Module contract and implementation
@@ -116,7 +117,7 @@ pages_public.ts                 # Public artifact projections and privacy bounda
 publication_bundle.ts           # Coherent corpus selection, custody receipts and recoverable promotion
 release_checks.ts               # Actual line coverage and failure-safe output fences
 interactive_menu.ts             # Module contract and implementation
-official_meetings.ts            # Module contract and implementation
+official_meetings.ts            # Bounded official archives and County CivicClerk published documents
 scheduler.ts                    # Reviewed scheduler plans, owned file installation/removal and idle log rotation
 stack_readiness.ts              # Module contract and implementation
 weekly_pipeline.ts              # Module contract and implementation

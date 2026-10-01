@@ -30,6 +30,13 @@ actual retained-to-current replay and a native PDF extraction negative control.
 Its timestamps and hashes describe that run. It does not claim a current upstream
 refetch, a human legal review or a future final release gate.
 
+County primary documents can also be acquired through the approved CivicClerk
+published-file notices documented in [monitoring](monitoring.md#county-civicclerk-acquisition).
+The bounded event window and exact extensionless PDF route supply source access
+and extraction evidence; they do not turn meeting minutes into an adopted City
+ordinance or certify the meaning of provider timestamps. Proposed and adopted
+legal conclusions still require their own document-bound interpretation.
+
 ## Directory field currency and corrections
 
 `src/directory_review.ts` builds a local ledger bound to the exact directory.

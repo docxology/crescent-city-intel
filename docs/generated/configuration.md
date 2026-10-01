@@ -49,7 +49,7 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `GITHUB_SHA` | [src/shared/orchestration.ts:82](../../src/shared/orchestration.ts#L82) | `process.env.GITHUB_SHA` | `process.env.GIT_COMMIT` |
 | `GOV_MEETINGS_TIMEOUT_MS` | [src/gov_meeting_monitor.ts:374](../../src/gov_meeting_monitor.ts#L374) | `process.env.GOV_MEETINGS_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
 | `GOV_MEETINGS_TIMEOUT_MS` | [src/gov_meeting_monitor.ts:374](../../src/gov_meeting_monitor.ts#L374) | `process.env.GOV_MEETINGS_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
-| `GOV_MEETINGS_TIMEOUT_MS` | [src/gov_meeting_monitor.ts:436](../../src/gov_meeting_monitor.ts#L436) | `process.env.GOV_MEETINGS_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
+| `GOV_MEETINGS_TIMEOUT_MS` | [src/gov_meeting_monitor.ts:437](../../src/gov_meeting_monitor.ts#L437) | `process.env.GOV_MEETINGS_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
 | `GUI_STARTUP_TIMEOUT_MS` | [src/browser_smoke.ts:57](../../src/browser_smoke.ts#L57) | `process.env.GUI_STARTUP_TIMEOUT_MS` | `"60000"` |
 | `HEADLESS_BROWSER` | [src/browser.ts:41](../../src/browser.ts#L41) | `process.env.HEADLESS_BROWSER` | not declared at this read |
 | `HEALER_MAX_CONSECUTIVE_FAILURES` | [src/alerts/healer.ts:114](../../src/alerts/healer.ts#L114) | `envInt("HEALER_MAX_CONSECUTIVE_FAILURES", 3)` | `3` |
@@ -114,7 +114,7 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `RERANK_TOP_N` | [src/llm/config.ts:80](../../src/llm/config.ts#L80) | `process.env.RERANK_TOP_N` | `"5"` |
 | `SCRAPE_TIMEOUT_MS` | [src/constants.ts:36](../../src/constants.ts#L36) | `envInt("SCRAPE_TIMEOUT_MS", 60_000)` | `60_000` |
 | `SOURCE_DISCOVERY_LIVE_CHECK` | [src/weekly_pipeline.ts:262](../../src/weekly_pipeline.ts#L262) | `process.env.SOURCE_DISCOVERY_LIVE_CHECK` | not declared at this read |
-| `SOURCE_DISCOVERY_TIMEOUT_MS` | [src/source_registry.ts:443](../../src/source_registry.ts#L443) | `process.env.SOURCE_DISCOVERY_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
+| `SOURCE_DISCOVERY_TIMEOUT_MS` | [src/source_registry.ts:449](../../src/source_registry.ts#L449) | `process.env.SOURCE_DISCOVERY_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
 | `SOURCE_FETCH_TIMEOUT_MS` | [src/shared/source_health.ts:25](../../src/shared/source_health.ts#L25) | `positiveEnvNumber("SOURCE_FETCH_TIMEOUT_MS", 10000)` | `10000` |
 | `SOURCE_FRESHNESS_WINDOW_MS` | [src/shared/source_health.ts:26](../../src/shared/source_health.ts#L26) | `positiveEnvNumber("SOURCE_FRESHNESS_WINDOW_MS", 24 * 60 * 60 * 1000)` | `24 * 60 * 60 * 1000` |
 | `SPA_RENDER_MS` | [src/constants.ts:42](../../src/constants.ts#L42) | `envInt("SPA_RENDER_MS", 1500)` | `1500` |

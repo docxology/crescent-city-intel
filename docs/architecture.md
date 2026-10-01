@@ -155,7 +155,10 @@ flowchart LR
 annotated API response and Pages boundaries. Structural `openapi.yaml` governs
 HTTP methods/auth/inputs/responses; `doc_inventory.ts` generates configuration,
 qualified export and HTTP inventories without evaluating actual environment
-values. Dynamic configuration reads remain disclosed.
+values. It also projects the complete root `README.md` into GitHub's selected
+`.github/README.md`, rebases repository destinations and verifies equivalent
+rendered content and URL resolution. Both release-gate modes reject generated
+drift. Dynamic configuration reads remain disclosed.
 
 `shared/paths.ts` and `shared/run_scope.ts` retain root/cancellation ownership.
 `shared/storage.ts`, `shared/artifact_transaction.ts` and owned process/browser
@@ -200,6 +203,8 @@ src/
   curation.ts             # Provider-aware news/meeting/YouTube curation
   monthly_report.ts      # Period-specific civic health report
   pages_snapshot.ts      # Bounded public GitHub Pages snapshot exporter
+  pages_validation.ts    # Offline artifact and shipped-behavior validator
+  pages_bundle_validation.ts # Owned, bounded shipped-bundle evaluator
   shared/
     paths.ts            # Centralized output path constants
     data.ts             # Data loading layer (loadToc, loadArticle, etc.)

@@ -1,159 +1,504 @@
 {
   "schemaVersion": "crescent-city-release-acceptance/v1",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "date": "2026-10-01",
   "status": "local-verified",
-  "baselineCommit": "f527da5699eb37ce6364fdd3d01ab0cc1b9207cd",
+  "baselineCommit": "edf5a1680de65775cdfb9ecc099bceb9550b6afe",
   "publication": {
-    "evidenceLocation": "GitHub v3.1.1 release, main checks and Pages deployment records",
-    "boundary": "Local acceptance is recorded here. Exact published commit, hosted artifact and live hashes are external to avoid a self-referential commit identity."
+    "evidenceLocation": "GitHub v3.2.0 release assets and exact main Pages run",
+    "boundary": "Local acceptance recorded here; exact published commit, hosted artifact and live hashes are external to avoid self-reference."
   },
-  "municipal": {
-    "articles": 245,
-    "sections": 2206,
-    "manifestSha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
-    "currentToc": "pass",
-    "localCustody": "pass",
-    "liveSample": {
-      "attempted": 5,
-      "passed": 5
-    },
-    "publicationEligible": true,
-    "boundary": [
-      "Live sample checks selected article HTML only; it does not establish all-page currentness"
-    ]
+  "priorEvidence": {
+    "version": "3.1.1",
+    "receiptSha256": "325a0d19394a144029aa0a3e658abce634964ecf57bed1b6b039b6bedb9f88be",
+    "release": "https://github.com/docxology/crescent-city-intel/releases/tag/v3.1.1",
+    "boundary": "Dated prior evidence remains scoped to its named release; native LLM/container and independent human acceptance are not re-established by this update."
   },
-  "registry": {
-    "sources": 48,
-    "monitored": 34,
-    "discoveryOnly": 14,
-    "fingerprint": "874777bb819416b780c474b52775363d0912a118b13b6ef547d8ebc27d93e106",
-    "probes": {
-      "checked": 48,
-      "unavailable": 6
+  "releaseGate": {
+    "status": "pass",
+    "testsPassed": 2019,
+    "testsSkipped": 2,
+    "testsFailed": 0,
+    "assertions": 17513,
+    "testsTotal": 2021,
+    "files": 195,
+    "lineCoveragePercent": 85.86,
+    "functionCoveragePercent": 87.71,
+    "lineCoverageFloorPercent": 60,
+    "strictProductionTypes": "pass",
+    "strictTestTypes": "pass",
+    "outputCorpusFence": "pass",
+    "suiteRuns": [
+      "plain pass",
+      "coverage pass"
+    ],
+    "sourceParity": {
+      "files": 504,
+      "allEqual": true,
+      "treeSha256": "b8feb38355a63fa7f9f5ea2b8d26a709d5bd02dfe0e6bd92db7860920ad729f7"
     },
-    "alertCoverage": {
-      "present": 16,
-      "total": 20,
-      "missing": [
-        {
-          "source": "DUSD Schools",
-          "status": "unavailable",
-          "timestampBasis": "retrieval",
-          "observationFreshness": "unknown"
-        },
-        {
-          "source": "Crescent City Permits Portal",
-          "status": "unavailable",
-          "timestampBasis": "retrieval",
-          "observationFreshness": "unknown"
-        },
-        {
-          "source": "PacFIN Reports Dashboard",
-          "status": "unavailable",
-          "timestampBasis": "retrieval",
-          "observationFreshness": "unknown"
-        },
-        {
-          "source": "AIS Vessel Traffic",
-          "status": "unavailable",
-          "timestampBasis": null,
-          "observationFreshness": null
+    "boundary": "Isolated local Git/source copy with no private corpus, canonical registry generation, shared locked dependency installation and task-owned Chromium. Hosted Ubuntu installs the lockfile independently. Current populated-corpus collection and Pages validation are separate acceptance."
+  },
+  "independentReview": {
+    "checkedAt": "2026-10-01T22:29:39.126Z",
+    "status": "GO",
+    "hashes": {
+      "src/doc_inventory.ts": "90f02efe1132b89db1ded7448fb323d41ca4e09ffc291eeed80bd89ff74fdf3b",
+      "tests/doc-authority.test.ts": "c18750c0aa663203df49895989b8e93cf54522c30cb6eb0d7f4247f047a0a0b3",
+      "src/official_meetings.ts": "392eecbfd6637b04a77253d3b136ab6dcf4132bdf5f995c1377834a2449db9fb",
+      "src/gov_meeting_monitor.ts": "82c8958f5e9c1aefd5078cc5b61ea32776b27fd24c67c4c44772d5a09627073d",
+      "src/meeting_documents.ts": "a1702ad3ebe6290e058d28e256ee78668dcc917e6de27eeb902c4ea06517b877",
+      "src/source_registry.ts": "fa46f33031b4603ea78deccea5b6d74027504bccffa1bd03cb296a28a4e5bfb5",
+      "src/shared/transport.ts": "801d9483d1e66d2885c0a17fb0d7d9b36925c1ab42edd15cd48affe9254590cc",
+      "src/alerts/connector.ts": "cd418848ffddd328d3d645c5f37b4495420c408a3e35cb3b244d3d79fd38da7a",
+      "tests/transport-boundaries.test.ts": "f0f89618236d61b5c71af8f2a106ed7fe3f64dc6c35169eb7c0ee605409fa770",
+      "tests/subprocess-lifetime.test.ts": "a8bfb918930da1754a60211a81bc6100ee21a746b08057a00f5a1b0b71d24685",
+      "tests/pages-publication-inputs.test.ts": "caccb4f709c38baf11e66ef90366c18f400827263b7fb5653feed871db0cb085",
+      "src/pages_snapshot.ts": "4529ef3dc095d4bf20a46cfb91b35317c65fcea2e46f4e413621d067534f14b7",
+      "src/pages_bundle_validation.ts": "3cc7dcfab3b84e90a9f02f57388a4ac8eaadb1a68e355eabe330dbeb9647ad3e",
+      "src/pages_validation.ts": "8d477bef4c7453c436c4df395cf17290ad00af814b12a234aa9966aabdd2fb03",
+      "tests/lane-cci-frontend.test.ts": "8c370520d52952b4b88fe4ff35e9ca37f73630d83597c7496e8093b9a3bfcd64",
+      "tests/laneA-operator-signals.test.ts": "a71aac6e67c98b140692f35ca82db7fef1a43bd5004870c3580f3fb9a68f62a7",
+      "tests/pages-bundle-validation.test.ts": "4e95370b1c2b6cc1aad3127bd8ab2d1b2519f63e45f69cd333b0dfee53a5ab74",
+      "tests/helpers/pages-validator.ts": "c3a78d52e87477fc81d5109db7a0f4eecef5589d371112fbb2db43f241907d2d"
+    },
+    "readme": {
+      "testsPassed": 16,
+      "testsFailed": 0,
+      "assertions": 83,
+      "adversarialAccepted": 13,
+      "adversarialRejected": 5,
+      "strictProductionTypes": "pass",
+      "strictTestTypes": "pass",
+      "boundary": "Fresh independent read-only review and focused deterministic fixtures; not a full suite or live service acceptance."
+    },
+    "county": {
+      "testsPassed": 29,
+      "testsFailed": 0,
+      "assertions": 261,
+      "boundary": "Fresh independent provider/origin/file-route, custody and uncertain-date review; source owner additionally ran 30 tests/282 assertions. Native public source acquisition is separate."
+    },
+    "transport": {
+      "status": "GO",
+      "checkedAt": "2026-10-01T21:42:46.191Z",
+      "testsPassed": 46,
+      "testsFailed": 0,
+      "assertions": 265,
+      "independentReceiver": {
+        "originalExpiredReservationGapsMs": [
+          156,
+          0
+        ],
+        "originalDeferredPolicyGapMs": 0,
+        "finalGapsMs": [
+          59,
+          61
+        ],
+        "intervalMs": 60,
+        "childExitCode": 0,
+        "reaped": true
+      },
+      "callbackLifetime": {
+        "escapedStartRequests": 0,
+        "errorAfterStartRequests": 1,
+        "errorAfterStartStreamCancellations": 1,
+        "neverSettlingCallbackDeadlineAndBodyCancellation": "pass"
+      },
+      "docsCheck": "pass",
+      "diffCheck": "pass",
+      "boundary": "Fresh independent code and complementary callback-lifetime review, real local HTTP and owned independent receiver, focused offline modules. Full gate and hosted Linux/publication acceptance are separate parent-owned receipts."
+    },
+    "documentation": {
+      "status": "GO",
+      "relativeTargetsPerGuide": 72,
+      "missingTargets": 0,
+      "exactProjection": true,
+      "priorReceiptHashVerified": true,
+      "addedDiffPrivacyScan": "pass",
+      "boundaries": "All eight external/human scopes remain open; prior native RAG attribution is explicit. The completed acceptance receipt requires its own follow-up review."
+    },
+    "pagesEvaluator": {
+      "status": "GO",
+      "independentReviews": 2,
+      "focusedCovered": {
+        "testsPassed": 34,
+        "testsFailed": 0,
+        "assertions": 372,
+        "elapsedSeconds": 28.84
+      },
+      "independentRuntime": {
+        "testsPassed": 16,
+        "assertions": 49,
+        "mutatedCli": {
+          "testsPassed": 1,
+          "assertions": 209
         }
-      ],
-      "scope": "Current producer coverage with declared observation/product/retrieval policies; no comprehensive geographic claim."
+      },
+      "strictProductionTypes": "pass",
+      "strictTestTypes": "pass",
+      "sourceHashesStable": true,
+      "boundary": "Fresh independent read-only review of input/output caps, timed child, cancellation, protected diagnostics and owned cleanup. Exact-source focused tests and real validator CLI controls passed. A separate interrupted review remains incomplete. The VM is not a security sandbox or universal semantic proof."
     }
   },
+  "retainedFailures": [
+    {
+      "attempt": 1,
+      "status": "failed",
+      "exitCode": 1,
+      "reaped": true,
+      "suiteRuns": [
+        {
+          "kind": "plain",
+          "testsPassed": 1998,
+          "testsSkipped": 2,
+          "testsFailed": 1,
+          "assertions": 17351,
+          "testsTotal": 2001,
+          "files": 194
+        }
+      ],
+      "failure": "Publication source-race fixture exceeded its unchanged 15-second test bound; elapsed 48.66 seconds. Contention was an inference, not an established cause."
+    },
+    {
+      "attempt": 2,
+      "status": "failed",
+      "exitCode": 1,
+      "reaped": true,
+      "suiteRuns": [
+        {
+          "kind": "plain",
+          "testsPassed": 1997,
+          "testsSkipped": 2,
+          "testsFailed": 2,
+          "assertions": 17347,
+          "testsTotal": 2001,
+          "files": 194
+        }
+      ],
+      "failure": "Parallel same-host requests arrived one millisecond apart; successful-exit subprocess fixture read a heartbeat before descendant readiness."
+    },
+    {
+      "attempt": 3,
+      "status": "failed",
+      "exitCode": 1,
+      "reaped": true,
+      "suiteRuns": [
+        {
+          "kind": "plain",
+          "testsPassed": 2002,
+          "testsSkipped": 2,
+          "testsFailed": 1,
+          "assertions": 17367,
+          "testsTotal": 2005,
+          "files": 194
+        }
+      ],
+      "failure": "Publication source-race fixture resolved before its filesystem watcher mutation occurred; 594.25 millisecond elapsed test."
+    },
+    {
+      "attempt": 4,
+      "status": "failed",
+      "exitCode": 1,
+      "reaped": true,
+      "suiteRuns": [
+        {
+          "kind": "plain",
+          "testsPassed": 2005,
+          "testsSkipped": 2,
+          "testsFailed": 0,
+          "assertions": 17383,
+          "testsTotal": 2007,
+          "files": 194
+        },
+        {
+          "kind": "covered",
+          "testsPassed": 2004,
+          "testsSkipped": 2,
+          "testsFailed": 1,
+          "assertions": 17369,
+          "testsTotal": 2007,
+          "files": 194
+        }
+      ],
+      "failure": "Full plain suite passed; covered frontend negative-controls fixture exceeded its 300,000 millisecond bound while invoking unbounded synchronous validator children (568,103.66 milliseconds observed)."
+    }
+  ],
+  "reliabilityRepairs": {
+    "transport": {
+      "boundary": "Actual pinned dispatch occurs synchronously inside FIFO host admission after DNS, robots and caller policy. Per-hop cancellation, callback revocation, single dispatch and abort-on-admission-failure prevent escaped or retained network work.",
+      "independentReview": {
+        "status": "GO",
+        "checkedAt": "2026-10-01T21:42:46.191Z",
+        "testsPassed": 46,
+        "testsFailed": 0,
+        "assertions": 265,
+        "independentReceiver": {
+          "originalExpiredReservationGapsMs": [
+            156,
+            0
+          ],
+          "originalDeferredPolicyGapMs": 0,
+          "finalGapsMs": [
+            59,
+            61
+          ],
+          "intervalMs": 60,
+          "childExitCode": 0,
+          "reaped": true
+        },
+        "callbackLifetime": {
+          "escapedStartRequests": 0,
+          "errorAfterStartRequests": 1,
+          "errorAfterStartStreamCancellations": 1,
+          "neverSettlingCallbackDeadlineAndBodyCancellation": "pass"
+        },
+        "docsCheck": "pass",
+        "diffCheck": "pass",
+        "boundary": "Fresh independent code and complementary callback-lifetime review, real local HTTP and owned independent receiver, focused offline modules. Full gate and hosted Linux/publication acceptance are separate parent-owned receipts."
+      }
+    },
+    "subprocessFixture": {
+      "boundary": "Real descendant writes PID and first heartbeat before signaling readiness over a pipe; successful parent exit and split UTF-8 are tested under the unchanged 1,000 millisecond child bound.",
+      "repeatedTestsPassed": 60,
+      "assertions": 320
+    },
+    "publicationFixture": {
+      "boundary": "Actual synchronous producer file mutation after captured-input reconstruction replaces an unacknowledged filesystem notification. Integrated export guard rejects the update and preserves active exact bytes under the unchanged 15-second test bound.",
+      "focusedTestsPassed": 7,
+      "assertions": 57,
+      "changedCaseRepetitions": 20,
+      "repeatedAssertions": 100
+    },
+    "pagesEvaluator": {
+      "status": "GO",
+      "independentReviews": 2,
+      "focusedCovered": {
+        "testsPassed": 34,
+        "testsFailed": 0,
+        "assertions": 372,
+        "elapsedSeconds": 28.84
+      },
+      "independentRuntime": {
+        "testsPassed": 16,
+        "assertions": 49,
+        "mutatedCli": {
+          "testsPassed": 1,
+          "assertions": 209
+        }
+      },
+      "strictProductionTypes": "pass",
+      "strictTestTypes": "pass",
+      "sourceHashesStable": true,
+      "boundary": "Fresh independent read-only review of input/output caps, timed child, cancellation, protected diagnostics and owned cleanup. Exact-source focused tests and real validator CLI controls passed. A separate interrupted review remains incomplete. The VM is not a security sandbox or universal semantic proof."
+    },
+    "disposition": "Failed complete gates remain retained evidence. Final plain and covered gates passed after the root-cause dispatch repair, explicit fixture synchronization and bounded production/CLI bundle evaluation, with no additional skips or increased existing deadlines."
+  },
   "refresh": {
+    "status": "ok",
     "exitCode": 0,
-    "pipelineStatus": "ok",
+    "reaped": true,
+    "startedAt": "2026-10-01T21:09:58.743Z",
+    "completedAt": "2026-10-01T21:11:05.310Z",
+    "runId": "weekly-check-20261001210958-97286-2fba8202",
     "steps": [
       {
         "name": "municipal-code-monitor",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": null
       },
       {
         "name": "alert-monitors",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": 20
       },
       {
         "name": "news-and-meeting-monitors",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": null
       },
       {
         "name": "alert-analytics",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": null
       },
       {
         "name": "transcript-and-reference-monitors",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": 0
       },
       {
         "name": "llm-curation",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": 18
       },
       {
         "name": "source-discovery",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": 48
       },
       {
         "name": "community-calendar-events",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": 200
       },
       {
         "name": "monthly-report",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": null
       },
       {
         "name": "analytics-overview",
-        "status": "ok"
+        "status": "ok",
+        "itemCount": null
       }
     ],
-    "analyticsGeneratedAt": "2026-10-01T15:43:07.459Z",
-    "analyticsStatus": "ok",
-    "tides": {
-      "timeZone": "UTC",
-      "source": "NOAA CO-OPS",
-      "requestTimeZone": "gmt",
-      "boundary": "Legacy unmarked civil times are not UTC evidence; sensor freshness is distinct from prediction maximum."
-    },
-    "transformIdentityBoundary": "Refresh receipts identify pre-commit HEAD plus captured source bytes. Hosted release artifacts bind the eventual published commit independently.",
-    "analyticsFingerprint": "d7b206ff76e1ebb054f70f0e4de453e123ba038c173a232f9b7d75048094848e",
-    "weather": {
-      "forecastZone": "CAZ101",
-      "checkedAt": "2026-10-01T15:40:47.879Z",
-      "request": "https://api.weather.gov/alerts/active?zone=CAZ101",
-      "activeLocalAlerts": 0,
-      "geographicMismatchCount": 0,
-      "status": "empty",
-      "boundary": "Actual primary API parsed successfully at the recorded check; foreign-only/HTML failures are separately covered by real local HTTP controls."
+    "boundary": "Actual current-cycle public acquisition. Configured notification delivery was disabled and chat provider forced to local Ollama; no paid provider or private consumer activation."
+  },
+  "registry": {
+    "sourceCount": 48,
+    "monitoredCount": 34,
+    "discoveryOnlyCount": 14,
+    "referenceOnlyCount": 0,
+    "fingerprint": "127621adc8c6becf16119ae5989a424153e64281a90b6704be54ff8dfc894019",
+    "probe": {
+      "checked": 48,
+      "unavailable": 5
     }
   },
-  "runtime": {
-    "bun": "1.4.2",
-    "chromaImage": "chromadb/chroma:1.5.9",
-    "configuredOllamaImage": "ollama/ollama:0.34.2"
+  "sourceHealth": {
+    "checkedAt": "2026-10-01T21:10:58.007Z",
+    "total": 33,
+    "present": 27,
+    "missing": 6,
+    "missingSources": [
+      "AIS Vessel Traffic",
+      "Crescent City Permits Portal",
+      "DUSD Schools",
+      "Del Norte County and City government media hub",
+      "EIA California Fuel",
+      "PacFIN Reports Dashboard"
+    ],
+    "coverageStatus": "partial",
+    "boundary": "Recorded source-family availability, not comprehensive local coverage, hazard absence or continuing source currency."
   },
-  "native": {
-    "localLlm": {
-      "passed": 6,
-      "scope": "Actual cached local embedding, generation and restored Chroma services; isolated small fixture."
+  "county": {
+    "completedAt": "2026-10-01T21:06:50.338Z",
+    "documentNoticeCount": 6,
+    "acquisition": {
+      "sha256": "8a4be4ec49d2a8bfa1b29ed96ea3be1af6e04f7aaedf55438c6cccbd34cd959f",
+      "fetchedAt": "2026-10-01T21:06:47.988Z",
+      "landingSha256": "5e60e46a8a971bf816959fd7ff63e359354fcd56e1000a63079f2398ed57cfcc",
+      "providerSha256": "bf326b53bce56ac39433e6e0a2847cbabb54c26ca48693d8aa6612eb1fa6739b",
+      "endpointUrl": "https://delnortecoca.api.civicclerk.com/v1/Events?%24filter=startDateTime+ge+2026-09-01T00%3A00%3A00Z+and+startDateTime+lt+2026-10-31T00%3A00%3A00Z&%24orderby=startDateTime+desc%2C+eventName+desc&%24top=200",
+      "windowStart": "2026-09-01",
+      "windowEndExclusive": "2026-10-31",
+      "returnedEventCount": 4,
+      "selectedEventCount": 4,
+      "scheduledNoticeCount": 2,
+      "publishedDocumentCount": 6,
+      "retainedDocumentCount": 6,
+      "nextPagePresent": false,
+      "documentLimitReached": false
     },
-    "diagnosticReceipt": "docs/evidence/rag-native-2026-10-01.json",
-    "guiReaders": {
-      "journeys": 78,
-      "primaryApiResponses": 192,
-      "widths": [
-        1280,
-        390
-      ],
-      "boundary": "Actual Chromium over local protocol fixtures; source semantics unassessed."
+    "document": {
+      "sourceUrl": "https://delnortecoca.api.civicclerk.com/v1/Meetings/GetMeetingFileStream(fileId=768,plainText=false)",
+      "meetingDate": "2026-09-22",
+      "rawSha256": "252370d63e704645bc90bffe52393e6cc91eec03a9afaaa2ce3c16d3b6272674",
+      "rawBytes": 231955,
+      "textSha256": "b814e89642778ce9838a3f80fbdccea3b720d9b52ac25844904cc8ab178e6120",
+      "pageCount": 7,
+      "emptyPageCount": 0,
+      "extractor": {
+        "name": "pdftotext",
+        "version": "pdftotext version 26.09.0",
+        "layout": true,
+        "ocrAttempted": false
+      },
+      "extractedSpanHashesValid": true
     },
-    "guiAdversarialJourneys": {
-      "passed": 7,
-      "boundary": "Actual Chromium over local owned server; independent security review also retained."
-    },
-    "pagesBrowser": {
+    "boundaries": [
+      "One bounded approved County Board of Supervisors public provider window; archive completeness is not established",
+      "Civil notice dates preserve unknown timezone semantics and do not establish completed meetings",
+      "Native PDF extraction/byte identity does not establish independent legal interpretation, adoption or effectivity",
+      "Raw provider and PDF custody remains local and is not copied wholesale into public artifacts"
+    ]
+  },
+  "documentation": {
+    "checkedAt": "2026-10-01T22:23:31.892Z",
+    "rows": [
+      {
+        "file": "README.md",
+        "bytes": 56565,
+        "lines": 983,
+        "relativeTargets": 72,
+        "missing": [],
+        "sha256": "9e77fe24c3cf36dd2d85fed3b769039694ae7b4b8615c9cff62568cf18a1bbb5"
+      },
+      {
+        "file": ".github/README.md",
+        "bytes": 56873,
+        "lines": 985,
+        "relativeTargets": 72,
+        "missing": [],
+        "sha256": "c2c998f2c6c7c676197aeab61ce656324cbdd8a8a5ba9eb71d2ddc47d0d5ee2d"
+      }
+    ]
+  },
+  "manuscript": {
+    "version": "3.2.0",
+    "checkedAt": "2026-10-01T21:22:05.840Z",
+    "status": "pass",
+    "reaped": true,
+    "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
+    "command": "uv run --no-sync --offline python scripts/pipeline/stage_03_render.py --project <owned-project-slot>",
+    "applicationRuntime": "Bun 1.4.2",
+    "pages": 18,
+    "inputFingerprint": "39338354724543139826012dea698971c0da493acfacf38fbf4aac22823c982b",
+    "assets": [
+      {
+        "name": "quadruplicate-v3.2.0.pdf",
+        "bytes": 117922,
+        "sha256": "fc5c533b4c78a5a2f90123e7088cb797cefc25fafc33b2ef64cc7205d83647b7"
+      },
+      {
+        "name": "quadruplicate-v3.2.0.html",
+        "bytes": 89139,
+        "sha256": "7f22a6a00a251a6af50655cc1be8630155dfbc96adfb20ce67330e71db31d574"
+      }
+    ],
+    "boundary": "Actual local template compile and native PDF inspection of the new paper edition; prior native RAG results remain explicitly dated v3.1.0 evidence."
+  },
+  "candidatePages": {
+    "checkedAt": "2026-10-01T22:31:31.582Z",
+    "generatedAt": "2026-10-01T22:30:51.719Z",
+    "fileCount": 55,
+    "publicationSelection": "verified-output",
+    "steps": [
+      {
+        "name": "export",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedSeconds": 0.954
+      },
+      {
+        "name": "validation",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedSeconds": 0.411
+      },
+      {
+        "name": "browser",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedSeconds": 38.676
+      }
+    ],
+    "status": "pass",
+    "validation": "bun run pages:validate -- .pages",
+    "realBrowser": {
       "pages": 9,
       "widths": [
         320,
@@ -161,465 +506,24 @@
         768,
         1440
       ],
-      "assertions": 45,
-      "status": "pass",
-      "boundary": "Actual current local exported corpus, no external fetch."
-    },
-    "container": {
-      "image": "cci-runtime-drill:3.1.0",
-      "imageId": "sha256:c37a70dab7242289f0b45b8e2a16237d6db0ae4812b6979973c94f1c9a557987",
-      "applicationVersion": "3.1.0",
-      "httpStatuses": [
-        200,
-        200
-      ],
-      "readinessStates": [
-        "degraded",
-        "degraded"
-      ],
-      "newEmptyVolume": true,
-      "noSeedCopies": true,
-      "persistentBytesEqual": true,
-      "persistenceSha256": "7252d9949fccb9eb719fb78c63d7d8df941745583050c1cfbb4c3278a914fdd0",
-      "runtimeSourceHashes": {
-        "Dockerfile": "3a3878e3bfde39031015112bb3aa86e088ef61f0e8be2dbfad3978744d1bedfb",
-        "bun.lock": "6b6bcb7c4b81678c85b2420e941d7af3cad5f8a394e51e57d79746b1fcd4fbf2",
-        "docker-compose.yml": "9f0c5042035a7d92567c380eb2a484439427bc3511a0ffb6cc1395dcf39f6370",
-        "openapi.yaml": "05f6a5b8f0cd6cc9a349a8719f50c94ddc42146e633c6b01cc3f26d21f615c7b",
-        "package.json": "32baba93b3a1579a86da6d8c3e9e0c9841a09331a541309e8e87c738ae19ece0",
-        "scripts/AGENTS.md": "6ccb41f4c3cae8fafa579fe3aeb5e0ea87123b57be7b8bc8df64206851d4e408",
-        "scripts/README.md": "bc41c02d0a98f6a8ab4ee0ad0b62b12bb8b6fbf5a36398cd16fae0152a7b26dc",
-        "scripts/browser-smoke.ts": "7bf05c6d98f9f68fa5ee0ef5214d1c2d23b086d56697f85f26af89be040f8f31",
-        "scripts/check-geo-sync.ts": "1d0ad00b71dd5bf6e6e7800cc5ee58a110ce19fef58b8d9d788868b55838b421",
-        "scripts/ci-affected-tests.ts": "517be8f7418a9ec2a739c08b8d1392fd03c075dc5e88c03d8869a66cca7a1c1f",
-        "scripts/ci-monitor-smoke.ts": "9bb58293f2a68928d666435dac375ba925b937c04498b271f3783bd567a5a62a",
-        "scripts/cron-setup.sh": "7894a2447a306c1737a4cbd1c44d9478525b1d8c675fdd004e442366a06f8e1a",
-        "scripts/export-pages.ts": "d55614a96e2b9d3df7e791ff1051835ae28a841e7c50be2c7711a62f9c848194",
-        "scripts/fetch-meeting-documents.ts": "57c3cfd90414cf37e424292fc8556033a06234f57aad1dbbb8941ecec80bff92",
-        "scripts/generate-docs.ts": "80e3d92c67370d811a6ed75ed73e814857c6c4a0acd5a48d12c9915e559f1599",
-        "scripts/hydrate-manuscript.ts": "55ae4b4f34d50ea51444f4e63d182ad39b3f37a787a55033a9461903be590395",
-        "scripts/lifeos-bridge.ts": "05da88bf427f7b51405c7bf9155502db2bf10cb8b43232f23e491f39745da5cd",
-        "scripts/lifeos-daily.sh": "02935900ebcd11d99d08852aed144684576dfa10af101428c89dbc765b939842",
-        "scripts/rag-benchmark.ts": "959a06ead119e859104c46d2036f9b6f6d66172ba407a9b2f92d549ea0b07632",
-        "scripts/refresh-pages-data.ts": "2ab6694d6894806d450904f1d970ce2fd851006fff44dee833d783a2d266192a",
-        "scripts/repair-output.ts": "246b5b1697f1dbe611a05a1e0145c03db7de48766c89318f836712917acdfc52",
-        "scripts/run-alerts.ts": "f984bd3715896207d73385b82d4de2399f067773a86b97ef8fde49189330c48e",
-        "scripts/run-analytics.ts": "78444e9fa3e0a901743fe1c1b03c3281fc37a2dfeb217a80bdc3863ca929ecfc",
-        "scripts/run-coverage.ts": "5ad9cf96b963a0aa56941ba98e5a37129e0aa4febb883d6ae04880518f1ed80f",
-        "scripts/run-curation.ts": "bd2cf86e637e2e9757f82c6b13936993ac91af4b5ee71836790f67dbc162bcd1",
-        "scripts/run-geo-observations.ts": "19d04b4edfd1f3233ebf38c355c5f30df15365c8267601303ef539583ddfa5b3",
-        "scripts/run-insights.ts": "4d97d4c21d52be6434ece2b919b73103a340e048121c3b03b8ba85ea34dbec24",
-        "scripts/run-meetings.ts": "b41105e553e8ef9e178cafa2d8acbd025363ee2129173b02e82044b0ae6d4a17",
-        "scripts/run-monitor.ts": "aff0f0124d7a37c69a081ddcc71c9ae9ce8d585723e3a0d4d74e6cd23b8b99a6",
-        "scripts/run-news.ts": "7e9793200a8608803d3eff8b5b635f647b008ace8d64a312ae99022d08898d46",
-        "scripts/run-readability.ts": "d0bbfbf945f35ba1c89467fbd4ce3344dd8a2e1c42ffb7be045c0bdb9de6d885",
-        "scripts/run-source-discovery.ts": "9aa6a339a20c7ef8145c1295f900d24ff923ef1a63b75a75ee077dd1855446fd",
-        "scripts/run-youtube.ts": "fc841d1d56da8a3314c808f563c673d17b0ef5fce226a040867f207b488fcb10",
-        "scripts/scheduler-plan.ts": "c3e4bd3bbf064d30ff1c14aaa956ce1c3e0e53fabb14d904c9a7b13c0c421c71",
-        "scripts/source-coverage.ts": "fdb9726d8747e77ff68313a97c91e93a89eb48e68871cfe42a373cc40ab51977",
-        "scripts/stack-readiness.ts": "c644134b95e2913c906e17b93fdae1f4fdb845ee9af28302cde36885920b4261",
-        "scripts/validate-manuscript.ts": "91bff6301190af0893eb2d87094215b26a946f8e179d31f8227aa9e2c0ae06f4",
-        "scripts/validate-pages.ts": "1a9ecc7834673f8a651ff3cc3574aabdcd9b011d30c54bc3797c424dc2fafc5e",
-        "scripts/validate.ts": "7b7ff08bf2e6c608234c8d0bc951a93f69f392fe1f46992f3a27e16de3c47805",
-        "scripts/weekly-check.ts": "b80fce6c68c7787bf58f5dd8258dd4012f9299ca66d5916fc8c5ca3fa768303d",
-        "scripts/z_generate_manuscript_variables.py": "96d50c85f14d7fff353051bfb390c97f7105d26194c3e363f1ad712cbfeb8d5e",
-        "src/AGENTS.md": "ef703dbf047fa74657a67d0a4d1cdb64d6d88629cd77791872dea26ec6b7c78a",
-        "src/README.md": "82141711e7663dfc10b9254bfabc0e56b1d85d233a8555b13fdada6b45be4a7e",
-        "src/agenda_crossref.ts": "28dde813283abfc2256925c99d341d98643f364072cd80fa09b60f36fcba2b6e",
-        "src/alert_analytics.ts": "5161894fc00b7a01981640c639e10a79177e83fc0c45799fa7d26e9ced819b2e",
-        "src/alert_correlation.ts": "a3fac9073fbc19151b9a423aecdadede9160df53fa10066bc39ff1849445aa45",
-        "src/alerts/AGENTS.md": "887b29849a990bcab7779ce4c38e1ca37f8cdc4213016999cc51b3ee21fc4537",
-        "src/alerts/README.md": "cbdc0b102245b23a3f6c06fbdd5999e7b5f5a7c38730e7b27b564e6390ae88f2",
-        "src/alerts/ais.ts": "ea1a1da8032db12fe20b482b605e64b83fa1112cdfea25bbc11556d736813c59",
-        "src/alerts/batch.ts": "118eed45689784fbc8aecc49d10408f92bff426bcd15529ac193fab3cb7f464d",
-        "src/alerts/calfire_wildfire.ts": "679d9560bea6428c7f02e44a79eca7e1ab204a5bb43b3472f5037c46ae974dff",
-        "src/alerts/caltrans_roads.ts": "3bc7fe520169c38aaf22bd1b87559301b08ebb6e0483be271cff1226aac3aa47",
-        "src/alerts/cdfw_fishing.ts": "db51830cac1b71b47dd02204f44e2ee468ad12e3ef282bb157e0018d68658e3a",
-        "src/alerts/composite.ts": "37af1ea30a62e182af642af51e668ad8766d7d0e151dc4a47fbd2e08fd90187a",
-        "src/alerts/connector.ts": "9e0f23f3a4410fcfbe3612110ee191f27c4d1bb0f70bfdb6338802dba3b372f6",
-        "src/alerts/dredging.ts": "e05dd4c5d9da4b41fb6fa292a67d6abe5b837b55a95c055767e69ad29525103e",
-        "src/alerts/dusd_schools.ts": "4a2ba7127b9c1e037dde7fa652895a7110ecdbb2e3d1ba80e0b289f90a5af907",
-        "src/alerts/epa_airnow.ts": "2e262460c1d09b9350f62413b6d3a17692f3d121b2be8c4caeda197f7bf3bf99",
-        "src/alerts/fuel.ts": "db0f1cd114b5cc71fe8146f2e5222d28fba05d09c89b342619b9f362f1fdb93e",
-        "src/alerts/healer.ts": "ef38564afe24e295c3a7728d9b21d75c101f6a328c87f5ea3517af349785df5e",
-        "src/alerts/hrrr_smoke.ts": "416a0dae8e1922cd6b9ec3a1d5717bc471d477be434da9c0874fd0a3920643be",
-        "src/alerts/ndbc_marine.ts": "7c853bf13f184005cf9763f3529c6ff6d3fd8317299d1bd69e56aea423be76a2",
-        "src/alerts/noaa_tides.ts": "f04660d83c51107f1ec6898e0a193314c05d151a3cdfc4024ba4789766091529",
-        "src/alerts/noaa_tsunami.ts": "9eec053feb031f476d4815b6862760f0ca55fa6dc505a7c43e3b00c0bc7b8cf4",
-        "src/alerts/notify.ts": "7f4895ac9710ab09e956b324747d7101eb029effbb02746f056826c7fd57faa3",
-        "src/alerts/nws_marine.ts": "bbe87676de628995fa8de98d4f6e166fba461f0784fdc1d9ae40a40caf463773",
-        "src/alerts/nws_weather.ts": "9f82172903b69b83b0739d88df9e01415a7789e01ab0ef670beb6c4843bf278e",
-        "src/alerts/pacfin.ts": "8cae773903820f5e6595fa91ac25380f7547f91338ea4f1ff77b0f24052fa130",
-        "src/alerts/permits.ts": "5212dee6cc87098382737b171e044f9fd2eae103cdce68c649d1eed9be8835be",
-        "src/alerts/pge_psps.ts": "13a37c811555cc84cb365b3e84ef6075722459e6c58a700f515681a0f138f0ff",
-        "src/alerts/severity.ts": "1bc0a1ba59c0e688caec7ac41aca7611a37fb49398728dcc6c0099bb96645690",
-        "src/alerts/uscg_broadcasts.ts": "6624782e146372d364b6ade503525de9dadbd1d57b7d487cec7e142105912562",
-        "src/alerts/usdm_drought.ts": "a5cb9f531b647991025ef4fe150ed35315615a71e083914de46e1e29cafaee0a",
-        "src/alerts/usgs_earthquake.ts": "821b6de71d3e9fe7654b9e4852de482cd9d684194a3426bcc4080509a46f3f12",
-        "src/analytics_backend.ts": "bebb4e46d6a21f74921dce8255f445151c8445886ec03dbab1148931bce5e568",
-        "src/api/AGENTS.md": "848af68b1025fabfa50c08a09ab6d53d50adcd67a2170fcd41403bf727d51cc6",
-        "src/api/README.md": "0335d66996a1abc038d31292614bf779072a4b193938c3dae9d8a0547d696ba1",
-        "src/api/admission.ts": "d982e780daa124206be66b94d96a60d2a798550517d03c976bc6c25c08a3d55b",
-        "src/api/contracts.ts": "7b86250ad4ccf8da70c46a8d7d4a70994e692eac7510707372c86e890f4f7635",
-        "src/api/middleware.ts": "aa972bb5b31bab1f7de0698b57d6f9968807fd5f397268de996cf6672bab5df5",
-        "src/artifact_contracts.ts": "cc8b58aa7956816a185012f44c301dad768dfdc58f9039658a133244bdd4072b",
-        "src/artifact_custody.ts": "55707d8e912e5ce67a14347aea2b8f47fb3a64724f3116838689a982b485fbb1",
-        "src/browser.ts": "79c542d1ec4a5ea3eae787784f4e05e2d707707bb2bd13eb15297c7543490bca",
-        "src/browser_launcher.ts": "40b2a32def9425346e90e77361cbda9cf1ce5e64b8b72fb90cacb22d23e91402",
-        "src/browser_smoke.ts": "a93e5c28aa2decadcf82d430f2e2d4eff190fe977ea7fdd3befb1dc5f7786164",
-        "src/calendar_recurrence.ts": "cbb243b7eb335db32428ff7011c190b43837a2c9b8d132f8ca8c7e25c83bf14a",
-        "src/ci_support.ts": "e3fdd82107d834e58a7870bcc546ec418177413dba5e964e6f73f463f133fcba",
-        "src/constants.ts": "9543e732c150ce30ecabdf342d61833b64867884475fa6872a4ee2863092e7a5",
-        "src/content.ts": "711497b7f829cdeba3ea72e91b80fdcd5a79a71bcfa897ce0617355728927e1b",
-        "src/corpus_editions.ts": "eb39552b509190238164db98fdaa1d8b1648793e0f129a2eca44a6691a2e7e40",
-        "src/corpus_lineage.ts": "df0993f02c7379f334837cedd2ea4e337828676b149b02fdcc2ff13d60f43f65",
-        "src/curation.ts": "87718e938af89513aee95c6c82950b6332c2abf3b8b9dd9531f808014ebcc5c6",
-        "src/derived_publication.ts": "584ffe660115e7ac58d316379fd54edaa249575378af3c6596d4008ac4cdaeed",
-        "src/directory.ts": "83ef44fc58882c92076502c7f9c182e52a84164547142222b7c3e739da91bc9a",
-        "src/directory_review.ts": "7f13547bbaadd89cefaf27a797613740e3eeb18bb1ca7af5e50ec94dca8b7de4",
-        "src/doc_inventory.ts": "3b0cc2e6ee3bcfdc2a39df4d1bb243726b3184f99ff1b738372731ab251bfd65",
-        "src/domains.ts": "a16c292ba8b470c33fb5e352ce8e606def4b87b1ce6679b89685fc268bc7a641",
-        "src/domains/AGENTS.md": "edbd8dc23dd0885e2ba2b10ed88479ca4e492de378527c6c8b70b0fe8e987f7d",
-        "src/domains/README.md": "ec0881b0726953195aa0868b53961e0f3e85533c70acf76512b2dbd7efbefd37",
-        "src/domains/coverage.ts": "190846b213e284448643eb839935d8f9b30cf56ca6a665f7bdd33bfd01c1d375",
-        "src/domains/scholarly_context.ts": "89d4bd10e4c970592ad5bb2ed2f8e869001b864bc859b5a542c5c6ff6f31f6f1",
-        "src/event_discovery.ts": "5447e4fd234b811ef0dd5996b61156f7f39bb9d1036cfefb27cd8cb066278681",
-        "src/events.ts": "316fff7d54dcda39106df0517218df19b516b0a36c1171b5c7d89ba0395bc62b",
-        "src/export.ts": "f834fd288733a0ca346caf225f145526715aa5aa1ef392f38cf8316d5011099b",
-        "src/geo.ts": "67b6ef020a8457d9d127ced9f80f106b381e12b0ea55fc285b1d21be81c25b33",
-        "src/geo_observations.ts": "0a9ceb3badbd1c4603abe0e0757eb737290568950795502bfb2f89e3d046139a",
-        "src/geo_sync.ts": "b6da565819d36cb68da46caac885d762b4506341e7f2237d3b99609a9aad8b1a",
-        "src/geo_view.ts": "cf682684d3d5f9d5b699114cc85a9a8a25fddeadcb584228168230b4cd5331b0",
-        "src/gov_meeting_monitor.ts": "9d10de36e00a9665d0d5716a08000cdfa09d3a0b9db3997317095ff224b49437",
-        "src/gui/AGENTS.md": "4ebdcac46c1dd615e9f76db96080cc2c0771605658716c8e5b5163873ee82f01",
-        "src/gui/README.md": "2556be3dcf7164cdd73b17834c99ccd871cc444b959ab3dcb680ab17dd6b8b6e",
-        "src/gui/alert_trends.ts": "bffe734bdf2a323c9d9430021bc6860572650318b4e251d2442a28390d4077d7",
-        "src/gui/analytics.ts": "efecd0e393715e051531eb78efcc7a081b1693e0281fbc6c917d913c46bc577a",
-        "src/gui/annotations.ts": "bb3341aa793a69788d9583d8763ad92753b2b4c7de9ab06a65b3f0774b3ed1c1",
-        "src/gui/docs_dashboard.ts": "909206e2f6f14c829987996c0c3c14b20ddcbe9b921f41e3c84d06fb38c2b710",
-        "src/gui/effective_dates.ts": "b66aceb8f4fe51f7fb98c502109e85caf0a690dc68898b9e0021fc7ad28bc3db",
-        "src/gui/legal_crosslinks.ts": "b40ed1d5bf2fcf3491efc9307210c4adb0cfdf44c0b3c8314de8a36f39da87af",
-        "src/gui/ordinal_refinement.ts": "ec1c64ea4a41165fb4df59196d5ba53d136a15cdcfb8b25a893f1aa9d31e862c",
-        "src/gui/routes.ts": "bb0d9f7f621b4901bf659f22dc80723b47f8744853542a2b565889ea618d2861",
-        "src/gui/search.ts": "68e64368c6d77d464caf2be4e4d8c16c1be83a6110014e47292935d7aff7e838",
-        "src/gui/semantic_search.ts": "2515d35d4a6acec310e99af7f1838ed5eab3b2019235fd85c594df9a57d4fda2",
-        "src/gui/server.ts": "17fd52a506fc37233f5f7690ce5585adffc379f17f88da7dfca5d5a2c42d5359",
-        "src/gui/static/AGENTS.md": "85dbedbaa7bdaf5ac583e425faeba6f38033f9e4d786d0070b438250f3f82091",
-        "src/gui/static/README.md": "a8fb5ee603930a9e436537556e45362aefd9a4de5d22f1fa5eeb514194ad44f2",
-        "src/gui/static/assets/app-state.js": "ebcf7d6b25e4693b2152acc2f7a0e9f0092071a40e3d9842f62f63a6734499b1",
-        "src/gui/static/assets/docs-dashboard.js": "167e9083087acd992f06aba118df0ed644d8951e5e435312fc426d010e0a2255",
-        "src/gui/static/assets/gui-app.js": "56d06325d0701a88efa514a11006fe0f15a9b377756935434c4c89afcdf4732d",
-        "src/gui/static/assets/gui-runtime.js": "821d27a5cb5301630350d4b349d1ff9097e83e3c6961d63b284821677add0abb",
-        "src/gui/static/assets/gui.css": "c19d0a2c4f573b2c68c4a5281dbfc951812d1ae89ea564b14e70612a588f58d7",
-        "src/gui/static/assets/modules/00-nav.js": "3b653f0d47533d77f13b3a5cfdadbc76e3069581d87f829249cf8803be1c55b3",
-        "src/gui/static/assets/modules/10-core.js": "9d1314f5b884a5c04c4b6a9f363506af0264285727ad955e970e88064e29be0e",
-        "src/gui/static/assets/modules/100-overlay-tabs.js": "2e324e8d4b780eb0ce939f835870759669d9ab197818e83c0bb0b7451644f233",
-        "src/gui/static/assets/modules/110-feeds.js": "93b7952318a3be2e49e310c1a3667fbed015e125c79b9f3aa300fe4a2acf0720",
-        "src/gui/static/assets/modules/120-domains-geo.js": "614ece0a7f0f46b9e69b561e6c6b590277579a681aa11f0de71d1cc25e1a3ed1",
-        "src/gui/static/assets/modules/130-readability.js": "0aa0f5496376608d558e3fc529e6b8f2074fc498ae0490968c1e7eb273bc7dd0",
-        "src/gui/static/assets/modules/140-fuzzy-keys.js": "1ab6903a5544a967d6cfad037df195a73369747d4951da9ffb66b26cb59c9bb7",
-        "src/gui/static/assets/modules/145-phase9-hazards.js": "7ae6e0b3ec69a2ee76ff2404ad0a05b719fcf525faa0a56a370523cd8c303555",
-        "src/gui/static/assets/modules/15-cross-ref-links.js": "b58fa91dbf2d9282a01365e3623b519c1511d42a927f3b72289522c7a5085245",
-        "src/gui/static/assets/modules/20-section-tools.js": "4b9a709a2f9c98a6323561c4dc19abbc9346087f58daf25e151a5fc33e3763a2",
-        "src/gui/static/assets/modules/30-search.js": "68f0e46cb6d5fb100a9cea960feeef002c7e5541d2850af9e341ae229a4f63f0",
-        "src/gui/static/assets/modules/40-overlays.js": "ae6c3e5f913b2bdd7490d519b64276bc14e112293d6461d7d08b89e13474acb8",
-        "src/gui/static/assets/modules/50-chat.js": "952d3b57a885ff9e7555a7ffc9f2b2fb276b1b5365fa54db15c6a113a8c6a393",
-        "src/gui/static/assets/modules/60-alerts.js": "f5a715897cb1ff791424a7eff6ccc6d45d91836c56669c7bb09631ca86ec9a4c",
-        "src/gui/static/assets/modules/70-analytics.js": "ad9929a293b69811a9e9ca417ef93d55a8b9215eb8cea1dc3892cc3785ac6d2e",
-        "src/gui/static/assets/modules/80-sources.js": "63999990379e53c38b2e00810d012dd649a5c25972217d5d4310e55a2854aabc",
-        "src/gui/static/assets/modules/90-intel-panels.js": "98d59d53c47a18244fe56c04121fb24b6325d4317f53f466f3bee58288df8b48",
-        "src/gui/static/assets/phase10-legal.js": "6dc5797b260f21433ecf3b3c965d3abb92acdf851c0a8d87c3d82e58925cdad0",
-        "src/gui/static/assets/reader-lifecycle.js": "025a1d07e69ae4de45b985d39ea6a01c0b0aa8bf7cad5850963c7ff399b131ac",
-        "src/gui/static/assets/reader.css": "08e48cf218d839390132604f75110960851152e8e24a78fe327a0fed3b528395",
-        "src/gui/static/assets/structured-queries.js": "5511dcd28bc2cea04d465f15db7cb4d02a686aae412aee4665fc7157f2d2a1d6",
-        "src/gui/static/assets/virtual-list.js": "322e2562a3fd71f2948f0c80fd25c19779c0a20743ae6769c6d2af20a0122246",
-        "src/gui/static/docs-dashboard.html": "d4f6e66cc13bfe302bb4373298df529518c827d5c560fb1d682d41fe70674696",
-        "src/gui/static/docs.html": "7714e8800386fb1f2c6e79bb1acacc60f768978fd1fe3ab559c849183a557fbe",
-        "src/gui/static/index.html": "712ddc92fc8c9b4a43ed19c3ca5314515c9f69cc1e82f5eff656bcc63865f6e9",
-        "src/gui/static/phase10-legal.html": "6c81a00355b62157fd47808934a4d92f0b8210314fc582b229498600eb6fa75d",
-        "src/gui/static/structured-queries.html": "e9aa4dde3fb1c3459f9967084753d95b67b96324af769e6816998c075f94ab0d",
-        "src/insights.ts": "c924d2cf9a02d7c561815f322c142dd5c39eb0752942b58fd1dccc659f7c2139",
-        "src/interactive_menu.ts": "c10b81c2b01937da3d0b39034c60860f220ab13505f6f77673cec522f4fe4567",
-        "src/legal_parser.ts": "ae128094eac45d5dd3c9ab13ae338f7f601bb63b7a34fa0f59019dba03a9dbba",
-        "src/lifeos_bridge.ts": "16a949747e08ce8eed0adb68e5502de1bbff025ca810c9cf10b8ce72f63272b5",
-        "src/llm/AGENTS.md": "f4d8c5b16e7ef8142ccf50b8ec7a86872f6c69d2b2b033f4f696d013fa2d1747",
-        "src/llm/README.md": "c72591dc36075d177c86e98af3539a49e6619ff797da1945d3f246dedd88c7f3",
-        "src/llm/benchmark.ts": "cd6fc84b3c0fa1e3b9b0b22abc5af247eb7ca06815e2e67ff6d2cd3835c3b71b",
-        "src/llm/chroma.ts": "735505c6ff082bffde226d520d15ca9ca51a0e287e04ec61452229436e90b179",
-        "src/llm/config.ts": "e18e90148f7cb4ceb9223257c80f579d9b69c6a5ee067ca9112daca07e0c4b9f",
-        "src/llm/dedupe.ts": "fc60d6667a0e0ea3a1346674183d930549e1ecd0c2c500150199a9e050e3cecc",
-        "src/llm/embeddings.ts": "dee0e3f61327bb39299b68477e0d53aa9dc83f2536b7befea294a2675300ff08",
-        "src/llm/evidence.ts": "dcdbea377a83628af5de786c32e3cdc83345a14a2818ca3b4209a504aea1b871",
-        "src/llm/index.ts": "6491ff8c542a998277e6366e5e26288256b0a0498a29a71564fb07fbaf6f1290",
-        "src/llm/index_plan.ts": "bf3d2f6139a1056e9188db38dce5885f175262e26629e19428e16fea330aa1fe",
-        "src/llm/ollama.ts": "7721bbf46bdf19fceed9af3cc9871de3608f456e64d2fab18291061aca3e83b6",
-        "src/llm/openrouter.ts": "34a6e1307fe8183acb592cdb297c5a7c35f61b52f2bc9d7682965c1cd95af801",
-        "src/llm/privacy.ts": "e045758c6aa6472f8983750057a9f04a93c93bb695d51e00a7ab95256ac291d8",
-        "src/llm/provider.ts": "ed349e4851787780b1fd229967f5e2ecf1b100cfd248ce07f1e57f45045f8c62",
-        "src/llm/rag.ts": "7d9c13c267c43e0e7d2bf0d8d41de19d8eb045490d7bdc1cf2dc25110d384220",
-        "src/llm/runtime.ts": "47ef19d77568b59560db11171f72cc6d6da7892be4e535335fa9fa7de8fd200a",
-        "src/llm/semantic_review.ts": "7e43002e95f148b7d179792ee75f9a896da5e68c497d988c10be522f9f7eeb61",
-        "src/llm/streaming_rag.ts": "3a710298706d9bdc28748e7209f7f77ed32d4254a9e270e6d9355ad6e4dec16a",
-        "src/llm/structured.ts": "8935eeb21aa1ab4cee5cbccb8c15a698a815666346df5b9536f7e88fee88c026",
-        "src/llm/usage.ts": "50b14cdb116a8b0bfe324a5fbf728fe741a71b57046c2effe2f7769b1aff998d",
-        "src/llm/validate.ts": "8169e2c873f7c7043fc2d7a0577cecd63c890ca6624d0b71b2489e88e92ad0f7",
-        "src/logger.ts": "9c6bd31be0af4a342751db2df2e8fac781770c5dc6c14f44ed496ab35406ae92",
-        "src/manuscript_document.ts": "d54fb230e8c358688cf7d66f0205083a56a630e0c76298301c4cecc582d7dc36",
-        "src/manuscript_hydration.ts": "ad0573587eff579ccaf687acba82d386bfc087aede2a8460573424cdcdf20561",
-        "src/manuscript_variables.ts": "a9a96dd11bfdc413800353bbd08b69da0c68972862c692c7283b5e668b11c685",
-        "src/meeting_documents.ts": "65186f6b1322b739ecd2aa1b3538082f57cc9df3b2d38af98ecb73df71616d88",
-        "src/minutes_extraction.ts": "4a8d64b8443652dd0bfe4c8ae0623e69318441a908abd7ba807815648a1f391a",
-        "src/monitor.ts": "a2896dc15d2f877d0b851cb6d19fcaad0e7d52e00cb9d9ae297af69dc5d12051",
-        "src/monthly_report.ts": "b81ac7c60b11f178a7f2409e2cfae94b1243ae23f0d4f2d71ccc7729388f2fdd",
-        "src/news_monitor.ts": "e5d9430d2ccee89694d93c0d8e0dd0dfa3d402df605b9fd484801d0f2a31be8f",
-        "src/notifications/AGENTS.md": "99a538e0066d7de799f2007ef4b6a190cda12016a70a40a9b8bbd558409b548f",
-        "src/notifications/README.md": "aed1590c230ae16320c3f89a6bb4bb0e3cb8b6b1e60570d6e1eb2145f627f762",
-        "src/notifications/push.ts": "2fd9fbc3d647730b9284fc302be473c0e4479acfa38413edc98517ce89c8b18c",
-        "src/official_meetings.ts": "a74be886bc7a7398c392df2014c7f5e54ed81e66fbdf3628581628c5b5cdbbf4",
-        "src/ordinance_chronology.ts": "37aac6378499bea247709aa2af21a63a22713b966e2d03720c31d8753378f65e",
-        "src/output_migrations.ts": "0c22d6d2e9d5f0cc5a89d99fd9fa2a86f4c48056c04b7f170fb858ea46153b7c",
-        "src/pages/AGENTS.md": "cfb96bb892796f4ecd9553b2c5c30ebe3c570516c2d555beff389338f0a612d2",
-        "src/pages/README.md": "2be17220fd90cca3e9bfb8ee97d10dc7f556c1058b3546dad2d0664fc52fa4a0",
-        "src/pages/static/404.html": "8a5cac27f97a7b33f1e3c88739f7e24236d584295e9a20d28c0bf7d29335e0f3",
-        "src/pages/static/AGENTS.md": "f1789aab095730ea4e81f9f6d2c176c8923a1ffa315c92a54d17563c8b0c3db6",
-        "src/pages/static/README.md": "d6a7da50783b4f1302b207b2e4937f102be4bce8a1478f566375b4f4b6afa1d7",
-        "src/pages/static/assets/404.css": "04f4489a33f13802204ac087dcac9f710ce390ee0434a79ec33aadadb6d14491",
-        "src/pages/static/assets/AGENTS.md": "e3be4b3a060f74f67acc48f70d079c844d4150dfc207ccbcd4a2a954b7bce635",
-        "src/pages/static/assets/README.md": "ca32d3c57396959553f2c4400b7d35347cf412c223f62522adb17d3c84d854b8",
-        "src/pages/static/assets/index.css": "1307f00877c3f0cc5516784eaaf172b2a2e2ecc65f085104a7580f944fbbc0b6",
-        "src/pages/static/assets/site.css": "dd373826731d6a7854dc9c77855f715b70ab516cb44546c6eebaa7b5993ed912",
-        "src/pages/static/assets/site.js": "f382b59b80185daecd57650ab31915635c513e3510b09cf339cc28ffe00325af",
-        "src/pages/static/code.html": "676357e32975bf1b7b38bc043e091df2119e77d4c9a1f6eaea27531d70efaf99",
-        "src/pages/static/directory.html": "5a1106aa5663e94afc04c7b709edbd9f703522a1610aaf25da71bfbc67894e35",
-        "src/pages/static/events.html": "897d88534276cae9e9a1486f7b97389c3059d2dd84a5502f1b1041ec5d4a189d",
-        "src/pages/static/gui.html": "2ef5270c579d4ed965677fafab420b2035033d791e98761a4180250f3e01d066",
-        "src/pages/static/index.html": "60c950311e5a709e19eb3f05b453c1e9faed5ba873fd543ba5766c239c8063e2",
-        "src/pages/static/meetings.html": "26d4e76a9d217d7cfcec99cc99e5579281429c50fd2dca1cd15c84197e3ac1ed",
-        "src/pages/static/news.html": "f5f30592a63e0fbbc672c954d10055c67be6f98e13796cabc13f322deb2210f1",
-        "src/pages/static/sources.html": "f3c41fc624908db158196f4e68444619108eb74bb8805750b88d666a9b1c016e",
-        "src/pages_css.ts": "adf5b103460779b3579876b62ddd564c8f2650aa9cedf915b1bff106401e1269",
-        "src/pages_public.ts": "eda10bff948ab3ed9bcae3d1f8b1ef430814a4e2aefce256cd66accd1ec8464c",
-        "src/pages_publication_inputs.ts": "24859c5ac6c893987c0e37d69d6bd5452b73e65858776dc19e7cfedeef859d9b",
-        "src/pages_scan.ts": "9f232bb60ac8828fef4aae850677c4b02b57660b94bee8290de0e967d5cdeb67",
-        "src/pages_seed.ts": "4032c00d30046917d5e978f8769c7d2424b9b2359cf4399526a099f29f8ce27c",
-        "src/pages_snapshot.ts": "4529ef3dc095d4bf20a46cfb91b35317c65fcea2e46f4e413621d067534f14b7",
-        "src/pages_validation.ts": "a1946ad0c795b3d5cc7b9df88c4d95f1ad05e30d1cf7e05183359f512bc8ce93",
-        "src/publication_bundle.ts": "edb438bcb621d76036ad6826fb09c249f791f93f6be116f010769beeb90a3683",
-        "src/readability_history.ts": "a7af054335c28430734b3aa69bb9e512c8964dc2b887d8c066b1978c138a5f0e",
-        "src/readability_report.ts": "a501e4accc73704be92768d5b0bde1b96b8649116c7b3723b42284d12b2f82a5",
-        "src/release_checks.ts": "a4db26b70df08a09c95b998456469d9a8786c3cdbf0b7e8dd7c9e35de177ad52",
-        "src/release_gate.ts": "b72618150582b83c296f37379d513b17ec9c818af567fee28340cb8630781856",
-        "src/scheduler.ts": "4d50a26394c44dbf66f5e7cde0c7d3d95a39947c45fe827b80bf84a145aa8bdf",
-        "src/schema_validation.ts": "cea4427d5c3bb7ef1ca465b354f61e4b854ec16d15c3bdd2a953f1a2522b2cfa",
-        "src/scrape.ts": "1b98f4283db24cd24d836f41b22280bf47b468d6953aded80dcd45859bf24aca",
-        "src/scraper_utils.ts": "f4d2591d71aa94b2c308288910b6fbf42d47036e821001636575e0959a19a165",
-        "src/section_graph.ts": "5fa82b5919fd645b325b4a85cd4e5185d2b0f19e21118593d1e900823f41a790",
-        "src/section_longevity.ts": "30b7f2920bae819ab5c2f31b75f4758b8350e61a4bc9b4de30a8a59a519e3724",
-        "src/shared/AGENTS.md": "a9303022d5ed9175df6c955462df44f39f5356445821435bbb074b0f674ab576",
-        "src/shared/README.md": "484b0e366f116f3672619421e13666dc295ec74959ab4148a51997cff03baf52",
-        "src/shared/artifact_transaction.ts": "d850a4b3154a18f2709950dca05b75177db77518df99e9b090091488a7ba5f41",
-        "src/shared/data.ts": "0a9d0b230d477a79a4cd8544a3d55eae73206b4a9f144e2428c344930b175941",
-        "src/shared/fuzzy.ts": "61cfe7acce6d74f73bfcf2dbd6d3f76998782b32864f437972350722ebf765dc",
-        "src/shared/idempotency.ts": "58637973696453b38a6860520b26cdb1a0f8ea2b7c2ce70a742d6fc264b2272c",
-        "src/shared/orchestration.ts": "2de0a8861966d746ae503c53d8541db9f0de9358b206c2a0ff5db3d0d94ccfee",
-        "src/shared/output_fence.ts": "79b6438ab61ff267bfb6585b1e226e671c84a2f88cde169880a6c26be6819a6c",
-        "src/shared/paths.ts": "781463eaa37b4c420332915cbace09b5e56cec2fb5e065243e5d04395c5f8915",
-        "src/shared/porter_stem.ts": "5dd2a1e3af6e6c56333de2630a9e0147de097ee92bcbad02117716429af68501",
-        "src/shared/process_ownership.ts": "4bc6cd8031643e81ce139ddc57613610cc8786ec7a16162c9c1c933c33494b24",
-        "src/shared/readability.ts": "42b5a156bffbdfe66847874d3bfaa244a23a112c52744254ba22aa1755f94659",
-        "src/shared/run_scope.ts": "c54d3f920725f9d982e922d39bc18363576c8746a1cdbac37cf0b6f1c8d9b31b",
-        "src/shared/source_health.ts": "e6aaf769a3e833f055541f221a6cfe82ed402240939345ebd428ff56c320a0ab",
-        "src/shared/storage.ts": "b1c83006a2b72a28672ec66b8ad6daa1f47459efeaf96ccd7a0bd1bf99347fcc",
-        "src/shared/subprocess.ts": "3806e20c988c326231f90ff0116a7aad254c4cbf79c06ff65b38867f338d9cce",
-        "src/shared/transport.ts": "f4cb6b6a8b0f82dd0349ae9059beba7d3a962f09f9ed22e72d43af94a2b3ce3f",
-        "src/source_clocks.ts": "d8673e0c2e1fc4df2c7007375d816fa26a467749f934f9e220601255d1d7e996",
-        "src/source_coverage.ts": "d8083866031deaadc3f093ce26e3db873f6dac375800e7e6149708d66bc26dee",
-        "src/source_registry.ts": "e633b28d458fc6b748f58309b7b93d34f938ff58e5d0c4edeff1c7d147ff11c0",
-        "src/stack_readiness.ts": "78455ae4e6f56921ae9c95d8844906543f7f53c74b20652cb8dadfd40cfde5d5",
-        "src/structured_queries.ts": "664dddf35b47711277a73afc50b2c2b3435e787321f840ba07ddcd5534e3ec81",
-        "src/toc.ts": "d4dfc63f0cbd98ecd950181ecc66cd0c7c1facd2946704e2a8e764d15103428d",
-        "src/trend_sampling.ts": "8cfac02d76d646de06489ef5706f3f41c0b6be3ad363e39195bbbddfbc07aceb",
-        "src/triplicate_monitor.ts": "2be59df1c97ac2ca43f6babe8274b829b91402ab10e57c75b3cd79b803203528",
-        "src/types.ts": "3641df499833c66e6d6b387e21e9e6d91e84bab31773017f69a2293b664b6e30",
-        "src/utils.ts": "ffb38bbd7e733c1cfdf531561a7e5ddbf2d582ad1e2b6f95df063897474b69db",
-        "src/verify.ts": "af4f26dc78311db2395b268fe83a4e81d9b91e0991c9578c6ae7c172f9cdd804",
-        "src/weekly_pipeline.ts": "f947e560e85380f7cb64dfdab7726fb40777fe5707968dd146e9995c4a3c753d",
-        "src/word_frequency.ts": "01db31142a5e59b91eaabdb0f83ef0821a46a95a60f934521fb0c568112c46cb",
-        "src/youtube_monitor.ts": "cd3cfba194fb14c6899c24bb2ea12f762a5ae6ca0486b99b94c855b0e0deba10",
-        "tsconfig.json": "6a87cd9350045d6606f8d750dbd4edebbf6086fdb29bc61c30b6023533f2bee2"
-      },
-      "cleanup": {
-        "ownedContainerRemoved": true,
-        "ownedVolumeRemoved": true,
-        "unrelatedContainerIdsPreserved": true
-      },
-      "boundary": "Actual empty-volume GUI restart passed on the recorded v3.1.0 image; optional model/provider persistence was not exercised."
-    },
-    "pagesCapturedInputReplay": {
-      "publicFiles": 55,
-      "transforms": 170,
-      "sourceCommitmentsMatched": 125,
-      "sourceCommitmentsTotal": 125,
-      "status": "pass",
-      "snapshotSha256": "fdab410145f7e0eca7b266fb0124bf3212339b7ebfd478d6ecd251e039e492bb",
-      "inputReceiptBindingSha256": "470a083e21a99510c5a35da9c44ffe917c51b6d96d90d172feb9881432837c61",
-      "treeEditionSha256": "13f89915d70b5f7cefc47446917e6ca298f6f772dae155e97ea436469a376d87",
-      "boundary": "Full local 245-article/2206-section capture replay; public commitments do not reconstruct private inputs or establish source truth."
-    },
-    "paper": {
-      "version": "3.1.1",
-      "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
-      "pdfSha256": "ed8c9f572fa25c7c2a420d47dea0e485c6ca0d1392ff9fe78faee6cd7d42a907",
-      "htmlSha256": "73612f16d9879d200d20f226bfb9a9bd8660cbcf263c0d2ccd6ec8ca8aebd3af",
-      "pdfBytes": 117836,
-      "htmlBytes": 89013,
-      "status": "pass",
-      "boundary": "Actual offline patch-edition PDF/HTML renderer; exact release files retained. Municipal/source snapshot evidence remains the recorded original refresh."
-    },
-    "evidenceVersion": "3.1.0",
-    "boundary": "Inherited native acceptance was measured on the v3.1.0 source bytes shown in each receipt; fresh patch acceptance is separately recorded."
-  },
-  "independentReview": {
-    "infrastructure": {
-      "tests": 102,
-      "assertions": 478,
-      "scope": "Recovery, browser identity, producer bundles, leases and exact-byte rollback; additional final changed-boundary receipts recorded below."
-    },
-    "pagesInputBoundary": {
-      "tests": 7,
-      "assertions": 55,
-      "status": "GO",
-      "scope": "Closed membership, path escapes, exact private replay, rehashed invented facts and configuration binding."
-    },
-    "curationTestContracts": {
-      "tests": 15,
-      "assertions": 139,
-      "status": "GO",
-      "scope": "Actual provider cancellation and atomic no-partial-publication/recovery fixtures."
-    },
-    "browserCleanup": {
-      "tests": 13,
-      "assertions": 89,
-      "status": "GO",
-      "scope": "Real CPU load, Darwin zombie/EPERM reaping, recovery, retained failed cleanup and external-page isolation."
-    },
-    "weatherCanonicalization": {
-      "tests": 10,
-      "assertions": 110,
-      "status": "GO",
-      "scope": "Central URL/zone imports, registry and actual batch health identity, following independent geographic-admission review."
-    },
-    "evidenceVersion": "3.1.0"
-  },
-  "boundaries": [
-    "Byte identity and deterministic replay do not establish source truth or semantic support.",
-    "Current municipal verification refetched a five-page sample, not every source page.",
-    "Catalog/statewide/foreign records do not establish local regulated-record coverage.",
-    "Native local and isolated container acceptance does not establish permanent deployment.",
-    "Private Pulse adoption, opted-in recipient display and production scheduler activation remain separately owned acceptance.",
-    "Human source interpretation, directory currency and legal effectivity remain unreviewed where the retained evidence does not establish them."
-  ],
-  "releaseGate": {
-    "version": "3.1.1",
-    "status": "pass",
-    "testsPassed": 1985,
-    "testsSkipped": 2,
-    "testsFailed": 0,
-    "assertions": 20307,
-    "testsTotal": 1987,
-    "files": 193,
-    "suiteRuns": [
-      {
-        "kind": "plain",
-        "testsPassed": 1985,
-        "testsSkipped": 2,
-        "testsFailed": 0,
-        "assertions": 20307,
-        "testsTotal": 1987,
-        "files": 193
-      },
-      {
-        "kind": "coverage",
-        "status": "pass",
-        "boundary": "The authoritative gate captures this run and rejects a nonzero exit or failed floor; its individual test summary is not printed."
-      }
-    ],
-    "lineCoveragePercent": 86.06,
-    "functionCoveragePercent": 87.87,
-    "lineCoverageFloorPercent": 60,
-    "strictProductionTypes": "pass",
-    "strictTestTypes": "pass",
-    "outputCorpusFence": "pass",
-    "sourceParity": {
-      "files": 499,
-      "allEqual": true,
-      "treeSha256": "f33736b412011be86c8be00996158141b89179ef55dfb99322aecfdbb7581f7d"
-    },
-    "boundary": "Independent local Git/source copy with populated retained corpus shares the locked dependency installation; Chromium was restored to a task-owned cache after shared cache disappearance. Clean Ubuntu installation, final Linux execution and publication evidence are separately required and recorded externally."
-  },
-  "patch": {
-    "baseVersion": "3.1.0",
-    "baseCommit": "07b63919f2d61227a72bec1b78f43cddade2a434",
-    "failedHostedRun": 36889337718,
-    "failedBoundary": "Real-browser recovery rejected current launcher identity on Linux.",
-    "triggerBoundary": "Hosted logs did not retain process state; exact triggering host condition remains undetermined.",
-    "scope": "Shared active-shutdown and dead-controller process ownership: bounded Linux proc/kernel/start-time admission, Darwin kernel executable and exact native argument boundaries, missing-owner refusal, finite cancellation-independent cleanup, coalesced termination and actual PID/group disappearance. Ambiguous evidence preserves receipts and refuses signaling.",
-    "preservedTag": "v3.1.0"
-  },
-  "inheritedReleaseGate": {
-    "version": "3.1.0",
-    "status": "pass",
-    "testsPassed": 1981,
-    "testsSkipped": 2,
-    "testsFailed": 0,
-    "assertions": 20246,
-    "files": 193,
-    "lineCoveragePercent": 86.19,
-    "functionCoveragePercent": 87.86,
-    "lineCoverageFloorPercent": 60,
-    "strictProductionTypes": "pass",
-    "strictTestTypes": "pass",
-    "outputCorpusFence": "pass",
-    "sourceParity": {
-      "files": 499,
-      "allEqual": true,
-      "treeSha256": "da65ae26bee2247d06be41ae42501d3dc73ab19d61000fde35852cfaf048575f"
-    },
-    "boundary": "Separate source copy shares the existing dependency installation. Hosted CI provides a clean lockfile installation."
-  },
-  "patchVerification": {
-    "independentReview": {
-      "status": "GO",
-      "version": "3.1.1",
-      "platform": "darwin",
-      "bun": "1.4.2 (744846f84)",
-      "command": "bun test tests/browser-recovery.test.ts tests/browser-ownership.test.ts tests/weekly-interruption.test.ts tests/weekly-browser-lifetime.test.ts --timeout 30000",
-      "runtimeBoundary": "Locked Chromium in a task-owned Playwright cache; no global-service changes.",
-      "testsPassed": 17,
+      "testsPassed": 9,
       "testsFailed": 0,
-      "assertions": 150,
-      "elapsedSeconds": 13.83,
-      "exitCode": 0,
-      "sourceStableBeforeAndAfter": true,
-      "hashes": {
-        "src/browser_launcher.ts": "92244a5b0dfa59fea9ce66de82e4f093857aebfc67a7ca11c712838b9ec84364",
-        "src/browser.ts": "79c542d1ec4a5ea3eae787784f4e05e2d707707bb2bd13eb15297c7543490bca",
-        "src/shared/process_ownership.ts": "4bc6cd8031643e81ce139ddc57613610cc8786ec7a16162c9c1c933c33494b24",
-        "src/shared/run_scope.ts": "c54d3f920725f9d982e922d39bc18363576c8746a1cdbac37cf0b6f1c8d9b31b",
-        "src/shared/subprocess.ts": "3806e20c988c326231f90ff0116a7aad254c4cbf79c06ff65b38867f338d9cce",
-        "tests/browser-recovery.test.ts": "0ff987401b83225af2239d357766dad0cb9c4004f03f7dc63d497950c8128997"
-      },
-      "scope": "Shared active and recovery identity admission, substituted process refusal, missing-owner receipt retention and restoration/retry, actual child/group disappearance, cancelled producer cleanup, concurrent termination, separate roots and caller-owned page isolation.",
-      "boundary": "Fresh independent code review and existing real offline fixture execution on macOS; final Linux execution remains pending hosted Ubuntu."
+      "assertions": 45
     },
-    "strictProductionTypes": "pass",
-    "strictTestTypes": "pass",
-    "generatedDocumentation": "pass",
-    "nativePlatform": "darwin",
-    "linuxExecution": {
-      "status": "pending-hosted-ubuntu",
-      "boundary": "Docker became unavailable before final patch acceptance. Prior-version container results are inherited evidence; final Linux execution belongs to the exact main Pages run."
-    },
-    "boundary": "Fresh local patch evidence is distinct from inherited v3.1.0 GUI, RAG, replay and container results."
+    "boundary": "Working-tree candidate validated before commit. The exact committed local and hosted publications are verified separately in external release assets."
+  },
+  "deferredAcceptance": {
+    "openScopes": [
+      "M07",
+      "M27",
+      "M29",
+      "L03",
+      "L05",
+      "L06",
+      "L07",
+      "L08"
+    ],
+    "authority": "TODO.md",
+    "boundary": "Actual recipients, private consumers, permanent hosts, independent human interpretation and separately owned reproduction remain distinct uncompleted acceptance."
   }
 }

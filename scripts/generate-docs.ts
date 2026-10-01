@@ -5,5 +5,5 @@ if (process.argv.slice(2).some(arg => !["--check", "--write"].includes(arg))) th
 if (process.argv.includes("--check")) {
   const errors = await validateDocumentationInventory(process.cwd());
   if (errors.length) { console.error(errors.join("\n")); process.exitCode = 1; }
-  else console.log("Generated configuration, exports and HTTP inventories match their authorities");
+  else console.log("Generated configuration, exports, HTTP inventories and GitHub README match their authorities");
 } else await writeDocumentationInventory(process.cwd());

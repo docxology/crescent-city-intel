@@ -37,6 +37,15 @@ text service. If these sources cannot be read, the monitor returns `null` and
 source health records `unavailable`. An unreadable source cannot establish
 that conditions are clear.
 
+The shared `src/alerts/connector.ts` transport admits each request only after
+DNS validation, robots policy and any caller policy complete. Same-host
+admissions are queued and measured from their actual start, so late timers
+cannot release several expired slots together. Robots requests and each
+redirect destination receive their own admission; response bodies do not hold
+the queue. Transport cancellation removes waiting work within the same total
+deadline. Real local HTTP tests cover event-loop stalls, delayed caller policy,
+scope cancellation, robots misses and cross-host redirects.
+
 ---
 
 ## `src/alerts/noaa_tsunami.ts` — NOAA Tsunami Alerts

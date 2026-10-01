@@ -18,6 +18,8 @@ import { errorMessage, isSourceHealthReceipt, sourceHealth, SOURCE_FETCH_TIMEOUT
 import { withProducerScope, type ProducerOptions } from "./shared/run_scope.js";
 import { MONITOR_KEYS, ALERT_MONITOR_SOURCE_NAMES } from "./alerts/composite.js";
 import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "./constants.js";
+import { COUNTY_CIVICCLERK_API, COUNTY_CIVICCLERK_PORTAL } from "./official_meetings.js";
+import { coopsUrl } from "./alerts/noaa_tides.js";
 import type {
   SourceDefinition,
   SourceDiscoveryRecord,
@@ -39,6 +41,10 @@ const DISCOVERY_CITATIONS = {
   airport: "https://www.flycrescentcity.com/airport-authority",
   parks: "https://www.nps.gov/redw/planyourvisit/visitorcenters.htm",
 } as const;
+
+// Stable current-day discovery probe; producer runs retain their actual UTC date windows.
+const tideDiscoveryUrl = new URL(coopsUrl("predictions", "", ""));
+tideDiscoveryUrl.searchParams.delete("begin_date"); tideDiscoveryUrl.searchParams.delete("end_date"); tideDiscoveryUrl.searchParams.set("date", "today");
 
 function source(definition: SourceDefinition): SourceDefinition {
   return {
@@ -88,9 +94,9 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "county-meetings", name: "Del Norte County meetings and agendas", kind: "meeting", authority: "official",
-    region: "Del Norte County", canonicalUrl: "https://www.co.del-norte.ca.us/meetings/85/", discoveredFrom: [DISCOVERY_CITATIONS.county],
-    collectionMode: "html", automation: "monitored", configuredMonitor: "meetings:Del Norte County meetings and agendas", enabled: true, expectedCadence: "as published",
-    provenance: "Official county meeting document links; source HTML retained by the bounded meetings connector; pagination/PDF completeness not established.",
+    region: "Del Norte County", canonicalUrl: "https://www.co.del-norte.ca.us/meetings/85/", endpointUrl: COUNTY_CIVICCLERK_API, discoveredFrom: [DISCOVERY_CITATIONS.county, "https://www.co.del-norte.ca.us/meetings/85/", COUNTY_CIVICCLERK_PORTAL],
+    collectionMode: "api", automation: "monitored", configuredMonitor: "meetings:Del Norte County meetings and agendas", enabled: true, expectedCadence: "as published",
+    provenance: "Official County page links the approved CivicClerk tenant; bounded public Board of Supervisors event/file notices retain exact API bytes and civil dates. Timezone semantics, completed meetings, archive pagination and PDF/legal interpretation are not established.",
   }),
   source({
     id: "county-planning", name: "Del Norte County Planning", kind: "county_official", authority: "official",
@@ -219,8 +225,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "alert-noaa-tides", name: "NOAA CO-OPS Crescent City tides", kind: "alert", authority: "public_agency", region: "Federal",
-    canonicalUrl: "https://api.tidesandcurrents.noaa.gov/api/prod/", endpointUrl: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750&product=predictions&begin_date=20260724&end_date=20260725&datum=MLLW&time_zone=lst_ldt&interval=h&units=english&format=json&application=crescent-city-intelligence", discoveredFrom: [DISCOVERY_CITATIONS.harbor], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "alert:tides", expectedCadence: "hourly", provenance: "NOAA CO-OPS station 9419750 predictions and observations.",
+    canonicalUrl: "https://api.tidesandcurrents.noaa.gov/api/prod/", endpointUrl: tideDiscoveryUrl.href, discoveredFrom: [DISCOVERY_CITATIONS.harbor], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:tides", expectedCadence: "hourly", provenance: "NOAA CO-OPS station 9419750 UTC predictions and observations. Discovery uses the documented current-day prediction request; runtime retains actual 48-hour prediction and current water-level request windows.",
   }),
   source({
     id: "alert-cdfw-fishing", name: "CDFW North Coast fishing bulletins", kind: "alert", authority: "public_agency", region: "California",
@@ -557,7 +563,7 @@ export async function buildSourceDiscoveryReport(options: {
     coverageGaps: [
       "City and county child pages are inventoried but not yet collected by a dedicated monitor.",
       "Harbor/County document links are bounded acquisitions; archive pagination, PDF text, recordings and calendar completeness are not established.",
-      "County Board of Supervisors, Solid Waste Management Authority, and Redwood Coast Transit Authority meeting streams need dedicated connectors.",
+      "County Board of Supervisors published-file notices use a bounded CivicClerk window; completed meetings, full archive coverage and recording acquisition remain unestablished. Solid Waste Management Authority and Redwood Coast Transit Authority meeting streams need dedicated connectors.",
       "Probe availability does not replace parser-level validation or source-health emitted by a configured monitor.",
     ],
     sources,

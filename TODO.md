@@ -1,7 +1,7 @@
 # Open acceptance scopes
 
-Updated 2026-10-01 for the v3.1.1 operating contracts: the v3.1.0 implementation
-scope with focused browser lifecycle repairs for portability and process ownership.
+Updated 2026-10-01 for the v3.2.0 operating contracts: the v3.1 implementation
+with checked GitHub guidance and bounded County meeting/document acquisition.
 This is the only item-level backlog. It contains acceptance that requires real
 source access, external consumers, independent interpretation or production
 operation.
@@ -53,7 +53,7 @@ a paid-provider budget or permanent service operation.
 
 ### L05 · P3 · Establish source-specific access and observed local coverage
 
-- **Existing contract:** Registry-grounded discovery, official archive/PDF acquisition, bounded public transport, primary observation/product clock policies and read-only `bun run source:coverage` assessment.
+- **Existing contract:** Registry-grounded discovery, official archive/PDF acquisition including the County CivicClerk catalog and typed published-file streams, bounded public transport, primary observation/product clock policies and read-only `bun run source:coverage` assessment.
 - **Remaining evidence:** Usable local issued-permit records, actual port/species landings, local vessel observations and any additional civic/County archive records not established by current captures; source terms, geography, time coverage and credential/budget ownership.
 - **Acceptance:** Retain representative primary bytes with parser/count/freshness receipts and demonstrate the claimed geographic and temporal unit. MyGov application catalogs do not establish issued permits; PacFIN report catalogs do not establish measured landings; a foreign or empty AIS feed does not establish absent local traffic. Blocked/login/SPA/partial archives stay explicit gaps.
 - **Ownership/dependencies:** Source/access owner; no fabricated records, unapproved credentials, subscriptions, scraping rights or completeness claims.

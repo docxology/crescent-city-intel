@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { mkdir, mkdtemp, open, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { watch } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { capturePagesPublicationInputs, assertPagesInputsUnchanged, withCapturedPagesInputs, readPagesInputArchive, createPagesFactInputReceipt, retainPagesInputArchive, PAGES_FACT_INPUT_RECEIPT } from "../src/pages_publication_inputs.ts";
@@ -117,13 +117,25 @@ test("external municipal selection and reviewed fallback retain their distinct d
   expect(await replayPagesPublicationArchive(archive)).toEqual([]);
 }), 15000);
 
-test("a real producer change after staging starts rejects export and preserves active publication bytes", async () => fixture(async (root, output, seed, destination) => {
+test("a real producer change after input capture rejects export and preserves active publication bytes", async () => fixture(async (_root, output, seed, destination) => {
   await exportPagesSnapshot({ outputDir: output, seedDir: seed, destination, generatedAt: stamp });
-  const before = await hashPublicationTree(destination); let changed: Promise<void> | undefined;
-  const watcher = watch(root, (_event, name) => { if (String(name).startsWith(".pages-build-") && !changed) changed = writeFile(join(output, "news", "news-fixture.json"), news("Raced public update")); });
-  try { await expect(exportPagesSnapshot({ outputDir: output, seedDir: seed, destination, generatedAt: stamp })).rejects.toThrow("changed during export"); await changed; }
-  finally { watcher.close(); }
-  expect(changed).toBeDefined(); expect(await hashPublicationTree(destination)).toEqual(before);
+  const before = await hashPublicationTree(destination); let changes = 0;
+  const producer = join(output, "news", "news-fixture.json"), changedBytes = news("Raced public update");
+  const options = {
+    outputDir: output, seedDir: seed, generatedAt: stamp,
+    // The exporter reads destination when forwarding options after exact input
+    // capture/reconstruction. This real write completes at that boundary;
+    // filesystem notification scheduling cannot move it beyond the final guard.
+    get destination(): string {
+      changes++;
+      if (changes === 1) writeFileSync(producer, changedBytes);
+      return destination;
+    },
+  };
+  await expect(exportPagesSnapshot(options)).rejects.toThrow("changed during export");
+  expect(changes).toBe(1); expect(await readFile(producer, "utf8")).toBe(changedBytes);
+  expect(await hashPublicationTree(destination)).toEqual(before);
+  expect(JSON.parse(await readFile(join(destination, "data/snapshot.json"), "utf8")).news[0].title).toBe("Retained public council update");
 }), 15000);
 
 test("rehashed tree and receipt cannot hide forbidden inputs, source identity or final snapshot changes", async () => fixture(async (_root, output, seed, destination) => {

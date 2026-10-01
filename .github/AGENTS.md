@@ -1,5 +1,11 @@
 # .github — agent notes
 
+GitHub selects `.github/README.md` for the repository landing page. It is the
+complete generated projection of root `README.md`, with relative Markdown and
+HTML links rebased to this directory. Edit the root guide, then run
+`bun run docs:generate`; `bun run docs:check` and both release-gate modes enforce
+exact agreement. Workflow notes belong in `workflows/README.md`.
+
 See [workflows/AGENTS.md](workflows/AGENTS.md) for the per-workflow contract.
 All three workflows pin Bun 1.4.2, use frozen dependencies, and explicitly install
 Chromium before browser work. Configuration tests establish local agreement;

@@ -4,6 +4,11 @@ Comprehensive documentation for the full pipeline: scraping, verification,
 export, web viewer, RAG chat, streaming, monitoring, alerting, structured
 queries, legal analysis, and civic intelligence domains.
 
+The [full project guide](../README.md) is also the authority for the
+[GitHub landing README](../.github/README.md). Run `bun run docs:generate` after
+editing it or the source-derived inventories, and `bun run docs:check` to verify
+the generated copies and repository links before publication.
+
 ## Contents
 
 | Document | Description |
@@ -49,7 +54,7 @@ queries, legal analysis, and civic intelligence domains.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.1.1)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.2.0)
 
 ## Updating Docs
 

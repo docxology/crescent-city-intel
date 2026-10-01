@@ -1,0 +1,17 @@
+{
+  "@odata.context": "https://delnortecoca.api.civicclerk.com/v1/$metadata#Events",
+  "value": [
+    {"id":217,"categoryName":"Board of Supervisors","isPublished":"Published","eventDate":"2026-10-27T10:00:00Z","isDeleted":false,"publishedFiles":[]},
+    {"id":192,"categoryName":"Board of Supervisors","isPublished":"Published","eventDate":"2026-10-13T10:00:00Z","isDeleted":false,"publishedFiles":[]},
+    {"id":216,"categoryName":"Board of Supervisors","isPublished":"Published","eventDate":"2026-09-22T09:00:00Z","isDeleted":false,"publishedFiles":[
+      {"fileId":765,"type":"Agenda","fileType":1,"name":"Board of Supervisors_September 22, 2026_FINAL","publishOn":"2026-09-17T15:24:08.163Z"},
+      {"fileId":767,"type":"Agenda Packet","fileType":2,"name":"09.22.26 BOS Agenda Packet","publishOn":"2026-09-17T15:24:08.163Z"},
+      {"fileId":768,"type":"Minutes","fileType":4,"name":"Board of Supervisors_September 22, 2026_FINAL","publishOn":"2026-09-22T14:30:48.237Z"}
+    ]},
+    {"id":203,"categoryName":"Board of Supervisors","isPublished":"Published","eventDate":"2026-09-08T10:00:00Z","isDeleted":false,"publishedFiles":[
+      {"fileId":760,"type":"Agenda","fileType":1,"name":"Board of Supervisors_September 08, 2026_FINAL","publishOn":"2026-09-04T08:29:16.457Z"},
+      {"fileId":762,"type":"Agenda Packet","fileType":2,"name":"Board of Supervisors_September 08, 2026_FINAL","publishOn":"2026-09-04T08:29:16.457Z"},
+      {"fileId":763,"type":"Minutes","fileType":4,"name":"Board of Supervisors_September 08, 2026_FINAL","publishOn":"2026-09-10T15:52:27.153Z"}
+    ]}
+  ]
+}

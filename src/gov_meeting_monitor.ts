@@ -401,10 +401,11 @@ async function fetchMeetingsWithinDeadline(url: string, sourceName: string, tran
     const official = OFFICIAL_MEETING_SOURCES.find(source => source.name === sourceName);
     if (official) {
       const acquired = await acquireOfficialMeetingDocuments({ ...official, url }, transport);
-      const receiptPath = join(outputRoot(), "gov_meetings", "acquisitions", `${official.id}-${acquired.rawSha256}.json`);
+      const receiptName = acquired.provider ? `${official.id}-${acquired.rawSha256}-${acquired.provider.rawSha256}-${crypto.randomUUID()}.json` : `${official.id}-${acquired.rawSha256}.json`;
+      const receiptPath = join(outputRoot(), "gov_meetings", "acquisitions", receiptName);
       await writeJsonAtomic(receiptPath, { sourceId: official.id, url, ...acquired });
-      return { items: acquired.items, health: meetingSourceHealth(sourceName, acquired.coverage === "documents-discovered" ? "ok" : "unavailable", new Date().toISOString(), {
-        url, fetchedAt: acquired.fetchedAt, itemCount: acquired.items.length, provenance: `${official.id}; retained source SHA256 ${acquired.rawSha256}; document-link discovery only`,
+      return { items: acquired.items, health: meetingSourceHealth(sourceName, acquired.coverage === "recognized-empty" ? "empty" : acquired.coverage === "documents-discovered" ? "ok" : "unavailable", new Date().toISOString(), {
+        url, fetchedAt: acquired.fetchedAt, itemCount: acquired.items.length, provenance: acquired.provider ? `${official.id}; ${acquired.parserVersion}; retained provider SHA256 ${acquired.provider.rawSha256}; ${acquired.provider.windowStart} to ${acquired.provider.windowEndExclusive} exclusive; bounded document notices; timezone unknown; pagination completeness not established` : `${official.id}; retained source SHA256 ${acquired.rawSha256}; document-link discovery only`,
         ...(acquired.coverage === "unrecognized-page" ? { error: "No recognizable meeting documents; source completeness unknown" } : {}) }) };
     }
     const allItems = await fetchEvoGovMeetings(url, transport);

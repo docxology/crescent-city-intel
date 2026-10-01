@@ -49,6 +49,8 @@ export interface TransportOptions {
   allowPrivateHosts?: readonly string[];
   /** Called for every redirect destination, before its request. */
   beforeRequest?: (url: URL, signal: AbortSignal) => Promise<void>;
+  /** Admit one synchronous pinned dispatch; response bodies never hold admission. */
+  admitRequest?: (url: URL, signal: AbortSignal, start: () => void) => Promise<void>;
   resolver?: (hostname: string) => Promise<Array<{ address: string; family: number }>>;
 }
 
@@ -218,8 +220,27 @@ export async function boundedHttpFetch(value: string, options: TransportOptions 
       throwIfAborted(signal, current);
       await options.beforeRequest?.(scope?.fixture ? new URL(originalValue) : destination.url, signal);
       let response: Response;
-      try { response = await requestPinned(destination, { ...options, headers: Object.fromEntries(headers) }, signal); }
+      const dispatchController = new AbortController();
+      try {
+        let pending: Promise<Response> | undefined;
+        let admissionOpen = true;
+        const start = () => {
+          throwIfAborted(signal, current);
+          if (!admissionOpen) throw new TransportError("network", redactUrl(current), "Request admission already settled");
+          if (pending) throw new TransportError("network", redactUrl(current), "Request admission dispatched more than once");
+          pending = requestPinned(destination, { ...options, headers: Object.fromEntries(headers) }, AbortSignal.any([signal, dispatchController.signal]));
+          // A callback may yield after dispatch; observe rejection immediately.
+          void pending.catch(() => {});
+        };
+        try {
+          if (options.admitRequest) await options.admitRequest(scope?.fixture ? new URL(originalValue) : destination.url, signal, start);
+          else start();
+        } finally { admissionOpen = false; }
+        if (!pending) throw new TransportError("network", redactUrl(current), "Request admission did not dispatch");
+        response = await pending;
+      }
       catch (error) {
+        dispatchController.abort();
         if (error instanceof TransportError) throw error;
         throwIfAborted(signal, current);
         throw new TransportError("network", redactUrl(current), "Outbound request failed");

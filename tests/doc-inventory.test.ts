@@ -17,7 +17,7 @@ import { documentedSourcePaths } from "../src/doc_inventory.ts";
 const root = process.cwd();
 const read = (relative: string): string => readFileSync(join(root, relative), "utf8");
 
-const DOC_FILES = ["README.md", "AGENTS.md", "docs/README.md", "docs/architecture.md", "docs/roadmap.md", "docs/modules/alerts.md", "docs/modules/monitoring.md", "docs/modules/pages.md", "docs/modules/events.md", "docs/modules/gui.md"];
+const DOC_FILES = ["README.md", ".github/README.md", "AGENTS.md", "docs/README.md", "docs/architecture.md", "docs/roadmap.md", "docs/modules/alerts.md", "docs/modules/monitoring.md", "docs/modules/pages.md", "docs/modules/events.md", "docs/modules/gui.md"];
 
 describe("documented version numbers match the shipped version", () => {
   const version = (JSON.parse(read("package.json")) as { version: string }).version;

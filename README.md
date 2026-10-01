@@ -12,9 +12,28 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.1.1-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.2.0-orange" alt="Version"></a>
   </p>
 </p>
+
+**Explore the public edition at [quadruplicate.org](https://quadruplicate.org/).**
+The static website exposes a bounded, source-attributed snapshot; the local Bun
+application adds live collection, authenticated chat, indexing and operator tools.
+Check each artifact's source clocks, geographic coverage and named gaps before
+using it. Collection success, citation matching and hashes do not establish
+legal interpretation, factual support or continuing upstream currency.
+
+This is the editable project guide. GitHub displays
+[`.github/README.md`](.github/README.md), generated from this file with repository
+links adjusted for that location. After editing, run `bun run docs:generate`;
+`bun run docs:check` and the release gate reject drift between the two guides.
+
+For measured release evidence, use the
+[versioned releases](https://github.com/docxology/crescent-city-intel/releases),
+[local acceptance receipt](docs/release-acceptance.json) and
+[current-state review](docs/project-review.md). Read their version, scope and
+date: an older receipt does not certify a later tree. Remaining external and
+human acceptance is tracked in [TODO.md](TODO.md).
 
 ---
 
@@ -24,6 +43,7 @@
 - [✨ What This Does](#-what-this-does)
 - [🏗️ Architecture](#-architecture)
 - [🚀 Quick Start](#-quick-start)
+- [🎛️ Interactive Menu](#-interactive-menu-runsh)
 - [🖥️ Web Viewer Features](#-web-viewer-features)
 - [💬 LLM / RAG Chat](#-llm--rag-chat)
 - [📡 Real-Time Monitoring & Alerts](#-real-time-monitoring--alerts)
@@ -31,16 +51,18 @@
 - [🧭 Intelligence Domains](#-intelligence-domains)
 - [📦 Export Formats](#-export-formats)
 - [🌐 GitHub Pages Snapshot](#-github-pages-snapshot)
-- [🔒 Integrity Guarantees](#-integrity-guarantees)
+- [🔒 Integrity Checks and Evidence](#-integrity-checks-and-evidence)
 - [📂 Project Structure](#-project-structure)
 - [📚 Municipal Code Structure](#-municipal-code-structure)
 - [🧪 Test Suite](#-test-suite)
 - [⚡ Commands Reference](#-commands-reference)
+- [🌐 API Reference](#-api-reference)
 - [⚙️ Configuration](#-configuration)
 - [📖 Documentation](#-documentation)
 - [🚦 Current Status](#-current-status)
 - [🧭 What To Do Next](#-what-to-do-next)
 - [⚠️ Known Limitations](#-known-limitations)
+- [LifeOS / Pulse integration](#lifeos--pulse-integration)
 
 ---
 
@@ -98,7 +120,7 @@ flowchart LR
     subgraph Intelligence["⚡ Real-Time Intelligence Layer"]
         J["📡 Code Monitor"] --> K["monitor-history.jsonl"]
         L["📰 News Monitor\nconfigured RSS/Atom sources"] --> M["output/news/source-health.json"]
-        N["🏛️ Meeting Tracker\n3 commissions"] --> O["output/gov_meetings/"]
+        N["🏛️ Meeting Tracker\nCity · Planning · Harbor · County"] --> O["output/gov_meetings/"]
         P["🌊 NOAA Tides\nStation 9419750"] --> Q["output/tides/"]
         R["🌊 NOAA Tsunami\nCAP alerts"] --> S["output/alerts/tsunami/"]
         T["🌍 USGS M4+\n200 km radius"] --> U["output/alerts/earthquake/"]
@@ -132,7 +154,7 @@ git clone https://github.com/docxology/crescent-city-intel.git
 cd crescent-city-intel
 bun install --frozen-lockfile
 bunx playwright install chromium
-bun run source-discovery # Refresh optional generated registry/health evidence
+bun run source-discovery # Generate canonical registry inventory; offline by default
 
 # 2. Run the full pipeline: scrape → verify → export
 bun run all
@@ -212,14 +234,23 @@ Launch with `bun run gui` → open **<http://localhost:3000>**:
 
 ## 💬 LLM / RAG Chat
 
+Run services in their own terminals. For the API example, restart an existing
+GUI process with the same privately supplied key used by the client. The
+browser GUI receives its boot key through the trusted local page; external
+clients must supply `X-API-Key` explicitly.
+
 ```bash
-# Start prerequisites
+# Start prerequisites in separate terminals
 ollama serve &
-chroma run --path chroma_data &
+docker run --rm --name cci-chroma -p 127.0.0.1:8001:8000 \
+  -v cci-chroma:/data chromadb/chroma:1.5.9
 
 # Pull required models
 ollama pull nomic-embed-text    # embeddings
 ollama pull gemma3:4b           # chat / summarization
+
+# Verify services and installed models before indexing
+bun run scripts/stack-readiness.ts
 
 # Index every section in the current scrape into ChromaDB
 bun run index
@@ -227,13 +258,19 @@ bun run index
 # Interactive chat session
 bun run chat
 
-# Single query (GET)
+# Single CLI query
 bun run query "What are the tsunami evacuation requirements?"
 bun run query "What are the zoning setback requirements for residential areas?"
 bun run query "What permits are required to operate a commercial fishing vessel from the harbor?"
 
-# POST API (for long questions)
+# For API use, start the GUI with a privately generated stable key in this shell.
+# Replace this placeholder privately; share the same environment with curl.
+export CRESCENT_CITY_API_KEY='<your privately generated key>'
+bun run gui &
+
+# POST API (for long questions; GET also requires X-API-Key)
 curl -X POST http://localhost:3000/api/chat \
+  -H "X-API-Key: $CRESCENT_CITY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"q": "Summarize all sections in Title 17 related to coastal zone management"}'
 ```
@@ -299,23 +336,29 @@ can choose local news and source-grounded summaries, source freshness, the
 municipal code, safety alerts, analytics, civic reports, structured downloads,
 or official local source hubs before entering the deeper tools.
 
-**Sources**: Lost Coast Outpost · Del Norte Triplicate (RSS since the Cloudflare block lifted) · Humboldt County official news · KIEM-TV/NBC 3 via current Redwood News RSS/HTML fallbacks · Redwood Voice · North Coast Journal. The feed set is intentionally local- and civic-specific; broad regional wire coverage is excluded.
+**Configured sources**: Lost Coast Outpost · Del Norte Triplicate (reference-only RSS metadata) · Humboldt County official news · KIEM-TV/NBC 3 via Redwood News RSS/HTML fallbacks · Redwood Voice · North Coast Journal. Per-source health records the actual result of each collection; a configured URL does not establish availability. The feed set is local- and civic-specific.
 
-**Filter keywords**: crescent city · del norte · tsunami · harbor · fishing · crabbing · pelican bay · evacuation · wildfire · zoning · ordinance...
+**Filter keywords** include crescent city · del norte · tsunami · harbor · fishing · crabbing · pelican bay · evacuation · fire. The [news monitor](src/news_monitor.ts) owns the full matching list.
 
 ### Government Meeting Tracker
 
-Scrapes city websites for agendas and minutes from all three commissions.
+Collects City Council and Planning listings, Harbor archives, and the County's
+public CivicClerk meeting/document catalog. Provider collection windows and
+unavailable archive/media sources remain explicit; a listing does not prove
+that a meeting occurred or that its documents are complete.
 
 ```bash
 bun run gov-meetings    # → output/gov_meetings/
 ```
 
-**Tracked**: City Council · Planning Commission · Harbor Commission
+**Tracked**: City Council · Planning Commission · Harbor Commission · Del Norte
+County Board of Supervisors. County agenda, packet and minutes links retain
+their exact published-file identities. The provider's civil day is preserved;
+its timestamp suffix is insufficient evidence for a local meeting time.
 
 ### 🌊 NOAA CO-OPS Tides (Station 9419750)
 
-Real-time tide predictions for Crescent City Harbor — the exact same station used by harbor pilots and fishing vessels.
+NOAA tide predictions and observed water levels for the Crescent City station.
 
 ```bash
 bun run alerts:tides    # 48h predictions · current water level · 7 ft MLLW alert
@@ -325,20 +368,21 @@ Station 9419750 coordinates: **41.745°N, 124.184°W** — [NOAA Tides Online](h
 
 ### 🦀 CDFW Dungeness Crab Season Monitor
 
-Tracks California's annual Dungeness crab season calendar and CDFW North Coast marine bulletins for domoic acid or entanglement delays.
+Combines an estimated California Dungeness crab season calendar with CDFW
+North Coast notices for domoic acid or entanglement delays.
 
 ```bash
 bun run alerts:fishing  # → output/fishing/fishing-<timestamp>.json
 ```
 
-Season calendar (California North Coast):
-- **Commercial**: Opens ~ November 15 · Closes June 30
-- **Recreational**: Opens ~ November 4 · Closes July 30
+Calendar status is a heuristic estimate, not verification of current regulations
+or permission to fish. Consult [current CDFW Dungeness crab notices](https://wildlife.ca.gov/Fishing/Ocean/Regulations/Crab)
+for the applicable area, fishery, dates and emergency restrictions.
 
 ### Hazard Alert Monitors
 
 ```bash
-bun run alerts:tsunami      # NOAA CAP → Tsunami Warning events for California coast
+bun run alerts:tsunami      # NOAA CAP → California tsunami warnings, watches and advisories
 bun run alerts:earthquake   # USGS GeoJSON → M4.0+ within 200 km of Crescent City
 bun run alerts:weather      # NWS → Del Norte coastal zone CAZ101 advisories
 bun run alerts              # all concurrently
@@ -348,7 +392,7 @@ bun run cron-setup -- --dry-run # print the escaped scheduler plan; installs not
 
 | Alert Type | Source | Threshold |
 | :--------- | :----- | :-------- |
-| Tsunami | NOAA `api.weather.gov/alerts` | Any Tsunami Warning for California |
+| Tsunami | NOAA `api.weather.gov/alerts` | California tsunami warnings, watches and advisories |
 | Earthquake | USGS `earthquake.usgs.gov` Feed | M4.0+ within 200 km, Cascadia Subduction Zone priority |
 | Weather | NWS Eureka office, zone CAZ101 | Coastal flood advisory · high wind · storm surge |
 | Tides | NOAA CO-OPS Station 9419750 | ≥7.0 ft MLLW current water level (storm surge / king tide) |
@@ -448,7 +492,7 @@ re-scraping this platform.
 ## 🌐 GitHub Pages Snapshot
 
 The repository publishes a static snapshot from `.github/workflows/pages.yml`.
-Configured public target: <https://docxology.github.io/crescent-city-intel/>.
+Configured public target: <https://quadruplicate.org/>.
 The workflow runs the deterministic release gate, collects the live monitors,
 and exports `.pages/` with provenance-aware source health. Source state is
 exported separately from pipeline state: `ok` and `empty` are present checks,
@@ -459,7 +503,7 @@ as an unexplained calm state.
 The public artifact includes the municipal-code export when present, an
 API-shaped `data/geo-intel.json` contract with its tiles-free geo view, a
 schema-checked local-establishments directory (`data/directory.json`, rendered on
-[directory.html](https://docxology.github.io/crescent-city-intel/directory.html)
+[directory.html](https://quadruplicate.org/directory.html)
 with pull-down menus over government, schools, healthcare, restaurants,
 churches, retail, services, finance, media, lodging, and attractions), source
 health, recent news and meeting items, alert snapshots, source-grounded
@@ -529,11 +573,14 @@ An orientation map, not an inventory. The exhaustive tree — every module under
   domains.ts            # 12 civic intelligence domains with code cross-refs
   monitor.ts            # Municipal code change detection
   news_monitor.ts       # RSS/Atom news aggregator (configured sources + health + persistent dedup)
-  gov_meeting_monitor.ts # City Council/Planning/Harbor meeting tracker (EvoGov JSON API)
+  gov_meeting_monitor.ts # City/Planning listings, Harbor archives and County documents
+  official_meetings.ts   # Bounded official archive and County CivicClerk acquisition
+  meeting_documents.ts  # Exact PDF bytes and native page-addressable extraction
   youtube_monitor.ts    # YouTube listing + auto-caption transcript pipeline (yt-dlp)
   triplicate_monitor.ts # Reference/citation-only Del Norte Triplicate monitor (Playwright)
   curation.ts           # LLM provider-aware, source-grounded curation with domain tagging
   source_registry.ts    # Canonical online source inventory + bounded discovery probes
+  doc_inventory.ts      # Source/HTTP inventories and complete GitHub README projection
   monthly_report.ts     # Monthly civic health report generator
   analytics_backend.ts  # Cross-surface analytics envelope (GUI, pipeline, Pages)
   alert_analytics.ts    # Unified alert timeline across all 20 monitors + per-type statistics
@@ -587,6 +634,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
     index.ts            # CLI entry point (index, chat, query, status, preflight)
   pages_snapshot.ts     # Bounded public GitHub Pages static snapshot exporter
   pages_validation.ts   # Generated Pages artifact validator (release-gate checks)
+  pages_bundle_validation.ts # Owned, bounded evaluation of shipped Pages helper behavior
   pages_seed.ts         # Verified municipal-code seed refresh
   browser_smoke.ts      # Real-browser GUI smoke flow (driven by scripts/browser-smoke.ts)
   release_gate.ts       # Deterministic release-gate checks (driven by scripts/validate.ts)
@@ -619,39 +667,45 @@ docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts 
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v3.1.1)
+openapi.yaml            # OpenAPI 3.0.3 spec (v3.2.0)
 ```
 
 ---
 
 ## 📚 Municipal Code Structure
 
-The **Crescent City Code of Ordinances** is served from the current scraped manifest, including its titles, articles, and sections:
+The selected municipal edition carries its exact title, article and section
+inventory in [the reviewed manifest](pages-data/manifest.json) and
+[table of contents](pages-data/toc.json). A later live scrape can select a
+different complete edition; use its manifest for counts.
 
 <details>
-<summary><strong>📜 View all 17 titles + appendices</strong></summary>
+<summary><strong>📜 Reviewed title labels and primary code links</strong></summary>
 
-| Title | Subject | Chapters | Key Topics for Crescent City |
-| :---- | :------ | :------: | :--------------------------- |
-| 1 | General Provisions | 7 | Definitions, incorporation history |
-| 2 | Administration & Personnel | 14 | City Manager, departments, elections |
-| 3 | Revenue and Finance | 8 | Fees, taxes, budget process |
-| 4 | *(Reserved)* | — | — |
-| 5 | Business Taxes & Licenses | 26 | Harbor business licenses, fishing permits |
-| 6 | Animal Control | 3 | Wildlife interactions (bears, deer) |
-| 7 | *(Reserved)* | — | — |
-| 8 | Health and Safety | 12 | Tsunami preparedness, emergency shelters, camping |
-| 9 | Public Peace & Welfare | 6 | Pelican Bay operations, public safety |
-| 10 | Vehicles and Traffic | 16 | Harbor access roads, downtown parking |
-| 11 | *(Reserved)* | — | — |
-| 12 | Streets & Sidewalks | 14 | Coastal access, stormwater |
-| 13 | Public Services | 16 | Utilities, harbor services, sewer |
-| 14 | Procurement Procedures | 8 | Contracting, competitive bidding |
-| 15 | Buildings & Construction | 12 | Coastal zone construction, tsunami-resistant design |
-| 16 | Subdivisions | 10 | Coastal subdivisions, lot splits |
-| 17 | Zoning | 25 | Coastal overlay zones, harbor commercial, redwood buffer |
+| Title | Source title |
+| :---- | :----------- |
+| 1 | [General Provisions](https://ecode360.com/44236159) |
+| 2 | [Administration and Personnel](https://ecode360.com/44236315) |
+| 3 | [Revenue and Finance](https://ecode360.com/44236510) |
+| 4 | [(Reserved)](https://ecode360.com/44236695) |
+| 5 | [Business Taxes, Licenses and Regulations](https://ecode360.com/44236697) |
+| 6 | [Animal Control](https://ecode360.com/44237408) |
+| 7 | [(Reserved)](https://ecode360.com/44237457) |
+| 8 | [Health and Safety](https://ecode360.com/44237458) |
+| 9 | [Public Peace, Morals and Welfare](https://ecode360.com/44238234) |
+| 10 | [Vehicles and Traffic](https://ecode360.com/44238484) |
+| 11 | [(Reserved)](https://ecode360.com/44238862) |
+| 12 | [Streets, Sidewalks and Public Places](https://ecode360.com/44238863) |
+| 13 | [Public Services](https://ecode360.com/44239326) |
+| 14 | [Procurement Procedures](https://ecode360.com/44240147) |
+| 15 | [Buildings and Construction](https://ecode360.com/44240405) |
+| 16 | [Subdivisions](https://ecode360.com/44240783) |
+| 17 | [Zoning](https://ecode360.com/44241015) |
 
-**Plus**: Appendix A (Employer-Employee Relations), Appendix B (Sewer Manual), Statutory References, Cross Reference Table, Ordinance List
+The reviewed TOC also contains Employer-Employee Relations Rules, the Sewer
+Manual, Statutory References and Tables. Nested divisions and chapter/article
+labels vary; this guide does not substitute hand-maintained chapter counts or
+inferred subject examples for the source tree.
 
 </details>
 
@@ -735,8 +789,8 @@ bun test tests/search.test.ts   # single file
 | `bun run manuscript:hydrate` | Resolve manuscript tokens from the canonical analytics overview |
 | `bun run source:coverage` | Read-only retained source/geography/access assessment; no network or output writes |
 | `bun run meeting-documents` | Bounded primary PDF capture with optional native `pdftotext` page spans |
-| `bun run docs:check` | Check generated configuration/export/HTTP and current command drift |
-| `bun run docs:generate` | Regenerate those source-derived inventories after deliberate source changes |
+| `bun run docs:check` | Check configuration/export/HTTP inventories, the complete GitHub README projection and current command drift |
+| `bun run docs:generate` | Regenerate inventories and GitHub README after deliberate source or root-guide edits |
 | `bun run test:gui-readers` | Real primary-API desktop/mobile reader journeys in isolated roots |
 | `bun run test:gui-journeys` | Real browser storage/rendering/request-security journeys |
 | `bun test` | Run the deterministic test suite |
@@ -786,7 +840,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.1.1)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.2.0)
 
 ---
 
@@ -886,13 +940,13 @@ release-gate pipeline before editing.
 
 ## ⚠️ Known Limitations
 
-- **Cloudflare Turnstile** — scraper runs non-headless Chromium; timing can vary; re-run if stuck
+- **Cloudflare Turnstile** — local scraping defaults to visible Chromium; `HEADLESS_BROWSER=1` enables headless collection for CI/containers. Challenge timing varies and bounded attempts can fail.
 - Intermediate `part` and `subarticle` TOC nodes are not themselves scrapable pages; their child sections are collected recursively
 - **Content changes** on ecode360 are not auto-detected — re-scrape and re-run `bun run verify` to refresh
 - **Generated answers** remain unverified. Native citation/disposition diagnostics do not establish semantic support, source independence or legal currency; source/span-bound review packages retain those limits.
 - **Rate-limit in-memory store** resets on server restart — not suitable for multi-instance deployments without shared cache (e.g., Redis)
 - **CDFW crab season** is estimated by regulatory calendar — check [CDFW North Coast bulletins](https://wildlife.ca.gov/regions/1) for emergency closures (domoic acid, whale entanglement)
-- **Tsunami monitor** fetches active CAP alerts — no historical data without archiving
+- **Tsunami monitor** fetches active CAP alerts and retains locally collected history; it does not reconstruct alerts from before collection began.
 - **CAL FIRE wildfire API** — the monitor uses the official incident JSON endpoint linked from the [CAL FIRE incidents page](https://www.fire.ca.gov/incidents); a valid empty Del Norte-region result is reported as `empty`, and fetch failure as unavailable.
 - **Government meeting tracker** — EvoGov listings and bounded official archives retain source/date evidence. An empty or partial listing establishes only that collection; PDF page extraction does not infer votes or ordinance adoption.
 - **Calendar/directory/trends** — publication timestamps cannot schedule events, cited directory seeds do not verify field currency, and changed sampling cannot imply a civic trend.
@@ -900,16 +954,6 @@ release-gate pipeline before editing.
 - **Review and next work** — [current-state audit](docs/project-review.md) records verification limits and known reliability gaps. [TODO.md](TODO.md) contains only open improvement scopes; [docs/roadmap.md](docs/roadmap.md) defines their sequencing.
 
 ---
-
-<p align="center">
-  Made with ❤️ for civic transparency in Crescent City, California<br/>
-  <a href="LICENSE">CC BY-SA 4.0</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="docs/setup.md">Setup</a> ·
-  <a href="docs/README.md">Documentation</a> ·
-  <a href="https://crescentcity.org">crescentcity.org</a> ·
-  <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a>
-</p>
 
 ## LifeOS / Pulse integration
 
@@ -924,3 +968,15 @@ the digest's generated time is not an observation time.
 consumer rendering, private-state ownership and scheduler activation require
 separate external acceptance. Neither a file write nor a local reader fixture
 establishes that the personal app consumed or verified its contents.
+
+---
+
+<p align="center">
+  Made with ❤️ for civic transparency in Crescent City, California<br/>
+  <a href="LICENSE">CC BY-SA 4.0</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="docs/setup.md">Setup</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="https://crescentcity.org">crescentcity.org</a> ·
+  <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a>
+</p>

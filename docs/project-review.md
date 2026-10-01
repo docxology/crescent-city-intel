@@ -1,12 +1,13 @@
 # Current project state
 
 The Quadruplicate is a Bun/TypeScript municipal-code and civic-intelligence
-platform with a bounded static public edition. The v3.1.1 operating contract
+platform with a bounded static public edition. The v3.2.0 operating contract
 covers source custody, explicit gaps, finite acquisition, shared family/API
 validation, private diagnostics, staged indexes and recoverable publication.
-It retains the v3.1.0 implementation scope with focused browser lifecycle repairs
-for portability and process ownership; the eight external and human acceptance
-scopes remain open.
+It retains the v3.1 implementation and browser ownership repairs, adds bounded
+County CivicClerk document acquisition, and makes the full GitHub-displayed
+README a checked projection of the root guide. The eight external and human
+acceptance scopes remain open.
 The [release acceptance receipt](release-acceptance.json) names measured checks
 and snapshot identity: read its version, date and scope before attributing a
 result to the current tree. A receipt for an older release does not certify a
@@ -54,6 +55,12 @@ an adopted City ordinance nor human legal review; legal dates remain null.
 
 Acquisition uses finite parent budgets, streamed wire/decoded caps, DNS/IP and
 redirect policy, request-path robots evaluation and credential redaction. Direct
+HTTP dispatch admissions are measured from actual pinned starts, including
+robots and redirects; delayed callbacks cannot consume a slot before dispatch.
+Shipped Pages helper behavior runs in an owned finite child, with bounded
+evaluation, deferred work and primitive diagnostic serialization. A failed or
+stalled evaluator rejects publication rather than blocking its controller.
+Direct
 vector SDK responses are byte-bounded before JSON parsing, with finite admission,
 deadline and caller cancellation. Owned child/process groups and the browser's
 private pre-protocol launcher identity support bounded shutdown and dead-controller
@@ -92,7 +99,9 @@ counts, confidence, clock and public-URL invariants at loaders, annotated API
 responses and Pages boundaries. Legacy health envelopes have an explicit strict
 read migration; missing clocks and review dates are never invented. Generated
 configuration/export/HTTP inventories derive from source syntax and structural
-OpenAPI; filename-specific drift guards exclude historical CHANGELOG and frozen
+OpenAPI. GitHub selects `.github/README.md`, generated from the complete root
+guide with Markdown/HTML repository links rebased and rendered equivalence
+checked. Filename-specific drift guards exclude historical CHANGELOG and frozen
 ISA. Dynamic configuration expressions remain disclosed rather than evaluated.
 
 Authentication/quota identity uses the socket peer and declared trusted-proxy

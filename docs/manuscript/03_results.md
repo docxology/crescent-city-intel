@@ -36,7 +36,7 @@ for collection. The complete run inventory is reported in
 
 ## Native retrieval and disposition diagnostics
 
-The separately recorded native diagnostics for the 2026-10-01 release used
+The separately recorded native diagnostics for the v3.1.0 run on 2026-10-01 used
 cached local models and a retained municipal index. All six applicable
 retrieval cases found a listed section, while six of eight mechanical
 disposition expectations matched. A sixteen-case retained-context replay
@@ -44,6 +44,7 @@ generated sixteen answers with fourteen matching disposition expectations.
 These mismatches remain recorded in `docs/evidence/rag-native-2026-10-01.json`;
 they are not converted into passing semantic evaluations. Claim support,
 source independence, legal currency and user usefulness remain unassessed.
+This is dated prior evidence, not new v3.2.0 native LLM or vector acceptance.
 
 ## Worked example: unavailable is not calm
 

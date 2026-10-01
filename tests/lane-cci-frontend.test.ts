@@ -12,6 +12,7 @@ import { join } from "path";
 import { exportPagesSnapshot, splitMeetingContent } from "../src/pages_snapshot.ts";
 import { loadSiteJs, type SiteJsApi } from "./helpers/site-js.ts";
 import { writePublicationFixture } from "./helpers/publication-fixture.ts";
+import { runPagesValidator } from "./helpers/pages-validator.ts";
 
 const STATIC_DIR = join(process.cwd(), "src", "pages", "static");
 
@@ -237,16 +238,34 @@ describe("lane cci-frontend: authored markup + export gate", () => {
       await writePublicationFixture(root);
       const destination = join(root, "pages");
       await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
-      const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
-      const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
+      const validate = await runPagesValidator(destination);
+      const output = validate.stdout + validate.stderr;
       // This bounded edition is a complete positive control, including the
       // legitimate empty-feed contract. Every negative below must break it.
-      expect(validate.exitCode).toBe(0);
+      expect(validate.status).toBe("ok"); expect(validate.reaped).toBe(true); expect(validate.exitCode).toBe(0);
       for (const fragment of ["This-week quick filter", "This-month quick filter", "aria-pressed", ".ics What-is-this", "calendarEventKindChip", "calendarWindowFilter", "accessible label", "freshness meta", "sticky month-header", "per-kind chip styles"]) {
         expect(output).not.toContain(fragment);
       }
     });
   }, 120000);
+
+  test("a real validator rejects stalled emitted JavaScript and its owned child is reaped", async () => {
+    await withFixture(async root => {
+      await writePublicationFixture(root);
+      const destination = join(root, "pages");
+      await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
+      const siteJsName = (await readdir(join(destination, "assets"))).find(asset => /^site\.[0-9a-f]{8}\.js$/.test(asset))!;
+      const siteJsPath = join(destination, "assets", siteJsName), original = await readFile(siteJsPath, "utf8");
+      await Bun.write(siteJsPath, `while (true) {}\n${original}`);
+      const started = Date.now();
+      const validate = await runPagesValidator(destination);
+      expect(validate.stdout).toContain("CCI-PAGES-VALIDATOR-READY");
+      expect(validate.stderr).toContain("assets/site.js does not evaluate, or no longer exports the calendar helpers:");
+      expect(validate.status).toBe("failed"); expect(validate.exitCode).toBe(1); expect(validate.reaped).toBe(true);
+      expect(Date.now() - started).toBeLessThan(5000);
+      expect(() => process.kill(validate.pid!, 0)).toThrow();
+    });
+  }, 10000);
 
   /**
    * Negative controls for every R3 gate assertion this lane added. Each case
@@ -357,9 +376,12 @@ describe("lane cci-frontend: authored markup + export gate", () => {
           expect(original.includes(testCase.from)).toBe(true); // the mutation must actually bite
           await Bun.write(path, testCase.all ? original.replaceAll(testCase.from, testCase.to) : original.replace(testCase.from, testCase.to));
         }
-        const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
-        const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
-        await Bun.write(path, original);
+        let validate;
+        try { validate = await runPagesValidator(destination); }
+        finally { await Bun.write(path, original); }
+        const output = validate.stdout + validate.stderr;
+        expect(`${testCase.name}: ${validate.status}`).toBe(`${testCase.name}: failed`);
+        expect(`${testCase.name}: ${validate.reaped}`).toBe(`${testCase.name}: true`);
         expect(`${testCase.name}: ${validate.exitCode}`).toBe(`${testCase.name}: 1`);
         expect(`${testCase.name}: ${output.includes(testCase.expect)}`).toBe(`${testCase.name}: true`);
       }

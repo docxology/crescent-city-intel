@@ -120,8 +120,9 @@ bun run news     # via scripts/run-news.ts
 
 ## `src/gov_meeting_monitor.ts` — Government Meeting Tracker
 
-Pulls upcoming and recent-past agendas/minutes for City Council, Planning
-Commission, and (when a source exists — see below) Harbor Commission.
+Pulls upcoming and recent-past agendas/minutes for City Council and Planning
+Commission, Harbor document notices, and bounded County Board of Supervisors
+published-file notices.
 
 ### Sources
 
@@ -147,7 +148,8 @@ by a separate URL or calendar id.
 | City Council | `title` contains "City Council" (e.g. "City Council Meeting", "Special City Council Meeting") |
 | Planning Commission | `title` contains "Planning Commission" |
 | Harbor Commission | Official Harbor archive links and retained document context |
-| County meetings/agendas and joint media hub | Their own official source definitions and bounded parser evidence |
+| County Board of Supervisors | Official County landing-page link authenticates the approved public CivicClerk tenant; typed published event/file notices |
+| Joint County/City media hub | Separate official HTML document-link discovery; a portal shell remains unavailable |
 
 `GOV_SOURCES` combines the City EvoGov calendars with
 `OFFICIAL_MEETING_SOURCES`: Harbor archived agendas, County meetings/agendas and
@@ -157,6 +159,41 @@ independently schedule a meeting; only an explicitly occurrence-eligible dated
 non-PDF notice can supply an event. Empty, blocked or unrecognized archives do
 not establish completeness. Additional access and coverage acceptance remains
 source-specific under [TODO L05](../../TODO.md).
+
+### County CivicClerk acquisition
+
+`acquireOfficialMeetingDocuments` requires the official County page to link
+exactly `https://delnortecoca.portal.civicclerk.com/` before reading the approved
+`https://delnortecoca.api.civicclerk.com/v1/Events` endpoint. It requests one
+60-day window centered on the current Pacific civil day, with at most 200
+events and 200 retained document links. Each fetch has a 4 MiB cap and a 15-second
+deadline within the acquisition's total budget; the existing robots gate, DNS
+policy and cancellation remain active. API redirects are refused. Returned
+events are independently checked against the window and roster limit; a supplied
+next-page link is recorded but never followed. Document truncation stays explicit.
+
+Only published, nondeleted Board of Supervisors records supply agenda, agenda
+packet and minutes links. Strict numeric file identities build the provider's
+actual `Meetings/GetMeetingFileStream(fileId=N,plainText=false)` route; arbitrary
+upstream file URLs are not followed. `meetingDocumentCandidates` admits that
+extensionless route only for the exact County source identity, HTTPS origin,
+path, bounded positive integer and no query/fragment/credential aliases. Native
+capture still checks the PDF signature and complete footer before extraction.
+
+Provider timestamps retain their literal civil day as `provider-civil-date`.
+The API's `Z` suffix does not establish meeting timezone semantics. Documents
+are `historical-notice` or `scheduled-notice` relative to the current Pacific
+civil day, always `occurrenceEligible=false`, with timezone and meeting completion
+unestablished. They cannot create completed meetings or duplicate calendar
+occurrences. A successful typed window with no retained published documents is
+`empty`; malformed, blocked and unrecognized sources remain `unavailable`.
+
+Ignored acquisition receipts preserve both the official landing HTML and exact
+provider JSON/hash/window/counts. County receipt names include the provider hash
+and a fresh capture identity, so an unchanged landing page cannot overwrite a
+later or earlier provider observation. Raw provider metadata stays outside public
+meeting rows and Pages. Bounded notice collection and native text extraction do
+not establish full archives, votes, adoption/effectivity or independent legal review.
 
 ### Change Detection
 

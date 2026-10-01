@@ -2,6 +2,7 @@ import { readFile, readdir, mkdir, writeFile, stat } from "node:fs/promises";
 import { join, dirname, relative } from "node:path";
 import { createHash } from "node:crypto";
 import ts from "typescript";
+import { load } from "cheerio";
 
 /** Read the architecture code block by directory context, retaining full paths. */
 export function documentedSourcePaths(markdown: string): Set<string> {
@@ -139,7 +140,175 @@ export function httpDocumentation(yaml: string): string {
   return `# Generated HTTP inventory\n\nGenerated from [openapi.yaml](../../openapi.yaml). GET also permits HEAD at runtime; the rows below are explicit spec operations. Auth and success bodies use the same structural authority as runtime contracts.\n\n| Operation | Auth | Parameters | Request body | Success responses |\n| :--- | :--- | :--- | :--- | :--- |\n${rows.join("\n")}\n`;
 }
 
-export const GENERATED_DOCUMENTS = ["docs/generated/configuration.md", "docs/generated/exports.md", "docs/generated/http.md"] as const;
+type MarkdownRange = { start: number; end: number };
+const relativeReadmeUrl = (url: string): boolean => !!url && !/^(?:[a-z][a-z0-9+.-]*:|\/|#|\?)/i.test(url);
+const githubReadmeUrl = (url: string): string => relativeReadmeUrl(url) ? `../${url}` : url;
+
+/**
+ * Preserve the canonical Markdown bytes except actual destination ranges. Bun's
+ * parser independently verifies rendered equivalence, so unsupported syntax
+ * fails rather than producing a silently incorrect GitHub-facing README.
+ */
+export function githubReadmeDocumentation(markdown: string): string {
+  const protectedBytes = new Uint8Array(markdown.length), destinations: MarkdownRange[] = [];
+  const protect = (start: number, end: number): void => { protectedBytes.fill(1, start, end); };
+  const escaped = (index: number): boolean => { let count = 0; while (index > 0 && markdown[--index] === "\\") count++; return count % 2 === 1; };
+  const lineStarts = [0]; for (let i = 0; i < markdown.length; i++) if (markdown[i] === "\n") lineStarts.push(i + 1);
+  const comments = [...markdown.matchAll(/<!--[\s\S]*?(?:-->|$)/g)];
+  let fence: { character: string; width: number; start: number } | null = null;
+  for (let line = 0; line < lineStarts.length; line++) {
+    const start = lineStarts[line]!, end = lineStarts[line + 1] ?? markdown.length;
+    const text = markdown.slice(start, end), match = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)/.exec(text);
+    if (!match || !fence && comments.some(comment => !protectedBytes[comment.index!] && start >= comment.index! && start < comment.index! + comment[0].length)) continue;
+    if (fence) {
+      if (match[1]![0] === fence.character && match[1]!.length >= fence.width && /^\s*$/.test(match[2]!)) { protect(fence.start, end); fence = null; }
+    } else if (match[1]![0] !== "`" || !match[2]!.includes("`")) fence = { character: match[1]![0]!, width: match[1]!.length, start };
+  }
+  if (fence) protect(fence.start, markdown.length);
+  // The native parser identifies actual code bodies, including indented blocks.
+  // Match their exact de-indented source lines; indentation alone is not enough
+  // because raw HTML and Markdown list bodies can also have four leading spaces.
+  const codeBodies = new Set<string>();
+  Bun.markdown.render(markdown, { code: body => { codeBodies.add(body.replaceAll("\r\n", "\n")); return body; } });
+  const deindent = (line: string): string | null => {
+    if (!line.trim()) return "";
+    let index = 0, columns = 0;
+    while (columns < 4 && (line[index] === " " || line[index] === "\t")) columns = line[index++] === "\t" ? 4 : columns + 1;
+    return columns === 4 ? line.slice(index) : null;
+  };
+  for (let line = 0; line < lineStarts.length; line++) {
+    const start = lineStarts[line]!;
+    if (protectedBytes[start] || !/^(?: {4}| {0,3}\t)/.test(markdown.slice(start))) continue;
+    let body = "", matchingEnd = start;
+    for (let next = line; next < lineStarts.length; next++) {
+      const end = lineStarts[next + 1] ?? markdown.length;
+      if (protectedBytes[lineStarts[next]!]) break;
+      const content = deindent(markdown.slice(lineStarts[next]!, end).replace(/\r?\n$/, ""));
+      if (content === null) break;
+      body += `${content}\n`;
+      if (codeBodies.has(body)) matchingEnd = end;
+      if (![...codeBodies].some(candidate => candidate.startsWith(body))) break;
+    }
+    if (matchingEnd > start) protect(start, matchingEnd);
+  }
+  const codeSpans = new Set<string>();
+  Bun.markdown.render(markdown, { codespan: body => { codeSpans.add(body); return body; } });
+  for (let i = 0; i < markdown.length; i++) {
+    if (protectedBytes[i] || markdown[i] !== "`" || escaped(i)) continue;
+    let width = 1; while (markdown[i + width] === "`") width++;
+    let closing = i + width;
+    while ((closing = markdown.indexOf("`".repeat(width), closing)) >= 0) {
+      if (markdown[closing - 1] !== "`" && markdown[closing + width] !== "`" && !protectedBytes[closing]) break;
+      closing += width;
+    }
+    const body = closing < 0 ? "" : markdown.slice(i + width, closing).replace(/\r\n?|\n/g, " ");
+    const normalized = body.startsWith(" ") && body.endsWith(" ") && /[^ ]/.test(body) ? body.slice(1, -1) : body;
+    if (closing >= 0 && codeSpans.has(normalized)) { protect(i, closing + width); i = closing + width - 1; } else i += width - 1;
+  }
+  for (let i = 0; i < markdown.length; i++) {
+    if (protectedBytes[i] || markdown[i] !== "<") continue;
+    const literal = /^(?:<!--[\s\S]*?(?:-->|$)|<(pre|code|script|style)\b[^>]*>[\s\S]*?<\/\1\s*>)/i.exec(markdown.slice(i));
+    if (literal) { protect(i, i + literal[0].length); i += literal[0].length - 1; }
+  }
+  // Only quoted attributes inside actual tags are destinations. Attribute text
+  // cannot accidentally introduce Markdown syntax into the range scanner.
+  for (let i = 0; i < markdown.length; i++) {
+    if (protectedBytes[i] || markdown[i] !== "<" || !/^<\/?[A-Za-z][A-Za-z0-9:-]*(?:\s|\/?>)/.test(markdown.slice(i))) continue;
+    let end = i + 1, quote: string | null = null;
+    for (; end < markdown.length; end++) {
+      const character = markdown[end]!;
+      if (quote) { if (character === quote) quote = null; }
+      else if (character === "\"" || character === "'") quote = character;
+      else if (character === ">") { end++; break; }
+    }
+    if (end > markdown.length || markdown[end - 1] !== ">") continue;
+    const tag = markdown.slice(i, end);
+    for (const attribute of tag.matchAll(/\s+([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) {
+      if (!/^(?:href|src)$/i.test(attribute[1]!) || attribute[4] !== undefined) continue;
+      const quote = attribute[2] !== undefined ? "\"" : "'", url = attribute[2] ?? attribute[3]!;
+      const start = i + attribute.index! + attribute[0].indexOf(quote) + 1;
+      if (relativeReadmeUrl(url)) destinations.push({ start, end: start + url.length });
+    }
+    protect(i, end); i = end - 1;
+  }
+  const destination = (start: number): MarkdownRange | null => {
+    if (markdown[start] === "<") {
+      let end = start + 1;
+      for (; end < markdown.length; end++) {
+        if (markdown[end] === "\\") { end++; continue; }
+        if (markdown[end] === ">") return { start: start + 1, end };
+        if (markdown[end] === "<" || /[\r\n]/.test(markdown[end]!)) return null;
+      }
+      return null;
+    }
+    let end = start, nesting = 0;
+    for (; end < markdown.length; end++) {
+      const character = markdown[end]!;
+      if (character === "\\" && end + 1 < markdown.length) { end++; continue; }
+      if (/\s/.test(character)) { if (nesting) return null; break; }
+      if (character === "<") return null;
+      if (character === "(") { if (++nesting > 32) return null; }
+      if (character === ")") { if (!nesting) break; nesting--; }
+    }
+    return nesting ? null : { start, end };
+  };
+  const whitespaceEnd = (start: number): number => { while (start < markdown.length && /\s/.test(markdown[start]!)) start++; return start; };
+  const inlineEnd = (range: MarkdownRange): number | null => {
+    let end = markdown[range.start - 1] === "<" ? range.end + 1 : range.end;
+    const afterDestination = end; end = whitespaceEnd(end);
+    if (markdown[end] === ")") return end;
+    if (end === afterDestination || !["\"", "'", "("].includes(markdown[end] ?? "")) return null;
+    const quote = markdown[end] === "(" ? ")" : markdown[end]!; end++;
+    for (; end < markdown.length; end++) {
+      if (markdown[end] === "\\") { end++; continue; }
+      if (markdown[end] === quote) { end = whitespaceEnd(end + 1); return markdown[end] === ")" ? end : null; }
+      if (quote === ")" && markdown[end] === "(") return null;
+    }
+    return null;
+  };
+  const brackets: number[] = [];
+  for (let i = 0; i < markdown.length; i++) {
+    if (protectedBytes[i] || escaped(i)) continue;
+    if (markdown[i] === "[") brackets.push(i);
+    else if (markdown[i] === "]" && brackets.length) {
+      brackets.pop();
+      if (markdown[i + 1] !== "(") continue;
+      const range = destination(whitespaceEnd(i + 2));
+      if (range && inlineEnd(range) !== null && relativeReadmeUrl(markdown.slice(range.start, range.end))) destinations.push(range);
+    }
+  }
+  for (const start of lineStarts) {
+    if (protectedBytes[start]) continue;
+    const reference = /^ {0,3}\[(?:\\.|[^\]\\\r\n])+\]:[ \t]*(?:\r?\n[ \t]*)?/.exec(markdown.slice(start));
+    if (!reference) continue;
+    const range = destination(start + reference[0].length);
+    if (range && relativeReadmeUrl(markdown.slice(range.start, range.end))) destinations.push(range);
+  }
+  let projected = markdown;
+  for (const range of destinations.sort((a, b) => b.start - a.start)) projected = projected.slice(0, range.start) + githubReadmeUrl(markdown.slice(range.start, range.end)) + projected.slice(range.end);
+  const expected = load(Bun.markdown.html(markdown), undefined, false), actual = load(Bun.markdown.html(projected), undefined, false);
+  const originalElements = expected("[href], [src]").toArray(), projectedElements = actual("[href], [src]").toArray();
+  const unsupported = (): never => { throw new Error("README.md: unsupported destination syntax or changed rendered content in GitHub README projection"); };
+  if (originalElements.length !== projectedElements.length) unsupported();
+  for (let index = 0; index < originalElements.length; index++) for (const attribute of ["href", "src"]) {
+    const url = expected(originalElements[index]!).attr(attribute), projectedUrl = actual(projectedElements[index]!).attr(attribute);
+    if (url === undefined) { if (projectedUrl !== undefined) unsupported(); continue; }
+    // WHATWG URL resolution trims outer whitespace, strips ASCII controls and
+    // normalizes backslashes. Those spellings are deliberately unsupported;
+    // treating them as ordinary relative paths would change browser navigation.
+    if (url !== url.trim() || /[\u0000-\u001f\u007f\\]/.test(url) || projectedUrl === undefined) unsupported();
+    try {
+      const sourceBase = "https://readme.invalid/repository/README.md", publishedBase = "https://readme.invalid/repository/.github/README.md";
+      const samePage = url === "" || url.startsWith("#") || url.startsWith("?");
+      if (new URL(url, samePage ? publishedBase : sourceBase).href !== new URL(projectedUrl!, publishedBase).href) unsupported();
+    } catch { unsupported(); }
+    expected(originalElements[index]!).attr(attribute, githubReadmeUrl(url));
+  }
+  if (expected.html() !== actual.html()) unsupported();
+  return `<!-- Generated from README.md by bun run docs:generate. Edit README.md and regenerate. -->\n\n${projected}`;
+}
+
+export const GENERATED_DOCUMENTS = ["docs/generated/configuration.md", "docs/generated/exports.md", "docs/generated/http.md", ".github/README.md"] as const;
 async function sourceDocuments(root: string): Promise<SourceDocument[]> {
   const documents: SourceDocument[] = [];
   const walk = async (directory: string): Promise<void> => {
@@ -154,7 +323,7 @@ export async function generatedDocumentation(root: string): Promise<Record<(type
   const sources = await sourceDocuments(root), config = configurationInventory(sources), exports = publicExportInventory(sources.filter(source => source.file.startsWith("src/")));
   const configuration = `# Generated configuration inventory\n\nParsed from TypeScript source without evaluating modules or reading environment values. These are source expressions, not validated setting values. Literal env reads and discovered literal-key wrappers are listed; dynamic key reads remain explicit. Runtime coercion, units and valid ranges belong to their declared consumer.\n\n| Variable | Consumer | Source expression | Fallback expression |\n| :--- | :--- | :--- | :--- |\n${config.references.map(row => `| \`${row.name}\` | [${row.file}:${row.line}](../../${row.file}#L${row.line}) | \`${cell(row.expression)}\` | ${row.fallback === null ? "not declared at this read" : `\`${cell(row.fallback)}\``} |`).join("\n")}\n\nDynamic reads (not an assertion of finite variable coverage):\n\n${config.dynamicReads.map(row => `- [${row.file}:${row.line}](../../${row.file}#L${row.line}): \`${cell(row.expression)}\``).join("\n") || "None."}\n`;
   const publicExports = `# Generated public module exports\n\nQualified source exports, independent of similarly named symbols in other modules. Declaration SHA-256 binds signatures/type declarations and exported value initializers; it is not an implementation or behavioral proof. Re-exports are declarations rather than evaluated imports.\n\n| Module | Export | Kind | Declaration SHA-256 |\n| :--- | :--- | :--- | :--- |\n${exports.map(row => `| [${row.file}:${row.line}](../../${row.file}#L${row.line}) | \`${cell(row.name)}\` | ${row.kind} | \`${row.declarationSha256}\` |`).join("\n")}\n`;
-  return { "docs/generated/configuration.md": configuration, "docs/generated/exports.md": publicExports, "docs/generated/http.md": httpDocumentation(await readFile(join(root, "openapi.yaml"), "utf8")) };
+  return { "docs/generated/configuration.md": configuration, "docs/generated/exports.md": publicExports, "docs/generated/http.md": httpDocumentation(await readFile(join(root, "openapi.yaml"), "utf8")), ".github/README.md": githubReadmeDocumentation(await readFile(join(root, "README.md"), "utf8")) };
 }
 /** Exact, filename-bearing drift failures; historical journals and frozen ISA are never rewritten. */
 export async function validateDocumentationInventory(root: string): Promise<string[]> {

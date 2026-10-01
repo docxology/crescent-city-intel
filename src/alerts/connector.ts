@@ -1,23 +1,41 @@
 /** Robots-aware, path-specific acquisition policy over the shared bounded transport. */
 import { SOURCE_FETCH_TIMEOUT_MS } from '../shared/source_health.js';
-import { boundedHttpFetch, redactUrl, TransportError, waitWithSignal, withinDeadline, type TransportOptions } from '../shared/transport.js';
+import { boundedHttpFetch, redactUrl, throwIfAborted, TransportError, waitWithSignal, withinDeadline, type TransportOptions } from '../shared/transport.js';
 
 export type FetchFailureKind = 'timeout' | 'size' | 'robots' | 'status' | 'network' | 'destination' | 'redirect';
 export class BoundedFetchError extends Error {
   constructor(readonly kind: FetchFailureKind, readonly url: string, message: string) { super(message); this.name = 'BoundedFetchError'; }
 }
 export const CONNECTOR_USER_AGENT = 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)';
-export interface BoundedFetchOptions extends TransportOptions {
+export interface BoundedFetchOptions extends Omit<TransportOptions, 'admitRequest'> {
   label: string; maxBytes: number; minIntervalMs?: number; retry?: boolean; skipRobots?: boolean; robotsTtlMs?: number;
 }
 const nextAllowedAt = new Map<string, number>();
+const hostAdmissions = new Map<string, Promise<void>>();
 const robotsCache = new Map<string, { body: string; denied?: string; checkedAt: number }>();
 export function setHostRateLimit(host: string, time: number): void { nextAllowedAt.set(host, Math.max(time, nextAllowedAt.get(host) ?? 0)); }
-export function resetConnectorState(): void { nextAllowedAt.clear(); robotsCache.clear(); }
-async function reserveHost(host: string, interval: number, signal: AbortSignal): Promise<void> {
-  const reserved = Math.max(Date.now(), nextAllowedAt.get(host) ?? 0);
-  nextAllowedAt.set(host, reserved + Math.max(0, interval));
-  await waitWithSignal(reserved - Date.now(), signal);
+export function resetConnectorState(): void { nextAllowedAt.clear(); hostAdmissions.clear(); robotsCache.clear(); }
+async function reserveHost(host: string, interval: number, signal: AbortSignal, start: () => void): Promise<void> {
+  // Reserve the next interval from actual admission, not an expired future slot.
+  // Only admission is serialized: response bodies, robots policy and redirects
+  // never hold this queue, so a stalled response cannot deadlock another hop.
+  const previous = hostAdmissions.get(host) ?? Promise.resolve();
+  const admission = previous.then(async () => {
+    throwIfAborted(signal);
+    let delay: number;
+    while ((delay = (nextAllowedAt.get(host) ?? 0) - Date.now()) > 0) await waitWithSignal(delay, signal);
+    throwIfAborted(signal);
+    // Dispatch before releasing the turn: no await/microtask can invalidate a
+    // permit between its timestamp and the actual pinned request invocation.
+    start();
+    nextAllowedAt.set(host, Date.now() + Math.max(0, interval));
+  });
+  // Cancelled waiters retain their place until the predecessor settles; later
+  // callers then proceed without inheriting rejection or advancing the clock.
+  const settled = admission.then(() => {}, () => {});
+  hostAdmissions.set(host, settled);
+  try { await admission; }
+  finally { if (hostAdmissions.get(host) === settled) hostAdmissions.delete(host); }
 }
 
 /** Most specific user-agent group; longest matching path; Allow wins ties. */
@@ -52,10 +70,11 @@ export function robotsAllowsPath(body: string, path: string, userAgent = CONNECT
 async function checkRobots(url: URL, options: BoundedFetchOptions, signal: AbortSignal): Promise<void> {
   let policy = robotsCache.get(url.origin);
   if (!policy || Date.now() - policy.checkedAt >= (options.robotsTtlMs ?? 86400000)) {
-    await reserveHost(url.host, options.minIntervalMs ?? 5000, signal);
     try {
       const response = await boundedHttpFetch(url.origin + '/robots.txt', {
-        ...options, signal, maxBytes: 256 * 1024, maxRedirects: 0, beforeRequest: undefined,
+        ...options, signal, maxBytes: 256 * 1024, maxRedirects: 0,
+        beforeRequest: undefined,
+        admitRequest: (destination, requestSignal, start) => reserveHost(destination.host, options.minIntervalMs ?? 5000, requestSignal, start),
         headers: { 'User-Agent': CONNECTOR_USER_AGENT },
       });
       if (response.status === 404 || response.status === 410) policy = { body: '', checkedAt: Date.now() };
@@ -80,11 +99,11 @@ export async function boundedFetchBytes(url: string, options: BoundedFetchOption
           const response = await boundedHttpFetch(url, {
             ...options, signal,
             headers: { 'User-Agent': CONNECTOR_USER_AGENT, ...Object.fromEntries(new Headers(options.headers).entries()) },
-            beforeRequest: async destination => {
-              if (!options.skipRobots) await checkRobots(destination, options, signal);
-              await reserveHost(destination.host, options.minIntervalMs ?? 5000, signal);
-              await options.beforeRequest?.(destination, signal);
+            beforeRequest: async (destination, requestSignal) => {
+              if (!options.skipRobots) await checkRobots(destination, options, requestSignal);
+              await options.beforeRequest?.(destination, requestSignal);
             },
+            admitRequest: (destination, requestSignal, start) => reserveHost(destination.host, options.minIntervalMs ?? 5000, requestSignal, start),
           });
           if (!response.ok) throw new BoundedFetchError('status', redactUrl(url), options.label + ' returned HTTP ' + response.status);
           const bytes = new Uint8Array(await response.arrayBuffer());

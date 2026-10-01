@@ -9,7 +9,7 @@ template renderer.
 
 | Script | Purpose | Delegates to | Command |
 | :--- | :--- | :--- | :--- |
-| `generate-docs.ts` | Generate/check configuration, exports and structural HTTP inventories | `src/doc_inventory.ts` | `bun run scripts/generate-docs.ts --write` / `--check` |
+| `generate-docs.ts` | Generate/check configuration, exports, structural HTTP inventories and the full GitHub README projection | `src/doc_inventory.ts` | `bun run scripts/generate-docs.ts --write` / `--check` |
 | `source-coverage.ts` | Read-only retained catalog/geography/access and primary evidence limits | `src/source_coverage.ts` | `bun run scripts/source-coverage.ts` |
 | `weekly-check.ts` | Full weekly health check (all monitors) | `src/weekly_pipeline.ts` | `bun run weekly-check` |
 | `run-monitor.ts` | Municipal code change detection | `src/monitor.ts` | `bun run monitor` |

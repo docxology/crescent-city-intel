@@ -12,6 +12,7 @@ import { exportPagesSnapshot } from "../src/pages_snapshot.ts";
 import { buildAnalyticsOverview, isOperatorOnlySignal, publicSignalNotice, type OverviewSignal } from "../src/analytics_backend.ts";
 import { withOutputRoot } from "../src/shared/paths.ts";
 import { assertArtifact } from "../src/artifact_contracts.ts";
+import { runPagesValidator } from "./helpers/pages-validator.ts";
 
 async function withFixture(run: (root: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "lanea-test-"));
@@ -63,9 +64,9 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
       await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
       const html = await readFile(join(destination, "news.html"), "utf8");
       await writeFile(join(destination, "news.html"), html.replace("</body>", "<!-- Executable not found in $PATH: \"yt-dlp\" --></body>"));
-      const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
-      const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
-      expect(validate.exitCode).not.toBe(0);
+      const validate = await runPagesValidator(destination);
+      const output = validate.stdout + validate.stderr;
+      expect(validate.status).toBe("failed"); expect(validate.reaped).toBe(true); expect(validate.exitCode).toBe(1);
       expect(output).toContain("leaks operator-side detail");
     });
   }, 60000);
@@ -83,11 +84,11 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
       const analytics = JSON.parse(await readFile(join(destination, "data/analytics.json"), "utf8")) as { available?: boolean; schemaVersion?: string };
       expect(analytics.available).toBe(false);
       expect(analytics.schemaVersion).toBe("crescent-city-analytics-unavailable/v1");
-      const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
-      const output = `${validate.stdout.toString()}${validate.stderr.toString()}`;
+      const validate = await runPagesValidator(destination);
+      const output = validate.stdout + validate.stderr;
       // Unavailable code/analytics and an empty feed are legitimate states;
       // the complete edition must validate without an operator artifact.
-      expect(validate.exitCode).toBe(0);
+      expect(validate.status).toBe("ok"); expect(validate.reaped).toBe(true); expect(validate.exitCode).toBe(0);
       expect(output).not.toContain("missing required Pages asset when analytics exist");
     });
   }, 60000);

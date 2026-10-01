@@ -8,6 +8,7 @@ import { paths } from "./shared/paths.js";
 import { runBoundedChild } from "./shared/subprocess.js";
 import { writeJsonAtomic } from "./shared/source_health.js";
 import { withFileLease } from "./shared/storage.js";
+import { isCountyMeetingFileUrl } from "./official_meetings.js";
 
 export interface MeetingDocumentCandidate { title: string; url: string; meetingDate: string; source: string }
 export interface DocumentPage { page: number; start: number; end: number; text: string; textSha256: string }
@@ -94,7 +95,7 @@ export async function meetingDocumentCandidates(): Promise<MeetingDocumentCandid
     const links = [row.link, ...[row.agendaItems, row.minuteItems, row.agendaLinks, row.minuteLinks].flatMap(value => Array.isArray(value) ? value : [])];
     for (const link of links) {
       const candidate = typeof link === "string" ? link : link && typeof link === "object" && "url" in link ? (link as { url: unknown }).url : null;
-      if (typeof candidate !== "string" || !/\.pdf(?:\?|$)/i.test(candidate)) continue;
+      if (typeof candidate !== "string" || !/\.pdf(?:\?|$)/i.test(candidate) && !(row.sourceId === "county-meetings" && isCountyMeetingFileUrl(candidate))) continue;
       try { const url = new URL(candidate); if (!/^https?:$/.test(url.protocol) || url.username || url.password) continue; } catch { continue; }
       found.set(candidate, { title: String(row.title ?? "Official meeting document").slice(0, 300), url: candidate, meetingDate: typeof row.date === "string" ? row.date : "", source: String(row.source ?? row.sourceId ?? "official-agency").slice(0, 160) });
     }

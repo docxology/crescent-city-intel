@@ -61,12 +61,16 @@ bun test --watch      # Watch mode
 | `alert_analytics.test.ts` | `src/alert_analytics.ts` — timeline and type statistics |
 | `v2-endpoints*.test.ts` | API endpoint contracts and edge cases |
 | `pages_snapshot.test.ts` | Static export schema, atomic artifact boundaries, and source-health truthfulness |
+| `pages-bundle-validation.test.ts` | Actual authored bundle semantics, bounded literal/helper/microtask loops, syntax/empty failure and UTF-8 source limits |
+| `lane-cci-frontend.test.ts` | Real browser helpers, exported calendar markup and bounded CLI success, rejection and stalled-bundle controls |
+| `laneA-operator-signals.test.ts` | Public operator-field projection and actual bounded CLI leakage/empty-edition controls |
 | `publication-bundle.test.ts` | Whole-edition custody, interrupted promotion, privacy, and portable hash-bound sitemap provenance with real alternate-checkout timestamps |
 | `artifact-contracts.test.ts` | Shared versioned persisted family/API/Pages authority, counts, types, null facts and public URLs |
 | `artifact-custody.test.ts` | Actual bounded capture and directory export/replay with rehashed tampering controls |
 | `corpus-lineage.test.ts` | Source-bound asymmetric edition changes, explicit legal evidence and aggregate filesystem admission |
 | `directory-review.test.ts` | Per-field unknown currency, role-owned correction decisions and changed-source reopening |
-| `doc-authority.test.ts` | TypeScript AST configuration/exports, structural HTTP docs and filename drift controls |
+| `doc-authority.test.ts` | TypeScript AST configuration/exports, structural HTTP docs, GitHub README link equivalence and filename drift controls |
+| `county-meetings.test.ts` | Realistic County CivicClerk catalog parsing, bounded local HTTP acquisition, provider/file identity and uncertain civil-date evidence |
 | `source-coverage.test.ts` | Read-only registry-grounded catalog/geography/access gaps and corrupt observation rejection |
 | `middleware*.test.ts` | `src/api/middleware.ts` — authentication and sliding-window limits |
 | `idempotency.test.ts` | `src/shared/idempotency.ts` — atomic persistence and migration |

@@ -8,6 +8,34 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.2.0] — 2026-10-01
+
+- Replace GitHub's five-line landing README with the complete root project
+  guide, generated with rebased Markdown/HTML links and rendered equivalence
+  checks. Both release-gate modes reject drift. Correct RAG service port and
+  authentication, source claims, primary title labels and the canonical website.
+- Add bounded public County CivicClerk event/document acquisition with exact
+  published-file identities and narrowly admitted PDF streams. Retain explicit
+  collection windows, pagination/size limits and meeting-time uncertainty;
+  scheduled notices and document availability do not establish completion,
+  archive completeness or ordinance adoption.
+- Refresh current source artifacts and regenerate the public edition while
+  retaining prior release tags and dated receipts. Independent review, local
+  checks, hosted deployment and live acceptance are recorded separately.
+- Serialize actual per-host HTTP admission after destination and caller policy
+  checks, so delayed timers cannot release expired reservations together.
+  Robots requests, redirects and cancelled waiters share bounded admission
+  without holding response bodies in the queue. Real HTTP regressions exercise
+  event-loop stalls and delayed policies; the subprocess cleanup fixture waits
+  for an explicit descendant readiness signal within its existing deadline.
+  Publication race tests mutate real producer bytes at the captured-input
+  boundary, and validator fixtures use bounded asynchronous child execution
+  with exact exit and reaping checks.
+- Bound actual shipped-JavaScript evaluation in an owned Bun child, including
+  helper calls, deferred work and serialized diagnostics. VM interruption
+  supplements the process deadline; failed or stalled evaluation rejects the
+  artifact and preserves the active publication.
+
 ## [3.1.1] — 2026-10-01
 
 - Repair Linux owned-browser recovery with bounded `/proc` argument parsing,

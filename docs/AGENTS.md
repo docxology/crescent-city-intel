@@ -50,3 +50,6 @@ When modifying source code:
 2. Update `docs/api-reference.md` if adding new exports.
 3. Update `docs/configuration.md` if adding new env vars or constants.
 4. Update `docs/architecture.md` if module relationships change.
+5. Edit root `README.md` for project guidance and run `bun run docs:generate`.
+   GitHub displays its complete generated `.github/README.md` projection;
+   the release gate checks exact drift alongside the generated inventories.

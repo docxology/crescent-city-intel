@@ -19,7 +19,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 
 | Module | Integration? | Tests |
 |---|---|---|
-| `browser.ts` | Yes (Playwright) | No (requires browser) |
+| `browser.ts` | Yes (Playwright) | Native lifecycle/cancellation and browser recovery fixtures; Chromium required |
 | `constants.ts` | No | `tests/constants.test.ts`, `tests/constants-extended.test.ts` |
 | `content.ts` | Yes (network) | `tests/content-fixture.test.ts` |
 | `directory.ts` | No (seed-validated, offline) | `tests/directory.test.ts` |
@@ -28,7 +28,7 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `artifact_custody.ts` | Yes (bounded file capture and deterministic replay) | `tests/artifact-custody.test.ts` |
 | `corpus_lineage.ts` | No (retained source/TOC replay and review candidates) | `tests/corpus-lineage.test.ts` |
 | `source_coverage.ts` | No (read-only retained evidence assessment) | `tests/source-coverage.test.ts` |
-| `doc_inventory.ts` | No (TypeScript AST and structural OpenAPI inventories) | `tests/doc-authority.test.ts` |
+| `doc_inventory.ts` | No (TypeScript AST, structural OpenAPI inventories and rendered GitHub README projection) | `tests/doc-authority.test.ts` |
 | `domains.ts` | No | `tests/domains.test.ts`, `tests/domains-extended.test.ts` |
 | `export.ts` | Yes (filesystem) | `tests/export.test.ts` |
 | `pages_snapshot.ts` | Yes (filesystem; static public export) | `tests/pages_snapshot.test.ts` |
@@ -62,7 +62,8 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `llm/*` | Yes (Ollama/OpenRouter/ChromaDB) | `tests/llm-config.test.ts`, `tests/llm-openrouter.test.ts`, `tests/embeddings.test.ts` |
 | `shared/*` | Yes (filesystem) | `tests/shared-paths.test.ts`, `tests/shared-data.test.ts`, `tests/fuzzy.test.ts`, `tests/readability-gunning-fog.test.ts`, `tests/idempotency.test.ts` |
 | `lifeos_bridge.ts` | No (filesystem; writes the Pulse LOCAL digest) | `tests/lifeos-bridge.test.ts` |
-| `pages_validation.ts` | No (offline Pages artifact validator) | exercised via `bun run pages:validate` and lane fixture tests |
+| `pages_validation.ts` | Yes (owned offline bundle-evaluation child) | exercised via `bun run pages:validate` and lane fixture tests |
+| `pages_bundle_validation.ts` | Yes (private temporary input + bounded offline child) | real shipped-bundle behavior, stall and validator lane fixtures |
 | `pages_seed.ts` | No (filesystem seed refresh) | No (invoked via `bun run pages:seed`) |
 | `release_gate.ts` | Yes (filesystem; spawns tsc/tests/git) | No (the gate itself) |
 | `browser_smoke.ts` | Yes (Playwright + GUI server) | No (requires browser) |

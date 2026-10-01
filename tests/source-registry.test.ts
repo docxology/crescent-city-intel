@@ -12,8 +12,19 @@ import { sourceHealth, isSourceHealthReceipt, errorMessage, EXPECTED_SOURCE_HEAL
 import { MONITOR_KEYS, buildExtendedMonitorDefinitions, classifySourceHealth } from "../src/alerts/composite.ts";
 import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "../src/alerts/nws_weather.ts";
 import { NWS_ALERTS_URL as CENTRAL_NWS_ALERTS_URL, NWS_FORECAST_ZONE as CENTRAL_NWS_FORECAST_ZONE } from "../src/constants.ts";
+import { coopsUrl } from "../src/alerts/noaa_tides.ts";
+import { COUNTY_CIVICCLERK_API, COUNTY_CIVICCLERK_PORTAL } from "../src/official_meetings.ts";
 
 describe("source discovery registry", () => {
+  test("County identity declares its approved public provider, and tide discovery retains producer UTC parameters without historical dates", () => {
+    const county = getSourceRegistry().find(source => source.id === "county-meetings")!;
+    expect(county.endpointUrl).toBe(COUNTY_CIVICCLERK_API); expect(county.discoveredFrom).toContain(COUNTY_CIVICCLERK_PORTAL); expect(county.collectionMode).toBe("api");
+    const tides = getSourceRegistry().find(source => source.configuredMonitor === "alert:tides")!;
+    const request = new URL(tides.endpointUrl!), producer = new URL(coopsUrl("predictions", "20260930", "20261002"));
+    expect(request.searchParams.get("date")).toBe("today"); expect(request.searchParams.has("begin_date")).toBe(false); expect(request.searchParams.has("end_date")).toBe(false);
+    for (const key of ["station", "product", "datum", "time_zone", "interval", "units", "format", "application"]) expect(request.searchParams.get(key)).toBe(producer.searchParams.get(key));
+    expect(request.searchParams.get("time_zone")).toBe("gmt");
+  });
   test("weather inventory derives the exact current Coastal Del Norte producer request", () => {
     const weather = getSourceRegistry().find(source => source.configuredMonitor === "alert:weather")!;
     expect(NWS_FORECAST_ZONE).toBe("CAZ101");

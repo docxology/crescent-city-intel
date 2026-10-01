@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { outputRoot } from "../shared/paths.js";
 /**
  * PG&E Public Safety Power Shutoff (PSPS) Monitor for Del Norte County.
@@ -16,7 +17,9 @@ import { outputRoot } from "../shared/paths.js";
 import { createLogger } from "../logger.js";
 import { mkdir } from "fs/promises";
 import { join } from "path";
-import { launchBrowser, closeBrowser } from "../browser.js";
+import { newPage, closeBrowser } from "../browser.js";
+import { fixtureDestination, currentTransportSignal, waitWithSignal } from "../shared/transport.js";
+import { remainingRunMs } from "../shared/run_scope.js";
 import type { Page } from "playwright";
 import { writeJsonAtomic } from "../shared/source_health.js";
 
@@ -105,12 +108,12 @@ export interface PspsPageState {
 const DEL_NORTE_COUNTY = /\bdel\s+norte\b/i;
 
 export async function fetchPspsPageState(): Promise<PspsPageState> {
-  const ctx = await launchBrowser();
   let page: Page | null = null;
   try {
-    page = await ctx.newPage();
-    await page.goto(PGE_PSPS_PAGE_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForTimeout(6000);
+    page = await newPage();
+    const response = await page.goto(fixtureDestination(PGE_PSPS_PAGE_URL), { waitUntil: "domcontentloaded", timeout: Math.min(60000, remainingRunMs() ?? 60000) });
+    if (!response?.ok()) throw new Error(`PG&E PSPS acquisition returned HTTP ${response?.status() ?? 'unknown'}`);
+    await waitWithSignal(Math.min(6000, remainingRunMs() ?? 6000), currentTransportSignal() ?? new AbortController().signal);
     const text = await page.evaluate(() => document.body.innerText);
     const hasNoActive = /no active PSPS events/i.test(text);
     const hasAnnounced = !hasNoActive && /has been announced/i.test(text);
@@ -139,7 +142,8 @@ export async function fetchPspsPageState(): Promise<PspsPageState> {
 }
 
 /** Main monitor entry point */
-export async function runPSPSMonitor(): Promise<PspsReport | null> {
+export async function runPSPSMonitor(options: ProducerOptions = {}): Promise<PspsReport | null> { return withProducerScope("alert-pge-psps", options, () => runPSPSMonitorInScope()); }
+async function runPSPSMonitorInScope(): Promise<PspsReport | null> {
   logger.info("Checking PG&E PSPS events for Del Norte County");
   lastPspsError = undefined;
 

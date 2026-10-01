@@ -10,6 +10,8 @@ Per-module documentation. Each file covers one logical component of the system.
 | :--- | :--- |
 | `scraping.md` | `browser.ts`, `toc.ts`, `content.ts`, `scrape.ts`, `scraper_utils.ts` |
 | `verification.md` | `verify.ts` |
+| `artifact-contracts.md` | `schema_validation.ts`, `artifact_contracts.ts`, `artifact_custody.ts`, `api/contracts.ts`, checked loader/API/Pages boundaries |
+| `source-review.md` | `corpus_lineage.ts`, `directory_review.ts`, `source_coverage.ts`, `scripts/source-coverage.ts` |
 | `export.md` | `export.ts` |
 | `pages.md` | `pages_snapshot.ts`, `pages_css.ts`, `pages_scan.ts`, `pages_validation.ts`, `pages_seed.ts`, `scripts/export-pages.ts`, `scripts/validate-pages.ts` |
 | `gui.md` | `gui/server.ts`, `gui/routes.ts`, `gui/docs_dashboard.ts`, `gui/annotations.ts`, `gui/search.ts`, `gui/semantic_search.ts`, `gui/analytics.ts`, `browser_smoke.ts`, `gui/static/index.html` |

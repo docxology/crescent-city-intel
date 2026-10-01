@@ -108,7 +108,7 @@ describe("publication editions and promotion", () => {
     const originalSnapshot = await readFile(snapshotFile, "utf8"); const originalSitemap = await readFile(sitemapFile, "utf8");
     const check = async (change: (snapshot: PagesSnapshot) => void, sitemap = originalSitemap) => {
       const snapshot = JSON.parse(originalSnapshot) as PagesSnapshot; change(snapshot);
-      await writeFile(snapshotFile, JSON.stringify(snapshot)); await writeFile(sitemapFile, sitemap);
+      await writeFile(snapshotFile, `${JSON.stringify(snapshot, null, 2)}\n`); await writeFile(sitemapFile, sitemap);
       const manifestFile = join(destination, "publication-manifest.json"); const manifest = JSON.parse(await readFile(manifestFile, "utf8"));
       // Deliberately satisfy tree hashes: semantic receipt checks must still fail.
       manifest.files = await hashPublicationTree(destination); manifest.editionId = publicationHash(JSON.stringify(manifest.files));

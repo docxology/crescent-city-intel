@@ -15,14 +15,16 @@
 import { createLogger } from './logger.js';
 import { htmlToText } from './utils.js';
 import { DOMParser } from '@xmldom/xmldom';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir } from 'fs/promises';
 import { join } from 'path';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { boundedHttpFetch as fetch, type TransportOptions, withinDeadline, waitWithSignal } from './shared/transport.js';
-import { paths } from './shared/paths.js';
-import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
+import { paths, outputRoot } from './shared/paths.js';
+import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonl } from './shared/source_health.js';
 import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
+import { replaceArtifacts, recoverArtifactTransactions, type ArtifactReplacement } from './shared/artifact_transaction.js';
+import { withProducerScope, currentRunSignal, type ProducerOptions } from './shared/run_scope.js';
 
 const logger = createLogger('news_monitor');
 
@@ -336,13 +338,14 @@ export async function saveNewsItems(items: NewsItem[]): Promise<string> {
     items,
   };
 
-  await writeFile(filename, JSON.stringify(payload, null, 2));
+  await writeJsonAtomic(filename, payload);
   logger.info(`Saved ${items.length} news items to ${filename}`);
   return filename;
 }
 
 export async function saveNewsHealth(health: SourceHealth[]): Promise<void> {
   await writeJsonAtomic(paths.newsHealth, {
+    schemaVersion: 'crescent-city-source-health/v1',
     checkedAt: new Date().toISOString(),
     sources: health,
   });
@@ -359,9 +362,13 @@ export async function saveNewsHealth(health: SourceHealth[]): Promise<void> {
  */
 export async function monitorNews(
   filterKeywords?: string[],
-  options: { noDedup?: boolean } = {},
+  options: ProducerOptions & { noDedup?: boolean } = {},
 ): Promise<NewsItem[]> {
+  return withProducerScope('news', options, () => monitorNewsOwned(filterKeywords, options));
+}
+async function monitorNewsOwned(filterKeywords: string[] | undefined, options: ProducerOptions & { noDedup?: boolean }): Promise<NewsItem[]> {
   logger.info('=== Starting Crescent City News Monitoring ===');
+  await recoverArtifactTransactions(outputRoot());
 
   const effectiveKeywords = filterKeywords?.length
     ? filterKeywords.map(k => k.toLowerCase())
@@ -409,10 +416,11 @@ export async function monitorNews(
     })
   ));
 
-  await saveNewsHealth(fetchResults.map(({ health }) => health));
+  const healthPayload = { schemaVersion: 'crescent-city-source-health/v1', checkedAt: new Date().toISOString(), sources: fetchResults.map(({ health }) => health) };
 
   const fetchedAt = new Date().toISOString();
   for (const { sourceName, items } of fetchResults) {
+    currentRunSignal()?.throwIfAborted();
     for (const item of items) {
       // Apply keyword filter if custom keywords provided
       if (filterKeywords) {
@@ -441,14 +449,16 @@ export async function monitorNews(
     return tb - ta;
   });
 
-  // Persist updated seen-ids
-  if (newCount > 0 && !options.noDedup) {
-    await idempotency.save();
-    logger.info(`Added ${newCount} new URL(s) to dedup index (total: ${idempotency.size})`);
-  }
-
+  const artifacts: ArtifactReplacement[] = [{ path: 'news/source-health.json', text: JSON.stringify(healthPayload, null, 2) }];
   if (allItems.length > 0) {
-    await saveNewsItems(allItems);
+    const name = `news/news-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID()}.json`;
+    artifacts.push({ path: name, text: JSON.stringify({ fetchedAt, totalItems: allItems.length, items: allItems }, null, 2) });
+  }
+  // Identity publication can never suppress a source batch that failed to persist.
+  if (newCount > 0 && !options.noDedup) await idempotency.publish(outputRoot(), artifacts, { signal: currentRunSignal() });
+  else await replaceArtifacts(outputRoot(), artifacts, { signal: currentRunSignal() });
+  await appendBoundedJsonl(paths.newsHealth.replace(/source-health\.json$/, 'source-health-history.jsonl'), healthPayload);
+  if (allItems.length > 0) {
     logger.info(`News monitoring complete: ${allItems.length} new relevant items found`);
     for (let i = 0; i < Math.min(3, allItems.length); i++) {
       const { title, source, pubDate } = allItems[i];

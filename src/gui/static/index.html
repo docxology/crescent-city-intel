@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Quadruplicate — Civic Intelligence</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
-  <script src="assets/gui-runtime.js"></script>
   <link rel="stylesheet" href="assets/gui.css">
 </head>
 
@@ -54,7 +53,7 @@
     <div id="sidebar">
       <div id="toc-tree"></div>
     </div>
-    <div id="content">
+    <div id="code-reader"><div id="content">
       <div class="content-placeholder" id="welcome-content">
         <div class="welcome-linktree">
           <section class="welcome-hero" aria-labelledby="welcome-title">
@@ -91,7 +90,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </div></div>
     <div id="alerts-panel" style="display:none; padding:1rem; background:var(--bg-secondary, #1a1a2e); color:var(--text-primary, #fff); border-bottom:1px solid var(--border, #333); max-height:calc(100vh - var(--header-height)); overflow-y:auto;">
       <h3 style="margin:0 0 0.5rem 0;">🚨 Live Safety Alerts</h3>
       <div id="alerts-content">
@@ -154,10 +153,11 @@
         <div id="wildfire-annotations">
           <div class="alert-trends-header" style="margin-top:12px">
             <div><h4 id="wildfire-annotations-title" style="margin:0;">Map annotations</h4>
-            <p>Click a point on the map, write a note, and save. Notes are stored server-side, capped at 200 (oldest dropped first).</p></div>
+            <p>Click a point on the map or enter anchor percentages, write a note, and save. Notes are stored server-side, capped at 200 (oldest dropped first).</p></div>
           </div>
           <form id="annotation-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input type="text" id="annotation-text" placeholder="Note text (click the map first to place the anchor)" maxlength="500" style="flex:1;min-width:220px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;">
+            <label for="annotation-x">Map X %</label><input id="annotation-x" type="number" min="0" max="100" value="50" step="1" style="width:70px"><label for="annotation-y">Map Y %</label><input id="annotation-y" type="number" min="0" max="100" value="50" step="1" style="width:70px"><button class="btn" id="annotation-anchor" type="button">Place anchor</button>
+            <label class="sr-only" for="annotation-text">Note text</label><input type="text" id="annotation-text" placeholder="Note text (choose percentages or click the map to place an anchor)" maxlength="500" style="flex:1;min-width:220px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-family:inherit;">
             <button class="btn" id="annotation-save" type="submit">Save note</button>
           </form>
           <p id="annotation-place-indicator" role="status" aria-live="polite" style="color:var(--text-muted, #888);margin:0.4rem 0 0 0;"></p>
@@ -403,26 +403,7 @@
     </div>
   </div>
 
-  <script src="assets/modules/00-nav.js"></script>
-  <script src="assets/virtual-list.js"></script>
-  <!-- Cross-reference linking must be defined before 10-core renders section
-       prose, so ccLinkifyCrossRefs is available at first paint. -->
-  <script src="assets/modules/15-cross-ref-links.js"></script>
-  <script src="assets/modules/10-core.js"></script>
-  <script src="assets/modules/20-section-tools.js"></script>
-  <script src="assets/modules/30-search.js"></script>
-  <script src="assets/modules/40-overlays.js"></script>
-  <script src="assets/modules/50-chat.js"></script>
-  <script src="assets/modules/60-alerts.js"></script>
-  <script src="assets/modules/70-analytics.js"></script>
-  <script src="assets/modules/80-sources.js"></script>
-  <script src="assets/modules/90-intel-panels.js"></script>
-  <script src="assets/modules/110-feeds.js"></script>
-  <script src="assets/modules/120-domains-geo.js"></script>
-  <script src="assets/modules/130-readability.js"></script>
-  <script src="assets/modules/100-overlay-tabs.js"></script>
-  <script src="assets/modules/140-fuzzy-keys.js"></script>
-<script src="assets/modules/145-phase9-hazards.js"></script>
+  <script type="module" src="assets/gui-app.js"></script>
 </body>
 
 </html>

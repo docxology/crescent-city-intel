@@ -10,7 +10,7 @@ export async function runGuiJourneys(): Promise<void> {
   const article = seed.articles.find(item => item.sections.length > 0)!;
   const section = { ...article.sections[0]!, articleGuid: article.guid, articleTitle: article.title };
   const adversarialHtml = String.raw`<img srcset="https://unsafe.invalid/image 2x"><a href="#safe" ping="https://unsafe.invalid/ping">safe link</a><span style="background-image:u\72l(https://unsafe.invalid/style)">CSS attack</span><div style="width:30px;height:30px;background-image:image-set('https://unsafe.invalid/image-set' 1x)">CSS resource attack</div><svg><rect fill="url(https://unsafe.invalid/svg)"></rect></svg>`;
-  let streamMode = "success", searchFirstFinished = false, requireKey = false, tocUnavailable = false;
+  let streamMode = "success", searchFirstFinished = false, requireKey = false, tocUnavailable = false, redirectTarget = "";
   const chatBodies: Array<{ q: string; history: Array<{ role: string; content: string }> }> = [];
   const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "X-API-Key, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
   const server = Bun.serve({ port: 0, async fetch(req) {
@@ -18,6 +18,7 @@ export async function runGuiJourneys(): Promise<void> {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (path === "/denied") return new Response('<iframe id="denied-frame" style="width:1200px;height:900px" sandbox="allow-scripts" src="/"></iframe>', { headers: { "Content-Type": "text/html" } });
     if (path.startsWith("/api/") && requireKey && req.headers.get("X-API-Key") !== "fixture-memory-key") return Response.json({ error: "API key required" }, { status: 401, headers: cors });
+    if (path === "/api/redirect") return new Response(null,{status:302,headers:{Location:redirectTarget}});
     if (path === "/api/toc") return tocUnavailable ? Response.json({ error: "Contents unavailable" }, { status: 404, headers: cors }) : Response.json(await Bun.file("pages-data/toc.json").json(), { headers: cors });
     if (path === "/api/stats") return Response.json({ articleCount: seed.articles.length, sectionCount: 1, tocNodeCount: 1 }, { headers: cors });
     if (path === "/api/health") return Response.json({ status: "ok", chatProvider: "ollama" }, { headers: cors });
@@ -40,14 +41,14 @@ export async function runGuiJourneys(): Promise<void> {
     if (path.startsWith("/api/")) return Response.json({ signals: [] }, { headers: cors });
     const filePath = resolve("src/gui/static", path === "/" ? "index.html" : path.slice(1));
     if (!filePath.startsWith(resolve("src/gui/static") + "/") || !existsSync(filePath)) return new Response("Not found", { status: 404 });
-    return new Response(Bun.file(filePath));
+    return new Response(Bun.file(filePath), { headers: cors });
   } });
   const existingChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH ?? (existsSync(existingChrome) ? existingChrome : undefined);
   const browser = await chromium.launch({ headless: true, ...(executablePath ? { executablePath } : {}) });
   let passed = 0;
   try {
-    const context = await browser.newContext(), page = await context.newPage();
+    const context = await browser.newContext(), page = await context.newPage(); page.setDefaultTimeout(8000);
     const errors: string[] = [], externalRequests: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("request", request => { if (!request.url().startsWith(`http://127.0.0.1:${server.port}`)) externalRequests.push(request.url()); });
@@ -62,7 +63,7 @@ export async function runGuiJourneys(): Promise<void> {
     await page.locator("#search-input").press("ArrowDown");
     assert.equal(await page.evaluate(() => document.activeElement?.tagName), "BUTTON");
     await page.keyboard.press("Enter"); await page.waitForFunction(() => document.querySelector("#content")?.textContent?.includes("Summarize"));
-    await page.evaluate(html => { document.querySelector("#content")!.innerHTML += html; }, adversarialHtml);
+    await page.evaluate(html => { Reflect.get(window, "CCGui").render(document.querySelector("#content"), document.querySelector("#content")!.innerHTML + html); }, adversarialHtml);
     await page.waitForTimeout(100);
     assert.equal(await page.locator("#content [srcset], #content [ping], #content [style*=background-image], #content [fill*=url]").count(), 0);
     assert.deepEqual(externalRequests, []);
@@ -84,6 +85,9 @@ export async function runGuiJourneys(): Promise<void> {
     const frame = page.frameLocator("#denied-frame"); await frame.locator("#toc-tree button").first().waitFor();
     assert.equal(await frame.locator("body").evaluate(() => { try { localStorage.getItem("theme"); return false; } catch { return true; } }), true);
     await frame.locator("#theme-toggle").click(); assert.equal(await frame.locator("html").getAttribute("data-theme"), "dark");
+    await frame.locator('#search-input').fill('latest');await frame.locator('#search-results button[data-guid]').first().click();await frame.locator('#bookmark-btn').waitFor();await frame.locator('#bookmark-btn').click();
+    assert.equal((await frame.locator('#reader-announcement').textContent())!.includes('not saved'),true);
+    await frame.locator('[data-action=permalink]').click();await frame.locator('#reader-announcement').filter({hasText:/Clipboard access is unavailable|could not copy this permalink/}).waitFor();
     await frame.locator("#chat-toggle").click(); assert.equal(await frame.locator("#chat-panel").getAttribute("class").then(value => value!.includes("open")), true); passed++;
     tocUnavailable = true; await page.goto(`http://127.0.0.1:${server.port}`);
     await page.locator('#toc-tree[data-state="unavailable"][aria-busy="false"]').waitFor();
@@ -96,8 +100,14 @@ export async function runGuiJourneys(): Promise<void> {
     assert.equal(await page.locator("#api-credentials-key").inputValue(), "");
     assert.equal(await page.evaluate(async () => (await Reflect.get(window, "CCGui").apiFetch("/api/health")).status), 200);
     assert.equal(await page.evaluate(() => Object.keys(localStorage).some(key => String(localStorage.getItem(key)).includes("fixture-memory-key"))), false);
-    const other = Bun.serve({ port: 0, fetch(req) { return Response.json({ receivedKey: req.headers.has("X-API-Key") }, { headers: cors }); } });
-    try { assert.equal(await page.evaluate(async url => (await (await Reflect.get(window, "CCGui").apiFetch(url)).json()).receivedKey, `http://127.0.0.1:${other.port}/api/health`), false); }
+    let otherRequests = 0;
+    const other = Bun.serve({ port: 0, fetch(req) { otherRequests++; return Response.json({ receivedKey: req.headers.has("X-API-Key") }, { headers: cors }); } });
+    try {
+      assert.equal(await page.evaluate(async url => (await (await Reflect.get(window, "CCGui").apiFetch(url)).json()).receivedKey, `http://127.0.0.1:${other.port}/api/health`), false);
+      redirectTarget=`http://127.0.0.1:${other.port}/api/health`;
+      assert.equal(await page.evaluate(async()=>{try{await Reflect.get(window,"CCGui").apiFetch('/api/redirect');return false;}catch{return true;}}),true);
+      assert.equal(otherRequests,1,'Same-origin credentialed redirects must not issue a destination request');
+    }
     finally { other.stop(true); }
     await page.locator("#api-credentials-clear").click();
     assert.equal(await page.evaluate(async () => (await Reflect.get(window, "CCGui").apiFetch("/api/health")).status), 401); passed++;

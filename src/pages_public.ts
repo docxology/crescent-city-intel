@@ -1,4 +1,5 @@
 /** Explicit public artifact-family DTO schemas; backend additions stay local. */
+import { assertArtifact, type ArtifactFamily } from "./artifact_contracts.js";
 import { isIP } from "node:net";
 import { isPublicAddress } from "./shared/transport.js";
 type Shape = true | { [field: string]: Shape } | [Shape];
@@ -21,7 +22,7 @@ function publicMap(value: unknown, row: Shape): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value).filter(([key]) => /^[A-Za-z0-9_: .-]{1,160}$/.test(key)).map(([key, item]) => [key, project(item, row)]).filter(([, item]) => item !== undefined));
 }
 const item = scalars("id title source url date summary");
-const sourceHealth = scalars("sourceId source status checkedAt fetchedAt itemCount url httpStatus ageMs freshness freshnessWindowMs durationMs disabled provenance");
+const sourceHealth = scalars("sourceId source status checkedAt fetchedAt observedAt productDate validUntil timestampBasis observationAgeMs observationFreshness itemCount url httpStatus ageMs freshness freshnessWindowMs durationMs disabled provenance");
 const registry = scalars("id name kind authority region canonicalUrl endpointUrl discoveredFrom collectionMode automation enabled configuredMonitor referenceOnly expectedCadence provenance");
 const stats = { ...scalars("type totalEvents firstEvent lastEvent avgPerDay"), severityCounts: {} };
 const signal = scalars("id category severity title detail evidence nextStep");
@@ -30,7 +31,24 @@ const reportShape = { ...scalars("schemaVersion generatedAt status runId started
 const alertRow = scalars("id title number text description summary headline source sourceName url link level status severity type event eventType magnitude depth distance distanceKm latitude longitude lat lon location fetchedAt checkedAt assessedAt effective expires sent onset instruction areaDesc timestamp start end date waveHeight wavePeriod windSpeed windDirection waterTemperature airTemperature tideHeight stationName stationId name route county condition reason value units price grade volume vesselName mmsi vesselType speed course heading permitNumber address reportName season seasonStatus zone area schoolName");
 const monitorShape = { ...scalars("schemaVersion monitor source sourceUrl url fetchedAt checkedAt assessedAt generatedAt timestamp status level reason summary message detail count itemCount available availability station stationId stationName droughtCategory dsci averagePrice state fuelType warningCount alertCount activeCount earthquakeCount plumeCount closureCount noticeCount"), events: [alertRow], alerts: [alertRow], earthquakes: [alertRow], incidents: [alertRow], closures: [alertRow], notices: [alertRow], permits: [alertRow], reports: [alertRow], vessels: [alertRow], plumes: [alertRow], tides: [alertRow], forecast: [alertRow], current: alertRow } satisfies Shape;
 
-export function publicReports(value: unknown): Record<string, unknown> | null { return project(value, reportShape) as Record<string, unknown> | null; }
+export function publicReports(value: unknown): Record<string, unknown> | null {
+  if (value === null || value === undefined) return null;
+  const source = value as Record<string, unknown>;
+  if (source.reportType === "monthly-civic-health") {
+    const dto = project(value, { ...scalars("schemaVersion reportType period generatedAt periodStart periodEnd status warnings"), sourceHealth: healthSummary, sourceDiscovery: scalars("registryFingerprint sourceCount monitoredCount discoveryOnlyCount referenceOnlyCount coverageGaps") }) as Record<string, unknown>;
+    dto.metrics = publicMap(source.metrics, true);
+    return dto;
+  }
+  if (Array.isArray(source.steps) && source.durationMs !== undefined && source.sourceHealth) return project(value, { ...scalars("schemaVersion runId pipeline status exitCode startedAt completedAt durationMs"), sourceHealth: healthSummary, steps: [scalars("name status startedAt completedAt durationMs itemCount")] }) as Record<string, unknown>;
+  if (source.providerReachable !== undefined && source.attemptedCount !== undefined) return project(value, scalars("schemaVersion runId startedAt completedAt provider model inputCount attemptedCount succeededCount retryableCount sourceOnlyCount reusedCount providerChecked providerReachable")) as Record<string, unknown>;
+  if (source.stepCount !== undefined) return project(value, { ...scalars("schemaVersion runId pipeline status exitCode startedAt completedAt monitorStatus alertFailures missingAlerts degradedAlerts feedFailures missingFeeds degradedFeeds downstreamFailures missingDownstream degradedDownstream stepCount"), sourceHealth: healthSummary, steps: [scalars("name status durationMs")] }) as Record<string, unknown>;
+  return project(value, reportShape) as Record<string, unknown>;
+}
+/** Checked public boundary uses the same family authority as local readers/HTTP responses. */
+export function assertPublicFamilyArtifact(family: ArtifactFamily, value: unknown): void {
+  assertArtifact(family, value, { audience: "public" });
+  assertPublicArtifact(value);
+}
 export function publicAlerts(value: unknown): { composite: Record<string, unknown> | null; current: Record<string, unknown>[] } {
   const dto = project(value, { composite: { ...scalars("level assessedAt generatedAt reason hasUnavailableMonitors monitorsPresent monitorsExpected presentCount expectedCount available degraded status"), sourceHealth: [sourceHealth], factors: [scalars("source level reason")], alerts: [alertRow] }, current: [monitorShape] }) as { composite: Record<string, unknown> | null; current: Record<string, unknown>[] };
   const original = value as { composite?: { monitors?: unknown } };
@@ -38,7 +56,7 @@ export function publicAlerts(value: unknown): { composite: Record<string, unknow
   return dto;
 }
 export function publicEvents(value: unknown): unknown {
-  const dto = project(value, { ...scalars("schemaVersion generatedAt count"), llm: scalars("attempted status provider model summarizedCount"), provenance: scalars("deterministicFrom summarizer boundaries"), events: [scalars("id title kind dateStart dateAllDay timeNote publicationAt location organizer status description sourceLinks sourceName fetchedAt extractionMethod confidence")] }) as Record<string, unknown>;
+  const dto = project(value, { ...scalars("schemaVersion generatedAt count"), llm: scalars("attempted status provider model summarizedCount"), provenance: scalars("deterministicFrom summarizer boundaries"), events: [{ ...scalars("id title kind dateStart dateAllDay timeNote publicationAt location organizer status description sourceLinks sourceName fetchedAt extractionMethod confidence"), calendarEvidence: scalars("uid recurrenceId timezone timeBasis") }] }) as Record<string, unknown>;
   if (value && typeof value === "object" && Object.hasOwn(value, "summaries")) dto.summaries = publicMap((value as Record<string, unknown>).summaries, scalars("text status provider model generatedAt"));
   return dto;
 }
@@ -52,6 +70,8 @@ export function publicSourceDiscovery(value: unknown): unknown {
 export function publicAnalytics(value: unknown): unknown {
   const dto = project(value, { ...scalars("schemaVersion generatedAt inputFingerprint status headline summary"), entryPoint: scalars("title startHere readOrder interpretation"), metrics: { code: scalars("articles sections words avgWordsPerSection"), sources: healthSummary, content: scalars("news meetings youtube curated searchQueries"), alerts: scalars("totalEvents mostActiveType mostRecent") }, code: { ...scalars("totalArticles totalSections totalWords avgWordsPerSection"), titleBreakdown: [scalars("title articleCount sectionCount wordCount")], longestSections: [scalars("number title words guid")], shortestSections: [scalars("number title words guid")] }, sources: { missing: [sourceHealth], degraded: [sourceHealth], ...scalars("coverageGaps registryFingerprint") }, alerts: { ...scalars("level reason assessedAt"), analytics: { ...scalars("totalEvents mostActiveType"), mostRecentAlert: { ...scalars("timestamp type severity description"), record: alertRow }, typeStats: [{ ...stats, severityCounts: {} }] } }, content: { recent: [item], curated: [item] }, pipeline: scalars("status runId completedAt curationProvider curationModel reportPeriod"), signals: [signal], llm: scalars("status provider model promptVersion inputFingerprint summarizedAt") }) as Record<string, unknown>;
   const original = value as { alerts?: { analytics?: { typeStats?: Array<{ severityCounts?: unknown }> } } };
+  const sampling = value && typeof value === "object" ? (value as Record<string, unknown>).sampling : undefined;
+  if (sampling !== undefined) dto.sampling = project(sampling, { ...scalars("schemaVersion invalidRows duplicateChecks comparable reason unit"), current: scalars("startMs endMs intervalMs expectedSlots observedSlots presentSlots unavailableSlots missingSlots coveragePercent presentSourceIds"), previous: scalars("startMs endMs intervalMs expectedSlots observedSlots presentSlots unavailableSlots missingSlots coveragePercent presentSourceIds") });
   const rows = ((dto.alerts as Record<string, unknown> | undefined)?.analytics as Record<string, unknown> | undefined)?.typeStats;
   if (Array.isArray(rows)) rows.forEach((row, index) => { row.severityCounts = publicMap(original.alerts?.analytics?.typeStats?.[index]?.severityCounts, true); });
   return dto;

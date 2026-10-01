@@ -12,22 +12,17 @@ analytics timeline.
 `ALERT_MONITOR_SOURCE_NAMES`, `CORRELATION_SOURCES`, `ALERT_TYPES`,
 `EXPECTED_SOURCE_HEALTH`'s alert entries, `MONITOR_PRIORITY` — must derive from
 it or be asserted against it. `tests/alert-source-roster.test.ts` enforces that,
-including the hand-written monitor and icon maps in
-`gui/static/index.html` (which cannot import it), because count/roster drift is
-this repo's most recurrent defect class: it has produced an 8-of-14 analytics
-list, a 13-of-14 correlation list, an 8-of-14 coverage contract, and two spec
-rows naming fields that do not exist on the monitors they describe. The release
-gate only checks supersets in either direction, so an omission cannot fail CI on
-its own.
+including the hand-written monitor and icon maps in the GUI. Keep source names,
+canonical keys, aliases and display counts aligned with the actual runner.
 
 ## Convention
 
 - All modules **export** their primary monitoring function so `scripts/` can import them.
 - All modules support `import.meta.main` for direct `bun run` invocation.
 - Alert data is persisted to `output/alerts/<type>/` as JSON (except tides → `output/tides/`, fishing → `output/fishing/`).
-- All functions return gracefully (no throws) — errors are logged and an empty result returned.
+- Acquisition failures retain typed unavailable evidence; cancellation, unsafe filesystem admission and persistence failures remain visible to orchestration.
 - **A monitor that could not check must return `null`, not an empty report.** For every key in `NULL_ON_FAILURE_MONITORS` the runner reads `null` as "unavailable source". Returning an empty-but-successful report makes an outage indistinguishable from a clear day, and `empty` counts as *present* coverage, so the failure is invisible on every surface. Total NDBC outage, a failed CDFW fetch, and partial Caltrans route coverage all return `null` for exactly this reason.
-- **Every report interface carries a `timestamp` (or `fetchedAt`), and every `current.json` carries a `level` and a `summary`.** `isFreshReport` reads `fetchedAt ?? timestamp` and treats a report with neither as **stale forever** — a monitor missing its timestamp reads as missing coverage and lands in the healer's permanent retry roster even on a fully successful run. The GUI's per-monitor tile renders `summary ?? level ?? 'Data available'`, so a report missing both shows a permanent clean bill of health; derive both from the same inputs the composite uses, so the tile and the headline cannot disagree.
+- **Preserve retrieval and primary clocks separately.** Reports carry `fetchedAt` or `timestamp`; observation/product monitors also preserve the clock required by `assessSourceClock(key, report, now)`. Missing primary evidence is unknown/unavailable, even after a successful fetch. Derive display summaries and composite severity from the same validated report fields; an absent source cannot become a clean bill of health.
 - Use `computeSha256` from `../utils.ts` for deduplication hashing.
 - Use `createLogger('module_name')` from `../logger.ts` for all logging.
 - Persistent JSONL history at `output/alerts/<type>/history.jsonl` for analytics.
@@ -41,11 +36,11 @@ its own.
 | `nws_weather.ts` | `monitorNWSWeatherAlerts()` | `output/alerts/weather/{advisory,watch,warning}/` | `api.weather.gov` REST JSON |
 | `noaa_tides.ts` | `monitorTides()` | `output/tides/` | NOAA CO-OPS station 9419750 |
 | `cdfw_fishing.ts` | `monitorFishing()`, `estimateCrabSeasonStatus()` | `output/fishing/` | CDFW marine bulletins |
-| `epa_airnow.ts` | `runAirQualityMonitor()` | `output/alerts/airquality/` | EPA AirNow API (requires `AIRNOW_API_KEY`) |
+| `epa_airnow.ts` | `runAirQualityMonitor()` | `output/alerts/airquality/` | Optional keyed AirNow ZIP API, with keyless public PM2.5 KML fallback and primary observation clocks |
 | `calfire_wildfire.ts` | `runWildfireMonitor()` | `output/alerts/wildfire/` | CAL FIRE incident API |
 | `ndbc_marine.ts` | `runMarineMonitor()` | `output/alerts/marine/` | NDBC buoy realtime data |
 | `nws_marine.ts` | `runMarineZoneMonitor()` | `output/alerts/marinezone/` | NWS CWF text product (KEKA), zone PZZ450 |
-| `usdm_drought.ts` | `runDroughtMonitor()` | `output/alerts/drought/` | US Drought Monitor (Del Norte FIPS 06015) |
+| `usdm_drought.ts` | `runDroughtMonitor()` | `output/alerts/drought/` | USDM categorical county area percentages (Del Norte FIPS 06015), with retained MapDate |
 | `pge_psps.ts` | `runPSPSMonitor()` | `output/alerts/psps/` | Official browser-rendered PG&E PSPS events page |
 | `hrrr_smoke.ts` | `runSmokeMonitor()` | `output/alerts/smoke/` | NOAA HMS smoke polygons |
 | `caltrans_roads.ts` | `runRoadClosureMonitor()` | `output/alerts/roads/` | `roads.dot.ca.gov` per-route text; all configured routes must be checked |
@@ -68,7 +63,7 @@ its own.
 - **Crescent City relevance filter**: each module filters alerts by `areaDesc` keyword matching and/or bounding-box / point-in-polygon geometry checks.
 - **Severity categorization**: NWS categorizes alerts into `advisory`, `watch`, `warning`; USGS uses magnitude + tsunami flag; AQI uses 6-level classification; wildfire uses evac orders + fire size; marine uses wave/wind thresholds.
 - **Composite severity**: `severity.ts` aggregates all 20 monitors (8 core + 12 extended) into CALM → EMERGENCY; `composite.ts` shapes the per-monitor inputs + classifies source health so the runner stays thin. Ties at the same tier break on `MONITOR_PRIORITY` (tsunami → earthquake → wildfire → weather → marinezone → roads → schools → psps → marine → tides → smoke → fishing → airQuality → drought → uscg → permits/dredging/fuel/pacfin/ais), not on the `monitors` literal's declaration order — a chronic drought must not take the headline slot ahead of a school closure.
-- **Freshness**: one window for all monitors, `ALERT_FRESHNESS_WINDOW_MS` (default 1 hour). It used to be a hardcoded constant the env could not reach, while the non-alert families had a separate 24-hour one, so a report could be `ok` under one policy and `stale` under the other and the stricter was untunable. The extended monitors were not gated at all, so a day-old drought snapshot scored as current.
+- **Freshness**: keyed monitors use the source-specific retrieval/observation/product basis and cadence in `src/source_clocks.ts`, including explicit validity ends. `ALERT_FRESHNESS_WINDOW_MS` configures only the unkeyed `isFreshReport` compatibility helper. Refetching does not freshen an old product or missing observation.
 - **High-severity webhook**: `notify.ts` fires `ALERT_WEBHOOK_URL` when the composite *transitions into* WARNING/EMERGENCY (bounded by `ALERT_WEBHOOK_TIMEOUT_MS`); fire-and-forget so a failure never fails an alert run. The last-notified level is persisted at `output/state/alert-webhook-level.json`, so a persistently-WARNING composite notifies **once**, not on every run — a notifier that always fires trains the operator to ignore it. A drop below the threshold clears the memory, so a later rise notifies again.
 - **Healer scope**: `healer.ts` identifies and schedules; `scripts/run-alerts.ts` owns the batch. A monitor in `monitorsRetried` is *eligible for retry* on its backoff window, not already re-run by the healer.
 - **GeoJSON output**: USGS saves both raw properties and a `Feature` GeoJSON object for GIS tooling.

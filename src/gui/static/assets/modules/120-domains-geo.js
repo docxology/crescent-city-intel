@@ -1,20 +1,27 @@
+import { CCGui } from "../gui-runtime.js";
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { apiFetch } from "./10-core.js";
+import { escapeHtml } from "./20-section-tools.js";
+import { escapeHtmlAttr } from "./110-feeds.js";
 // 120-domains-geo.js — civic domains and hazard geo panels.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // ─ Domains Panel ─
-    async function loadDomainsPanel() {
-      const el = document.getElementById('domains-content');
-      try {
-        const domains = await apiFetch('/api/domains').then(r => r.json());
+    async function loadDomainsPanel() { return runReaderTask("domains-content", async signal => {
+    const el = document.getElementById('domains-content');
+    try {
+        const domains = await readerAwait(readerFetch(apiFetch, signal, '/api/domains').then(r => r.json()), signal);
         let html = '<div class="intel-grid">';
         for (const d of domains) {
-          html += `<div class="intel-card"><h4>${d.icon} ${d.name}</h4><div class="label">${d.topicCount} topics</div><p style="font-size:12px;color:var(--text-secondary);margin-top:8px">${d.description.substring(0,150)}...</p></div>`;
+            html += `<div class="intel-card"><h4>${d.icon} ${d.name}</h4><div class="label">${d.topicCount} topics</div><p style="font-size:12px;color:var(--text-secondary);margin-top:8px">${d.description.substring(0, 150)}...</p></div>`;
         }
         html += '</div>';
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load domains</p>'; }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Failed to load domains</p>');
+    }
+}); }
 
     // ─ Geo Panel ─ (Crescent City civic/hazard map view; tiles-free)
     const GEO_PALETTE = ['#f97316', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#f59e0b', '#ef4444', '#14b8a6', '#f43f5e', '#a855f7', '#0ea5e9', '#eab308'];
@@ -66,41 +73,42 @@
     }
 
     /** Load and render the Crescent City civic/hazard geo panel. */
-    async function loadGeoIntelPanel() {
-      const mapEl = document.getElementById('geo-map');
-      const gridEl = document.getElementById('geo-hazard-grid');
-      const sectionsEl = document.getElementById('geo-sections');
-      try {
-        const data = await apiFetch('/api/geo-intel').then(r => r.json());
+    async function loadGeoIntelPanel() { return runReaderTask("geo-map", async signal => {
+    const mapEl = document.getElementById('geo-map');
+    const gridEl = document.getElementById('geo-hazard-grid');
+    const sectionsEl = document.getElementById('geo-sections');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, '/api/geo-intel').then(r => r.json()), signal);
         const view = data.view || {};
-        mapEl.innerHTML = renderGeoMap(view);
-
+        CCGui.render(mapEl, renderGeoMap(view));
         // Hazard-relevant civic domains (from the contract's hazard subset)
         const relevant = (data.hazard && data.hazard.relevantDomains) || [];
-        gridEl.innerHTML = relevant.length === 0
-          ? '<p style="color:var(--text-secondary)">No hazard-relevant domains in the contract.</p>'
-          : `<div class="intel-grid">${relevant.map((d, i) => `
+        CCGui.render(gridEl, relevant.length === 0
+    ? '<p style="color:var(--text-secondary)">No hazard-relevant domains in the contract.</p>'
+    : `<div class="intel-grid">${relevant.map((d, i) => `
             <div class="intel-card">
               <h4><span class="geo-swatch" style="background:${geoColor(i)}"></span>${d.icon} ${escapeHtml(d.name)}</h4>
               <div style="margin:6px 0">${(d.hazardTags || []).map(t => `<span class="geo-tag">${escapeHtml(t)}</span>`).join('')}</div>
               <p style="font-size:12px;color:var(--text-secondary);margin-top:8px">${(d.topics || []).length} hazard-weighted topic(s) · ${view.hazard ? view.hazard.domainCount : relevant.length} hazard-relevant domain(s)</p>
-            </div>`).join('')}</div>`;
-
+            </div>`).join('')}</div>`);
         // Hazard-weighted municipal-code sections
         const sections = view.sections || [];
-        sectionsEl.innerHTML = sections.length === 0
-          ? '<p style="color:var(--text-secondary)">No sections cross-reference hazard-relevant domains.</p>'
-          : `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden">${sections.map(s => `
+        CCGui.render(sectionsEl, sections.length === 0
+    ? '<p style="color:var(--text-secondary)">No sections cross-reference hazard-relevant domains.</p>'
+    : `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden">${sections.map(s => `
             <div class="geo-section-row">
               <span class="num">${escapeHtml(s.sectionNumber)}</span>
               <div class="rel">${escapeHtml(s.relevance)}<div class="dom">${escapeHtml(s.domains.join(' · '))}</div></div>
-            </div>`).join('')}</div>`;
-      } catch (err) {
-        mapEl.innerHTML = '<p style="color:var(--text-secondary)">Geo view unavailable.</p>';
-        gridEl.innerHTML = '<p style="color:var(--text-secondary)">Could not load hazard domains.</p>';
-        sectionsEl.innerHTML = '<p style="color:var(--text-secondary)">Could not load sections.</p>';
-      }
+            </div>`).join('')}</div>`);
     }
+    catch (err) {
+        if (signal.aborted)
+            return;
+        CCGui.render(mapEl, '<p style="color:var(--text-secondary)">Geo view unavailable.</p>');
+        CCGui.render(gridEl, '<p style="color:var(--text-secondary)">Could not load hazard domains.</p>');
+        CCGui.render(sectionsEl, '<p style="color:var(--text-secondary)">Could not load sections.</p>');
+    }
+}); }
 
     // ─ Live hazard observations ─────────────────────────────────────
     // GET /api/geo-observations → the crescent-city-geo-observations/v1
@@ -112,7 +120,7 @@
     // read defensively — a missing or malformed field renders the empty
     // state, never a throw.
     function geoObservationsEmpty(el, message) {
-      el.innerHTML = `<p style="color:var(--text-secondary)">${escapeHtml(message || 'No live hazard observations available yet.')}</p>`;
+      CCGui.render(el, `<p style="color:var(--text-secondary)">${escapeHtml(message || 'No live hazard observations available yet.')}</p>`);
     }
 
     function geoCompositeBadge(composite) {
@@ -141,37 +149,47 @@
         + `${escapeHtml(name)} \u00b7 ${escapeHtml(status)}</span>`;
     }
 
-    async function loadGeoObservations() {
-      const el = document.getElementById('geo-observations-content');
-      if (!el) return;
-      try {
-        const resp = await apiFetch('/api/geo-observations');
-        if (!resp.ok) { geoObservationsEmpty(el, 'Live hazard observations unavailable (route not live yet).'); return; }
-        const data = await resp.json();
+    async function loadGeoObservations() { return runReaderTask("geo-observations-content", async signal => {
+    const el = document.getElementById('geo-observations-content');
+    if (!el)
+        return;
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, '/api/geo-observations'), signal);
+        if (!resp.ok) {
+            geoObservationsEmpty(el, 'Live hazard observations unavailable (route not live yet).');
+            return;
+        }
+        const data = await readerAwait(resp.json(), signal);
         const monitors = Array.isArray(data?.monitors) ? data.monitors : [];
         if (!data || typeof data !== 'object' || (monitors.length === 0 && !data.composite && !Array.isArray(data.hazardSummary))) {
-          geoObservationsEmpty(el);
-          return;
+            geoObservationsEmpty(el);
+            return;
         }
         let html = '';
         if (data.schema) {
-          html += `<p style="color:var(--text-secondary);font-size:11px;margin-bottom:6px">schema ${escapeHtml(String(data.schema))}</p>`;
+            html += `<p style="color:var(--text-secondary);font-size:11px;margin-bottom:6px">schema ${escapeHtml(String(data.schema))}</p>`;
         }
         html += geoCompositeBadge(data.composite);
         html += '<div>';
-        for (const monitor of monitors) html += geoMonitorChip(monitor);
+        for (const monitor of monitors)
+            html += geoMonitorChip(monitor);
         html += '</div>';
         if (Array.isArray(data.hazardSummary) && data.hazardSummary.length > 0) {
-          html += '<div style="margin-top:8px;color:var(--text-secondary);font-size:12px">'
-            + data.hazardSummary.map((h) => escapeHtml(geoObsText(h?.label ?? h?.hazard ?? h, 80)) || '').filter(Boolean).map((s) => `\u2022 ${s}`).join(' ')
-            + '</div>';
+            html += '<div style="margin-top:8px;color:var(--text-secondary);font-size:12px">'
+                + data.hazardSummary.map((h) => escapeHtml(geoObsText(h?.label ?? h?.hazard ?? h, 80)) || '').filter(Boolean).map((s) => `\u2022 ${s}`).join(' ')
+                + '</div>';
         }
         if (data.freshness) {
-          html += `<div style="margin-top:6px;color:var(--text-secondary);font-size:11px">freshness: ${escapeHtml(geoObsText(data.freshness, 120) || String(data.freshness))}</div>`;
+            html += `<div style="margin-top:6px;color:var(--text-secondary);font-size:11px">freshness: ${escapeHtml(geoObsText(data.freshness, 120) || String(data.freshness))}</div>`;
         }
-        el.innerHTML = html;
-      } catch { geoObservationsEmpty(el, 'Live hazard observations unavailable.'); }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        geoObservationsEmpty(el, 'Live hazard observations unavailable.');
+    }
+}); }
 
     // Wrap the panel loader so live observations load alongside the geo
     // panel; the verbatim function above is only relocated, never rewritten.
@@ -180,3 +198,5 @@
       await _baseLoadGeoIntelPanel();
       try { await loadGeoObservations(); } catch { /* non-fatal */ }
     };
+
+export { loadDomainsPanel, loadGeoIntelPanel };

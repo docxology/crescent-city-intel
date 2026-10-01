@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -195,7 +196,8 @@ export async function fetchWildfireIncidents(): Promise<WildfireIncident[]> {
   return incidents;
 }
 
-export async function runWildfireMonitor(): Promise<WildfireReport | null> {
+export async function runWildfireMonitor(options: ProducerOptions = {}): Promise<WildfireReport | null> { return withProducerScope("alert-calfire-wildfire", options, () => runWildfireMonitorInScope()); }
+async function runWildfireMonitorInScope(): Promise<WildfireReport | null> {
   logger.info("Checking CAL FIRE incidents for Del Norte region");
   lastWildfireError = undefined;
 

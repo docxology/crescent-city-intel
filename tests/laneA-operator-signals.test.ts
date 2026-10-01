@@ -9,7 +9,9 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "node:os";
 import { exportPagesSnapshot } from "../src/pages_snapshot.ts";
-import { isOperatorOnlySignal, publicSignalNotice, type OverviewSignal } from "../src/analytics_backend.ts";
+import { buildAnalyticsOverview, isOperatorOnlySignal, publicSignalNotice, type OverviewSignal } from "../src/analytics_backend.ts";
+import { withOutputRoot } from "../src/shared/paths.ts";
+import { assertArtifact } from "../src/artifact_contracts.ts";
 
 async function withFixture(run: (root: string) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "lanea-test-"));
@@ -24,7 +26,14 @@ async function put(root: string, relative: string, value: unknown): Promise<void
 describe("lane A r2: operator signals artifact (§5.5)", () => {
   test("public analytics omits operator-only fields and unknown backend additions", async () => {
     await withFixture(async root => {
-      await put(root, "state/analytics-overview.json", { schemaVersion: "1.0.0", generatedAt: "2026-08-28T00:00:00Z", inputFingerprint: "0".repeat(64), operatorSignalsNoticed: [{ detail: "/Users/private/operator" }], debug: "/Users/private/debug", signals: [{ id: "private", operatorOnly: true, detail: "/Users/private/signal" }] });
+      const overview = await withOutputRoot(root, () => buildAnalyticsOverview({ generatedAt: "2026-08-28T00:00:00Z", seedPath: null }));
+      const privateSignal: OverviewSignal = { id: "private", category: "pipeline", severity: "warning", title: "Operator fixture", detail: "/Users/private/signal", evidence: [], nextStep: "Inspect the private fixture", operatorOnly: true };
+      overview.signals = [privateSignal];
+      overview.operatorSignalsNoticed = [{ ...privateSignal, detail: "/Users/private/operator" }];
+      // Complete source-family evidence precedes the deliberate unknown-field
+      // projection control. Missing schema fields are not a privacy fixture.
+      assertArtifact("analytics-overview", overview);
+      await put(root, "state/analytics-overview.json", { ...overview, debug: "/Users/private/debug" });
       const destination = join(root, "pages");
       await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed") });
       const analytics = JSON.parse(await readFile(join(destination, "data/analytics.json"), "utf8"));
@@ -48,15 +57,8 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
 
   test("negative control: yt-dlp leakage on a public page fails the release gate", async () => {
     await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
-      // A minimal valid analytics overview makes snapshot.analytics non-null,
-      // which is what gates the operator artifact emission.
-      await put(root, "state/analytics-overview.json", {
-        schemaVersion: "1.0.0",
-        generatedAt: "2026-08-28T00:00:00Z",
-        inputFingerprint: "0".repeat(64),
-        operatorSignalsNoticed: [],
-      });
+      // A genuinely empty edition is a valid public positive control. The
+      // injected HTML leakage must fail even without analytics evidence.
       const destination = join(root, "pages");
       await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
       const html = await readFile(join(destination, "news.html"), "utf8");
@@ -70,7 +72,6 @@ describe("lane A r2: operator signals artifact (§5.5)", () => {
 
   test("unavailable analytics envelope requires no operator artifact (2026-09-08 regression)", async () => {
     await withFixture(async root => {
-      await put(root, "crescent-city-code.json", { articles: [] });
       // No state/analytics-overview.json on purpose: snapshot.analytics is
       // null, so the exporter writes the honest analytics-unavailable
       // envelope and deliberately emits no operator channel. The lane-A gate

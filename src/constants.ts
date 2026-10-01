@@ -23,6 +23,11 @@ export const MUNICIPALITY_CODE = "CR4919";
 export const OUTPUT_DIR = "output";
 export const ARTICLES_DIR = "output/articles";
 
+/** Current Coastal Del Norte public forecast zone in the NWS Eureka roster. */
+export const NWS_FORECAST_ZONE = "CAZ101";
+/** `zone` and `region` are mutually exclusive NWS active-alert filters. */
+export const NWS_ALERTS_URL = `https://api.weather.gov/alerts/active?zone=${NWS_FORECAST_ZONE}`;
+
 // ─── Scraper configuration ───────────────────────────────────────
 /** Delay between page fetches (ms) — env: RATE_LIMIT_MS */
 export const RATE_LIMIT_MS = envInt("RATE_LIMIT_MS", 2000);

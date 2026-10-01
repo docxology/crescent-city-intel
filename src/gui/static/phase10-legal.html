@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="assets/reader.css">
   <title>The Quadruplicate — Ordinals, Citations &amp; Recorded Amendment Years</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
-  <script src="assets/gui-runtime.js"></script>
   <style>
     body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
     header{background:#c41e1e;color:#fff;padding:18px 24px}
@@ -77,105 +78,6 @@
       <div id="effective-content"></div>
     </section>
   </main>
-  <script>
-    const key = window.__CC_API_KEY__;
-    function apiFetch(url) {
-      return CCGui.apiFetch(url);
-    }
-    function show(id){document.getElementById(id).classList.remove("hidden");}
-    function hide(id){document.getElementById(id).classList.add("hidden");}
-    function setError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.remove("hidden");}
-    function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-
-    document.getElementById("ordinals-load").addEventListener("click", async () => {
-      hide("ordinals-empty"); hide("ordinals-empty-result"); hide("ordinals-error");
-      const out = document.getElementById("ordinals-content");
-      out.innerHTML = "<p>Loading…</p>";
-      try {
-        const resp = await apiFetch("/api/ordinals?limit=200");
-        const data = await resp.json();
-        if (!resp.ok) { out.innerHTML = ""; setError("ordinals-error", data.error || `Request failed (${resp.status})`); return; }
-        if (data.empty || !data.sequences?.length) { out.innerHTML = ""; show("ordinals-empty-result"); return; }
-        let html = `<div class="grid">`
-          + `<div class="card"><h4>Sections scanned</h4><div class="metric">${data.summary.sectionsScanned}</div></div>`
-          + `<div class="card"><h4>Titles</h4><div class="metric">${data.summary.titles}</div></div>`
-          + `<div class="card"><h4>Missing ordinals</h4><div class="metric">${data.summary.totalGaps}</div></div>`
-          + `<div class="card"><h4>Unparseable segments</h4><div class="metric">${data.summary.totalUnparseable}</div></div>`
-          + `</div>`;
-        html += '<table><thead><tr><th>Title</th><th>Chapters</th><th>Missing between</th><th>Unparseable</th><th>Density</th></tr></thead><tbody>';
-        for (const seq of data.sequences) {
-          const gaps = seq.gaps.length
-            ? seq.gaps.slice(0, 12).map(g => `<span class="missing">${esc(g.missing)}</span>`).join(", ") + (seq.gaps.length > 12 ? ` … (+${seq.gaps.length - 12} more)` : "")
-            : '<span style="color:#15803d">dense</span>';
-          html += `<tr><td>${esc(seq.title)}</td><td>${seq.ordinals.length}</td><td>${gaps}</td><td>${esc(seq.unparseable.join(", ") || "—")}</td><td>${(seq.density * 100).toFixed(0)}%</td></tr>`;
-        }
-        html += "</tbody></table>";
-        if (data.truncated) html += '<p style="color:#555;font-size:12px;margin-top:8px">List bounded at 200 titles; the summary reports the true totals.</p>';
-        out.innerHTML = html;
-      } catch { out.innerHTML = ""; setError("ordinals-error", "Failed to reach /api/ordinals"); }
-    });
-
-    document.getElementById("crosslinks-load").addEventListener("click", async () => {
-      hide("crosslinks-empty"); hide("crosslinks-empty-result"); hide("crosslinks-error");
-      const out = document.getElementById("crosslinks-content");
-      out.innerHTML = "<p>Loading…</p>";
-      try {
-        const resp = await apiFetch("/api/citations/index?limit=500");
-        const data = await resp.json();
-        if (!resp.ok) { out.innerHTML = ""; setError("crosslinks-error", data.error || `Request failed (${resp.status})`); return; }
-        if (data.empty || !data.crosslinks?.length) { out.innerHTML = ""; show("crosslinks-empty-result"); return; }
-        let html = `<div class="grid">`
-          + `<div class="card"><h4>Citations found</h4><div class="metric">${data.summary.citationsFound}</div></div>`
-          + `<div class="card"><h4>Linked to official text</h4><div class="metric">${data.summary.linkableCitations}</div></div>`
-          + `<div class="card"><h4>No stable target</h4><div class="metric">${data.summary.unlinkedCitations}</div></div>`
-          + `<div class="card"><h4>Distinct codes cited</h4><div class="metric">${data.summary.distinctTargets.length}</div></div>`
-          + `</div>`;
-        html += '<p style="font-size:12px;color:#555">Codes cited: ' + data.summary.distinctTargets.map(esc).join(" · ") + "</p>";
-        html += '<table><thead><tr><th>Section</th><th>Citation</th><th>Target</th><th>Link</th></tr></thead><tbody>';
-        for (const row of data.crosslinks) {
-          const link = row.href
-            ? `<a class="xlink" href="${esc(row.href)}" target="_blank" rel="noopener noreferrer">official text ↗</a>`
-            : '<span class="nodate">no stable target — unlinked</span>';
-          const internal = row.internalGuid
-            ? ` · <a class="xlink" href="/?section=${encodeURIComponent(row.internalGuid)}">in-corpus section</a>`
-            : "";
-          html += `<tr><td>&sect; ${esc(row.fromNumber)}</td><td>${esc(row.citation)}</td><td>${esc(row.targetLabel || row.type)}</td><td>${link}${internal}</td></tr>`;
-        }
-        html += "</tbody></table>";
-        if (data.truncated) html += '<p style="color:#555;font-size:12px;margin-top:8px">List bounded at 500 rows; the summary reports the true totals.</p>';
-        out.innerHTML = html;
-      } catch { out.innerHTML = ""; setError("crosslinks-error", "Failed to reach /api/citations/index"); }
-    });
-
-    document.getElementById("effective-load").addEventListener("click", async () => {
-      hide("effective-empty"); hide("effective-empty-result"); hide("effective-error");
-      const out = document.getElementById("effective-content");
-      out.innerHTML = "<p>Loading…</p>";
-      const guid = document.getElementById("effective-guid").value.trim();
-      try {
-        const resp = await apiFetch("/api/effective-dates?limit=500" + (guid ? `&guid=${encodeURIComponent(guid)}` : ""));
-        const data = await resp.json();
-        if (!resp.ok) { out.innerHTML = ""; setError("effective-error", data.error || `Request failed (${resp.status})`); return; }
-        if (!data.sections?.length) { out.innerHTML = ""; show("effective-empty-result"); return; }
-        let html = `<div class="grid">`
-          + `<div class="card"><h4>Sections scanned</h4><div class="metric">${data.summary.sectionsScanned}</div></div>`
-          + `<div class="card"><h4>With a recorded year</h4><div class="metric">${data.summary.sectionsWithDate}</div></div>`
-          + `<div class="card"><h4>No date on record</h4><div class="metric">${data.summary.sectionsWithoutDate}</div></div>`
-          + `<div class="card"><h4>Year range</h4><div class="metric" style="font-size:18px">${data.summary.earliestYear ?? "—"}–${data.summary.latestYear ?? "—"}</div></div>`
-          + `</div>`;
-        html += '<table><thead><tr><th>Section</th><th>Recorded amendment year</th><th>Most recent action</th><th>History line</th></tr></thead><tbody>';
-        for (const row of data.sections) {
-          const year = row.effectiveYear === null
-            ? '<span class="nodate">no recorded amendment year on record</span>'
-            : `<strong>${row.effectiveYear}</strong>`;
-          const action = row.effectiveYear === null ? "—" : `${esc(row.ordinance ?? "")} ${esc(row.action ?? "")}`;
-          html += `<tr><td>&sect; ${esc(row.sectionNumber)}</td><td>${year}</td><td>${action}</td><td style="font-size:.8rem;color:#555">${esc(row.derivedFrom || "—")}</td></tr>`;
-        }
-        html += "</tbody></table>";
-        if (data.truncated) html += '<p style="color:#555;font-size:12px;margin-top:8px">List bounded at 500 rows; the summary reports the true totals.</p>';
-        out.innerHTML = html;
-      } catch { out.innerHTML = ""; setError("effective-error", "Failed to reach /api/effective-dates"); }
-    });
-  </script>
+  <script type="module" src="assets/phase10-legal.js"></script>
 </body>
 </html>

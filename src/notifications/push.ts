@@ -1,5 +1,6 @@
 /** Bounded Web Push (RFC 8291/8292) and truthful acceptance receipts. */
 import { sendWebhook } from "../alerts/notify.js";
+import { boundedHttpFetch, currentTransportSignal, waitWithSignal, withTransportScope } from "../shared/transport.js";
 export interface PushDeliveryReceipt { state: "disabled" | "accepted" | "failed"; channel: "none" | "webhook" | "webpush"; status?: number; error?: "invalid_configuration" | "rejected" | "unavailable"; }
 const env = (name: string) => (process.env[name] ?? "").trim();
 const encode = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64url");
@@ -56,7 +57,8 @@ async function vapidAuthorization(url: URL): Promise<string> {
   return `vapid t=${unsigned}.${encode(signature)}, k=${env("PUSH_PUBLIC_KEY")}`;
 }
 /** Accepted means the endpoint accepted HTTP, not delivery to a user's browser. */
-export async function sendPushNotification(title: string, body: string, url?: string): Promise<PushDeliveryReceipt> {
+export async function sendPushNotification(title: string, body: string, url?: string, fixture?: { origin: string }): Promise<PushDeliveryReceipt> {
+  if (fixture) return withTransportScope({ fixture: { origin: fixture.origin, allowedOrigins: [fixture.origin] } }, () => sendPushNotification(title, body, url));
   const hasPush = !!(env("PUSH_PUBLIC_KEY") || env("PUSH_PRIVATE_KEY") || env("PUSH_SUBSCRIBER"));
   if (hasPush) {
     let target: URL, authorization: string, encrypted: Uint8Array<ArrayBuffer>;
@@ -65,18 +67,19 @@ export async function sendPushNotification(title: string, body: string, url?: st
       authorization = await vapidAuthorization(target);
       encrypted = await encryptPushPayload(JSON.stringify({ title, body, ...(url ? { url: endpoint(url).href } : {}) }), receiver);
     } catch { return { state: "failed", channel: "webpush", error: "invalid_configuration" }; }
-    const signal = AbortSignal.timeout(10_000);
+    const parent = currentTransportSignal();
+    const signal = parent ? AbortSignal.any([parent, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000);
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         signal.throwIfAborted();
-        const response = await fetch(target, { method: "POST", redirect: "manual", headers: { Authorization: authorization, "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: "86400", Urgency: "normal" }, body: encrypted, signal });
+        const response = await boundedHttpFetch(target.toString(), { method: "POST", maxRedirects: 0, maxBytes: 64_000, headers: { Authorization: authorization, "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream", TTL: "86400", Urgency: "normal" }, body: encrypted, signal });
         await response.body?.cancel();
         if (response.ok) return { state: "accepted", channel: "webpush", status: response.status };
         if (attempt === 2 || response.status < 500 && response.status !== 429) return { state: "failed", channel: "webpush", status: response.status, error: "rejected" };
       } catch {
         if (signal.aborted || attempt === 2) return { state: "failed", channel: "webpush", error: "unavailable" };
       }
-      await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+      try { await waitWithSignal(100 * (attempt + 1), signal); } catch { return { state: "failed", channel: "webpush", error: "unavailable" }; }
     }
     return { state: "failed", channel: "webpush", error: "unavailable" };
   }

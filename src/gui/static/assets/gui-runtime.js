@@ -1,5 +1,5 @@
 /* Local GUI foundation v1. No third-party runtime or network-loaded code. */
-(function () {
+export const CCGui = (() => {
   "use strict";
   const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
   const nativeSet = descriptor.set;
@@ -43,10 +43,7 @@
     }
     return descriptor.get.call(template);
   }
-  // The legacy surface uses HTML templates. This boundary covers every sink
-  // until each controller migrates to explicit render(), without allowing
-  // event attributes, active embedded content, or unsafe URL protocols.
-  Object.defineProperty(Element.prototype, "innerHTML", { ...descriptor, set(value) { nativeSet.call(this, sanitizeHtml(value)); } });
+  function render(element, value) { nativeSet.call(element, sanitizeHtml(value)); }
   function markdown(text) {
     const inline = value => escape(value)
       .replace(/`([^`]+)`/g, "<code>$1</code>")
@@ -90,7 +87,8 @@
     const key = memoryKey === null ? window.__CC_API_KEY__ : memoryKey;
     if (url.origin === location.origin && url.pathname.startsWith("/api/") && key && !key.startsWith("__CC_API_KEY")) headers.set("X-API-Key", key);
     if (url.origin !== location.origin) headers.delete("X-API-Key");
-    const response = await fetch(url, { ...options, headers });
+    const signal = options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(60_000)]) : AbortSignal.timeout(60_000);
+    const response = await fetch(url, { ...options, headers, signal, redirect: "error" });
     if (url.origin === location.origin && url.pathname.startsWith("/api/") && response.status === 401) revealCredentials();
     return response;
   }
@@ -125,5 +123,7 @@
       return terminal;
     } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
   }
-  window.CCGui = Object.freeze({ escape, safeUrl, sanitizeHtml, markdown, storage, apiFetch, consumeSse, setApiKey, clearApiKey });
+  return Object.freeze({ escape, safeUrl, sanitizeHtml, render, markdown, storage, apiFetch, consumeSse, setApiKey, clearApiKey });
 })();
+// Public diagnostics/credential control remains deliberate; controllers import this binding.
+window.CCGui = CCGui;

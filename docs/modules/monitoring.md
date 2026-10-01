@@ -13,7 +13,7 @@ collection mode, expected cadence, and an automation state:
 | State | Meaning |
 |---|---|
 | `monitored` | A configured connector writes typed source health and idempotent data. |
-| `discovery-only` | The source is verified as relevant and stored in the registry, but needs a dedicated connector. |
+| `discovery-only` | The source is declared relevant in the registry; usable collection/access may remain unestablished. |
 | `reference-only` | Metadata/citations may be retained, but content cannot enter curation, embeddings, or training. |
 
 Run `bun run source-discovery` for a deterministic offline inventory and
@@ -35,7 +35,9 @@ every page on the public internet has been found.
 
 ## `src/monitor.ts` — Municipal Code Change Detection
 
-Compares saved scraped data against manifest hashes and TOC section counts to detect upstream changes on ecode360.com.
+Compares saved article custody against the current retained manifest and TOC.
+It detects local hash/membership/section drift; a separate live scrape and
+verification establish current upstream content.
 
 ### Exports
 
@@ -144,16 +146,24 @@ by a separate URL or calendar id.
 | :--- | :--- |
 | City Council | `title` contains "City Council" (e.g. "City Council Meeting", "Special City Council Meeting") |
 | Planning Commission | `title` contains "Planning Commission" |
-| Harbor Commission | `title` contains "Harbor Commission"; no matches produce an explicit `empty` result |
+| Harbor Commission | Official Harbor archive links and retained document context |
+| County meetings/agendas and joint media hub | Their own official source definitions and bounded parser evidence |
 
-`GOV_SOURCES` points the Harbor Commission entry at the same EvoGov endpoint.
-An empty result establishes only that the returned listing had no matching
-records. A dedicated Harbor agenda source requires separate source assessment
-under [TODO L05](../../TODO.md).
+`GOV_SOURCES` combines the City EvoGov calendars with
+`OFFICIAL_MEETING_SOURCES`: Harbor archived agendas, County meetings/agendas and
+the County/City media hub. Each has its own source identity and fetch/parser
+outcome. Discovered PDF attachments retain document/context dates and cannot
+independently schedule a meeting; only an explicitly occurrence-eligible dated
+non-PDF notice can supply an event. Empty, blocked or unrecognized archives do
+not establish completeness. Additional access and coverage acceptance remains
+source-specific under [TODO L05](../../TODO.md).
 
 ### Change Detection
 
-Uses SHA-256 hashing of each meeting item to detect new or changed content. In-process LRU cache (500 entries) prevents reprocessing.
+Uses SHA-256 content identity and a durable `IdempotencyStore` at
+`output/state/gov-meetings-seen.json`, with a 500-record retention cap. The
+producer lease and source batch/health/seen transaction preserve repeated-run
+classification across CLI restarts.
 
 ### Exports
 
@@ -167,7 +177,8 @@ Uses SHA-256 hashing of each meeting item to detect new or changed content. In-p
 
 ### Output
 
-Saves to `output/gov_meetings/meetings-<timestamp>.json`.
+Saves canonical batches to `output/gov_meetings/gov_meetings-<timestamp>-<id>.json`
+and source health separately. Readers use that canonical batch prefix.
 
 ```bash
 bun run gov-meetings   # via scripts/run-meetings.ts
@@ -315,4 +326,37 @@ bun test tests/gov_meeting_monitor.test.ts
 
 ## `src/insights.ts` — Cross-Artifact Civic Insights
 
-Deterministic trend detection over artifacts already recorded under `output/` (alert histories, news, meetings, YouTube uploads, events calendar). The optional LLM pass only phrases findings the code computed; every failure falls back to a template narrative over the same numbers, and each insight carries evidence source URLs. Served by `GET /api/insights`; CLI `bun run insights`.
+Deterministic trend detection over artifacts already recorded under `output/` (alert histories, news, meetings, YouTube uploads, events calendar). The optional LLM pass receives deterministic computed findings and falls back to a template narrative on failure; generated prose remains semantically unverified, and each insight retains evidence source URLs. Served by `GET /api/insights`; CLI `bun run insights`.
+
+## Run ownership, clocks and publication
+
+Municipal/news/government/YouTube/Triplicate entry points capture their output
+root and cooperative parent signal before I/O and hold producer-specific leases.
+News, government and Triplicate publish batch, current health and seen records
+through one recoverable exact-byte replacement. Government meeting batches keep
+the canonical `gov_meetings-` prefix used by Pages, document acquisition and the
+private digest; custom Triplicate health files have distinct history paths.
+Bounded malformed/oversized/linked document hash baselines remain retained and
+cannot become empty first-observation history. JSONL history follows the
+committed source publication rather than claiming a transaction over all history.
+
+New health envelopes declare `crescent-city-source-health/v1`. Retrieval clocks
+remain separate from source observation/product clocks and validity. Primary
+clock policies are applied at consumption, so fresh acquisition cannot revive
+expired observations or conceal parser/coverage failures. Reachability probes
+are a separate evidence plane.
+
+Weekly execution inherits one deadline (default one hour, maximum 24 hours),
+retains per-step/running/interrupted archives and closes owned browser groups
+before releasing its lease. Completed summary/run/attempt bytes publish together;
+restart preserves the prior completion while recovering an interrupted attempt.
+Curation publishes report/attempt evidence even for a genuine empty batch and
+keeps failed/source-only generation retryable.
+
+`collectActivityEvidence` exposes missing/malformed input, duplicate snapshot,
+revision and undated-record diagnostics. `trend_sampling.ts` defines current/
+previous windows and expected sampling slots. Missing checks, changed source
+sets or inadequate history make trends explicitly noncomparable; activity and
+collection frequency cannot establish civic or hazard incidence. Events,
+analytics and monthly reports retain exact captured input/transform/output
+custody separately from their interpretation.

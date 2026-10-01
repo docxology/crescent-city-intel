@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 /**
  * City of Crescent City building-permit portal monitor (monitor #16).
  *
@@ -231,7 +232,8 @@ function fetchPermitCatalog(): Promise<string> {
 }
 
 /** Run the monitor: fetch, parse, diff against the shared store, persist. */
-export async function runPermitsMonitor(): Promise<PermitsReport | null> {
+export async function runPermitsMonitor(options: ProducerOptions = {}): Promise<PermitsReport | null> { return withProducerScope("alert-permits", options, () => runPermitsMonitorInScope()); }
+async function runPermitsMonitorInScope(): Promise<PermitsReport | null> {
   logger.info("Checking City of Crescent City permit portal (MyGov public catalog)");
   lastPermitsError = undefined;
   try {

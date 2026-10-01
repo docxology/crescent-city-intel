@@ -203,3 +203,16 @@ The monthly civic health report includes sections for:
 ## `src/manuscript_variables.ts` — Manuscript Variables
 
 Publication variables derived from the shared analytics envelope (`analytics_backend.ts`) rather than a second analytics implementation — the manuscript, local GUI, and Pages snapshot stay on one evidence fingerprint. Tests: `tests/manuscript.test.ts`.
+
+## Shared analytics and sampling authority
+
+`analytics_backend.ts` validates persisted overview families before returning
+usable data. Deterministic PCA initialization and bounded direct vector reads
+preserve repeated-input behavior. The optional `civic-sampling/v1` receipt names
+current/previous denominator windows, source identities, valid/duplicate checks,
+coverage and comparability; unavailable history does not become a zero trend.
+Public DTOs retain those exact sampling fields while stripping operator-private
+metadata. Analytics/monthly generation uses captured input bytes and retains
+output/transform/configuration custody. A reproducible metric is a computation
+receipt, not semantic support for generated prose or a measure of real-world
+civic/hazard frequency.

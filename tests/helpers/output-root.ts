@@ -57,7 +57,7 @@ export async function withMinimalCorpus<T>(articleCount: number, body: (root: st
       if (!retained.has(entry.name)) continue;
       await cp(join(source, entry.name), join(root, entry.name), {
         recursive: true,
-        filter: async path => (await stat(path)).isDirectory() || /\.(?:json|jsonl)$/.test(path),
+        filter: async path => !/\/state\/(?:derived|artifact-transactions)(?:\/|$)/.test(path) && ((await stat(path)).isDirectory() || /\.(?:json|jsonl)$/.test(path)),
       });
     }
     await writeSeedCorpus(root, { articleCount });

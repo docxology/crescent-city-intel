@@ -55,7 +55,7 @@ test("document listings replace old generation with source-only custody and make
   }); } finally { Object.assign(llmConfig, previous); server.stop(true); }
 }, 5000);
 
-test("cancelled real provider work records failure, releases ownership and remains retryable", async () => {
+test("cancelled real provider work records interruption, releases ownership and remains retryable", async () => {
   let stall = true, requests = 0;
   let reachedChat!: () => void;
   const startedChat = new Promise<void>(resolve => { reachedChat = resolve; });
@@ -81,7 +81,7 @@ test("cancelled real provider work records failure, releases ownership and remai
     const pending = runCuration({ signal: controller.signal, deadlineMs: 2000 });
     await startedChat; controller.abort(); await expect(pending).rejects.toThrow();
     const attempt = await Bun.file(join(paths.state, "latest-curation-attempt.json")).json();
-    expect(attempt).toMatchObject({ status: "failed", completedCount: 0, reason: "cancelled-or-deadline" });
+    expect(attempt).toMatchObject({ status: "interrupted", completedCount: 0, reason: "cancelled-or-deadline" });
     expect(JSON.stringify(attempt)).not.toContain("Fixture agenda");
     expect(await Bun.file(paths.curationSeen).exists()).toBe(false);
     stall = false;
@@ -110,7 +110,7 @@ test("cancelled real provider work records failure, releases ownership and remai
   }); } finally { Object.assign(llmConfig, previous); server.stop(true); }
 }, 5000);
 
-test("a real interrupted store commit recovers only exact retained lineage without another generation", async () => {
+test("interrupted publication preserves prior bytes; retry and retained-state recovery require exact lineage", async () => {
   let requests = 0;
   const server = Bun.serve({ port: 0, async fetch(request) {
     const path = new URL(request.url).pathname;
@@ -132,9 +132,31 @@ test("a real interrupted store commit recovers only exact retained lineage witho
     const release = await acquireFileLease(`${paths.curationSeen}.lock`);
     try { await expect(runCuration({ deadlineMs: 250 })).rejects.toThrow(); } finally { await release(); }
     const artifactPath = join(paths.curated, `${new Date().toISOString().slice(0, 10)}.json`);
+    // A blocked identity commit cannot expose a batch that was never committed.
+    expect(requests).toBeGreaterThan(0);
+    expect(await Bun.file(artifactPath).exists()).toBe(false);
+    expect(await Bun.file(paths.curationReport).exists()).toBe(false);
+    expect(await Bun.file(paths.curationSeen).exists()).toBe(false);
+    expect(await Bun.file(join(paths.state, "latest-curation-attempt.json")).json()).toMatchObject({ status: "interrupted", reason: "cancelled-or-deadline" });
+    const beforeRetry = requests;
+    expect(await runCuration({ deadlineMs: 2000 })).toHaveLength(1);
+    expect(requests).toBeGreaterThan(beforeRetry);
     const produced = await Bun.file(artifactPath).json();
     expect(produced).toHaveLength(1); expect(produced[0].summaryStatus).toBe("ok");
+    const producedBytes = await Bun.file(artifactPath).text(), reportBytes = await Bun.file(paths.curationReport).text();
+    expect(await Bun.file(paths.curationSeen).exists()).toBe(true);
+
+    // Restore a real retained artifact after lost identity state. Interruption
+    // while rebuilding the store must preserve the prior complete publication.
+    await rm(paths.curationSeen);
+    const releaseRecovery = await acquireFileLease(`${paths.curationSeen}.lock`);
+    const beforeInterruptedRecovery = requests;
+    try { await expect(runCuration({ deadlineMs: 250 })).rejects.toThrow(); } finally { await releaseRecovery(); }
+    expect(requests).toBe(beforeInterruptedRecovery);
+    expect(await Bun.file(artifactPath).text()).toBe(producedBytes);
+    expect(await Bun.file(paths.curationReport).text()).toBe(reportBytes);
     expect(await Bun.file(paths.curationSeen).exists()).toBe(false);
+    expect(await Bun.file(join(paths.state, "latest-curation-attempt.json")).json()).toMatchObject({ status: "interrupted", reusedCount: 1, reason: "cancelled-or-deadline" });
     const beforeRecovery = requests;
     expect(await runCuration({ deadlineMs: 2000 })).toEqual([]);
     expect(requests).toBe(beforeRecovery);

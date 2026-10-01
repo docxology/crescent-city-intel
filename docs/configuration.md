@@ -2,6 +2,13 @@
 
 All configurable parameters for the Crescent City Municipal Code project.
 
+The [generated environment inventory](generated/configuration.md) derives literal
+environment reads and defaults from TypeScript ASTs without reading current
+environment values. It lists unresolved dynamic reads explicitly. This guide
+explains operational choices; the generated inventory is the exhaustive literal
+source reference. `bun run scripts/generate-docs.ts --check` rejects drift with
+the affected filename; `--write` regenerates current inventories.
+
 ## Core Constants (`src/constants.ts`)
 
 Hard-coded project constants. Change these to target a different municipality.
@@ -49,14 +56,21 @@ Hard-coded project constants. Change these to target a different municipality.
 | `CURATION_SUMMARY_TIMEOUT_MS` | `15000` | Maximum time for one source summary before source-only fallback |
 | `CHROMA_URL` | `http://localhost:8001` | ChromaDB server |
 | `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
-| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale. Applies to the non-alert source families (news, meetings, YouTube, Triplicate). |
-| `ALERT_FRESHNESS_WINDOW_MS` | `3600000` | Maximum age before an alert-monitor report is stale in the composite. Applies to every monitor in `MONITOR_KEYS` (20 currently). The alert window is stricter than the non-alert `SOURCE_FRESHNESS_WINDOW_MS`. An unparseable or non-positive value falls back to the default. |
+| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Default retrieval-age window for non-alert source health (news, meetings, YouTube, Triplicate). It does not replace a monitor's required observation or product clock. |
+| `ALERT_FRESHNESS_WINDOW_MS` | `3600000` | Generic unkeyed `isFreshReport(report, now)` compatibility window. Keyed production monitors use `SOURCE_CLOCK_POLICIES` in `src/source_clocks.ts`; this variable does not override those per-monitor policies. An unparseable or non-positive value falls back to the default. |
 | `SOURCE_DISCOVERY_TIMEOUT_MS` | `10000` | Bounded timeout for optional source-discovery probes |
 | `SOURCE_DISCOVERY_LIVE_CHECK` | unset | Set to `1` in scheduled orchestration to probe discovery-only sources; offline runs keep them `not-checked` |
 | `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |
 | `NEWS_DISABLED_SOURCES` | empty | Comma-separated feed names to mark unavailable without fetching |
 | `GOV_MEETINGS_TIMEOUT_MS` | `10000` | Meeting endpoint timeout |
 | `YT_DLP_TIMEOUT_MS` | `15000` | Maximum time for a YouTube listing/transcript subprocess |
+
+The twenty alert monitors declare retrieval, observation or product clocks in
+`src/source_clocks.ts`. Policies reflect each product's cadence: for example,
+AirNow/buoy observations expire after two hours, local AIS positions after twenty
+minutes, and weekly drought/fuel products after ten days. A supplied validity end
+can expire a product earlier. Missing, invalid or future primary clocks cannot
+be made current by refetching; retrieval age and observation age remain separate.
 
 ### API Security
 
@@ -110,7 +124,7 @@ and cancellation; the GUI receives its key only on an eligible loopback request.
 | :--- | :--- | :--- | :--- |
 | `usgs_earthquake.ts` | `SEARCH_RADIUS_KM` | `200` | Max distance from Crescent City for quakes |
 | `usgs_earthquake.ts` | `MIN_MAGNITUDE` | `4.0` | Minimum earthquake magnitude |
-| `nws_weather.ts` | NWS zone | `CAZ006` | Northwest CA coastal zone code |
+| `nws_weather.ts` | NWS zone | `CAZ101` | Coastal Del Norte public forecast zone code |
 | `epa_airnow.ts` | `AIRNOW_API_KEY` | _(none)_ | Free API key from [airnowapi.org](https://airnowapi.org) — optional keyed API; the default reads public AirNow observations |
 | `calfire_wildfire.ts` | `SEARCH_COUNTIES` | `["Del Norte", "Siskiyou", "Humboldt", "Trinity"]` | Counties to monitor |
 | `calfire_wildfire.ts` | `SEARCH_RADIUS_KM` | `150` | Max distance from Crescent City for fire incidents |

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "crescent-city-publication-input/v1",
-  "editionId": "06674f5e6044f4e700565a5358d7feff7a56a5c2e34c0a4656e44c77c17728bf",
+  "editionId": "566cb0b35c923966c565a0ec672d3f63282834b45328deb6ea58e0daead171db",
   "selection": "verified-output",
   "files": {
     "crescent-city-code.json": {
@@ -16,7 +16,7 @@
       "bytes": 79722
     },
     "verification-report.json": {
-      "sha256": "e1a2d44b9966cd65af33b435f349131c2d1977460f642814d8f567d9e56c8a35",
+      "sha256": "5fd21e19d4ac6424c5ccb1d8d800bedf030d2da71d4ac9aeed98e6e328291f80",
       "bytes": 89879
     },
     "domain-coverage.json": {
@@ -30,6 +30,6 @@
   },
   "reason": "Complete same-directory edition bound to local verification",
   "verification": "hash-bound-local",
-  "sourceVerifiedAt": "2026-09-30T21:27:14.404Z",
+  "sourceVerifiedAt": "2026-10-01T12:07:25.069Z",
   "sourceExportedAt": "2026-09-30T21:27:27.962Z"
 }

@@ -22,6 +22,7 @@ import { join } from "path";
 const ROOT = process.cwd();
 const MODULE_PATH = join(ROOT, "src/gui/static/assets/modules/15-cross-ref-links.js");
 const source = readFileSync(MODULE_PATH, "utf-8");
+const { ccLinkifyCrossRefs, ccRememberArticleSections, ccNormalizeSectionNumber, ccKnownSectionCount, _resetCrossRefIndex } = await import(MODULE_PATH);
 
 /**
  * Load the module's pure functions by evaluating its source and returning the
@@ -36,13 +37,7 @@ function loadPureFunctions(): {
   known: () => number;
   reset: () => void;
 } {
-  const body = [
-    source,
-    "return { linkify: ccLinkifyCrossRefs, remember: ccRememberArticleSections, normalize: ccNormalizeSectionNumber, known: ccKnownSectionCount, reset: _resetCrossRefIndex };",
-  ].join("\n");
-  // eslint-disable-next-line no-new-func -- executing the module under test is the point
-  const factory = new Function(body) as () => ReturnType<typeof loadPureFunctions>;
-  return factory();
+  return { linkify: ccLinkifyCrossRefs, remember: ccRememberArticleSections, normalize: ccNormalizeSectionNumber, known: ccKnownSectionCount, reset: _resetCrossRefIndex };
 }
 
 describe("cross-reference linkifier", () => {
@@ -290,19 +285,18 @@ describe("wiring", () => {
   test("the click handler is installed during init, before the first render", () => {
     const core = readFileSync(join(ROOT, "src/gui/static/assets/modules/10-core.js"), "utf-8");
     const initBody = /async function init\(\) \{([\s\S]*?)\n {4}\}/.exec(core)?.[1] ?? "";
-    expect(initBody).toContain("ccInitCrossRefLinks()");
+    expect(initBody).toContain("ccInitCrossRefLinks(loadSection)");
     // Before loadToc, so a link in the first article is already handled.
-    expect(initBody.indexOf("ccInitCrossRefLinks()")).toBeLessThan(initBody.indexOf("loadToc()"));
+    expect(initBody.indexOf("ccInitCrossRefLinks(loadSection)")).toBeLessThan(initBody.indexOf("loadToc()"));
   });
 
   test("the module is loaded before the module that uses it", () => {
     // Load-order dependency: 10-core renders section prose at init, so the
     // linkifier has to be defined first or the first paint throws.
     const html = readFileSync(join(ROOT, "src/gui/static/index.html"), "utf-8");
-    const linkifier = html.indexOf("15-cross-ref-links.js");
-    const core = html.indexOf("10-core.js");
-    expect(linkifier).toBeGreaterThan(-1);
-    expect(linkifier).toBeLessThan(core);
+    const core = readFileSync(join(ROOT, "src/gui/static/assets/modules/10-core.js"), "utf8");
+    expect(html).toContain('type="module" src="assets/gui-app.js"');
+    expect(core).toContain('from "./15-cross-ref-links.js"');
   });
 
   test("the linkifier never injects unescaped input into markup", () => {

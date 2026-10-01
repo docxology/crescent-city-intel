@@ -57,8 +57,10 @@ describe("GUI nav layer and virtual scroll (v2.7.0)", () => {
   test("the nav module is wired: referenced first from index.html with hashchange and aria-current", async () => {
     const html = await readFile("src/gui/static/index.html", "utf8");
     const nav = await readFile("src/gui/static/assets/modules/00-nav.js", "utf8");
-    expect(html).toContain('<script src="assets/modules/00-nav.js"></script>');
-    expect(html.indexOf("assets/modules/00-nav.js")).toBeLessThan(html.indexOf("assets/modules/10-core.js"));
+    expect(html).toContain('<script type="module" src="assets/gui-app.js"></script>');
+    const entry = await readFile("src/gui/static/assets/gui-app.js", "utf8");
+    expect(entry).toContain("initializeNavigation();");
+    expect(entry).toContain("await init();");
     expect(nav).toContain('addEventListener("hashchange"');
     expect(nav).toContain('aria-current');
     expect(nav).toContain('getElementById("nav-jump")');
@@ -71,7 +73,7 @@ describe("GUI nav layer and virtual scroll (v2.7.0)", () => {
     const virtualList = await readFile("src/gui/static/assets/virtual-list.js", "utf8");
     const search = await readFile("src/gui/static/assets/modules/30-search.js", "utf8");
     const feeds = await readFile("src/gui/static/assets/modules/110-feeds.js", "utf8");
-    expect(html).toContain('<script src="assets/virtual-list.js"></script>');
+    expect(search).toContain('from "../virtual-list.js"');
     expect(virtualList).toContain("function createVirtualList(");
     expect(virtualList).toContain("ResizeObserver");
     expect(search).toContain("createVirtualList(");

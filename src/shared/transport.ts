@@ -4,6 +4,32 @@ import { isIP } from "node:net";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { createGunzip, createInflate, createBrotliDecompress } from "node:zlib";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+export interface TransportScope {
+  signal?: AbortSignal;
+  /** Explicit local acceptance only. Every original origin must be named. */
+  fixture?: { origin: string; allowedOrigins: readonly string[] };
+}
+const transportScopes = new AsyncLocalStorage<TransportScope>();
+export function withTransportScope<T>(scope: TransportScope, task: () => T): T {
+  const parent = transportScopes.getStore();
+  const signal = parent?.signal && scope.signal ? AbortSignal.any([parent.signal, scope.signal]) : scope.signal ?? parent?.signal;
+  if (scope.fixture) {
+    const origin = new URL(scope.fixture.origin);
+    if (!["http:", "https:"].includes(origin.protocol) || !["127.0.0.1", "[::1]"].includes(origin.hostname) || origin.username || origin.password || origin.origin !== scope.fixture.origin || !scope.fixture.allowedOrigins.length) throw new Error("Transport fixtures require one explicit loopback origin and original-origin roster");
+    for (const value of scope.fixture.allowedOrigins) { const source = new URL(value); if (!["http:", "https:"].includes(source.protocol) || source.origin !== value || source.username || source.password) throw new Error("Invalid transport fixture original origin"); }
+  }
+  return transportScopes.run({ ...parent, ...scope, fixture: scope.fixture ?? parent?.fixture, signal }, task);
+}
+export function currentTransportSignal(): AbortSignal | undefined { return transportScopes.getStore()?.signal; }
+/** Browser-only fixture projection shares the exact allowlisted origin policy. */
+export function fixtureDestination(value: string): string {
+  const fixture = transportScopes.getStore()?.fixture; if (!fixture) return value;
+  const source = new URL(value);
+  if (source.username || source.password || hasCredentialFragment(source) || !fixture.allowedOrigins.includes(source.origin)) throw new TransportError("destination", redactUrl(value), "Browser request outside explicit fixture roster");
+  return new URL(source.pathname + source.search, fixture.origin).toString();
+}
 
 export type TransportFailure = "timeout" | "size" | "destination" | "redirect" | "network" | "status";
 export class TransportError extends Error {
@@ -17,6 +43,8 @@ export interface TransportOptions {
   maxRedirects?: number;
   signal?: AbortSignal;
   headers?: HeadersInit;
+  method?: "GET" | "POST";
+  body?: string | Uint8Array;
   /** Exact hostnames accepted for private-address fixtures. Never inferred from NODE_ENV. */
   allowPrivateHosts?: readonly string[];
   /** Called for every redirect destination, before its request. */
@@ -122,7 +150,7 @@ async function requestPinned(destination: Awaited<ReturnType<typeof validateDest
     const headers = Object.fromEntries(new Headers(options.headers).entries());
     headers["accept-encoding"] ??= "identity";
     const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(url, {
-      headers, signal,
+      headers, signal, method: options.method ?? "GET",
       lookup: (_hostname, opts, callback) => {
         if (typeof opts === "object" && "all" in opts && opts.all) {
           (callback as unknown as (error: null, addresses: Array<{ address: string; family: number }>) => void)(null, [{ address, family }]);
@@ -156,7 +184,7 @@ async function requestPinned(destination: Awaited<ReturnType<typeof validateDest
         resolve(new Response([204, 205, 304].includes(status) ? null : Buffer.concat(chunks), { status, statusText: response.statusMessage, headers: resultHeaders }));
       });
     });
-    request.on("error", reject); request.end();
+    request.on("error", reject); request.end(options.body);
   });
 }
 
@@ -168,8 +196,19 @@ export function redirectHeaders(from: URL, to: URL, input: HeadersInit): Headers
   return headers;
 }
 export async function boundedHttpFetch(value: string, options: TransportOptions = {}): Promise<Response> {
+  const originalValue = value;
+  const scope = transportScopes.getStore();
+  const signal = scope?.signal && options.signal ? AbortSignal.any([scope.signal, options.signal]) : options.signal ?? scope?.signal;
+  options = { ...options, signal };
+  if (scope?.fixture) {
+    const original = new URL(value), fixture = new URL(scope.fixture.origin);
+    if (original.username || original.password || hasCredentialFragment(original) || !scope.fixture.allowedOrigins.includes(original.origin)) throw new TransportError("destination", redactUrl(value), "Request outside explicit fixture source roster or credential policy");
+    value = new URL(original.pathname + original.search, fixture).toString();
+    options = { ...options, allowPrivateHosts: [fixture.hostname.replace(/^\[|\]$/g, "")], maxRedirects: 0 };
+  }
   const maxBytes = options.maxBytes ?? 8 * 1024 * 1024;
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) throw new Error("maxBytes must be a positive integer");
+  if (options.method !== undefined && !["GET", "POST"].includes(options.method) || options.body !== undefined && (options.method !== "POST" || Buffer.byteLength(options.body) > 16_000)) throw new Error("Invalid bounded request method/body");
   return withinDeadline(async signal => {
     let current = value;
     let headers = new Headers(options.headers);
@@ -177,7 +216,7 @@ export async function boundedHttpFetch(value: string, options: TransportOptions 
       throwIfAborted(signal, current);
       const destination = await validateDestination(current, options);
       throwIfAborted(signal, current);
-      await options.beforeRequest?.(destination.url, signal);
+      await options.beforeRequest?.(scope?.fixture ? new URL(originalValue) : destination.url, signal);
       let response: Response;
       try { response = await requestPinned(destination, { ...options, headers: Object.fromEntries(headers) }, signal); }
       catch (error) {
@@ -186,6 +225,7 @@ export async function boundedHttpFetch(value: string, options: TransportOptions 
         throw new TransportError("network", redactUrl(current), "Outbound request failed");
       }
       if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+      if (options.method === "POST") throw new TransportError("redirect", redactUrl(current), "POST redirects are denied");
       const location = response.headers.get("location");
       if (!location || redirects >= (options.maxRedirects ?? 5)) throw new TransportError("redirect", redactUrl(current), "Invalid or excessive redirects");
       const next = new URL(location, destination.url);

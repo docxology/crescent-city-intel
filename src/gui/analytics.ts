@@ -5,7 +5,8 @@
 import { loadAllArticles, loadAllSections } from "../shared/data.js";
 import type { ArticlePage, FlatSection } from "../types.js";
 import { readFile } from "fs/promises";
-import { getOrCreateCollection, isChromaRunning, getStats } from "../llm/chroma.js";
+import { withVectorCollection, isChromaRunning, getStats } from "../llm/chroma.js";
+import { boundedSignal } from "../llm/runtime.js";
 import { flattenToc } from "../utils.js";
 import { loadToc } from "../shared/data.js";
 import { normalizeSectionNumber } from "../utils.js";
@@ -54,12 +55,12 @@ type StatsArticle = Pick<ArticlePage, "title"> & {
  * `output/articles/` directory. Use it for analytics when the live corpus is
  * absent, while keeping normal local runs on the scraped article files.
  */
-async function loadAnalyticsArticles(): Promise<StatsArticle[]> {
+async function loadAnalyticsArticles(seedPath?: string | null): Promise<StatsArticle[]> {
     const liveArticles = await loadAllArticles();
     if (liveArticles.length > 0) return liveArticles;
     try {
-        const seedPath = process.env.CODE_SEED_PATH ?? "pages-data/crescent-city-code.json";
-        const parsed = JSON.parse(await readFile(seedPath, "utf8")) as { articles?: unknown };
+        if (seedPath === null) return [];
+        const parsed = JSON.parse(await readFile(seedPath ?? process.env.CODE_SEED_PATH ?? "pages-data/crescent-city-code.json", "utf8")) as { articles?: unknown };
         if (!Array.isArray(parsed.articles)) return [];
         return parsed.articles.flatMap(item => {
             if (!item || typeof item !== "object") return [];
@@ -85,9 +86,9 @@ async function loadAnalyticsArticles(): Promise<StatsArticle[]> {
 }
 
 /** Compute aggregate statistics about the municipal code */
-export async function getCodeStats(): Promise<CodeStats> {
+export async function getCodeStats(options: { seedPath?: string | null } = {}): Promise<CodeStats> {
     const liveArticles = await loadAllArticles();
-    const articles = liveArticles.length > 0 ? liveArticles : await loadAnalyticsArticles();
+    const articles = liveArticles.length > 0 ? liveArticles : await loadAnalyticsArticles(options.seedPath);
     const sections = liveArticles.length > 0
         ? await loadAllSections()
         : articles.flatMap(article => article.sections.map(section => ({ ...section, articleTitle: article.title })));
@@ -176,32 +177,25 @@ const NUM_PCS = 10;
  * Fetch embeddings from ChromaDB and project to N dimensions via PCA.
  * Uses covariance matrix + power iteration — no external math library.
  */
-export async function getEmbeddingProjection(options: { signal?: AbortSignal } = {}): Promise<EmbeddingProjection> {
-    const coll = await getOrCreateCollection({ signal: options.signal });
-    const count = await coll.count();
+export async function getEmbeddingProjection(options: { signal?: AbortSignal; timeoutMs?: number; maximumResponseBytes?: number } = {}): Promise<EmbeddingProjection> {
+    const signal = boundedSignal(options.signal, options.timeoutMs ?? 30_000);
+    const sample = await withVectorCollection(async (coll, admittedSignal) => {
+      const count = await coll.count();
+      if (!Number.isSafeInteger(count) || count < 0 || count > 100_000) throw new Error("Invalid vector collection count");
+      const allEmbeddings: number[][] = [], allMetas: Record<string, string>[] = [], allDocs: string[] = [];
+      for (let offset = 0; offset < Math.min(count, 2000); offset += 500) {
+        admittedSignal.throwIfAborted();
+        const result = await coll.get({ limit: Math.min(500, Math.min(count, 2000) - offset), offset, include: ["embeddings", "metadatas", "documents"] });
+        if (!result.embeddings || !result.metadatas || !result.documents || result.ids.length !== result.embeddings.length || result.ids.length !== result.metadatas.length || result.ids.length !== result.documents.length || result.ids.length > 500) throw new Error("Invalid vector analytics sample");
+        allEmbeddings.push(...result.embeddings as number[][]); allMetas.push(...result.metadatas as Record<string, string>[]); allDocs.push(...result.documents as string[]);
+      }
+      return { count, allEmbeddings, allMetas, allDocs };
+    }, { ...options, signal, timeoutMs: options.timeoutMs ?? 30_000 });
+    const { count, allEmbeddings, allMetas, allDocs } = sample;
+    signal.throwIfAborted();
 
     if (count === 0) {
         return { points: [], totalVectors: 0, variance: [], wordLoadings: [] };
-    }
-
-    // Fetch all embeddings from ChromaDB (batch to avoid OOM)
-    const BATCH = 500;
-    const allIds: string[] = [];
-    const allEmbeddings: number[][] = [];
-    const allMetas: Record<string, string>[] = [];
-    const allDocs: string[] = [];
-
-    for (let offset = 0; offset < Math.min(count, 2000); offset += BATCH) {
-        options.signal?.throwIfAborted();
-        const result = await coll.get({
-            limit: BATCH,
-            offset,
-            include: ["embeddings", "metadatas", "documents"] as any,
-        });
-        if (result.ids) allIds.push(...result.ids);
-        if (result.embeddings) allEmbeddings.push(...(result.embeddings as number[][]));
-        if (result.metadatas) allMetas.push(...(result.metadatas as Record<string, string>[]));
-        if (result.documents) allDocs.push(...(result.documents as string[]));
     }
 
     if (allEmbeddings.length === 0) {
@@ -220,7 +214,7 @@ export async function getEmbeddingProjection(options: { signal?: AbortSignal } =
     const embeddings = indices.map((i) => allEmbeddings[i]);
     const metas = indices.map((i) => allMetas[i]);
     const docs = indices.map((i) => allDocs[i] || "");
-    options.signal?.throwIfAborted();
+    signal.throwIfAborted();
     const dim = embeddings[0].length;
     if (dim > 4096 || !dim || embeddings.some(vec => vec.length !== dim || vec.some(value => !Number.isFinite(value)))) throw new Error("Invalid embedding dimensions");
     const n = embeddings.length;
@@ -244,7 +238,8 @@ export async function getEmbeddingProjection(options: { signal?: AbortSignal } =
     const pcCount = Math.min(NUM_PCS, dim, Math.max(1, n));
 
     for (let k = 0; k < pcCount; k++) {
-        const pc = powerIteration(currentData, dim); // Deflation handled by update step below
+        signal.throwIfAborted();
+        const pc = await cooperativePowerIteration(currentData, dim, signal);
         pcs.push(pc);
 
         // Deflate data: subtract projection onto this component
@@ -405,6 +400,20 @@ export function powerIteration(
     dim: number,
     iterations = 20 // Reduce iterations for speed since we do 10 components
 ): { vector: Float64Array; eigenvalue: number } {
+    const steps = powerSteps(data, dim, iterations);
+    while (true) { const next = steps.next(); if (next.done) return next.value; }
+}
+
+async function cooperativePowerIteration(data: Float64Array[], dim: number, signal: AbortSignal) {
+    const steps = powerSteps(data, dim, 20);
+    while (true) {
+        signal.throwIfAborted();
+        const next = steps.next(); if (next.done) return next.value;
+        await new Promise<void>(resolve => setImmediate(resolve));
+    }
+}
+
+function* powerSteps(data: Float64Array[], dim: number, iterations: number): Generator<void, { vector: Float64Array; eigenvalue: number }> {
     const n = data.length;
 
     if (data.length === 0 || dim <= 0) return { vector: new Float64Array(Math.max(0, dim)), eigenvalue: 0 };
@@ -439,6 +448,7 @@ export function powerIteration(
         }
 
         for (let j = 0; j < dim; j++) v[j] = v_new[j] / eigenvalue;
+        yield;
     }
 
     // Eigenvectors have an arbitrary sign; canonicalize it for stable axes.

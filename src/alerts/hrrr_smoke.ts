@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -267,7 +268,8 @@ export async function fetchSmokeForecast(): Promise<SmokeReport> {
 }
 
 /** Main monitor entry point */
-export async function runSmokeMonitor(): Promise<SmokeReport | null> {
+export async function runSmokeMonitor(options: ProducerOptions = {}): Promise<SmokeReport | null> { return withProducerScope("alert-hrrr-smoke", options, () => runSmokeMonitorInScope()); }
+async function runSmokeMonitorInScope(): Promise<SmokeReport | null> {
   logger.info("Checking NOAA HMS smoke plumes for the Del Norte area");
   lastSmokeError = undefined;
 

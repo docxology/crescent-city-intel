@@ -2,7 +2,7 @@
   <h1 align="center">🌊 The Quadruplicate</h1>
   <p align="center">
     <strong>Scrape · Verify · Export · View · Chat · Stream · Monitor · Alert · Analyze · Query</strong><br/>
-    The most comprehensive local intelligence platform for the
+    A source-bound local intelligence platform for the
     <a href="https://crescentcity.org">City of Crescent City, CA</a> —
     powered by <a href="https://ecode360.com/CR4919">ecode360.com/CR4919</a>
   </p>
@@ -12,7 +12,7 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.0.2-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.1.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -46,60 +46,19 @@
 
 ## 🏙️ About Crescent City, CA
 
-**Crescent City** is the county seat of **Del Norte County**, California — a coastal city of ~6,000 residents at **41.76°N, 124.20°W**, nestled between the Pacific Ocean and ancient redwood forests near the Oregon border.
+The project anchors municipal-code and North Coast civic evidence on Crescent
+City, California. Official City, County and Harbor source identities, geographic
+coverage and collection limits are declared in the [source registry](src/source_registry.ts).
+Use the linked primary notices for current schedules, regulations and safety
+instructions; this software does not establish their legal or safety efficacy.
 
-### Quick Facts
-
-| Fact | Detail |
-| :--- | :--- |
-| 🗺️ Location | Northernmost California coast, Del Norte County, 2 sq mi incorporated area |
-| 👥 Population | ~6,046 (2024 est.) — includes ~3,000 inmates at Pelican Bay State Prison |
-| 💰 Economy | Commercial crab fishing · harbor commerce · timber (historical) · tourism |
-| 🌲 Natural Setting | [Redwood National & State Parks](https://www.nps.gov/redw/) · [Jedediah Smith Redwoods SP](https://www.parks.ca.gov/?page_id=413) · Smith River |
-| 🏛️ Government | Mayor + City Council · Planning Commission · Harbor Commission |
-| 🔐 Major employer | [Pelican Bay State Prison](https://www.cdcr.ca.gov/facility-locator/pbsp/) — maximum security, ~1,000 staff |
-| 💧 Water | Precipitation ~70 in/yr · Smith River (last undammed major California river) |
-| 🌊 Tsunami risk | **CRITICAL** — 1964 Good Friday Earthquake: 21 ft waves, 11 deaths, $17M damage |
-| 🌍 Seismic risk | **HIGH** — Cascadia Subduction Zone can produce M9+ megathrust events |
-| 🏠 Housing | 17% poverty rate · median income $35,540 · active homelessness response |
-
-### 🌊 Tsunami Capital of California
-
-Crescent City has experienced more significant tsunami impacts than any other US West Coast city. The **1964 Alaska Good Friday Earthquake (M9.2)** sent 21-foot waves through the harbor and downtown, killing 11 and destroying 289 city blocks. The city's unique harbor geometry — a natural funnel — amplifies distant Pacific tsunamis. The **Battery Point Lighthouse** (1856), located on a tidal island accessible only at low tide, survived; it now serves as a museum and tsunami education center.
-
-Today, Crescent City operates a comprehensive tsunami preparedness program:
-- Vertical evacuation structure: **Howland Hill Road** refuge
-- **Del Norte Office of Emergency Services** coordinates with [CalOES](https://www.caloes.ca.gov/hazard-mitigation/tsunami/)
-- **NOAA Pacific Tsunami Warning Center** (Palmer, AK) provides automated alerts
-- Regular community drills and updated evacuation route signage
-
-### 🔗 Key Civic & Government Resources
-
-| Resource | URL | Notes |
-| :--- | :--- | :--- |
-| City of Crescent City | [crescentcity.org](https://crescentcity.org) | City Council agendas · permits · public notices |
-| Municipal Code (live) | [ecode360.com/CR4919](https://ecode360.com/CR4919) | Official ordinance database |
-| Del Norte County | [co.del-norte.ca.us](https://www.co.del-norte.ca.us/) | County Board of Supervisors · Clerk |
-| Crescent City Harbor | [crescentcityharbor.com](https://crescentcityharbor.com) | Harbor Commission · fishing permits |
-| Redwood National & State Parks | [nps.gov/redw](https://www.nps.gov/redw/) | Adjacent to city; major tourism driver |
-| Battery Point Lighthouse | [delnortehistory.org](https://www.delnortehistory.org/battery-point-lighthouse/) | Historic 1856 lighthouse · tsunami museum |
-| NOAA NWS Eureka (local forecasts) | [weather.gov/eka](https://www.weather.gov/eka/) | Coastal zone CAZ006 weather alerts |
-| NOAA Pacific Tsunami Warning Center | [tsunami.gov](https://www.tsunami.gov) | Pacific Basin tsunami monitoring |
-| USGS Earthquake Hazards | [earthquake.usgs.gov](https://earthquake.usgs.gov) | Cascadia Subduction Zone data |
-| CalOES Tsunami Program | [caloes.ca.gov/tsunami](https://www.caloes.ca.gov/hazard-mitigation/tsunami/) | CA state tsunami preparedness |
-| CDFW North Coast | [wildlife.ca.gov](https://wildlife.ca.gov/regions/1) | Dungeness crab · fishing regulations |
-| Del Norte Unified School District | [delnorte.k12.ca.us](https://www.delnorte.k12.ca.us) | Public education |
-| Pelican Bay State Prison | [cdcr.ca.gov/PBSP](https://www.cdcr.ca.gov/facility-locator/pbsp/) | Major employer; affects city demographics |
-
-### 🏛️ How Crescent City Is Governed
-
-The **Crescent City Code of Ordinances** governs daily life across 17 titles. Key governance bodies:
-
-| Body | Responsibility | Meeting Frequency |
-| :--- | :--- | :--- |
-| **City Council** | Appropriations · ordinances · policy | 2nd & 4th Mondays |
-| **Planning Commission** | Zoning · land use · building permits · CUPs | 1st Tuesday |
-| **Harbor Commission** | Harbor leases · fishing facilities · dredging | 2nd Wednesday |
+| Primary resource | Link |
+| --- | --- |
+| City of Crescent City | [crescentcity.org](https://crescentcity.org) |
+| Municipal code | [ecode360.com/CR4919](https://ecode360.com/CR4919) |
+| Del Norte County | [co.del-norte.ca.us](https://www.co.del-norte.ca.us/) |
+| Crescent City Harbor District | [ccharbor.com](https://www.ccharbor.com/) |
+| National Weather Service Eureka | [weather.gov/eka](https://www.weather.gov/eka/) |
 
 ---
 
@@ -115,7 +74,10 @@ The **Crescent City Code of Ordinances** governs daily life across 17 titles. Ke
 | 📡 **Monitor** | Municipal code change detection + RSS/Atom news + government meeting tracking + YouTube meeting transcripts + Triplicate (Cloudflare), with per-source health | ✓ | [→](docs/modules/monitoring.md) |
 | 📰 **Curate** | Source-grounded, bounded LLM summaries + domain tagging across news/meetings/YouTube with provider/model-aware retry-safe idempotency | ✓ | [→](docs/modules/monitoring.md) |
 | 🚨 **Alert** | 20 monitors: 8 core hazard feeds + 12 extended civic and marine feeds | ✓ | [→](docs/modules/alerts.md) |
-| 📊 **Analyze** | Flesch-Kincaid readability scoring · Domain coverage metrics · PCA/K-Means analytics | ✓ | [→](docs/modules/gui.md) |
+| 📊 **Analyze** | Deterministic PCA/K-Means, readability and coverage; unique activity/revision counts with explicit sampling denominators | ✓ | [→](docs/modules/gui.md) |
+| 📅 **Calendar** | Occurrence/publication separation, bounded recurrence/cancellation and explicit timezone uncertainty | ✓ | [→](docs/modules/events.md) |
+| 🔎 **Review** | Source-bound edition candidates and local directory field/correction evidence; unsupported legal dates remain null | ✓ | [→](docs/modules/source-review.md) |
+| 🔐 **Contracts** | Shared versioned artifact/API validators and exact input/transform/output custody | ✓ | [→](docs/modules/artifact-contracts.md) |
 | 🌐 **Publish** | Bounded static snapshot for GitHub Pages with source health and provenance | ✓ | [→](docs/modules/pages.md) |
 | 📝 **Manuscript** | Evidence-bound IMRAD paper with formal contracts, claim ledger, and template-rendered PDF/HTML | ✓ | [→](docs/manuscript.md) |
 
@@ -140,7 +102,7 @@ flowchart LR
         P["🌊 NOAA Tides\nStation 9419750"] --> Q["output/tides/"]
         R["🌊 NOAA Tsunami\nCAP alerts"] --> S["output/alerts/tsunami/"]
         T["🌍 USGS M4+\n200 km radius"] --> U["output/alerts/earthquake/"]
-        V["⛈️ NWS CAZ006\nCoastal alerts"] --> W["output/alerts/weather/"]
+        V["⛈️ NWS CAZ101\nCoastal alerts"] --> W["output/alerts/weather/"]
         X["🦀 CDFW\nCrab season"] --> Y["output/fishing/"]
     end
 
@@ -210,9 +172,10 @@ The menu includes:
 | **AI / RAG** | Index ChromaDB · Interactive chat; query and status are available as direct package commands |
 | **Monitoring & Alerts** | Code monitor · News (configured RSS/Atom feeds) · Gov meetings · Tides · Fishing · Tsunami · Earthquake · Weather · All alerts · Weekly check |
 | **Analytics & Publication** | Readability · Domain coverage · Reports · Analytics · Pages · Manuscript |
-| **Full Pipeline** | Auto: Setup → Test → Scrape → Verify → Export → GUI in one shot |
+| **Full Pipeline** | `all` delegates scrape → verify → export; setup, checks and GUI have separate commands |
 
-The API tester (`option 7`) live-checks 12 endpoints and reports HTTP status codes:
+The real browser/API smoke command checks the running GUI. This is an expected
+response example, not a recorded live acceptance:
 
 ```
   /api/health                    HTTP 200  server/provider/source health
@@ -365,7 +328,7 @@ Station 9419750 coordinates: **41.745°N, 124.184°W** — [NOAA Tides Online](h
 Tracks California's annual Dungeness crab season calendar and CDFW North Coast marine bulletins for domoic acid or entanglement delays.
 
 ```bash
-bun run alerts:fishing  # → output/fishing/fishing-status.json
+bun run alerts:fishing  # → output/fishing/fishing-<timestamp>.json
 ```
 
 Season calendar (California North Coast):
@@ -377,7 +340,7 @@ Season calendar (California North Coast):
 ```bash
 bun run alerts:tsunami      # NOAA CAP → Tsunami Warning events for California coast
 bun run alerts:earthquake   # USGS GeoJSON → M4.0+ within 200 km of Crescent City
-bun run alerts:weather      # NWS → Del Norte coastal zone CAZ006 advisories
+bun run alerts:weather      # NWS → Del Norte coastal zone CAZ101 advisories
 bun run alerts              # all concurrently
 bun run weekly-check        # full health-check + summary report
 bun run cron-setup -- --dry-run # print the escaped scheduler plan; installs nothing
@@ -387,7 +350,7 @@ bun run cron-setup -- --dry-run # print the escaped scheduler plan; installs not
 | :--------- | :----- | :-------- |
 | Tsunami | NOAA `api.weather.gov/alerts` | Any Tsunami Warning for California |
 | Earthquake | USGS `earthquake.usgs.gov` Feed | M4.0+ within 200 km, Cascadia Subduction Zone priority |
-| Weather | NWS Eureka office, zone CAZ006 | Coastal flood advisory · high wind · storm surge |
+| Weather | NWS Eureka office, zone CAZ101 | Coastal flood advisory · high wind · storm surge |
 | Tides | NOAA CO-OPS Station 9419750 | ≥7.0 ft MLLW current water level (storm surge / king tide) |
 
 > 🔧 **Monitor internals**: [docs/modules/monitoring.md](docs/modules/monitoring.md) · [docs/modules/alerts.md](docs/modules/alerts.md)
@@ -495,7 +458,7 @@ as an unexplained calm state.
 
 The public artifact includes the municipal-code export when present, an
 API-shaped `data/geo-intel.json` contract with its tiles-free geo view, a
-verified local-establishments directory (`data/directory.json`, rendered on
+schema-checked local-establishments directory (`data/directory.json`, rendered on
 [directory.html](https://docxology.github.io/crescent-city-intel/directory.html)
 with pull-down menus over government, schools, healthcare, restaurants,
 churches, retail, services, finance, media, lodging, and attractions), source
@@ -515,8 +478,10 @@ bun run pages:validate -- .pages
 ```
 
 `pages-data/` is the reviewed public seed for the municipal-code snapshot and
-the verified directory (`directory.json` — every entry carries the URL its
-facts were checked against; unverified fields are null, never guessed).
+the provenance-bearing directory (`directory.json`). Source citations do not
+establish present field currency: nullable consultation/review times and the
+local correction ledger distinguish recorded evidence from completed editorial
+review. Unknown fields remain null.
 Refresh the code seed after a verified scrape with `bun run pages:seed`.
 
 See [the Pages module guide](docs/modules/pages.md) for deployment triggers,
@@ -532,7 +497,10 @@ artifact boundaries, and local preview instructions.
 - 🌐 Publication requires passing **local replay, current live TOC, and a nonempty live sample**; errors, mismatches, or unattempted required checks deny eligibility. Sampling checks the selected pages, not every live page.
 - ⏱️ Manifest records **exact timestamps** for audit trail
 - 💾 **Resume support** — interrupt and restart safely; only exact current-TOC artifacts are skipped
-- 🧱 **Atomic artifacts** — TOC, article, manifest, and curation outputs are replaced without truncated JSON
+- 🧱 **Recoverable artifacts** — owned writer leases, bounded retained-state reads and exact-byte multi-artifact transactions preserve prior complete outputs on failure
+- 📎 **Derived custody** — actual input, transformer/configuration and output hashes support private replay, separate from municipal eligibility and semantic/legal review
+- 🕒 **Primary clocks** — declared observation/product freshness cannot be refreshed by an HTTP probe or a new build time
+- 📚 **Shared authority** — supported family schemas are reused by loaders, API and Pages; generated configuration/export/HTTP inventories fail filename-specific drift checks
 - 🧭 **TOC provenance** — manifest records a TOC fingerprint plus live/cached source
 
 > 🔧 **Verification details**: [docs/modules/verification.md](docs/modules/verification.md)
@@ -583,7 +551,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
     noaa_tsunami.ts     # NOAA CAP tsunami warning monitor
     noaa_tides.ts       # NOAA CO-OPS tides (station 9419750, 48h predictions)
     usgs_earthquake.ts  # USGS earthquake monitor (M4.0+, 200 km, Cascadia)
-    nws_weather.ts      # NWS Del Norte coastal zone CAZ006 alerts
+    nws_weather.ts      # NWS Del Norte coastal zone CAZ101 alerts
     cdfw_fishing.ts     # CDFW Dungeness crab season calendar + bulletin monitor
     epa_airnow.ts       # EPA AirNow air quality monitor (PM2.5, ozone, PM10 AQI)
     calfire_wildfire.ts # CAL FIRE wildfire incident monitor
@@ -651,7 +619,7 @@ docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts 
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v3.0.2)
+openapi.yaml            # OpenAPI 3.0.3 spec (v3.1.0)
 ```
 
 ---
@@ -718,7 +686,7 @@ bun test tests/search.test.ts   # single file
 
 | Command | Description |
 | :------ | :---------- |
-| `bun install` | Install all dependencies |
+| `bun install --frozen-lockfile` | Install locked dependencies |
 | `bun run scrape` | Scrape municipal code (resumable, Cloudflare bypass). `--full-rescrape` re-fetches every article, bypassing the resume cache |
 | `bun run verify` | Verify SHA-256 integrity + TOC cross-reference |
 | `bun run export` | Export to JSON, Markdown, TXT, CSV |
@@ -745,7 +713,7 @@ bun test tests/search.test.ts   # single file
 | `bun run alerts` | Run all alert monitors concurrently |
 | `bun run alerts:tsunami` | Poll NOAA CAP tsunami warnings |
 | `bun run alerts:earthquake` | Poll USGS earthquake feed (M4.0+, 200 km) |
-| `bun run alerts:weather` | Poll NWS coastal weather alerts (CAZ006) |
+| `bun run alerts:weather` | Poll NWS coastal weather alerts (CAZ101) |
 | `bun run alerts:tides` | NOAA CO-OPS tides (station 9419750, 48h) |
 | `bun run alerts:fishing` | CDFW crab season + marine bulletins |
 | `bun run weekly-check` | Full weekly health check + summary report |
@@ -765,6 +733,12 @@ bun test tests/search.test.ts   # single file
 | `bun run insights` | Cross-artifact civic trend brief → `output/state/civic-insights.json` (also `GET /api/insights`) |
 | `bun run manuscript:check` | Validate IMRAD structure, citations, labels, claim ledger, and source tokens |
 | `bun run manuscript:hydrate` | Resolve manuscript tokens from the canonical analytics overview |
+| `bun run source:coverage` | Read-only retained source/geography/access assessment; no network or output writes |
+| `bun run meeting-documents` | Bounded primary PDF capture with optional native `pdftotext` page spans |
+| `bun run docs:check` | Check generated configuration/export/HTTP and current command drift |
+| `bun run docs:generate` | Regenerate those source-derived inventories after deliberate source changes |
+| `bun run test:gui-readers` | Real primary-API desktop/mobile reader journeys in isolated roots |
+| `bun run test:gui-journeys` | Real browser storage/rendering/request-security journeys |
 | `bun test` | Run the deterministic test suite |
 | `bun run test:coverage` | Run the deterministic suite with coverage |
 | `bun run test:browser` | Headless-Chromium smoke test of the running GUI (requires Playwright browser) |
@@ -812,13 +786,15 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.0.2)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.1.0)
 
 ---
 
 ## ⚙️ Configuration
 
-All settings support environment variable overrides:
+Common settings are listed below. The [generated configuration inventory](docs/generated/configuration.md)
+records literal source reads and unresolved dynamic expressions without reading
+actual environment values; consumer validation and units remain authoritative:
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
@@ -829,7 +805,7 @@ All settings support environment variable overrides:
 | `CHAT_MODEL` | `gemma3:4b` | Ollama chat / summarization model |
 | `LLM_PROVIDER` | `ollama` | Chat provider: `ollama` or `openrouter` |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | `5000` | Selected-provider health-check timeout |
-| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Maximum age before a fetched source is marked stale |
+| `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Default non-alert retrieval-age window; alert observation/product policies live in `src/source_clocks.ts` |
 | `ALERT_WEBHOOK_URL` | _(unset)_ | Optional URL; POSTs on composite alert WARNING/EMERGENCY |
 | `RERANK_ENABLED` | `false` | Enable the post-retrieval lexical-hybrid rerank in RAG |
 | `RERANK_TOP_N` | `5` | Chunks retained by the rerank (RERANK_ENABLED=true) |
@@ -864,7 +840,10 @@ All settings support environment variable overrides:
 | 📦 [Export](docs/modules/export.md) | JSON, Markdown, plain text, CSV |
 | 🖥️ [GUI](docs/modules/gui.md) | Web viewer, API routes, search, analytics |
 | 💬 [LLM](docs/modules/llm.md) | Ollama, ChromaDB, embeddings, RAG pipeline |
-| 🔗 [Shared](docs/modules/shared.md) | Path resolution, data loading, porter stemmer, readability |
+| 🔗 [Shared](docs/modules/shared.md) | Root/cancellation ownership, bounded retained state, transactions and data loading |
+| 📎 [Artifact Contracts](docs/modules/artifact-contracts.md) | Versioned shared schemas, read migrations and deterministic custody/replay |
+| 🔎 [Source Review](docs/modules/source-review.md) | Retained lineage, primary-document limits, directory corrections and coverage gaps |
+| 📚 [Generated Inventories](docs/generated/exports.md) | Qualified source exports; [configuration](docs/generated/configuration.md) and [HTTP](docs/generated/http.md) authorities |
 | 📝 [Logger](docs/modules/logger.md) | Structured logging, LOG_LEVEL |
 | 🧭 [Domains](docs/modules/domains.md) | 12 civic intelligence domains, coverage metrics |
 | 📡 [Monitoring](docs/modules/monitoring.md) | Code change, configured news sources, meetings, YouTube, Triplicate, curation |
@@ -898,7 +877,8 @@ availability.
 ## 🧭 What To Do Next
 
 Next actions live in **[TODO.md](TODO.md)** — the single backlog file
-(sizes: minor / medium / major; priorities: P1 / P2 / P3; open items only).
+(priorities: P1 / P2 / P3; remaining external, human-review and production
+acceptance only).
 Agents should also read [AGENTS.md](AGENTS.md) for conventions and the
 release-gate pipeline before editing.
 
@@ -909,12 +889,14 @@ release-gate pipeline before editing.
 - **Cloudflare Turnstile** — scraper runs non-headless Chromium; timing can vary; re-run if stuck
 - Intermediate `part` and `subarticle` TOC nodes are not themselves scrapable pages; their child sections are collected recursively
 - **Content changes** on ecode360 are not auto-detected — re-scrape and re-run `bun run verify` to refresh
-- **Local LLM answer quality** depends on the Ollama chat model — larger models (e.g., `llama3:8b`) give better results than `gemma3:4b`; OpenRouter quality depends on the selected remote model
+- **Generated answers** remain unverified. Native citation/disposition diagnostics do not establish semantic support, source independence or legal currency; source/span-bound review packages retain those limits.
 - **Rate-limit in-memory store** resets on server restart — not suitable for multi-instance deployments without shared cache (e.g., Redis)
 - **CDFW crab season** is estimated by regulatory calendar — check [CDFW North Coast bulletins](https://wildlife.ca.gov/regions/1) for emergency closures (domoic acid, whale entanglement)
 - **Tsunami monitor** fetches active CAP alerts — no historical data without archiving
 - **CAL FIRE wildfire API** — the monitor uses the official incident JSON endpoint linked from the [CAL FIRE incidents page](https://www.fire.ca.gov/incidents); a valid empty Del Norte-region result is reported as `empty`, and fetch failure as unavailable.
-- **Government meeting tracker** — the monitor reads the city's EvoGov JSON endpoint (`crescentcity.org/meetings/get_list`). Each run records source health; an empty commission listing establishes only what that endpoint returned.
+- **Government meeting tracker** — EvoGov listings and bounded official archives retain source/date evidence. An empty or partial listing establishes only that collection; PDF page extraction does not infer votes or ordinance adoption.
+- **Calendar/directory/trends** — publication timestamps cannot schedule events, cited directory seeds do not verify field currency, and changed sampling cannot imply a civic trend.
+- **Operations** — owned scheduler/container fixtures do not establish permanent host activation, external Pulse rendering or opted-in notification display.
 - **Review and next work** — [current-state audit](docs/project-review.md) records verification limits and known reliability gaps. [TODO.md](TODO.md) contains only open improvement scopes; [docs/roadmap.md](docs/roadmap.md) defines their sequencing.
 
 ---
@@ -931,21 +913,14 @@ release-gate pipeline before editing.
 
 ## LifeOS / Pulse integration
 
-This platform feeds the user's LifeOS **Pulse LOCAL** tab with real **North Coast**
-intelligence (Del Norte + Humboldt), anchored on Crescent City — not Crescent City only.
+`bun run lifeos:bridge` builds a versioned digest from retained news, meetings,
+alerts and municipal-code statistics. It writes exact-byte versions and a
+hash-bound commit pointer at explicitly configured private consumer locations.
+`readCommittedDigest` validates the retained version instead of accepting a
+partially replaced latest file. Unknown dates and failed sources stay explicit;
+the digest's generated time is not an observation time.
 
-- `scripts/lifeos-bridge.ts` (`bun run lifeos:bridge`) reads this platform's actual
-  outputs — the latest news digest, government meetings, the composite alert level, and
-  the municipal-code section count — and writes a `LocalIntelligence`-schema digest to
-  BOTH `latest.json` paths the Pulse module reads (`~/.claude/LIFEOS/USER/CUSTOMIZATIONS/
-  SKILLS/LocalIntelligence/` and `~/.claude/LIFEOS/MEMORY/DATA/LocalIntelligence/`), plus
-  the dated digest file.
-- Section mapping: `news` ← news digests, `officials` ← City Council meetings,
-  `legislation` ← Planning/Harbor Commission meetings; the remaining sections are empty
-  (Pulse renders graceful empty states). `meta.overview` carries the live composite alert
-  + code stats.
-- `scripts/lifeos-daily.sh` (`bun run lifeos:daily`) refreshes news/meetings/alerts then
-  writes the digest. Scheduling is an explicit operator action; the project does
-  not establish that a job is installed or delivering updates.
-- Configure the downstream consumer separately. Source availability and unknown
-  dates stay explicit in the digest; receiving a file does not verify its facts.
+`bun run lifeos:daily` refreshes inputs and writes that digest. Actual Pulse
+consumer rendering, private-state ownership and scheduler activation require
+separate external acceptance. Neither a file write nor a local reader fixture
+establishes that the personal app consumed or verified its contents.

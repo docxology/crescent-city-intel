@@ -8,10 +8,25 @@ import {
   validateSourceRegistry,
   sourceIdForMonitor,
 } from "../src/source_registry.ts";
-import { sourceHealth, isSourceHealthReceipt, errorMessage } from "../src/shared/source_health.ts";
+import { sourceHealth, isSourceHealthReceipt, errorMessage, EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
 import { MONITOR_KEYS, buildExtendedMonitorDefinitions, classifySourceHealth } from "../src/alerts/composite.ts";
+import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "../src/alerts/nws_weather.ts";
+import { NWS_ALERTS_URL as CENTRAL_NWS_ALERTS_URL, NWS_FORECAST_ZONE as CENTRAL_NWS_FORECAST_ZONE } from "../src/constants.ts";
 
 describe("source discovery registry", () => {
+  test("weather inventory derives the exact current Coastal Del Norte producer request", () => {
+    const weather = getSourceRegistry().find(source => source.configuredMonitor === "alert:weather")!;
+    expect(NWS_FORECAST_ZONE).toBe("CAZ101");
+    expect(NWS_FORECAST_ZONE).toBe(CENTRAL_NWS_FORECAST_ZONE);
+    expect(NWS_ALERTS_URL).toBe(CENTRAL_NWS_ALERTS_URL);
+    expect(EXPECTED_SOURCE_HEALTH.find(source => source.source === "NWS Weather")!.url).toBe(NWS_ALERTS_URL);
+    expect(weather.canonicalUrl).toBe(NWS_ALERTS_URL);
+    const request = new URL(weather.canonicalUrl);
+    expect(request.origin).toBe("https://api.weather.gov");
+    expect([...request.searchParams.entries()]).toEqual([["zone", "CAZ101"]]);
+    expect(weather.provenance).toContain("Coastal Del Norte");
+    expect(weather.provenance).not.toContain("CAZ006");
+  });
   test("normalizes tracking URLs without changing the source identity", () => {
     expect(normalizeSourceUrl("HTTPS://Example.com/path/?utm_source=x#fragment")).toBe("https://example.com/path");
     expect(normalizeSourceUrl("not a url")).toBe("not a url");

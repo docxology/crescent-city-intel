@@ -15,7 +15,9 @@ import { paths } from "./shared/paths.js";
 import { IdempotencyStore } from "./shared/idempotency.js";
 import { boundedHttpFetch, redactUrl, type TransportOptions } from "./shared/transport.js";
 import { errorMessage, isSourceHealthReceipt, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "./shared/source_health.js";
+import { withProducerScope, type ProducerOptions } from "./shared/run_scope.js";
 import { MONITOR_KEYS, ALERT_MONITOR_SOURCE_NAMES } from "./alerts/composite.js";
+import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "./constants.js";
 import type {
   SourceDefinition,
   SourceDiscoveryRecord,
@@ -212,8 +214,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "alert-nws-weather", name: "NWS Northwest California weather alerts", kind: "alert", authority: "public_agency", region: "Federal",
-    canonicalUrl: "https://api.weather.gov/alerts/active?zone=CAZ006", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "alert:weather", expectedCadence: "real time", provenance: "NWS active-alert API for coastal zone CAZ006.",
+    canonicalUrl: NWS_ALERTS_URL, discoveredFrom: [DISCOVERY_CITATIONS.county, "https://www.weather.gov/eka/Public_Zone_Change_2026"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:weather", expectedCadence: "real time", provenance: `NWS active-alert API for Coastal Del Norte public forecast zone ${NWS_FORECAST_ZONE}.`,
   }),
   source({
     id: "alert-noaa-tides", name: "NOAA CO-OPS Crescent City tides", kind: "alert", authority: "public_agency", region: "Federal",
@@ -564,16 +566,20 @@ export async function buildSourceDiscoveryReport(options: {
   return report;
 }
 
-export async function writeSourceDiscoveryArtifacts(options: { probe?: boolean; checkedAt?: string } = {}): Promise<SourceDiscoveryEvidenceReport> {
+export async function writeSourceDiscoveryArtifacts(options: ProducerOptions & { probe?: boolean; checkedAt?: string } = {}): Promise<SourceDiscoveryEvidenceReport> {
+  return withProducerScope("source-discovery", options, () => writeSourceDiscoveryArtifactsOwned(options));
+}
+async function writeSourceDiscoveryArtifactsOwned(options: { probe?: boolean; checkedAt?: string }): Promise<SourceDiscoveryEvidenceReport> {
   const registry = getSourceRegistry();
   const fingerprint = await sourceRegistryFingerprint(registry);
   const seen = new IdempotencyStore(paths.sourceDiscoverySeen);
   await seen.load();
   const report = await buildSourceDiscoveryReport({ ...options, registry });
   seen.record("registry", fingerprint, { sourceCount: registry.length });
-  await seen.save();
-  await writeJsonAtomic(paths.sourceRegistry, { schemaVersion: "1.0.0", fingerprint, sources: registry });
-  await writeJsonAtomic(paths.sourceDiscovery, report);
+  await seen.publish(paths.output, [
+    { path: "source-registry.json", text: `${JSON.stringify({ schemaVersion: "1.0.0", fingerprint, sources: registry }, null, 2)}\n` },
+    { path: "source-discovery.json", text: `${JSON.stringify(report, null, 2)}\n` },
+  ], { signal: (await import('./shared/run_scope.js')).currentRunSignal() });
   return report;
 }
 

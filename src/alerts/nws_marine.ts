@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -77,6 +78,8 @@ export interface MarineZoneForecast {
    * 2026") that `Date.parse` rejects.
    */
   timestamp: string;
+  observedAt?: string;
+  productDate?: string;
   zone: string;
   zoneTitle: string;
   /** The product's own issuance line (free text, human-facing). */
@@ -237,6 +240,9 @@ function loadProcessedIds(): Set<string> {
 
 /** Fetch the newest EKA CWF product text. */
 export async function fetchCwfProductText(): Promise<string> {
+  return (await fetchCwfProduct()).text;
+}
+async function fetchCwfProduct(): Promise<{ text: string; issuanceTime: string | null }> {
   const listResp = await fetch(NWS_CWF_LIST_URL, {
     headers: REQUEST_HEADERS,
     signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
@@ -256,21 +262,23 @@ export async function fetchCwfProductText(): Promise<string> {
   if (!productResp.ok) {
     throw new Error("NWS CWF product returned " + productResp.status + ": " + productResp.statusText);
   }
-  const product = (await productResp.json()) as { productText?: unknown };
+  const product = (await productResp.json()) as { productText?: unknown; issuanceTime?: unknown };
   if (typeof product.productText !== "string" || !product.productText.trim()) {
     throw new Error("NWS CWF product had no productText");
   }
-  return product.productText;
+  return { text: product.productText, issuanceTime: typeof product.issuanceTime === "string" ? product.issuanceTime : null };
 }
 
 /** Run the monitor: fetch, parse, persist current.json + deduped history. */
-export async function runMarineZoneMonitor(): Promise<MarineZoneForecast | null> {
+export async function runMarineZoneMonitor(options: ProducerOptions = {}): Promise<MarineZoneForecast | null> { return withProducerScope("alert-nws-marine", options, () => runMarineZoneMonitorInScope()); }
+async function runMarineZoneMonitorInScope(): Promise<MarineZoneForecast | null> {
   logger.info("Checking NWS Coastal Waters Forecast for " + MARINE_ZONE_CODE);
   lastMarineZoneError = undefined;
   try {
-    const productText = await fetchCwfProductText();
-    const forecast = toMarineZoneForecast(productText);
+    const product = await fetchCwfProduct();
+    const forecast = toMarineZoneForecast(product.text);
     if (!forecast) throw new Error(`Zone ${MARINE_ZONE_CODE} not found in the newest CWF product`);
+    if (product.issuanceTime) { const at = Date.parse(product.issuanceTime); if (Number.isFinite(at)) { forecast.observedAt = new Date(at).toISOString(); forecast.productDate = forecast.observedAt.slice(0, 10); } }
 
     await mkdir(HISTORY_DIR(), { recursive: true });
     await writeJsonAtomic(CURRENT_FILE(), forecast);

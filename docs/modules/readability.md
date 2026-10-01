@@ -124,3 +124,9 @@ Run with: `bun test tests/readability-history.test.ts`.
 ## `src/lifeos_bridge.ts` — LifeOS / Pulse Bridge
 
 Builds the LocalIntelligence digest consumed by the Pulse LOCAL tab from this platform's real outputs (news digests, meetings, alert history, code stats); invoked by `bun run lifeos:bridge`. Tests: `tests/lifeos-bridge.test.ts`.
+
+The bridge writes hash-bound retained digest versions and a commit pointer.
+`readCommittedDigest` reads and validates the committed exact-byte version, so a
+partially replaced latest file is not a consumer edition. Private actual Pulse
+consumer rendering is a separate acceptance. Unknown dates remain unknown, and
+a digest generation timestamp does not make stale source evidence current.

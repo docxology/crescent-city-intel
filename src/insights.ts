@@ -23,6 +23,8 @@ import { scoreDomainCoverageGaps, type DomainCoverageGap, type DomainGapInput } 
 import { checkChatProvider, chatWithProvider } from "./llm/provider.js";
 import { isCivilDate, parseEventDate } from "./events.js";
 import { custodyHash } from "./corpus_editions.js";
+import { assessSampling, type SamplingReceipt } from "./trend_sampling.js";
+import { EXPECTED_SOURCE_HEALTH } from "./shared/source_health.js";
 import { redactUrl } from "./shared/transport.js";
 
 export const INSIGHTS_SCHEMA = "crescent-city-civic-insights/v1" as const;
@@ -96,6 +98,7 @@ export interface DatedRecord {
 }
 
 export interface ActivityCollectionReceipt {
+  sampling?: SamplingReceipt;
   schemaVersion: "civic-activity-evidence/v1";
   inputFiles: number;
   missingInputs: string[];
@@ -204,7 +207,7 @@ export async function collectActivityEvidence(root: string): Promise<{ records: 
   const records: DatedRecord[] = [];
   const receipt: ActivityCollectionReceipt = { schemaVersion: "civic-activity-evidence/v1", inputFiles: 0, missingInputs: [], malformedFiles: [], invalidRows: 0, snapshotRows: 0, uniqueRecords: 0, duplicateSnapshots: 0, revisedItems: 0, undatedRecords: 0,
     countUnits: { alerts: "distinct recorded observations", news: "unique published source items", meetings: "unique dated meeting records", youtube: "unique video publications", calendarEvents: "unique calendar occurrences" },
-    limitations: ["Collection cadence is not normalized; observation counts do not measure hazard frequency", "A recorded timestamp does not by itself prove an upstream observation time", "Source coverage and missing artifacts are evaluated separately from activity", "Identity without a source ID uses the recorded URL/title and date; reviewed identity reconciliation remains source-specific"] };
+    limitations: ["Trend eligibility uses declared weekly sampling slots and recorded source checks; missing history remains a gap and activity does not measure hazard frequency", "A recorded timestamp does not by itself prove an upstream observation time", "Source coverage and missing artifacts are evaluated separately from activity", "Identity without a source ID uses the recorded URL/title and date; reviewed identity reconciliation remains source-specific"] };
   const relative = (path: string) => path.slice(root.replace(/\/+$/, "").length + 1);
   async function readJson(path: string): Promise<unknown> {
     try { const text = await readFile(path, "utf8"); receipt.inputFiles++; return JSON.parse(text); }
@@ -590,8 +593,18 @@ export async function buildInsightReport(options: BuildInsightOptions = {}): Pro
   const root = options.outputRoot ?? outputRoot();
 
   const { records, receipt } = await collectActivityEvidence(root);
+  const sampleInputs: unknown[] = [];
+  for (const folder of ["alerts", "news", "gov_meetings", "youtube", "triplicate"]) {
+    try {
+      const text = await readFile(join(root, folder, "source-health-history.jsonl"), "utf8");
+      for (const line of text.split("\n").filter(Boolean).slice(-10_000)) { try { sampleInputs.push(JSON.parse(line)); } catch { sampleInputs.push(null); } }
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") sampleInputs.push(null); }
+  }
+  const expectedSources = EXPECTED_SOURCE_HEALTH.map(source => source.source);
+  receipt.sampling = assessSampling(sampleInputs, { nowMs, windowDays, intervalMs: 7 * DAY_MS, expectedSources });
   const buckets = attributeRecords(records);
   const trends = computeDomainTrends(buckets, { nowMs, windowDays });
+  if (!receipt.sampling.comparable) for (const trend of trends) { trend.direction = "insufficient"; trend.momentumPct = null; }
   const gaps = evaluateCoverageGaps(coverageGapInputs(buckets, nowMs), nowMs);
   const gapByDomain = new Map(gaps.map(gap => [gap.domainId, gap]));
 

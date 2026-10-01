@@ -26,20 +26,21 @@
  * Output: JSON files written to output/triplicate/
  */
 import * as cheerio from 'cheerio';
-import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { mkdir } from 'fs/promises';
+import { join, resolve, relative, isAbsolute } from 'path';
 import { createLogger } from './logger.js';
 import { newPage, navigateWithCloudflare, closeBrowser, withPageDeadline, closePageBounded } from './browser.js';
 import { boundedHttpFetch as fetch } from './shared/transport.js';
 import { withRetry, detectCloudflareStall } from './scraper_utils.js';
+import { replaceArtifacts, recoverArtifactTransactions, type ArtifactReplacement } from './shared/artifact_transaction.js';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { normalizeUrl } from './news_monitor.js';
 import { SCRAPE_TIMEOUT_MS } from './constants.js';
-import { paths } from './shared/paths.js';
-import { sourceHealth, writeJsonAtomic } from './shared/source_health.js';
+import { paths, outputRoot } from './shared/paths.js';
+import { sourceHealth, writeJsonAtomic, appendBoundedJsonl } from './shared/source_health.js';
+import { withProducerScope, currentRunSignal } from './shared/run_scope.js';
 import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
-import { outputRoot } from './shared/paths.js';
 
 const logger = createLogger('triplicate_monitor');
 
@@ -423,12 +424,15 @@ export async function saveTriplicateArticles(
     items: articles,
   };
 
-  await writeFile(filename, JSON.stringify(payload, null, 2));
+  await writeJsonAtomic(filename, payload);
   logger.info(`Saved ${articles.length} Triplicate article(s) to ${filename}`);
   return filename;
 }
 
 export interface MonitorTriplicateOptions {
+  signal?: AbortSignal;
+  deadlineMs?: number;
+  artifactRoot?: string;
   /** Override the page fetcher (default: real browser-driven fetch). */
   fetchHtml?: PageFetcher;
   /** Override the persistent dedup index path (default: output/triplicate/seen-articles.json). */
@@ -451,8 +455,8 @@ export interface MonitorTriplicateOptions {
  * Renders each configured section via the Cloudflare-bypass browser layer,
  * extracts article links, deduplicates against the persistent index, persists
  * new items, and returns them (newest sections first). Matches the
- * graceful-degradation contract of monitorNews/monitorGovMeetings: it NEVER
- * throws — every failure is caught and logged.
+ * source-degradation contract of monitorNews/monitorGovMeetings. Source failures
+ * are recorded; cancellation, ownership and publication failures throw.
  *
  * Anti-criterion (enforced here): a hard fetch failure, a "rendered but zero
  * links extracted" event, and an ordinary "no new articles" cycle are logged
@@ -462,6 +466,11 @@ export interface MonitorTriplicateOptions {
 export async function monitorTriplicate(
   opts: MonitorTriplicateOptions = {},
 ): Promise<TriplicateArticle[]> {
+  const root = resolve(opts.artifactRoot ?? outputRoot());
+  for (const path of [opts.seenPath, opts.outputDir, opts.healthPath]) if (path) { const local = relative(root, resolve(path)); if (local.startsWith('..') || isAbsolute(local)) throw new Error('Triplicate destinations must belong to its captured artifact root'); }
+  return withProducerScope('triplicate', { signal: opts.signal, deadlineMs: opts.deadlineMs, outputDir: opts.artifactRoot }, () => monitorTriplicateOwned(opts));
+}
+async function monitorTriplicateOwned(opts: MonitorTriplicateOptions): Promise<TriplicateArticle[]> {
   const fetchHtml = opts.fetchHtml ?? fetchRenderedHtml;
   const seenPath = opts.seenPath ?? seenArticlesPath();
   const sections = opts.sections ?? TRIPLICATE_SECTIONS;
@@ -472,6 +481,7 @@ export async function monitorTriplicate(
   const sectionCount = Object.keys(sections).length;
 
   logger.info('=== Starting Del Norte Triplicate Monitoring ===');
+  await recoverArtifactTransactions(outputRoot());
 
   const store = new IdempotencyStore(seenPath, 5000);
   await store.load();
@@ -483,6 +493,7 @@ export async function monitorTriplicate(
   let totalExtracted = 0;
 
   for (const [sectionName, url] of Object.entries(sections)) {
+    currentRunSignal()?.throwIfAborted();
     const outcome = await fetchSection(sectionName, url, fetchHtml, maxRetries, baseDelayMs);
     if (outcome.status === 'failed') {
       anyFetchFailed = true;
@@ -526,8 +537,6 @@ export async function monitorTriplicate(
   }
 
   if (newArticles.length > 0) {
-    await store.save();
-    await saveTriplicateArticles(newArticles, outputDir);
     logger.info(`Triplicate monitoring complete: ${newArticles.length} new article(s)`, {
       totalExtracted,
     });
@@ -560,10 +569,16 @@ export async function monitorTriplicate(
         error: anyFetchFailed ? 'One or more configured sections failed to render' : undefined,
         provenance: 'Playwright Cloudflare-bypass rendered pages; reference/citation only',
       });
-  await writeJsonAtomic(healthPath, {
+  const healthPayload = {
+    schemaVersion: 'crescent-city-source-health/v1',
     checkedAt: new Date().toISOString(),
     sources: [health],
-  });
+  };
+  const artifacts: ArtifactReplacement[] = [{ path: relative(outputRoot(), healthPath), text: JSON.stringify(healthPayload, null, 2) }];
+  if (newArticles.length > 0) artifacts.push({ path: relative(outputRoot(), join(outputDir, `triplicate-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID()}.json`)), text: JSON.stringify({ fetchedAt, totalItems: newArticles.length, usagePolicy: TRIPLICATE_USAGE_POLICY, items: newArticles }, null, 2) });
+  if (newArticles.length > 0) await store.publish(outputRoot(), artifacts, { signal: currentRunSignal() });
+  else await replaceArtifacts(outputRoot(), artifacts, { signal: currentRunSignal() });
+  await appendBoundedJsonl(`${healthPath.replace(/\.json$/, '')}-history.jsonl`, healthPayload);
 
   logger.info('=== Triplicate Monitoring Complete ===');
   return newArticles;

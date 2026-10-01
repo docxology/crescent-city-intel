@@ -19,6 +19,7 @@
 import { monitorNOAATsunamiAlerts } from "./noaa_tsunami.ts";
 import { monitorUSGSEarthquakeAlerts } from "./usgs_earthquake.ts";
 import { monitorNWSWeatherAlerts } from "./nws_weather.ts";
+import { NWS_ALERTS_URL } from "../constants.js";
 import { AIRNOW_PUBLIC_KML_URL, getLastAirQualityError, runAirQualityMonitor } from "./epa_airnow.ts";
 import { CALFIRE_API_URL, getLastWildfireError, runWildfireMonitor } from "./calfire_wildfire.ts";
 import { runMarineMonitor, getLastMarineError } from "./ndbc_marine.ts";
@@ -47,7 +48,9 @@ import { readFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 import type { SourceHealth } from "../types.ts";
-import { paths, outputRoot } from "../shared/paths.ts";
+import { paths, outputRoot, withOutputRoot } from "../shared/paths.ts";
+import { createRunScope, currentRunSignal, remainingRunMs, withRunSignal } from "../shared/run_scope.js";
+import { withTransportScope, type TransportScope } from "../shared/transport.js";
 import { acquireFileLease } from "../shared/storage.ts";
 import { writeJsonAtomic, sourceHealth } from "../shared/source_health.ts";
 import { maybeSendSeverityWebhook } from "./notify.ts";
@@ -61,10 +64,17 @@ import { sendPushNotification } from "../notifications/push.ts";
 
 const logger = createLogger("alerts");
 
-export async function runAllAlertMonitors(options?: { only?: MonitorKey[]; notifications?: boolean }): Promise<SourceHealth[]> {
+export interface AlertRunOptions { only?: MonitorKey[]; notifications?: boolean; outputDir?: string; signal?: AbortSignal; deadlineMs?: number; fixture?: TransportScope["fixture"] }
+export async function runAllAlertMonitors(options: AlertRunOptions = {}): Promise<SourceHealth[]> {
+  const scope = createRunScope({ signal: options.signal ?? currentRunSignal(), deadlineMs: Math.min(options.deadlineMs ?? 120_000, remainingRunMs() ?? 120_000) });
+  try { return await withOutputRoot(options.outputDir ?? outputRoot(), () => withRunSignal(scope.signal, () => withTransportScope({ signal: scope.signal, fixture: options.fixture }, () => runAlertMonitorsInScope(options)), scope.deadlineAt)); }
+  finally { scope.dispose(); }
+}
+async function runAlertMonitorsInScope(options: AlertRunOptions): Promise<SourceHealth[]> {
   const selected = options?.only;
   if (selected && (!selected.length || new Set(selected).size !== selected.length || selected.some(key => !MONITOR_KEYS.includes(key)))) throw new Error("--only requires a nonempty unique set of known monitor keys");
-  const releaseLock = await acquireFileLease(join(outputRoot(), "state", "alerts-run.lock"), { waitMs: 1000 });
+  const signal = currentRunSignal();
+  const releaseLock = await acquireFileLease(join(outputRoot(), "state", "alerts-run.lock"), { waitMs: 1000, staleMs: 0, signal });
   const startedAt = new Date().toISOString(); const runId = crypto.randomUUID();
   const attemptPath = join(outputRoot(), "state", "latest-alert-run.json");
   try {
@@ -125,7 +135,8 @@ export async function runAllAlertMonitors(options?: { only?: MonitorKey[]; notif
       throw new Error(`alert batch does not match MONITOR_KEYS: [${batch.map(entry => entry.key).join(", ")}]`);
     }
     const runnableBatch = selectedKeys ? batch.filter(entry => selectedKeys.includes(entry.key)) : batch;
-    const settledResults = await Promise.allSettled(runnableBatch.map(entry => entry.run()));
+    const settledResults = await Promise.allSettled(runnableBatch.map(entry => { signal?.throwIfAborted(); return entry.run(); }));
+    signal?.throwIfAborted();
     const resultsByKey = Object.fromEntries(MONITOR_KEYS.map(key => [key, { status: "fulfilled", value: null }])) as Record<MonitorKey, PromiseSettledResult<unknown>>;
     for (let position = 0; position < runnableBatch.length; position++) resultsByKey[runnableBatch[position]!.key] = settledResults[position]!;
     for (const key of MONITOR_KEYS.filter(key => !runnableBatch.some(entry => entry.key === key))) {
@@ -231,7 +242,7 @@ export async function runAllAlertMonitors(options?: { only?: MonitorKey[]; notif
     const monitorDefinitions: AlertMonitorDefinition[] = [
       { source: "NOAA Tsunami", key: "tsunami", report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?area=CA", provenance: "NOAA CAP alerts (tsunami Warning/Watch/Advisory)" },
       { source: "USGS Earthquake", key: "earthquake", report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", provenance: "USGS GeoJSON feed" },
-      { source: "NWS Weather", key: "weather", report: weather, itemCount: weather?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?zone=CAZ006", provenance: "NWS active alerts" },
+      { source: "NWS Weather", key: "weather", report: weather, itemCount: weather?.alerts?.length ?? 0, url: NWS_ALERTS_URL, provenance: "NWS active alerts" },
       { source: "NOAA Tides", key: "tides", report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", provenance: "NOAA CO-OPS station 9419750" },
       { source: "CDFW Fishing", key: "fishing", report: fishingReport, itemCount: fishingReport?.bulletins?.length ?? 0, url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", provenance: "CDFW North Coast bulletins" },
       { source: "EPA AirNow", key: "airquality", report: airquality, itemCount: airquality?.readings?.length ?? 0, url: airquality?.provider === "airnow-public-kml" ? AIRNOW_PUBLIC_KML_URL : "https://www.airnowapi.org/aq/observation/zipCode/current/", provenance: airquality?.provider === "airnow-public-kml" ? "EPA AirNow public KML; keyed ZIP API fallback not required" : "EPA AirNow ZIP 95531 API" },
@@ -252,7 +263,7 @@ export async function runAllAlertMonitors(options?: { only?: MonitorKey[]; notif
       return classifySourceHealth(definition, resultsByKey[definition.key], monitorErrors, checkedAt);
     });
 
-    await writeJsonAtomic(paths.alertsHealth, { checkedAt, sources: alertSources, attempts: MONITOR_KEYS.map(key => ({ key, requested: runnableBatch.some(entry => entry.key === key) })) });
+    await writeJsonAtomic(paths.alertsHealth, { runId, checkedAt, sources: alertSources, attempts: MONITOR_KEYS.map(key => ({ key, requested: runnableBatch.some(entry => entry.key === key) })) });
     // ─── Self-healing cycle ─────────────────────────────────────────
     // Run the healing cycle after alerts complete. Never throws.
     const healingResult = await runHealingCycle();
@@ -290,7 +301,7 @@ export async function runAllAlertMonitors(options?: { only?: MonitorKey[]; notif
     logger.info("=== All 20 Alert Monitors Complete ===");
     return alertSources;
   } catch (error) {
-    await writeJsonAtomic(attemptPath, { runId, startedAt, completedAt: new Date().toISOString(), status: "failed", requested: selected ?? MONITOR_KEYS, error: error instanceof Error ? error.message : String(error) });
+    await writeJsonAtomic(attemptPath, { runId, startedAt, completedAt: new Date().toISOString(), status: signal?.aborted ? "interrupted" : "failed", requested: selected ?? MONITOR_KEYS, error: error instanceof Error ? error.message : String(error) }, { signal: null });
     throw error;
   } finally {
     await releaseLock();

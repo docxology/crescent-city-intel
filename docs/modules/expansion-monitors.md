@@ -10,6 +10,11 @@ Source dates below identify the recorded live captures used as parser evidence.
 Current availability comes from each bounded run's source-health receipt;
 access to a public catalog does not establish access to its underlying records.
 
+`bun run scripts/source-coverage.ts` reads the current registry and retained
+bounded observations without network access or writes. It reports exact catalog
+units, geographic/access limits and missing primary legal evidence; absent facts
+remain null. See [source review](source-review.md) for its proof boundary.
+
 The roster authority remains `MONITOR_KEYS` in `alerts/composite.ts`; these
 five are appended there and flow through every derived roster
 (`EXTENDED_MONITOR_SPECS`, `ALERT_TYPES`, `CORRELATION_SOURCES`,

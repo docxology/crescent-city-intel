@@ -22,6 +22,7 @@ bun test --watch      # Watch mode
 | `toc.test.ts` | `src/toc.ts` — TOC pure functions |
 | `shared-paths.test.ts` | `src/shared/paths.ts` — path constants |
 | `shared-data.test.ts` | `src/shared/data.ts` — data loader contracts |
+| `empty-corpus-startup.test.ts` | Actual bounded GUI main startup with genuinely absent/empty data; malformed/orphan/missing/linked corpus rejection |
 | `constants*.test.ts` | `src/constants.ts` — base and env-overridable constants |
 | `logger.test.ts` | `src/logger.ts` — log levels and output suppression |
 | `llm-config.test.ts` | `src/llm/config.ts` — provider/model parameters |
@@ -61,6 +62,12 @@ bun test --watch      # Watch mode
 | `v2-endpoints*.test.ts` | API endpoint contracts and edge cases |
 | `pages_snapshot.test.ts` | Static export schema, atomic artifact boundaries, and source-health truthfulness |
 | `publication-bundle.test.ts` | Whole-edition custody, interrupted promotion, privacy, and portable hash-bound sitemap provenance with real alternate-checkout timestamps |
+| `artifact-contracts.test.ts` | Shared versioned persisted family/API/Pages authority, counts, types, null facts and public URLs |
+| `artifact-custody.test.ts` | Actual bounded capture and directory export/replay with rehashed tampering controls |
+| `corpus-lineage.test.ts` | Source-bound asymmetric edition changes, explicit legal evidence and aggregate filesystem admission |
+| `directory-review.test.ts` | Per-field unknown currency, role-owned correction decisions and changed-source reopening |
+| `doc-authority.test.ts` | TypeScript AST configuration/exports, structural HTTP docs and filename drift controls |
+| `source-coverage.test.ts` | Read-only registry-grounded catalog/geography/access gaps and corrupt observation rejection |
 | `middleware*.test.ts` | `src/api/middleware.ts` — authentication and sliding-window limits |
 | `idempotency.test.ts` | `src/shared/idempotency.ts` — atomic persistence and migration |
 | `verify.test.ts` | `src/verify.ts` + `src/shared/data.ts` + coverage |

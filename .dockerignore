@@ -7,6 +7,8 @@
 .gitignore
 node_modules
 output
+.output.*
+chroma_data
 .pages
 .claude
 *.log

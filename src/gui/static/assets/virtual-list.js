@@ -1,3 +1,4 @@
+import { CCGui } from "./gui-runtime.js";
 // virtual-list.js — windowed list renderer for the Quadruplicate SPA.
 //
 // The SPA has no build step and several panels render long flat lists. This
@@ -59,8 +60,8 @@ function createVirtualList(options) {
     const top = windowStart * rowHeight;
     const bottom = Math.max(0, (items.length - windowEnd) * rowHeight);
     if (isTable) {
-      rowHost.firstElementChild.innerHTML = spacerHeightTd(top);
-      rowHost.lastElementChild.innerHTML = spacerHeightTd(bottom);
+      CCGui.render(rowHost.firstElementChild, spacerHeightTd(top));
+      CCGui.render(rowHost.lastElementChild, spacerHeightTd(bottom));
     } else {
       rowHost.firstElementChild.style.height = top + "px";
       rowHost.lastElementChild.style.height = bottom + "px";
@@ -91,11 +92,11 @@ function createVirtualList(options) {
       for (const html of parts) {
         const tr = document.createElement("tr");
         tr.setAttribute("data-virtual-row", "");
-        tr.innerHTML = html;
+        CCGui.render(tr, html);
         rowHost.insertBefore(tr, rowHost.lastElementChild);
       }
     } else {
-      host.innerHTML = parts.join("");
+      CCGui.render(host, parts.join(""));
     }
     applySpacers();
     growRowHeight();
@@ -126,15 +127,15 @@ function createVirtualList(options) {
   function setItems(nextItems) {
     items = Array.isArray(nextItems) ? nextItems : [];
     if (isTable) {
-      rowHost.innerHTML = "";
+      CCGui.render(rowHost, "");
       const top = document.createElement("tr");
       const bottom = document.createElement("tr");
-      top.innerHTML = spacerHeightTd(0);
-      bottom.innerHTML = spacerHeightTd(0);
+      CCGui.render(top, spacerHeightTd(0));
+      CCGui.render(bottom, spacerHeightTd(0));
       rowHost.appendChild(top);
       rowHost.appendChild(bottom);
     } else {
-      rowHost.innerHTML = "";
+      CCGui.render(rowHost, "");
       const top = document.createElement("div");
       const win = document.createElement("div");
       const bottom = document.createElement("div");
@@ -170,3 +171,5 @@ function createVirtualList(options) {
     get rowHeight() { return rowHeight; },
   };
 }
+
+export { GLOSSARY_VIRTUAL_THRESHOLD, SEARCH_VIRTUAL_THRESHOLD, createVirtualList };

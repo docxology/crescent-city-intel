@@ -18,6 +18,7 @@ import {
   PAGES_STATIC_PAGES,
 } from "../src/pages_snapshot.ts";
 import { EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
+import { buildPipelineRun } from "../src/shared/orchestration.ts";
 import { getSourceRegistry } from "../src/source_registry.ts";
 
 async function put(root: string, relative: string, value: unknown): Promise<void> {
@@ -78,8 +79,8 @@ describe("public Pages snapshot", () => {
       await put(root, "gov_meetings/gov_meetings-2026-07-24T00.json", { items: [{ title: "Council", link: "https://example.test/agenda", source: "Council", date: "Jul 24, 2026" }] });
       await put(root, "triplicate/triplicate-2026-07-24T00.json", { items: [{ title: "Reference story", link: "https://triplicate.test/story", usagePolicy: "wrong input" }] });
       await put(root, "curated/2026-07-24.json", [{ title: "Brief", link: "https://example.test/harbor", source: "news", provider: "ollama", summary: "Grounded" }]);
-      await put(root, "news/source-health.json", { sources: [{ source: "Fixture News", status: "unavailable", checkedAt: "2026-07-24T00:00:00Z", itemCount: 0, error: "fixture outage" }] });
-      await put(root, "alerts/source-health.json", { sources: [{ source: "Fixture Alert", status: "empty", checkedAt: "2026-07-24T00:00:00Z", itemCount: 0 }] });
+      await put(root, "news/source-health.json", { checkedAt: "2026-07-24T00:00:00Z", sources: [{ source: "Fixture News", status: "unavailable", checkedAt: "2026-07-24T00:00:00Z", itemCount: 0, error: "fixture outage" }] });
+      await put(root, "alerts/source-health.json", { checkedAt: "2026-07-24T00:00:00Z", sources: [{ source: "Fixture Alert", status: "empty", checkedAt: "2026-07-24T00:00:00Z", itemCount: 0 }] });
       await put(root, "alerts/composite/current.json", { level: "WARNING", assessedAt: "2026-07-24T00:00:00Z", reason: "Fixture" });
 
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
@@ -105,7 +106,7 @@ describe("public Pages snapshot", () => {
   test("writes a self-contained static artifact and validates it", async () => {
     await withFixture(async root => {
       await writePublicationFixture(root);
-      await put(root, "news/source-health.json", { sources: [] });
+      await put(root, "news/source-health.json", { checkedAt: "2026-07-24T00:00:00Z", sources: [] });
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-public-seed"), generatedAt: "2026-07-24T01:00:00Z" });
       expect(result.status).toBe("ok");
@@ -137,7 +138,7 @@ describe("public Pages snapshot", () => {
     await withFixture(async root => {
       await writePublicationFixture(root);
       const source = getSourceRegistry().find(item => item.configuredMonitor === "alert:weather")!;
-      await put(root, "alerts/source-health.json", { sources: [{ sourceId: source.id, source: "Renamed weather display", status: "empty", checkedAt: "2026-07-24T00:00:00Z", fetchedAt: "2026-07-24T00:00:00Z", itemCount: 0 }] });
+      await put(root, "alerts/source-health.json", { checkedAt: "2026-07-24T00:00:00Z", sources: [{ sourceId: source.id, source: "Renamed weather display", status: "empty", checkedAt: "2026-07-24T00:00:00Z", fetchedAt: "2026-07-24T00:00:00Z", itemCount: 0 }] });
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.sourceHealth.find(row => row.source === "Renamed weather display")?.sourceId).toBe(source.id);
       const record = snapshot.sourceDiscovery?.sources.find(row => row.id === source.id) as unknown as { healthBinding: string; collection: string; healthReceipts: Array<{ sourceId: string }> };
@@ -161,7 +162,7 @@ describe("public Pages snapshot", () => {
   test("keeps a genuine pipeline failure distinct from source coverage gaps", async () => {
     await withFixture(async root => {
       await writePublicationFixture(root);
-      await put(root, "state/latest-pipeline-run.json", { status: "failed", runId: "fixture-run" });
+      await put(root, "state/latest-pipeline-run.json", buildPipelineRun("fixture", "fixture-run", "2026-07-24T00:00:00Z", [{ name: "municipal-code", status: "failed", startedAt: "2026-07-24T00:00:00Z", completedAt: "2026-07-24T01:00:00Z", durationMs: 3600000 }], [], 2, "2026-07-24T01:00:00Z"));
       const snapshot = await buildPagesSnapshot(root, "2026-07-24T01:00:00Z", join(root, "no-public-seed"));
       expect(snapshot.status).toBe("degraded");
       expect(snapshot.healthSummary.missing).toBe(EXPECTED_SOURCE_HEALTH.length);

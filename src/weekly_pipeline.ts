@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * scripts/weekly-check.ts — Thin orchestrator: weekly automated health check.
+ * Weekly automated health check, invoked by the thin scripts/weekly-check.ts CLI.
  *
  * A cron-friendly script that:
  *   1. Runs the municipal code change detection monitor
@@ -13,8 +13,7 @@
  *   bun run scripts/weekly-check.ts
  *   bun run weekly-check
  *
- * Cron example (every Sunday at 2 AM):
- *   0 2 * * 0 cd /path/to/crescent-city-intel && bun run weekly-check >> output/weekly-check.log 2>&1
+ * Review the Sunday 07:00 Pacific scheduler plan with bun run cron-setup -- --dry-run.
  */
 import { runMonitor } from "./monitor.ts";
 import { refreshEvents } from "./events.ts";
@@ -23,6 +22,7 @@ import { monitorNews } from "./news_monitor.ts";
 import { monitorGovMeetings } from "./gov_meeting_monitor.ts";
 import { monitorYouTube } from "./youtube_monitor.ts";
 import { monitorTriplicate } from "./triplicate_monitor.ts";
+import { recoverOwnedBrowsers } from "./browser_launcher.ts";
 import { closeBrowser } from "./browser.ts";
 import { runCuration } from "./curation.ts";
 import { generateMonthlyReport } from "./monthly_report.ts";
@@ -31,8 +31,11 @@ import { createLogger } from "./logger.ts";
 import { existsSync } from "fs";
 import { mkdir, readdir, readFile } from "fs/promises";
 import { join } from "path";
-import { acquireFileLease } from "./shared/storage.ts";
-import { paths, outputRoot } from "./shared/paths.ts";
+import { acquireFileLease, assertSafeFilesystemPath } from "./shared/storage.ts";
+import { paths, outputRoot, withOutputRoot } from "./shared/paths.ts";
+import { createRunScope, withRunSignal } from "./shared/run_scope.ts";
+import { replaceArtifacts, recoverArtifactTransactions, readBoundedArtifact } from "./shared/artifact_transaction.ts";
+import { withTransportScope } from "./shared/transport.ts";
 import { completeSourceHealth, writeJsonAtomic } from "./shared/source_health.ts";
 import { writeSourceDiscoveryArtifacts } from "./source_registry.ts";
 import { buildPipelineRun, createRunId, executePipelineStep, writePipelineRun } from "./shared/orchestration.ts";
@@ -59,15 +62,41 @@ export function classifyCalendarRefresh(result: CalendarRefreshResult): "ok" | "
   return "ok";
 }
 
-export async function runWeeklyCheck(): Promise<number> {
-  const release = await acquireFileLease(join(paths.state, "weekly-check.lock"), { waitMs: 1000 });
+export async function runWeeklyCheck(options: { signal?: AbortSignal; deadlineMs?: number; outputDir?: string } = {}): Promise<number> {
+  const deadlineMs = options.deadlineMs ?? Number(process.env.WEEKLY_DEADLINE_MS ?? 3_600_000);
+  if (!Number.isFinite(deadlineMs) || deadlineMs < 100 || deadlineMs > 86_400_000) throw new Error("Weekly deadline must be 100ms to 24h");
+  const deadlineAt = Date.now() + deadlineMs;
+  const cleanupReserve = Math.min(1000, deadlineMs / 4);
+  const scope = createRunScope({ signal: options.signal, deadlineMs: deadlineMs - cleanupReserve });
+  try { return await withOutputRoot(options.outputDir ?? outputRoot(), () => withRunSignal(scope.signal, () => withTransportScope({ signal: scope.signal }, () => runOwnedWeekly(scope.signal, scope.remainingMs, deadlineAt)), scope.deadlineAt)); }
+  finally { scope.dispose(); }
+}
+async function runOwnedWeekly(signal: AbortSignal, remainingMs: () => number, deadlineAt: number): Promise<number> {
+  const release = await acquireFileLease(join(paths.state, "weekly-check.lock"), { waitMs: Math.min(1000, remainingMs()), signal, staleMs: 0 });
   const attemptPath = join(paths.state, "latest-pipeline-attempt.json");
+  const startedAt = new Date().toISOString();
+  const runId = createRunId("weekly-check", startedAt);
+  const owner = { pid: process.pid, token: crypto.randomUUID() };
+  const attemptArchive = join(paths.state, "pipeline-runs", runId, "attempt.json");
   try {
-const startedAt = new Date().toISOString();
-const runId = createRunId("weekly-check", startedAt);
+await recoverArtifactTransactions(outputRoot());
+await recoverOwnedBrowsers(outputRoot());
+await assertSafeFilesystemPath(attemptPath);
+const previousBytes = await readBoundedArtifact(attemptPath, 1_000_000);
+const previousAttempt = previousBytes === null ? null : new TextDecoder('utf-8', { fatal: true }).decode(previousBytes);
+if (previousAttempt) {
+  let previous: Record<string, unknown>; try { previous = JSON.parse(previousAttempt); } catch { previous = { status: "invalid", preservedBytes: previousAttempt }; }
+  const recovered = previous.status === "running" ? { ...previous, status: "interrupted", recoveredAt: startedAt, recoveredBy: runId } : previous;
+  await writeJsonAtomic(join(paths.state, "pipeline-runs", runId, "previous-attempt.json"), recovered, { signal: null });
+}
 const steps: PipelineStepReport[] = [];
-await writeJsonAtomic(attemptPath, { runId, pipeline: "weekly-check", startedAt, status: "running" });
-const step: typeof executePipelineStep = (name, task, options = {}) => executePipelineStep(name, task, { ...options, receiptPath: join(paths.state, "pipeline-runs", runId, `${name}.json`) });
+const running = { schemaVersion: "pipeline-attempt/v2", runId, pipeline: "weekly-check", startedAt, deadlineAt: new Date(deadlineAt).toISOString(), owner, status: "running" };
+await writeJsonAtomic(attemptArchive, running); await writeJsonAtomic(attemptPath, running);
+const step: typeof executePipelineStep = async (name, task, options = {}) => {
+  signal.throwIfAborted();
+  const result = await executePipelineStep(name, task, { ...options, signal, timeoutMs: Math.min(options.timeoutMs ?? remainingMs(), remainingMs()), receiptPath: join(paths.state, "pipeline-runs", runId, `${name}.json`) });
+  signal.throwIfAborted(); return result;
+};
 
 logger.info(`=== Weekly Check: ${startedAt} ===`);
 
@@ -77,7 +106,7 @@ await mkdir(outputRoot(), { recursive: true });
 let exitCode = 0;
 
 // 1. Municipal code change detection
-logger.info("Stage 1/8: Running municipal code change detection...");
+logger.info("Running municipal code change detection...");
 const pagesSeedMode = process.env.PAGES_BUILD === "1" && (!existsSync(paths.toc) || !existsSync(paths.manifest));
 const monitorExecution = await step("municipal-code-monitor", async () => {
   if (pagesSeedMode) {
@@ -94,7 +123,7 @@ const monitorExecution = await step("municipal-code-monitor", async () => {
     logger.info("✅ Municipal code: live monitor skipped in Pages seed mode; reviewed seed will be exported");
     return seedReport;
   }
-  return runMonitor();
+  return runMonitor({ signal });
 }, {
   classify: result => result.overallStatus === "error" ? "failed" : result.overallStatus === "changed" ? "degraded" : "ok",
   outputPaths: [paths.monitorReport],
@@ -117,8 +146,8 @@ if (!report) {
 }
 
 // 2. All 20 real-time alert monitors (8 core + 12 extended; run concurrently, retain per-task failures)
-logger.info("Stage 2/8: Polling all 20 real-time alert feeds...");
-const alertExecution = await step("alert-monitors", () => runAllAlertMonitors({ notifications: !Bun.argv.includes("--no-notifications") }), {
+logger.info("Polling all 20 real-time alert feeds...");
+const alertExecution = await step("alert-monitors", () => runAllAlertMonitors({ signal, notifications: !Bun.argv.includes("--no-notifications") }), {
   // A reachable empty source and a missing source are facts about coverage, not
   // failures of this completed monitoring stage — but a stage where NO monitor
   // came back usable is not "ok" either, which is what the old `() => "ok"` said.
@@ -142,10 +171,10 @@ if (alertFailures.length > 0) {
 }
 
 // 3. News + meeting monitors (non-fatal on failure)
-logger.info("Stage 3/8: Running news and meeting monitors...");
+logger.info("Running news and meeting monitors...");
 const feedExecution = await step("news-and-meeting-monitors", () => Promise.allSettled([
-  Promise.resolve().then(() => monitorNews()).catch((error: unknown) => { throw error; }),
-  Promise.resolve().then(() => monitorGovMeetings()).catch((error: unknown) => { throw error; }),
+  Promise.resolve().then(() => monitorNews(undefined, { signal })).catch((error: unknown) => { throw error; }),
+  Promise.resolve().then(() => monitorGovMeetings({ signal })).catch((error: unknown) => { throw error; }),
 ]), {
   classify: results => results.some(result => result.status === "rejected") ? "failed" : "ok",
   outputPaths: [paths.newsHealth, paths.govMeetingsHealth],
@@ -201,7 +230,7 @@ if (missingFeeds.length > 0) {
 }
 
 // 4. Compute composite alert severity
-logger.info("Stage 4/8: Computing composite alert severity and analytics...");
+logger.info("Computing composite alert severity and analytics...");
 const analyticsExecution = await step("alert-analytics", async () => {
   const { buildAlertAnalytics } = await import("./alert_analytics.ts");
   const analytics = buildAlertAnalytics();
@@ -218,13 +247,13 @@ logger.info("✅ Composite severity computed");
 // observe their newly written batches and reporting must observe curation's
 // output. Running all four in one Promise.allSettled previously made a healthy
 // run silently report the prior cycle's downstream state.
-logger.info("Stages 5–9/9: Running transcript, curation, source discovery, reporting, and unified analytics surfaces...");
-const sourceExecution = await step("transcript-and-reference-monitors", () => Promise.all([monitorYouTube(10), monitorTriplicate()]), {
+logger.info("Running transcript, curation, source discovery, reporting, and unified analytics surfaces...");
+const sourceExecution = await step("transcript-and-reference-monitors", () => Promise.all([monitorYouTube(10, { signal }), monitorTriplicate({ signal })]), {
   itemCount: results => results.reduce((sum, result) => sum + result.length, 0),
   outputPaths: [paths.youtubeHealth, paths.triplicateHealth],
 });
 steps.push(sourceExecution.report);
-const curationExecution = await step("llm-curation", () => runCuration(), {
+const curationExecution = await step("llm-curation", () => runCuration({ signal }), {
   itemCount: items => items.length,
   outputPaths: [paths.curationReport, paths.curated],
 });
@@ -281,7 +310,7 @@ else if (!eventsExecution.value?.artifactRead) logger.error(`Community calendar 
 else if (eventsExecution.value.eventCount === 0 && eventsExecution.value.inputItems > 0) logger.error(`Community calendar refresh produced zero events from ${eventsExecution.value.inputItems} input record(s) — the merge is broken, not the week`);
 else if (eventsExecution.value.eventCount === 0) logger.warn("Community calendar refreshed with zero events; no calendar inputs were collected this cycle");
 else logger.info(`✅ Community calendar refreshed: ${eventsExecution.value.eventCount} event(s)`);
-const reportExecution = await step("monthly-report", () => generateMonthlyReport(), {
+const reportExecution = await step("monthly-report", () => generateMonthlyReport(undefined, { signal }), {
   outputPaths: [paths.reports, paths.latestReportMetadata],
 });
 steps.push(reportExecution.report);
@@ -311,6 +340,9 @@ if (missingDownstream.length > 0) {
   });
 }
 
+// A completed envelope is published only after this run's browser group is gone.
+const browserCleanup = await closeBrowser({ timeoutMs: Math.min(1000, Math.max(1, deadlineAt - Date.now())) });
+signal.throwIfAborted();
 // Summary
 const completedAt = new Date().toISOString();
 const summary = {
@@ -340,20 +372,30 @@ logger.info("=== Weekly Check Complete ===", summary);
 
 // Write summary to disk for external tooling
 const summaryPath = paths.weeklyCheckSummary;
-await writeJsonAtomic(summaryPath, { ...summary, status: pipelineRun.status, sourceHealth: pipelineRun.sourceHealth, metadata: pipelineRun.metadata });
-await writePipelineRun(paths.pipelineRun, pipelineRun);
-await writeJsonAtomic(attemptPath, { runId, pipeline: "weekly-check", startedAt, completedAt, status: "complete", result: pipelineRun.status });
+signal.throwIfAborted();
+const completedAttempt = { ...running, completedAt, status: "complete", result: pipelineRun.status, browserCleanup };
+await replaceArtifacts(outputRoot(), [
+  { path: "weekly-check-summary.json", text: JSON.stringify({ ...summary, status: pipelineRun.status, sourceHealth: pipelineRun.sourceHealth, metadata: pipelineRun.metadata }, null, 2) },
+  { path: "state/latest-pipeline-run.json", text: JSON.stringify(pipelineRun, null, 2) },
+  { path: "state/latest-pipeline-attempt.json", text: JSON.stringify(completedAttempt, null, 2) },
+], { signal });
+await writeJsonAtomic(attemptArchive, completedAttempt);
 
 if (exitCode !== 0) {
   logger.warn(`Exiting with code ${exitCode} — review logs above.`);
 }
 return exitCode;
   } catch (error) {
-    await writeJsonAtomic(attemptPath, { status: "failed", completedAt: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) });
+    const failedAttempt = { schemaVersion: "pipeline-attempt/v2", runId, pipeline: "weekly-check", owner, startedAt, status: signal.aborted ? "interrupted" : "failed", completedAt: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) };
+    await writeJsonAtomic(attemptArchive, failedAttempt, { signal: null });
+    await writeJsonAtomic(attemptPath, failedAttempt, { signal: null });
     throw error;
   } finally {
     // The programmatic Triplicate producer shares a browser with this run.
     // Close it while the run still owns its lease, including early failures.
-    try { await closeBrowser(); } finally { await release(); }
+    try {
+      const receipt = await closeBrowser({ timeoutMs: Math.min(1000, Math.max(1, deadlineAt - Date.now())) });
+      await writeJsonAtomic(join(paths.state, "pipeline-runs", runId, "browser-cleanup.json"), { schemaVersion: "owned-browser-cleanup/v1", runId, attemptedAt: new Date().toISOString(), status: "closed", receipt }, { signal: null });
+    } finally { await release(); }
   }
 }

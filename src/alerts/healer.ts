@@ -26,6 +26,7 @@ import { readFile } from "fs/promises";
 import { writeJsonAtomic } from "../shared/source_health.js";
 import { withFileLease } from "../shared/storage.js";
 import { existsSync } from "fs";
+import { isIsoTimestamp } from "../shared/source_health.js";
 import { join } from "path";
 
 const log = createLogger("healer");
@@ -67,6 +68,8 @@ const BACKOFF_STEPS_MS = [
 // ─── Types ────────────────────────────────────────────────────────────────
 
 export interface HealerEntry {
+  /** Exact alert cycle already assessed; replay never counts another failure. */
+  lastAttemptId?: string;
   /** Name of the monitor (matches source-health.json source field). */
   source: string;
   /** Current consecutive failure count (unavailable or stale runs). */
@@ -82,6 +85,7 @@ export interface HealerEntry {
 }
 
 export interface HealerState {
+  schemaVersion?: "alert-healer-state/v2";
   /** ISO-8601 timestamp of the last healing cycle run. */
   lastCycleRun: string;
   /** Per-monitor healing entries keyed by source name. */
@@ -150,7 +154,7 @@ function freshState(now: string): HealerState {
       backoffUntil: "",
     };
   }
-  return { lastCycleRun: now, monitors };
+  return { schemaVersion: "alert-healer-state/v2", lastCycleRun: now, monitors };
 }
 
 /** Load healer state from disk. Returns a fresh state if the file doesn't exist or is corrupt. */
@@ -159,6 +163,9 @@ async function loadState(): Promise<HealerState> {
     if (!existsSync(healerStatePath())) return freshState(new Date().toISOString());
     const raw = await readFile(healerStatePath(), "utf-8");
     const parsed = JSON.parse(raw) as HealerState;
+    if (!parsed || !isIsoTimestamp(parsed.lastCycleRun) || !parsed.monitors || typeof parsed.monitors !== "object" || parsed.schemaVersion !== undefined && parsed.schemaVersion !== "alert-healer-state/v2") throw new Error("Invalid healer state version/envelope");
+    for (const [name, entry] of Object.entries(parsed.monitors)) if (!MONITOR_SOURCE_NAMES.includes(name as typeof MONITOR_SOURCE_NAMES[number]) || !entry || entry.source !== name || !Number.isSafeInteger(entry.consecutiveFailures) || entry.consecutiveFailures < 0 || !Number.isSafeInteger(entry.retryCount) || entry.retryCount < 0 || !isIsoTimestamp(entry.lastUpdated) || [entry.lastRetriedAt, entry.backoffUntil].some(value => value !== "" && !isIsoTimestamp(value)) || entry.lastAttemptId !== undefined && typeof entry.lastAttemptId !== "string") throw new Error("Invalid healer state row; recovery must preserve prior evidence");
+    parsed.schemaVersion = "alert-healer-state/v2";
     // Ensure every tracked monitor (the full roster) exists in the loaded state
     const now = new Date().toISOString();
     for (const source of MONITOR_SOURCE_NAMES) {
@@ -174,8 +181,8 @@ async function loadState(): Promise<HealerState> {
       }
     }
     return parsed;
-  } catch {
-    return freshState(new Date().toISOString());
+  } catch (error) {
+    throw new Error(`Healer state unreadable; preserve the file before operator recovery: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -214,14 +221,14 @@ export async function getHealerState(): Promise<HealerState> {
  *
  * NEVER throws. Returns a summary of what happened.
  */
-async function runHealingCycleUnlocked(): Promise<{
+async function runHealingCycleUnlocked(options: { nowMs?: number } = {}): Promise<{
   cycleRun: string;
   monitorsChecked: number;
   monitorsRetried: string[];
   monitorsRecovered: string[];
   state: HealerState;
 }> {
-  const now = Date.now();
+  const now = options.nowMs ?? Date.now();
   const nowIso = new Date(now).toISOString();
   const retried: string[] = [];
   const recovered: string[] = [];
@@ -253,7 +260,16 @@ async function runHealingCycleUnlocked(): Promise<{
       if (!monitor) continue;
       const key = MONITOR_SOURCE_NAMES.indexOf(sourceName as typeof MONITOR_SOURCE_NAMES[number]);
       if (notRequested.has(MONITOR_KEYS[key])) continue;
+      const attemptId = typeof health.runId === "string" ? health.runId : undefined;
+      if (attemptId && monitor.lastAttemptId === attemptId) {
+        const expires = monitor.backoffUntil ? Date.parse(monitor.backoffUntil) : Infinity;
+        if (monitor.consecutiveFailures >= maxConsecutiveFailures() && Number.isFinite(expires) && now >= expires) {
+          monitor.retryCount++; monitor.lastRetriedAt = nowIso; monitor.backoffUntil = computeBackoffUntil(monitor.retryCount, now); retried.push(sourceName);
+        }
+        continue;
+      }
       checked.add(sourceName);
+      if (attemptId) monitor.lastAttemptId = attemptId;
 
       const status: string = entry?.status ?? "";
       const isFailing = status !== "ok" && status !== "empty";
@@ -307,8 +323,9 @@ async function runHealingCycleUnlocked(): Promise<{
 }
 
 /** Serialize the complete state transition, including independent CLI callers. */
-export async function runHealingCycle(): Promise<Awaited<ReturnType<typeof runHealingCycleUnlocked>>> {
-  try { return await withFileLease(`${healerStatePath()}.lock`, runHealingCycleUnlocked); }
+export async function runHealingCycle(options: { nowMs?: number } = {}): Promise<Awaited<ReturnType<typeof runHealingCycleUnlocked>>> {
+  if (options.nowMs !== undefined && (!Number.isFinite(options.nowMs) || !Number.isFinite(new Date(options.nowMs).getTime()))) throw new Error("Invalid healer cycle clock");
+  try { return await withFileLease(`${healerStatePath()}.lock`, () => runHealingCycleUnlocked(options)); }
   catch (error) {
     log.warn("Healing ownership unavailable; no state transition", { error: error instanceof Error ? error.message : String(error) });
     return { cycleRun: new Date().toISOString(), monitorsChecked: 0, monitorsRetried: [], monitorsRecovered: [], state: await getHealerState() };

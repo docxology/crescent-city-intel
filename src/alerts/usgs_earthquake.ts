@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -56,7 +57,6 @@ function loadProcessedIds(): Set<string> {
 }
 
 // Cache to prevent duplicate processing of the same earthquake (seeded from JSONL history)
-const processedEarthquakes = loadProcessedIds();
 
 /**
  * Calculate distance between two points using Haversine formula
@@ -267,7 +267,7 @@ async function saveEarthquakeToFile(earthquake: any): Promise<void> {
       coordinates: [earthquake.longitude, earthquake.latitude, earthquake.depth ?? 0],
     },
   };
-  await writeFile(filename, JSON.stringify({ fetchedAt: new Date().toISOString(), earthquake, geojson }, null, 2));
+  await writeJsonAtomic(filename, { fetchedAt: new Date().toISOString(), earthquake, geojson });
   logger.info(`Saved earthquake GeoJSON to ${filename}`);
 }
 
@@ -275,7 +275,9 @@ async function saveEarthquakeToFile(earthquake: any): Promise<void> {
  * Main USGS earthquake alert monitoring function.
  * Exported for use by thin orchestrator scripts.
  */
-export async function monitorUSGSEarthquakeAlerts(): Promise<void> {
+export async function monitorUSGSEarthquakeAlerts(options: ProducerOptions = {}): Promise<void> { return withProducerScope("alert-usgs-earthquake", options, () => monitorUSGSEarthquakeAlertsInScope()); }
+async function monitorUSGSEarthquakeAlertsInScope(): Promise<void> {
+  const processedEarthquakes = loadProcessedIds();
   logger.info('=== Starting USGS Earthquake Alert Monitoring ===');
   
   const earthquakes = await fetchUSGSOverlayEarthquakes();

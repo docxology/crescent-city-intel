@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -72,7 +73,6 @@ function appendTsunamiHistory(alert: NOAAAlertProperties, threatLevel: string): 
 }
 
 // Cache to prevent duplicate processing (seeded from JSONL history)
-const processedAlerts = loadProcessedIds();
 
 /**
  * Interface for NOAA CAP alert properties
@@ -240,7 +240,7 @@ async function saveAlertToFile(alert: any): Promise<void> {
     alert: alert,
   };
 
-  await writeFile(filename, JSON.stringify(alertData, null, 2));
+  await writeJsonAtomic(filename, alertData);
   logger.info(`Saved tsunami alert to ${filename}`);
 }
 
@@ -248,7 +248,9 @@ async function saveAlertToFile(alert: any): Promise<void> {
  * Main NOAA tsunami alert monitoring function.
  * Exported for use by thin orchestrator scripts.
  */
-export async function monitorNOAATsunamiAlerts(): Promise<void> {
+export async function monitorNOAATsunamiAlerts(options: ProducerOptions = {}): Promise<void> { return withProducerScope("alert-noaa-tsunami", options, () => monitorNOAATsunamiAlertsInScope()); }
+async function monitorNOAATsunamiAlertsInScope(): Promise<void> {
+  const processedAlerts = loadProcessedIds();
   logger.info('=== Starting NOAA Tsunami Alert Monitoring ===');
   
   const alerts = await fetchNOAATsunamiAlerts();

@@ -8,11 +8,14 @@
 import { createLogger } from './logger.js';
 import { computeSha256, htmlToText } from './utils.js';
 import { join } from 'path';
+import { recoverArtifactTransactions, readBoundedArtifact, type ArtifactReplacement } from './shared/artifact_transaction.js';
+import { assertSafeFilesystemPath } from './shared/storage.js';
 import { IdempotencyStore } from './shared/idempotency.js';
 import { OFFICIAL_MEETING_SOURCES, acquireOfficialMeetingDocuments } from './official_meetings.js';
-import { boundedHttpFetch as fetch, type TransportOptions, withinDeadline, throwIfAborted } from './shared/transport.js';
+import { boundedHttpFetch as fetch, type TransportOptions, withinDeadline, throwIfAborted, redactUrl } from './shared/transport.js';
+import { withProducerScope, currentRunSignal, type ProducerOptions } from './shared/run_scope.js';
 import { paths, outputRoot } from './shared/paths.js';
-import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from './shared/source_health.js';
+import { errorMessage, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonl } from './shared/source_health.js';
 import { computeDocumentHashes, diffDocumentHashes, extractVotes, fetchDocumentText } from './minutes_extraction.js';
 import type { DocumentDrift } from './minutes_extraction.js';
 import { sourceIdForMonitor } from './source_registry.js';
@@ -479,29 +482,7 @@ async function fetchMeetingsWithinDeadline(url: string, sourceName: string, tran
 /**
  * Save meeting items to a JSON file for historical tracking with change detection
  */
-export async function saveMeetingItems(
-  items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean, vote?: VoteResult | null}>,
-  documentDrift: DocumentDrift[] = [],
-  /**
-   * Where the batch is written. Production leaves this at the real corpus; a
-   * test passes its own temp directory. Without the parameter a test could only
-   * write into `output/gov_meetings`, which is exactly what happened: 381 of the
-   * 384 batches in this repo's corpus were one test's fixture, and the Pages
-   * export published its fabricated council meeting as a real record.
-   */
-  dataDir: string = paths.govMeetings,
-): Promise<void> {
-  const fs = await import('fs/promises');
-  try {
-    await fs.mkdir(dataDir, { recursive: true });
-  } catch (e) {
-    // Directory might already exist
-  }
-  
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = join(dataDir, `gov_meetings-${timestamp}.json`);
-  
-  // Separate new and changed items for better tracking
+function meetingPayload(items: GovMeetingItem[], documentDrift: DocumentDrift[]) {
   const newItems = items.filter(item => item.isNew);
   const changedItems = items.filter(item => item.changed && !item.isNew);
   const unchangedItems = items.filter(item => !item.changed && !item.isNew);
@@ -525,14 +506,40 @@ export async function saveMeetingItems(
     data.itemsBySource[item.source] = (data.itemsBySource[item.source] || 0) + 1;
   });
   
+  return data;
+}
+
+export async function saveMeetingItems(
+  items: Array<{title: string, link: string, date: string, content: string, source: string, fetchedAt: string, isNew: boolean, changed: boolean, vote?: VoteResult | null}>,
+  documentDrift: DocumentDrift[] = [],
+  /**
+   * Where the batch is written. Production leaves this at the real corpus; a
+   * test passes its own temp directory. Without the parameter a test could only
+   * write into `output/gov_meetings`, which is exactly what happened: 381 of the
+   * 384 batches in this repo's corpus were one test's fixture, and the Pages
+   * export published its fabricated council meeting as a real record.
+   */
+  dataDir: string = paths.govMeetings,
+): Promise<void> {
+  const fs = await import('fs/promises');
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+  } catch (e) {
+    // Directory might already exist
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = join(dataDir, `gov_meetings-${timestamp}.json`);
+  // Separate new and changed items for better tracking
+  const data = meetingPayload(items, documentDrift);
+
   await writeJsonAtomic(filename, data);
   logger.info(`Saved meeting items to ${filename}`);
   
-  if (newItems.length > 0) {
-    logger.info(`Found ${newItems.length} NEW meeting items`);
+  if (data.newItems > 0) {
+    logger.info(`Found ${data.newItems} NEW meeting items`);
   }
-  if (changedItems.length > 0) {
-    logger.info(`Found ${changedItems.length} CHANGED meeting items`);
+  if (data.changedItems > 0) {
+    logger.info(`Found ${data.changedItems} CHANGED meeting items`);
   }
 }
 
@@ -548,25 +555,30 @@ export const MEETING_DOC_HASHES_PATH = () => join(outputRoot(), 'state', 'meetin
  * map (no envelope) is still accepted.
  */
 export async function loadMeetingDocHashes(path = MEETING_DOC_HASHES_PATH()): Promise<Record<string, string>> {
-  try {
-    const fs = await import('fs/promises');
-    const raw = await fs.readFile(path, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const hashes = (parsed as Record<string, unknown>).hashes;
-    if (hashes && typeof hashes === 'object' && !Array.isArray(hashes)) return hashes as Record<string, string>;
-    // Legacy bare-map file, from before the envelope was introduced.
-    return Object.fromEntries(
-      Object.entries(parsed as Record<string, unknown>).filter(([, value]) => typeof value === 'string'),
-    ) as Record<string, string>;
-  } catch {
-    return {};
+  await assertSafeFilesystemPath(path);
+  const bytes = await readBoundedArtifact(path, 8_000_000); if (bytes === null) return {};
+  const parsed: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Malformed meeting document hash evidence');
+  const record = parsed as Record<string, unknown>;
+  // The legacy bare-map boundary is explicit; a malformed envelope never
+  // becomes an empty baseline or a newly invented first observation.
+  return validateMeetingDocHashes(Object.hasOwn(record, 'hashes') ? record.hashes : record);
+}
+function validateMeetingDocHashes(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Malformed meeting document hash map');
+  const entries = Object.entries(value); if (entries.length > 10_000) throw new Error('Meeting document hash retention exceeds bound');
+  for (const [url, hash] of entries) {
+    if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash) || url.length > 4096) throw new Error('Malformed meeting document hash entry');
+    let destination: URL; try { destination = new URL(url); } catch { throw new Error('Invalid meeting document hash URL'); }
+    if (!/^https?:$/.test(destination.protocol) || destination.username || destination.password || redactUrl(url) !== destination.toString()) throw new Error('Unsafe meeting document hash URL');
   }
+  return Object.fromEntries(entries) as Record<string, string>;
 }
 
 /** Atomically persist the current agenda/minutes document hash map. */
 export async function saveMeetingDocHashes(hashes: Record<string, string>, path = MEETING_DOC_HASHES_PATH()): Promise<void> {
-  await writeJsonAtomic(path, { savedAt: new Date().toISOString(), hashes });
+  await assertSafeFilesystemPath(path);
+  await writeJsonAtomic(path, { savedAt: new Date().toISOString(), hashes: validateMeetingDocHashes(hashes) });
 }
 
 /**
@@ -586,8 +598,12 @@ export interface GovMeetingItem {
   voteTable?: import('./minutes_extraction.js').VoteResult[];
 }
 
-export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
+export async function monitorGovMeetings(options: ProducerOptions = {}): Promise<GovMeetingItem[]> {
+  return withProducerScope('gov-meetings', options, () => monitorGovMeetingsOwned());
+}
+async function monitorGovMeetingsOwned(): Promise<GovMeetingItem[]> {
   logger.info('=== Starting Crescent City Government Meeting Monitoring ===');
+  await recoverArtifactTransactions(outputRoot());
 
   // Load the persistent change-detection index (shared store — this is what
   // gives cross-run idempotency; the prior in-memory Map never had it)
@@ -599,6 +615,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
 
   // Fetch from each government source
   for (const [sourceName, url] of Object.entries(GOV_SOURCES)) {
+    currentRunSignal()?.throwIfAborted();
     try {
       const result = await fetchGovMeetingsDetailed(url, sourceName);
       health.push(result.health);
@@ -626,11 +643,9 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
     }
   }
 
-  // Persist the updated change-detection index
-  await meetingCache.save();
-
   // Agenda/minutes document hash drift, surfaced in the meeting report.
   let documentDrift: DocumentDrift[] = [];
+  let documentHashes: ArtifactReplacement | null = null;
   try {
     const previous = await loadMeetingDocHashes();
     const current: Record<string, string> = {};
@@ -641,7 +656,7 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
     // Merge forward rather than replace: a document that simply was not
     // re-fetched this cycle (source down, PDF skipped) must keep its recorded
     // hash, or the next run sees no previous hash and reports it as new.
-    await saveMeetingDocHashes({ ...previous, ...current });
+    documentHashes = { path: 'state/meeting-doc-hashes.json', text: JSON.stringify({ savedAt: new Date().toISOString(), hashes: { ...previous, ...current } }, null, 2) };
     const changedDocs = documentDrift.filter(d => d.changed);
     if (changedDocs.length > 0) {
       logger.info(`Document hash drift detected for ${changedDocs.length} agenda/minutes document(s)`);
@@ -649,12 +664,13 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
   } catch (error: unknown) {
     logger.warn(`Document hash drift tracking failed: ${errorMessage(error)}`);
   }
-  await writeJsonAtomic(paths.govMeetingsHealth, {
+  const healthPayload = {
+    schemaVersion: 'crescent-city-source-health/v1',
     checkedAt: new Date().toISOString(),
     sources: health,
     // Agenda/minutes SHA-256 drift surfaced in the meeting report.
     documentDrift,
-  });
+  };
 
   // Sort by date (newest first), then by source
   allItems.sort((a, b) => {
@@ -668,9 +684,13 @@ export async function monitorGovMeetings(): Promise<GovMeetingItem[]> {
     return a.source.localeCompare(b.source); // Then by source name
   });
   
+  const artifacts: ArtifactReplacement[] = [{ path: 'gov_meetings/source-health.json', text: JSON.stringify(healthPayload, null, 2) }];
+  if (documentHashes) artifacts.push(documentHashes);
+  if (allItems.length > 0) artifacts.push({ path: `gov_meetings/gov_meetings-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID()}.json`, text: JSON.stringify(meetingPayload(allItems, documentDrift), null, 2) });
+  await meetingCache.publish(outputRoot(), artifacts, { signal: currentRunSignal() });
+  await appendBoundedJsonl(paths.govMeetingsHealth.replace(/source-health\.json$/, 'source-health-history.jsonl'), healthPayload);
   // Save the results
   if (allItems.length > 0) {
-    await saveMeetingItems(allItems, documentDrift);
     logger.info(`Government meeting monitoring complete: ${allItems.length} items found`);
     
     // Log summary

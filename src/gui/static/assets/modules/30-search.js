@@ -1,3 +1,6 @@
+import { apiFetch, loadSection, searchInput, searchResults } from "./10-core.js";
+import { CCGui } from "../gui-runtime.js";
+import { SEARCH_VIRTUAL_THRESHOLD, createVirtualList } from "../virtual-list.js";
 // Search controller depends on CCGui request/render primitives and core DOM refs.
 let searchTimeout = null, searchController = null, searchSequence = 0;
 let searchVirtualList = null;
@@ -32,7 +35,7 @@ function renderSearchResults(results, corrections = []) {
   const item = r => `<button type="button" class="search-result" data-guid="${CCGui.escape(r.section.guid)}" data-article-guid="${CCGui.escape(r.section.articleGuid)}"><span class="sr-number">${CCGui.escape(r.section.number)}</span><span class="sr-title">${CCGui.escape(r.section.title)}</span><span class="sr-snippet">${CCGui.escape(r.snippet)}</span></button>`;
   if (results.length <= SEARCH_VIRTUAL_THRESHOLD) {
     destroySearchVirtualList();
-    searchResults.innerHTML = results.length ? results.map(item).join("") : '<p class="search-result">No matching sections found. Try fewer words, or a section number like 12.04.</p>' + corrections.filter(row => typeof row.suggestion === "string" && row.suggestion.length <= 200).slice(0, 5).map(row => `<button type="button" class="search-result" data-suggestion="${CCGui.escape(row.suggestion)}">Try ${CCGui.escape(row.suggestion)}</button>`).join("");
+    CCGui.render(searchResults, results.length ? results.map(item).join("") : '<p class="search-result">No matching sections found. Try fewer words, or a section number like 12.04.</p>' + corrections.filter(row => typeof row.suggestion === "string" && row.suggestion.length <= 200).slice(0, 5).map(row => `<button type="button" class="search-result" data-suggestion="${CCGui.escape(row.suggestion)}">Try ${CCGui.escape(row.suggestion)}</button>`).join(""));
   } else {
     if (!searchVirtualList) searchVirtualList = createVirtualList({ container: searchResults, renderItem: item });
     searchVirtualList.setItems(results);

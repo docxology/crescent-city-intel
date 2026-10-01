@@ -6,6 +6,7 @@ import { getSourceRegistry, sourceRegistryFingerprint, validateSourceRegistry } 
 import { paths } from "./shared/paths.js";
 import { parseCoverageSummary, runFencedCommand } from "./release_checks.js";
 import { validateGithubWorkflows } from "./ci_support.js";
+import { validateDocumentationInventory } from "./doc_inventory.js";
 
 /**
  * Deterministic release gate — every contract check the repository enforces
@@ -293,6 +294,8 @@ export async function runReleaseGate(options: { only?: "contracts" | "all" } = {
   // degradation paths. A 30-second per-test bound keeps transient CPU/IO
   // contention from turning a correct test into a false timeout while still
   // catching genuine hangs.
+  const documentationErrors = await validateDocumentationInventory(root);
+  if (documentationErrors.length) throw new Error(`Generated documentation drift: ${documentationErrors.join('; ')}`);
   if (contractsOnly) {
     console.log("\nContract-only mode: stopping before the suite, which the publish job runs against a real corpus.");
     for (const skipped of SKIPPED_BY_CONTRACTS_MODE) console.log(`  skipped: ${skipped}`);

@@ -1,26 +1,5 @@
-// 00-nav.js — navigation layer for the Quadruplicate SPA (v2.7.0).
-//
-// Loaded FIRST (after the CDN tags), before every extracted module. This
-// layer is purely additive: it never removes or overrides an existing click
-// handler, and it only ever *invokes* the existing toggle buttons and
-// .intel-tab activators — the programmatic .click() calls in the browser
-// smoke (scripts/browser-smoke.ts) keep working unchanged.
-//
-// Provides:
-// (a) Hash deep-links: #<section> opens a top-level section,
-//     #<section>/<tab-name> additionally activates an intel tab (e.g.
-//     #analytics/readability, #feeds/insights). Applied on load and on
-//     hashchange. Unknown/legacy hashes are left untouched. The active tab
-//     button gets aria-current="true" (cleared from its siblings).
-// (b) A "Go to…" jump <select> in the header (#nav-jump), grouped into
-//     <optgroup>s per section, which navigates by setting location.hash.
-// (c) Keyboard: Alt+ArrowRight / Alt+ArrowLeft cycle tabs within the
-//     currently visible tabbed overlay.
-//
-// Section state is derived from the DOM, so adding an intel tab to an
-// overlay in markup is picked up automatically.
-
-(function () {
+import { CCGui } from "../gui-runtime.js";
+export function initializeNavigation() {
   "use strict";
 
   const SECTIONS = [
@@ -58,7 +37,7 @@
   }
 
   function applyHash() {
-    const raw = decodeURIComponent((window.location.hash || "").replace(/^#/, ""));
+    let raw; try { raw = decodeURIComponent((window.location.hash || "").replace(/^#/, "")); } catch { return; }
     if (!raw) return;
     const [sectionId, tabName] = raw.split("/");
     const section = SECTIONS.find(s => s.id === sectionId);
@@ -93,7 +72,7 @@
   function buildJumpSelect() {
     const select = document.getElementById("nav-jump");
     if (!select) return;
-    select.innerHTML = "";
+    CCGui.render(select, "");
     const placeholder = document.createElement("option");
     placeholder.value = "";
     placeholder.textContent = "Go to\u2026";
@@ -142,4 +121,4 @@
 
   // Deep-link on first load (script runs after the DOM is fully parsed).
   applyHash();
-})();
+}

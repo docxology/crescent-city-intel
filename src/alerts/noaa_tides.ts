@@ -1,3 +1,5 @@
+import { writeJsonAtomic } from "../shared/source_health.js";
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 /**
  * NOAA CO-OPS Tides & Currents monitor for Crescent City.
@@ -71,6 +73,8 @@ export interface WaterLevel {
 
 export interface TideReport {
   fetchedAt: string;
+  /** Civil NOAA timestamps are UTC only when this explicit request marker is present. */
+  timeZone?: "UTC";
   stationId: string;
   stationName: string;
   predictions: TidePrediction[];
@@ -89,7 +93,7 @@ function formatDate(d: Date): string {
 }
 
 /** Build a NOAA CO-OPS API URL */
-function coopsUrl(
+export function coopsUrl(
   product: string,
   begin: string,
   end: string,
@@ -101,7 +105,7 @@ function coopsUrl(
     begin_date: begin,
     end_date: end,
     datum: "MLLW",
-    time_zone: "lst_ldt",
+    time_zone: "gmt",
     interval: "h",
     units: "english",
     format: "json",
@@ -172,7 +176,8 @@ export async function fetchCurrentWaterLevel(): Promise<WaterLevel | null> {
  * Run the complete tides monitor: fetch predictions + current level,
  * evaluate alert conditions, persist report.
  */
-export async function monitorTides(): Promise<TideReport> {
+export async function monitorTides(options: ProducerOptions = {}): Promise<TideReport> { return withProducerScope("alert-noaa-tides", options, () => monitorTidesInScope()); }
+async function monitorTidesInScope(): Promise<TideReport> {
   logger.info("=== Starting NOAA Crescent City Tides Monitor ===");
 
   await mkdir(outputDir(), { recursive: true });
@@ -197,6 +202,7 @@ export async function monitorTides(): Promise<TideReport> {
 
   const report: TideReport = {
     fetchedAt: new Date().toISOString(),
+    timeZone: "UTC",
     stationId: CRESCENT_CITY_STATION_ID,
     stationName: "Crescent City, CA",
     predictions,
@@ -210,7 +216,7 @@ export async function monitorTides(): Promise<TideReport> {
   // Persist timestamped JSON report
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const outPath = join(outputDir(), `tides-${ts}.json`);
-  await writeFile(outPath, JSON.stringify(report, null, 2));
+  await writeJsonAtomic(outPath, report);
 
   // Append one-line to history (solely from the report; level mirrors severity.ts
   // so the analytics timeline shows a meaningful severity, not the default CALM).

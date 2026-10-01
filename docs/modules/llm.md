@@ -48,15 +48,20 @@ state, not a silent fallback.
 | Function | Signature | Description |
 |----------|-----------|-------------|
 | `servingCollectionName` | `() → Promise<string>` | Read the activated collection from the index receipt, with the configured initial name as fallback. |
-| `getOrCreateCollection` | `(options?) → Promise<Collection>` | Resolve the selected cosine collection with a finite deadline. |
+| `withVectorCollection` | `(task, options?) → Promise<T>` | Hold vector admission and the total deadline through every SDK read in the supplied operation. |
 | `addDocuments` | `(docs, options?) → Promise<void>` | Upsert bounded, equal-length document/vector/metadata batches. |
 | `getDocumentIds` | `(options?) → Promise<string[]>` | Enumerate actual stored IDs, with a bounded collection size. |
 | `query` | `(embedding, topK?, options?) → Promise<{ids, documents, metadatas, distances}>` | Query a selected collection by embedding vector. |
 | `getStats` | `(options?) → Promise<{count, name}>` | Collection document count and name. |
 | `isChromaRunning` | `(timeoutMs?, signal?) → Promise<boolean>` | Bounded health check via heartbeat. |
 
-`VectorOptions` accepts `signal`, `collection`, and `timeoutMs`. Vector requests
-share bounded admission, propagate cancellation, and use a finite request deadline.
+`VectorOptions` accepts `signal`, `collection`, `timeoutMs`, and
+`maximumResponseBytes`. Vector requests share bounded admission and propagate
+cancellation through the pinned SDK's fetch adapter. The adapter denies redirects
+and caps declared and streamed response bytes before SDK JSON parsing (16 MiB
+default, explicit maximum 64 MiB). Analytics retains admission through count and
+all sampled reads, uses a total 30-second deadline, caps samples at 2000 vectors,
+and yields during PCA iterations so caller cancellation can settle.
 
 ---
 
@@ -127,6 +132,9 @@ and cannot become a curation or embedding input through the public snapshot path
 | `bun run chat` | Interactive REPL chat |
 | `bun run query "..."` | Single RAG query |
 | `bun run status` | Show Ollama/ChromaDB status and stats |
+| `bun run src/llm/index.ts review-package INPUT OUTPUT` | Create a private byte-bound semantic review package; all judgments begin unassessed. |
+| `bun run src/llm/index.ts review-assess PACKAGE OUTPUT [ANNOTATIONS]` | Validate explicitly supplied annotation spans and reviewer labels without authenticating reviewer identity. |
+| `bun run src/llm/index.ts replay-context SUITE OUTPUT [--deadline-ms=N]` | Generate a bounded local replay over versioned retained diagnostic contexts. |
 
 ### RAG additions
 
@@ -225,10 +233,11 @@ claim verdict above `unassessed`.
 
 ### Event integration boundary
 
-`src/events.ts` does not call `validateClaims` today. An integration under
-[TODO L03/L07](../../TODO.md) would build `CorroborationSnippet[]` from the
-event's source records (one snippet per distinct URL), then call the canonical
-validator. URL distinctness alone does not establish source independence:
+`src/events.ts` does not call `validateClaims`. A standalone diagnostic caller
+can supply `CorroborationSnippet[]` from retained source records and call the
+canonical validator. This example supplies quote-presence provenance for review;
+it does not alter the event artifact or establish support. URL distinctness alone
+does not establish source independence:
 
 ```ts
 const validation = await validateClaims(eventFact.claimText, snippets);
@@ -304,3 +313,34 @@ and `bun run rag:benchmark` evaluate a bounded versioned case set and bind the
 case, corpus, index, model, and collection identities. Listed-ID recall and
 citation/abstention behavior are diagnostics; semantic entailment, independent
 corroboration, legal currency, and general factual accuracy remain unassessed.
+
+`src/llm/semantic_review.ts` binds claim offsets, exact source text and hashes,
+source observation clocks, and declared dependency relationships into a private
+package. Supplied support annotations must bind the package fingerprint, claim
+hash, source hash, and exact evidence span. Review timestamps cannot precede the
+package or exceed the assessment clock. Stale/unknown clocks and dependent
+sources stay visible. An annotation records a supplied label; it does not prove
+reviewer identity, source independence, legal currency, or factuality.
+
+`tests/fixtures/semantic-review-v1.json` contains 16 explicitly synthetic cases:
+useful answers and abstentions, negation, quantities, scope, conditions, stale
+and unknown source clocks, injected instructions, dependent copies, and literal
+quotes or citations that do not support the claim. `evaluateContextReplay()`
+uses actual provider generation with a total deadline and records suite/context/
+answer/prompt/client-source hashes, selected provider/model and request settings.
+Backend sampling defaults and model artifact bytes are explicitly uncaptured.
+This replay isolates generation from retrieval; full-corpus retrieval has its
+separate benchmark. Human annotation and independent source assessment remain
+required before making semantic-support claims.
+
+Run `bun test tests/vector-sdk-boundary.test.ts tests/semantic-review.test.ts`
+for actual local HTTP/SDK boundary and review mechanics coverage. Native cached
+Ollama generation is a separate operator-run acceptance; it is never implied by
+the offline protocol fixtures.
+
+The [2026-10-01 native diagnostic receipt](../evidence/rag-native-2026-10-01.json)
+records the precise v3.1.0 run: 6/6 applicable listed-section retrieval hits, 6/8
+mechanical disposition matches and zero errors; retained-context generation was
+16/16 with 14/16 expected diagnostics. Two retrieval/disposition and two context
+mismatches remain retained. These observations do not establish semantic support,
+independence, legal currency or civic usefulness, and are not an 8/8 semantic pass.

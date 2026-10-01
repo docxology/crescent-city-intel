@@ -1,3 +1,5 @@
+import { writeJsonAtomic } from "../shared/source_health.js";
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch, type TransportOptions } from "../shared/transport.js";
 /**
  * CDFW Commercial Fishing & Dungeness Crab Season Monitor
@@ -308,7 +310,8 @@ export function estimateCrabSeasonStatus(): CrabSeasonStatus {
  * previously never returned null, so a CDFW outage was indistinguishable from
  * "no bulletins" and the health surface claimed coverage it did not have.
  */
-export async function monitorFishing(): Promise<FishingReport | null> {
+export async function monitorFishing(options: ProducerOptions = {}): Promise<FishingReport | null> { return withProducerScope("alert-cdfw-fishing", options, () => monitorFishingInScope()); }
+async function monitorFishingInScope(): Promise<FishingReport | null> {
   logger.info("=== Starting CDFW Crescent City Fishing Monitor ===");
   await mkdir(outputDir(), { recursive: true });
 
@@ -339,7 +342,7 @@ export async function monitorFishing(): Promise<FishingReport | null> {
 
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const outPath = join(outputDir(), `fishing-${ts}.json`);
-  await writeFile(outPath, JSON.stringify(report, null, 2));
+  await writeJsonAtomic(outPath, report);
 
   // Append a one-line history record so the fishing monitor appears in the
   // unified alert timeline/analytics (it previously wrote no history file at all).

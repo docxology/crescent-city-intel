@@ -30,6 +30,10 @@ import type { AgendaCodeRef } from './agenda_crossref.js';
 import { chatWithProvider } from './llm/provider.js';
 import { llmConfig } from './llm/config.js';
 import type { MonthlyReportMetadata, SourceHealth } from './types.js';
+import { withProducerScope, currentRunSignal, type ProducerOptions } from './shared/run_scope.js';
+import { withinDeadline } from './shared/transport.js';
+import { assertArtifact } from './artifact_contracts.js';
+import { captureDerivedInputs, withCapturedDerivedInputs, retainDerivedOutput } from './derived_publication.js';
 
 const logger = createLogger('monthly-report');
 
@@ -57,8 +61,7 @@ function readJson(filePath: string): any | null {
 }
 
 /** Filter JSONL records to those within the given year-month (YYYY-MM) */
-export function parseTargetMonth(targetMonth?: string): { month: string; year: number; monthIndex: number; start: Date; end: Date; label: string } {
-  const now = new Date();
+export function parseTargetMonth(targetMonth?: string, now: Date = new Date()): { month: string; year: number; monthIndex: number; start: Date; end: Date; label: string } {
   const candidate = targetMonth ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(candidate)) {
     throw new Error(`Invalid report period "${candidate}"; expected YYYY-MM`);
@@ -333,12 +336,10 @@ export async function generateExecutiveDigest(
     const prompt =
       `Write a brief neutral executive digest (2-4 sentences) for the ${monthLabel} `
       + `civic health report of Crescent City, CA using exactly these metrics:\n${metricLines}`;
-    const raw = await Promise.race([
-      chatWithProvider([{ role: 'user', content: prompt }], undefined, undefined, {
+    const raw = await withinDeadline(signal => chatWithProvider([{ role: 'user', content: prompt }], undefined, undefined, {
         systemPrompt: DIGEST_SYSTEM_PROMPT,
-      }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('digest timeout')), 20_000)),
-    ]);
+        signal,
+      }), 20_000, currentRunSignal());
     const prose = cleanDigest(String(raw));
     if (!isSafeDigestText(prose)) return null;
     return {
@@ -354,9 +355,20 @@ export async function generateExecutiveDigest(
 
 // ─── Main ─────────────────────────────────────────────────────────
 
-async function generateMonthlyReport(targetMonth?: string): Promise<void> {
-  const now = new Date();
-  const period = parseTargetMonth(targetMonth);
+async function generateMonthlyReport(targetMonth?: string, options: ProducerOptions = {}): Promise<void> {
+  return withProducerScope('monthly-report', options, async () => {
+    const root = outputRoot(), generatedAt = new Date().toISOString();
+    const evidence = await captureDerivedInputs(root, 'monthly', { targetMonth: targetMonth ?? null, generatedAt, digestModel: llmConfig.chatModel });
+    const result = await withCapturedDerivedInputs(evidence, () => generateMonthlyReportOwned(targetMonth, new Date(generatedAt)));
+    const destination = join(root, 'reports', result.latest ? 'latest-metadata.json' : `monthly-${result.metadata.period}.json`);
+    await retainDerivedOutput(root, 'monthly-report', destination, result.metadata, evidence, generatedAt, [
+      { path: `reports/monthly-${result.metadata.period}.md`, text: result.markdown },
+      ...(result.latest ? [{ path: `reports/monthly-${result.metadata.period}.json`, text: `${JSON.stringify(result.metadata, null, 2)}\n` }] : []),
+    ]);
+  });
+}
+async function generateMonthlyReportOwned(targetMonth: string | undefined, now: Date): Promise<{ metadata: MonthlyReportMetadata; markdown: string; latest: boolean }> {
+  const period = parseTargetMonth(targetMonth, now);
   const { month } = period;
   const monthLabel = period.label;
   const warnings: string[] = [];
@@ -400,6 +412,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   const coverage = readJson(coveragePath);
 
   const healthReports = [newsHealth, meetingHealth, youtubeHealth, triplicateHealth, readJson(paths.alertsHealth)];
+  for (const report of healthReports) if (report !== null) assertArtifact('source-health-report', report, { allowLegacyHealthEnvelope: true });
   const observedSourceHealth: SourceHealth[] = healthReports.flatMap(report => {
     if (!Array.isArray(report?.sources)) return [];
     return report.sources.filter((source: any) => source && typeof source.source === 'string' &&
@@ -769,14 +782,11 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
       referenceOnlyCount: Number(sourceDiscovery.referenceOnlyCount ?? 0),
       coverageGaps: Array.isArray(sourceDiscovery.coverageGaps) ? sourceDiscovery.coverageGaps : [],
     },
-    artifacts: { markdown: reportPath, metadata: metadataPath },
+    artifacts: { markdown: `reports/monthly-${month}.md`, metadata: `reports/monthly-${month}.json` },
     warnings,
   };
-  await writeTextAtomic(reportPath, `${lines.join('\n')}\n`);
-  await writeJsonAtomic(metadataPath, metadata);
-  if (month === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`) {
-    await writeJsonAtomic(paths.latestReportMetadata, metadata);
-  }
+  const markdown = `${lines.join('\n')}\n`.replaceAll(outputRoot(), 'output');
+  const latest = month === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   logger.info(`Monthly report written to ${reportPath}`, {
     earthquakes: earthquakes.length,
@@ -794,6 +804,7 @@ async function generateMonthlyReport(targetMonth?: string): Promise<void> {
   console.log(`   Air quality:       ${airquality.length}`);
   console.log(`   Wildfire reports:  ${wildfire.length}`);
   console.log(`   Marine readings:   ${marine.length}`);
+  return { metadata, markdown, latest };
 }
 
 // ─── Entry point ──────────────────────────────────────────────────

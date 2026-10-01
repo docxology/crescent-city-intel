@@ -23,6 +23,12 @@ This directory contains all TypeScript source modules. Every file is a standalon
 | `constants.ts` | No | `tests/constants.test.ts`, `tests/constants-extended.test.ts` |
 | `content.ts` | Yes (network) | `tests/content-fixture.test.ts` |
 | `directory.ts` | No (seed-validated, offline) | `tests/directory.test.ts` |
+| `directory_review.ts` | No (local evidence and owned correction decisions) | `tests/directory-review.test.ts` |
+| `artifact_contracts.ts`, `schema_validation.ts` | No (shared bounded schema authority) | `tests/artifact-contracts.test.ts` |
+| `artifact_custody.ts` | Yes (bounded file capture and deterministic replay) | `tests/artifact-custody.test.ts` |
+| `corpus_lineage.ts` | No (retained source/TOC replay and review candidates) | `tests/corpus-lineage.test.ts` |
+| `source_coverage.ts` | No (read-only retained evidence assessment) | `tests/source-coverage.test.ts` |
+| `doc_inventory.ts` | No (TypeScript AST and structural OpenAPI inventories) | `tests/doc-authority.test.ts` |
 | `domains.ts` | No | `tests/domains.test.ts`, `tests/domains-extended.test.ts` |
 | `export.ts` | Yes (filesystem) | `tests/export.test.ts` |
 | `pages_snapshot.ts` | Yes (filesystem; static public export) | `tests/pages_snapshot.test.ts` |

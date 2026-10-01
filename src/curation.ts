@@ -24,7 +24,7 @@ import { chatWithProvider, checkChatProvider, configuredChatModel } from './llm/
 import { domains } from './domains.js';
 import { mkdir, open, readFile, readdir, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, relative } from 'path';
 import { paths } from './shared/paths.js';
 import { isActiveNewsSource } from './news_monitor.js';
 import { errorMessage, writeJsonAtomic } from './shared/source_health.js';
@@ -34,6 +34,7 @@ import { computeSha256 } from './utils.js';
 import { boundedSignal } from './llm/runtime.js';
 import { withProviderBudget } from './llm/openrouter.js';
 import { waitWithSignal } from './shared/transport.js';
+import { withProducerScope, type ProducerOptions } from './shared/run_scope.js';
 import type { CurationCitation, CurationRunReport } from './types.js';
 
 const logger = createLogger('curation');
@@ -521,12 +522,12 @@ export function selectCurationRevisions(inputs: readonly CurationInput[]): Curat
   }
   return [...selected.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
-export async function runCuration(options: { signal?: AbortSignal; deadlineMs?: number } = {}): Promise<CuratedItem[]> {
+export async function runCuration(options: ProducerOptions = {}): Promise<CuratedItem[]> {
   const deadlineMs = options.deadlineMs ?? 3_600_000;
   if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 3_600_000) throw new Error('Curation deadline must be 1..3600000 ms');
   const signal = boundedSignal(options.signal, deadlineMs);
   signal.throwIfAborted();
-  return withProviderBudget(() => runCurationWithinBudget(signal));
+  return withProducerScope('curation', { ...options, signal, deadlineMs }, () => withProviderBudget(() => runCurationWithinBudget(signal)));
 }
 async function runCurationWithinBudget(signal: AbortSignal): Promise<CuratedItem[]> {
   logger.info('=== Starting Crescent City Curation ===');
@@ -606,9 +607,10 @@ async function runCurationWithinBudget(signal: AbortSignal): Promise<CuratedItem
         providerChecked: false,
         providerReachable: false,
       };
-      await writeJsonAtomic(paths.curationReport, emptyReport, { signal });
-      signal.throwIfAborted();
-      await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'complete', completedCount, reusedCount }, { signal });
+      await idempotency.publish(paths.output, [
+        { path: relative(paths.output, paths.curationReport), text: `${JSON.stringify(emptyReport, null, 2)}\n` },
+        { path: relative(paths.output, attemptPath), text: `${JSON.stringify({ schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: emptyReport.completedAt, status: 'complete', completedCount, reusedCount }, null, 2)}\n` },
+      ], { signal });
       logger.info('No new items to curate');
       return [];
     }
@@ -714,9 +716,6 @@ async function runCurationWithinBudget(signal: AbortSignal): Promise<CuratedItem
       if (!Array.isArray(existing)) throw new Error('Curated artifact became invalid during this run');
     }
     signal.throwIfAborted();
-    await writeJsonAtomic(outPath, mergeCuratedItems(existing, curated), { signal });
-
-    await idempotency.save({ signal });
     signal.throwIfAborted();
 
     const curationReport: CurationRunReport = {
@@ -738,13 +737,15 @@ async function runCurationWithinBudget(signal: AbortSignal): Promise<CuratedItem
       ...(providerError ? { providerError } : {}),
     };
     signal.throwIfAborted();
-    await writeJsonAtomic(paths.curationReport, curationReport, { signal });
-    signal.throwIfAborted();
-    await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'complete', completedCount, reusedCount }, { signal });
+    await idempotency.publish(paths.output, [
+      { path: relative(paths.output, outPath), text: `${JSON.stringify(mergeCuratedItems(existing, curated), null, 2)}\n` },
+      { path: relative(paths.output, paths.curationReport), text: `${JSON.stringify(curationReport, null, 2)}\n` },
+      { path: relative(paths.output, attemptPath), text: `${JSON.stringify({ schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'complete', completedCount, reusedCount }, null, 2)}\n` },
+    ], { signal });
     logger.info('Curation complete', { generatedCount: succeededCount, sourceOnlyCount, reusedCount, retryableCount });
     return curated;
   } catch (error) {
-    await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: 'failed', completedCount, reusedCount, reason: signal.aborted ? 'cancelled-or-deadline' : 'run-failed' });
+    await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, completedAt: new Date().toISOString(), status: signal.aborted ? 'interrupted' : 'failed', completedCount, reusedCount, reason: signal.aborted ? 'cancelled-or-deadline' : 'run-failed' }, { signal: null });
     throw error;
   } finally {
     await releaseLock();

@@ -1,14 +1,21 @@
 /**
  * Fixture-driven tests for NWS Weather, USGS Earthquake, and NOAA Tsunami
- * alert monitors. Tests pure parsing and classification functions only —
- * no network calls, no mocks. Fixtures match the real API response shapes.
+ * alert monitors. Pure classification plus a real loopback weather producer
+ * fixture; no external network calls or mocks.
  */
 import { describe, test, expect } from "bun:test";
 import {
   getAlertSeverityLevel,
   isCrescentCityRelevant as nwsIsCrescentCityRelevant,
   pointInPolygon,
+  NWS_ALERTS_URL,
+  NWS_FORECAST_ZONE,
+  monitorNWSWeatherAlerts,
 } from "../src/alerts/nws_weather.ts";
+import { withTransportScope } from "../src/shared/transport.ts";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   haversineDistance,
   isCascadiaEvent,
@@ -66,7 +73,7 @@ const NWS_COASTAL_FLOOD_FEATURE = {
   id: "urn:oid:2.49.0.1.840.0.nws-cf-002",
   properties: {
     id: "urn:oid:2.49.0.1.840.0.nws-cf-002",
-    areaDesc: "CAZ006; Northwest California coastal waters",
+    areaDesc: "CAZ101; Coastal Del Norte",
     event: "Coastal Flood Advisory",
     severity: "Minor",
     certainty: "Possible",
@@ -138,9 +145,7 @@ const NWS_MARINE_STATEMENT_FEATURE = {
   },
 };
 
-/** Alert for a completely different region — should NOT be deemed Crescent City relevant.
- *  NOTE: Must avoid NWS keyword-list substrings (especially 'ca' which matches
- *  'Chicago', 'coastal', 'local', etc.). Using Denver, CO to guarantee no match. */
+/** Alert for a completely different region — not Crescent City coverage. */
 const NWS_DISTANT_ALERT_FEATURE = {
   type: "Feature" as const,
   id: "urn:oid:2.49.0.1.840.0.nws-co-999",
@@ -636,28 +641,37 @@ describe("NWS Weather — isCrescentCityRelevant keyword matching", () => {
     expect(result).toBe(true);
   });
 
-  test('"california coast" in areaDesc is relevant', () => {
+  test('generic California coast wording does not establish local coverage', () => {
     const result = nwsIsCrescentCityRelevant({
       areaDesc: "California Coast; Northwest California",
       description: "",
     });
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
-  test('"caz006" (zone code) in areaDesc is relevant', () => {
+  test('current CAZ101 zone code in areaDesc is relevant', () => {
     const result = nwsIsCrescentCityRelevant({
-      areaDesc: "CAZ006; Northwest California coastal waters",
+      areaDesc: "CAZ101",
       description: "",
     });
     expect(result).toBe(true);
   });
 
-  test('"california" in description but not areaDesc is still relevant', () => {
+  test('generic California wording in description does not establish local coverage', () => {
     const result = nwsIsCrescentCityRelevant({
       areaDesc: "Some generic zone",
       description: "This alert covers the California coastal region.",
     });
-    expect(result).toBe(true);
+    expect(result).toBe(false);
+  });
+
+  test('structured current forecast-zone membership survives absent local prose', () => {
+    expect(nwsIsCrescentCityRelevant({ areaDesc: "", description: "High winds expected", affectedZones: ["https://api.weather.gov/zones/forecast/CAZ101"] })).toBe(true);
+    expect(nwsIsCrescentCityRelevant({ areaDesc: "", description: "", geocode: { UGC: ["CAZ101"] } })).toBe(true);
+    expect(nwsIsCrescentCityRelevant({ areaDesc: "Coastal Del Norte", description: "Crescent City", affectedZones: ["https://api.weather.gov/zones/forecast/CAZ006"] })).toBe(false);
+    expect(nwsIsCrescentCityRelevant({ areaDesc: "Coastal Del Norte", description: "", geocode: { UGC: ["CAZ103"] } })).toBe(false);
+    expect(nwsIsCrescentCityRelevant({ areaDesc: "CAZ006", description: "" })).toBe(false);
+    expect(nwsIsCrescentCityRelevant({ areaDesc: "CAZ1010", description: "" })).toBe(false);
   });
 
   test("case-insensitive matching", () => {
@@ -687,7 +701,7 @@ describe("NWS Weather — isCrescentCityRelevant keyword matching", () => {
       })
     ).toBe(true);
 
-    // Coastal Flood Advisory for CAZ006 — relevant by zone code
+    // Coastal Flood Advisory for CAZ101 — relevant by zone code
     expect(
       nwsIsCrescentCityRelevant({
         areaDesc: NWS_COASTAL_FLOOD_FEATURE.properties.areaDesc,
@@ -710,6 +724,64 @@ describe("NWS Weather — isCrescentCityRelevant keyword matching", () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // NWS WEATHER — Geometry: pointInPolygon
 // ═══════════════════════════════════════════════════════════════════════════════
+
+test("NWS production request and publication retain current zone coverage without false quiet on mismatches", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cci-nws-zone-"));
+  const local = { ...NWS_HIGH_WIND_FEATURE, geometry: null, properties: {
+    ...NWS_HIGH_WIND_FEATURE.properties, areaDesc: "", description: "High winds expected",
+    affectedZones: [`https://api.weather.gov/zones/forecast/${NWS_FORECAST_ZONE}`], geocode: { UGC: [NWS_FORECAST_ZONE] },
+  } };
+  const legacy = { ...local, id: "legacy-foreign", properties: {
+    ...local.properties, id: "legacy-foreign", areaDesc: "Coastal Del Norte", affectedZones: ["https://api.weather.gov/zones/forecast/CAZ006"], geocode: { UGC: ["CAZ006"] },
+  } };
+  const foreign = { ...local, id: "current-foreign", properties: {
+    ...local.properties, id: "current-foreign", areaDesc: "Northern Humboldt Coast; California coastal region", affectedZones: ["https://api.weather.gov/zones/forecast/CAZ103"], geocode: { UGC: ["CAZ103"] },
+  } };
+  let mode: "mixed" | "foreign" | "empty" | "html" = "mixed";
+  const requests: URL[] = [];
+  const server = Bun.serve({ port: 0, fetch(request) {
+    requests.push(new URL(request.url));
+    if (mode === "html") return new Response("<html>NWS fixture access failure</html>", { headers: { "content-type": "text/html" } });
+    const features = mode === "mixed" ? [local, legacy, foreign] : mode === "foreign" ? [legacy, foreign] : [];
+    return Response.json({ type: "FeatureCollection", features });
+  } });
+  const run = () => withTransportScope({ fixture: { origin: `http://127.0.0.1:${server.port}`, allowedOrigins: [new URL(NWS_ALERTS_URL).origin] } },
+    () => monitorNWSWeatherAlerts({ outputDir: root, deadlineMs: 2000 }));
+  const currentPath = join(root, "alerts", "weather", "current.json");
+  const historyPath = join(root, "alerts", "weather", "history.jsonl");
+  try {
+    await run();
+    const currentBytes = await readFile(currentPath, "utf8"), historyBytes = await readFile(historyPath, "utf8");
+    const current = JSON.parse(currentBytes);
+    expect(current.forecastZone).toBe("CAZ101");
+    expect(current.geographicMismatchCount).toBe(2);
+    expect(current.alerts.map((alert: { id: string }) => alert.id)).toEqual([local.properties.id]);
+    expect(current.level).toBe("WARNING");
+    expect(historyBytes.trim().split("\n")).toHaveLength(1);
+    expect((await readdir(join(root, "alerts", "weather", "warning"))).filter(name => name.endsWith(".json"))).toHaveLength(1);
+
+    mode = "foreign";
+    await expect(run()).rejects.toThrow("without established CAZ101 coverage");
+    expect(await readFile(currentPath, "utf8")).toBe(currentBytes);
+    expect(await readFile(historyPath, "utf8")).toBe(historyBytes);
+
+    mode = "empty";
+    await run();
+    const quietBytes = await readFile(currentPath, "utf8"), quiet = JSON.parse(quietBytes);
+    expect(quiet).toMatchObject({ forecastZone: "CAZ101", geographicMismatchCount: 0, alerts: [], level: "CALM" });
+    expect(quiet.summary).toContain("CAZ101");
+    expect(await readFile(historyPath, "utf8")).toBe(historyBytes);
+
+    mode = "html";
+    await expect(run()).rejects.toThrow();
+    expect(await readFile(currentPath, "utf8")).toBe(quietBytes);
+    expect(requests).toHaveLength(4);
+    for (const request of requests) {
+      expect(request.pathname).toBe("/alerts/active");
+      expect([...request.searchParams.entries()]).toEqual([["zone", "CAZ101"]]);
+    }
+  } finally { server.stop(true); await rm(root, { recursive: true, force: true }); }
+});
 
 describe("NWS Weather — pointInPolygon geometry", () => {
   test("Crescent City coordinates are inside its own bounding box", () => {

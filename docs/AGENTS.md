@@ -12,6 +12,7 @@ Comprehensive project documentation covering architecture, all src/ modules, API
 | `architecture.md` | System architecture, data flow diagram, module dependency graph |
 | `api-reference.md` | Selected module exports; OpenAPI is the HTTP route authority |
 | `configuration.md` | All environment variables, constants, and tuning parameters |
+| `generated/` | Source-derived configuration/export declarations and structural OpenAPI HTTP inventory; regenerate through `scripts/generate-docs.ts` |
 | `modules/` | Per-module detailed documentation (one file per logical component) |
 
 ## Module Docs (`docs/modules/`)
@@ -20,6 +21,8 @@ Comprehensive project documentation covering architecture, all src/ modules, API
 | :--- | :--- |
 | `scraping.md` | `browser.ts`, `toc.ts`, `content.ts`, `scrape.ts`, `scraper_utils.ts` |
 | `verification.md` | `verify.ts` |
+| `artifact-contracts.md` | `schema_validation.ts`, `artifact_contracts.ts`, `artifact_custody.ts`, shared loader/API/Pages reuse |
+| `source-review.md` | `corpus_lineage.ts`, `directory_review.ts`, `source_coverage.ts` |
 | `export.md` | `export.ts` |
 | `pages.md` | `pages_snapshot.ts`, `scripts/export-pages.ts`, `scripts/validate-pages.ts` |
 | `gui.md` | `gui/server.ts`, `gui/routes.ts`, `gui/search.ts`, `gui/semantic_search.ts`, `gui/alert_trends.ts`, `gui/analytics.ts`, `gui/static/` |

@@ -15,10 +15,11 @@
  *   silently started from empty and treated everything as new. Using this
  *   store instead of that Map is a real idempotency fix, not just a refactor.
  */
-import { readFile } from "fs/promises";
-import { existsSync } from "fs";
-import { withFileLease } from "./storage.js";
+import { withFileLease, assertSafeFilesystemPath } from "./storage.js";
 import { writeJsonAtomic } from "./source_health.js";
+import { replaceArtifacts, recoverArtifactTransactions, readBoundedArtifact, type ArtifactReplacement, type ArtifactTransactionReceipt } from "./artifact_transaction.js";
+import { currentRunSignal } from "./run_scope.js";
+import { relative } from "node:path";
 import { computeSha256 } from "../utils.js";
 import { createLogger } from "../logger.js";
 import { throwIfAborted } from "./transport.js";
@@ -55,6 +56,7 @@ export class IdempotencyStore {
   private loadFailure: Error | null = null;
 
   constructor(path: string, cap = 10_000) {
+    if (!Number.isSafeInteger(cap) || cap < 1 || cap > 100_000) throw new Error("Invalid idempotency retention cap");
     this.path = path;
     this.cap = cap;
   }
@@ -63,10 +65,10 @@ export class IdempotencyStore {
   async load(): Promise<void> {
     if (this.loaded) return;
     this.loaded = true;
-    if (!existsSync(this.path)) return;
-
     try {
-      const raw = await readFile(this.path, "utf-8");
+      await assertSafeFilesystemPath(this.path);
+      const bytes = await readBoundedArtifact(this.path, 8_000_000); if (bytes === null) return;
+      const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       const parsed = JSON.parse(raw);
 
       // Legacy shape migration: a bare string[] of ids (news_monitor.ts's
@@ -90,6 +92,7 @@ export class IdempotencyStore {
         if (!rec || typeof rec !== "object" || typeof rec.hash !== "string" || typeof rec.firstSeen !== "string" || typeof rec.lastSeen !== "string") throw new Error("Malformed idempotency record");
         this.records.set(id, rec);
       }
+      this.cleanup();
     } catch (err: any) {
       // Corrupt or unreadable — start empty rather than crash the calling monitor.
       logger.warn(`Failed to load idempotency store at ${this.path}, starting empty`, { error: err.message });
@@ -155,6 +158,32 @@ export class IdempotencyStore {
     const toDrop = entries.length - this.cap;
     for (let i = 0; i < toDrop; i++) this.records.delete(entries[i][0]);
   }
+  private serialized(): string {
+    const text = JSON.stringify(Object.fromEntries(this.records), null, 2);
+    if (Buffer.byteLength(text, 'utf8') > 8_000_000) throw new Error('Idempotency evidence exceeds persisted byte bound');
+    return text;
+  }
+
+  /** Commit new identity records and their source artifacts as one recoverable byte bundle. */
+  async publish(root: string, artifacts: ArtifactReplacement[], options: { signal?: AbortSignal; onProgress?: (receipt: ArtifactTransactionReceipt) => Promise<void> } = {}): Promise<void> {
+    options = { ...options, signal: options.signal ?? currentRunSignal() };
+    if (options.signal) throwIfAborted(options.signal);
+    if (this.loadFailure) throw new Error("Refusing to replace corrupt idempotency evidence");
+    await withFileLease(`${this.path}.lock`, async () => {
+      if (options.signal) throwIfAborted(options.signal);
+      await recoverArtifactTransactions(root);
+      const disk = new IdempotencyStore(this.path, this.cap); await disk.load();
+      if (disk.loadFailure) throw new Error("Refusing to replace corrupt idempotency evidence");
+      for (const [id, record] of this.records) {
+        if (!this.dirty.has(id) && disk.records.has(id)) continue;
+        const previous = disk.records.get(id);
+        if (!previous || (Date.parse(record.lastSeen) || 0) >= (Date.parse(previous.lastSeen) || 0)) disk.records.set(id, { ...record, firstSeen: previous ? previous.firstSeen : record.firstSeen });
+      }
+      disk.cleanup();
+      await replaceArtifacts(root, [...artifacts, { path: relative(root, this.path), text: disk.serialized() }], options);
+      this.records = disk.records; this.dirty.clear();
+    }, { signal: options.signal, staleMs: 0 });
+  }
 
   /** Persist current state to disk via a temp-file-then-rename atomic write. */
   async save(options: { signal?: AbortSignal } = {}): Promise<void> {
@@ -173,7 +202,7 @@ export class IdempotencyStore {
       }
       disk.cleanup();
       if (options.signal) throwIfAborted(options.signal);
-      await writeJsonAtomic(this.path, Object.fromEntries(disk.records), options);
+      await writeJsonAtomic(this.path, JSON.parse(disk.serialized()), options);
       this.records = disk.records; this.dirty.clear();
       if (options.signal) throwIfAborted(options.signal);
     }, options);

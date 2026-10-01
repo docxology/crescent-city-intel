@@ -17,9 +17,9 @@ const chat = readFileSync(join(moduleDir, "50-chat.js"), "utf-8");
 
 describe("GUI chat-history wiring", () => {
   test("the chat tracks a history array and sends it with each request", () => {
-    expect(core).toContain("const chatHistory = [];");
-    expect(chat).toContain("history = chatHistory.slice(-6)");
-    expect(chat).toContain('chatHistory.push({ role: "user"');
+    expect(readFileSync(join(moduleDir, "../app-state.js"), "utf8")).toContain("chatHistory: []");
+    expect(chat).toContain("history = appState.chatHistory.slice(-6)");
+    expect(chat).toContain('appState.chatHistory.push({ role: "user"');
     expect(chat).toContain('{ role: "assistant", content: text }');
   });
 
@@ -37,8 +37,7 @@ describe("GUI error banner", () => {
   });
 
   test("index.html references the extracted core and chat modules in load order", () => {
-    expect(html).toContain('<script src="assets/modules/10-core.js"></script>');
-    expect(html).toContain('<script src="assets/modules/50-chat.js"></script>');
-    expect(html.indexOf("10-core.js")).toBeLessThan(html.indexOf("50-chat.js"));
+    expect(html).toContain('<script type="module" src="assets/gui-app.js"></script>');
+    expect(chat).toContain('from "./10-core.js"');
   });
 });

@@ -9,6 +9,8 @@ template renderer.
 
 | Script | Purpose | Delegates to | Command |
 | :--- | :--- | :--- | :--- |
+| `generate-docs.ts` | Generate/check configuration, exports and structural HTTP inventories | `src/doc_inventory.ts` | `bun run scripts/generate-docs.ts --write` / `--check` |
+| `source-coverage.ts` | Read-only retained catalog/geography/access and primary evidence limits | `src/source_coverage.ts` | `bun run scripts/source-coverage.ts` |
 | `weekly-check.ts` | Full weekly health check (all monitors) | `src/weekly_pipeline.ts` | `bun run weekly-check` |
 | `run-monitor.ts` | Municipal code change detection | `src/monitor.ts` | `bun run monitor` |
 | `run-alerts.ts` | All 20 alert monitors (8 core + 12 extended) plus availability-aware composite | `src/alerts/batch.ts` | `bun run alerts` / `bun run alerts:all` |
@@ -30,11 +32,11 @@ template renderer.
 | `refresh-pages-data.ts` | Refresh the tracked verified municipal-code seed | `src/pages_seed.ts` | `bun run pages:seed` |
 | `validate-pages.ts` | Validate the static snapshot and publication boundaries | `src/pages_validation.ts` | `bun run pages:validate` |
 | `validate.ts` | Strict TypeScript, deterministic tests, and output checks | `src/release_gate.ts` | `bun run validate` |
-| `repair-output.ts` | Quarantine malformed history and migrate legacy runtime envelopes | `src/shared/orchestration.ts`, `src/shared/source_health.ts` | `bun run repair-output` |
+| `repair-output.ts` | Quarantine malformed history, migrate runtime envelopes, or restore a recorded repair | `src/output_migrations.ts` | `bun run repair-output` |
 | `browser-smoke.ts` | Playwright/Chromium smoke test of the running GUI | `src/browser_smoke.ts` | `bun run test:browser` |
 | `lifeos-bridge.ts` | Write the LifeOS/Pulse LocalIntelligence digest from platform outputs | `src/lifeos_bridge.ts` | `bun run lifeos:bridge` |
 | `lifeos-daily.sh` | Refresh news/meetings/alerts then write the LifeOS digest; non-zero exit if any step fails | `scripts/run-news.ts`, `scripts/run-meetings.ts`, `scripts/run-alerts.ts`, `scripts/lifeos-bridge.ts` | `bun run lifeos:daily` |
-| `cron-setup.sh` / `scheduler-plan.ts` | Print an escaped host scheduler plan without installing it | `src/scheduler.ts` | `bun run cron-setup -- --dry-run` |
+| `cron-setup.sh` / `scheduler-plan.ts` | Review a scheduler plan, manage an explicit owned target, or rotate its idle log | `src/scheduler.ts` | `bun run cron-setup -- --dry-run` |
 | `stack-readiness.ts` | Bounded real-service/model readiness receipt | `src/stack_readiness.ts` | `bun run scripts/stack-readiness.ts` |
 | `ci-affected-tests.ts` | Conservative recursive dependency selection; uncertain changes run the full suite | `src/ci_support.ts` | CI internal |
 | `ci-monitor-smoke.ts` | Validate the child exit and exact current-cycle roster; emit public health receipt | `src/ci_support.ts`, `src/pages_public.ts` | CI internal |
@@ -64,13 +66,39 @@ collects live sources, preserves unavailable/stale health states, builds the
 static export, validates it, and deploys the artifact. It does not publish the
 runtime `output/` directory wholesale.
 
-## Scheduling plans
+## Scheduling and run ownership
 
 `bun run cron-setup -- --dry-run` prints a Sunday 07:00 Pacific launchd/cron
 plan and installs nothing. The renderer uses escaped argument arrays and XML on
 macOS, POSIX quoting and cron percent escaping on Linux. Confirm the macOS host
-timezone and review project/log paths before manual installation. Runtime source
-collection and a scheduler's installed/running status require separate receipts.
+timezone and review project/log paths before installing the reviewed file:
+
+```bash
+bun run cron-setup -- --install --target=/absolute/reviewed-target --state=/absolute/scheduler-state
+bun run cron-setup -- --remove --target=/absolute/reviewed-target --state=/absolute/scheduler-state
+```
+
+These commands write only the named file and ownership journal. Linux updates
+preserve unrelated entries and restore their preceding `CRON_TZ`; macOS refuses
+an existing unowned plist. Native installation additionally requires `--activate`,
+and native removal requires `--deactivate`. Linux activation requires an exact
+snapshot of the current host crontab in the target file. An uncertain activation
+is retained for explicit review. Isolated file tests do not prove an installed
+or running host scheduler.
+
+`--rotate-log=/absolute/log --producer-lease=/absolute/output/state/weekly-check.lock
+--max-bytes=5000000 --keep=3` rotates exact bytes only while the weekly writer is
+idle. Archives and the current log use a recoverable transaction. Rotation refuses
+oversized aggregate inputs; it does not interrupt a producer's open log stream.
+
+`WEEKLY_DEADLINE_MS` sets the total weekly budget (100 ms through 24 hours; default
+one hour). SIGTERM/SIGINT cancel inherited HTTP, browser and child work. The latest
+attempt and per-step receipts remain separate from the last completed envelope;
+restart retains the interrupted attempt and rolls back incomplete publications.
+Each producer captures its output root and owns a per-producer lease. News,
+meetings and Triplicate publish source batches, health and new seen identities
+together; bounded health history follows that commit. Browser recovery uses
+private root/token/process receipts and refuses substituted process identities.
 
 ## Verification
 

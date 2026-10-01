@@ -51,6 +51,7 @@ constants.ts                    # Centralized constants (env-overridable)
 utils.ts                        # Shared utilities (SHA-256, flatten, chunk, etc.)
 logger.ts                       # Structured logger
 browser.ts                      # Playwright lifecycle + Cloudflare bypass
+browser_launcher.ts             # Private launcher ownership and dead-controller browser recovery
 toc.ts                          # TOC fetcher + tree utilities
 content.ts                      # Page scraper + section extraction
 scrape.ts                       # Scraper orchestrator with resume
@@ -73,8 +74,18 @@ section_longevity.ts            # Section age, dormancy, churn, decade histogram
 word_frequency.ts               # Corpus term frequency + tf-idf salience
 minutes_extraction.ts           # Meeting-minutes depth: vote tallies + hashing
 agenda_crossref.ts              # Agenda items -> code sections via the BM25 index
+calendar_recurrence.ts          # Bounded recurrence, cancellation, timezone and unsupported-rule evidence
+source_clocks.ts                # Source-specific observation/product/retrieval validity policies
+trend_sampling.ts               # Recorded sampling denominators and explicit trend comparability
+derived_publication.ts          # Captured-input replay and recoverable derived output custody
 insights.ts                     # Cross-artifact civic trend brief
 directory.ts                    # Provenance-checked civic directory builder
+directory_review.ts             # Local field evidence, role-owned corrections and changed-source review
+artifact_contracts.ts           # Shared versioned family schemas and semantic/count invariants
+artifact_custody.ts              # Bounded exact input/transform/output custody and deterministic replay
+schema_validation.ts            # Shared noncoercing bounded JSON/OpenAPI schema engine
+corpus_lineage.ts               # Retained source-bound edition comparison and primary-document review queue
+source_coverage.ts              # Read-only registry-grounded catalog, geography and legal-evidence assessment
 events.ts                       # Community event aggregation and normalization
 event_discovery.ts              # Bounded discovery probes for new event sources
 analytics_backend.ts            # Analytics overview envelope (deterministic + LLM provenance)
@@ -90,6 +101,7 @@ readability_history.ts          # Bounded readability run history (JSONL, 10k ca
 lifeos_bridge.ts                # LifeOS/Pulse LocalIntelligence digest logic
 browser_smoke.ts                # Real-browser GUI smoke flow (scripts/browser-smoke.ts)
 pages_snapshot.ts               # Bounded public GitHub Pages snapshot exporter
+pages_publication_inputs.ts     # Exact Pages producer/seed/source capture, private replay, public hash commitments
 pages_scan.ts                   # Pages artifact scanner (links, assets, SEO)
 pages_css.ts                    # Generated Pages stylesheet builder
 pages_validation.ts             # Pages artifact validator (release-gate checks)
@@ -105,7 +117,7 @@ publication_bundle.ts           # Coherent corpus selection, custody receipts an
 release_checks.ts               # Actual line coverage and failure-safe output fences
 interactive_menu.ts             # Module contract and implementation
 official_meetings.ts            # Module contract and implementation
-scheduler.ts                    # Escaped dry-run launchd/cron plans; installs nothing
+scheduler.ts                    # Reviewed scheduler plans, owned file installation/removal and idle log rotation
 stack_readiness.ts              # Module contract and implementation
 weekly_pipeline.ts              # Module contract and implementation
 meeting_documents.ts            # Bounded PDF capture, page spans and exact source/text receipts
@@ -119,14 +131,14 @@ alerts/                         # 20 monitors + composite severity; docs/modules
   noaa_tsunami.ts               # NOAA CAP tsunami warning monitor
   noaa_tides.ts                 # NOAA CO-OPS tides (station 9419750)
   usgs_earthquake.ts            # USGS earthquake monitor (M4.0+, 200 km)
-  nws_weather.ts                # NWS Del Norte coastal zone CAZ006 alerts
+  nws_weather.ts                # NWS Del Norte coastal zone CAZ101 alerts
   cdfw_fishing.ts               # CDFW Dungeness crab season monitor
   epa_airnow.ts                 # EPA AirNow air quality (PM2.5, ozone, PM10)
   calfire_wildfire.ts           # CAL FIRE wildfire incident monitor
   ndbc_marine.ts                # NDBC buoy marine weather (wave, wind, temp)
   nws_marine.ts                 # NWS CWF coastal waters forecast (PZZ450)
   uscg_broadcasts.ts            # USCG District 11 broadcast notices to mariners
-  usdm_drought.ts               # US Drought Monitor DSCI for Del Norte
+  usdm_drought.ts               # US Drought Monitor categorical area percentages for Del Norte
   pge_psps.ts                   # PG&E public safety power shutoff monitor
   hrrr_smoke.ts                 # NOAA HMS / HRRR smoke plume monitor
   caltrans_roads.ts             # Caltrans road closure and incident monitor
@@ -150,6 +162,9 @@ domains/                        # Civic domain coverage and references
 notifications/                  # Notification delivery and receipts
   push.ts                       # Push notification delivery
 shared/                         # Shared artifact, transport and storage contracts
+  artifact_transaction.ts       # Recoverable bounded exact-byte multi-artifact replacement and rollback
+  process_ownership.ts          # Owned child process-group shutdown and direct-child reaping receipts
+  run_scope.ts                  # Captured producer roots, leases and parent cancellation budgets
   paths.ts                      # Centralized output path constants
   source_health.ts              # Typed source-health contract + atomic artifact writes
   orchestration.ts              # Durable step/run envelopes and build metadata
@@ -193,6 +208,7 @@ llm/                            # Ollama/OpenRouter chat + Chroma RAG stack
   dedupe.ts                     # Near-duplicate suppression for generated text
   usage.ts                      # Token/request usage accounting
   validate.ts                   # Generated-output validation guards
+  semantic_review.ts            # Bound claim/source spans and supplied review annotations without factuality certification
   index.ts                      # CLI entry point
   evidence.ts                   # Citation policy, abstention and reproducible support evaluation
   privacy.ts                    # Bounded private query retention and opt-in diagnostics
@@ -229,7 +245,8 @@ Other commands: `bun run gui` (web viewer on :3000), `bun run weekly-check`
 Prerequisites: Bun 1.4.2 (the CI pin); `bun install` installs the Playwright
 package, and `bunx playwright install chromium` installs its browser. The
 optional LLM stack is Ollama with `nomic-embed-text` + `gemma3:4b`, Chroma on
-port 8001, and `AIRNOW_API_KEY` for air quality.
+port 8001. Air quality uses public AirNow PM2.5 observations; `AIRNOW_API_KEY`
+enables the optional keyed ZIP endpoint.
 
 ## Critical boundaries
 
@@ -266,4 +283,6 @@ port 8001, and `AIRNOW_API_KEY` for air quality.
 - Source gaps are coverage metadata, not pipeline failure: `ok` and `empty`
   count as present; `unavailable` and `stale` count as missing.
 - NDBC buoy data may have gaps (stations go offline for maintenance).
-- AirNow API requires a free API key (`AIRNOW_API_KEY`).
+- The keyed AirNow ZIP endpoint requires `AIRNOW_API_KEY`; the public PM2.5
+  fallback requires no key and cannot establish current air quality without a
+  fresh nearby observation.

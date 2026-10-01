@@ -12,6 +12,9 @@ queries, legal analysis, and civic intelligence domains.
 | [Architecture](architecture.md) | System design, data flow diagrams, full module dependency graph |
 | [Configuration](configuration.md) | All env vars, constants, and tuning parameters |
 | [API Reference](api-reference.md) | Selected module exports; OpenAPI is the HTTP route authority |
+| [Generated Configuration](generated/configuration.md) | Environment reads derived from TypeScript source, including explicit dynamic-read limits |
+| [Generated Exports](generated/exports.md) | Qualified source export names and declaration hashes |
+| [Generated HTTP Inventory](generated/http.md) | Structurally parsed route methods, authentication, parameters and response media |
 | [Project Review](project-review.md) | Current-state findings, cleanup decisions, and verification receipts |
 | [Roadmap](roadmap.md) | Future priorities, dependencies, and delivery sequence |
 | [Open Backlog](../TODO.md) | Minor, medium, and major improvement scopes with acceptance criteria |
@@ -19,6 +22,8 @@ queries, legal analysis, and civic intelligence domains.
 | **Module Guides** | |
 | [Scraping](modules/scraping.md) | Browser, TOC, content extraction, and scraper orchestrator |
 | [Verification](modules/verification.md) | Local custody/replay, current TOC, live sample, and publication binding |
+| [Artifact Contracts](modules/artifact-contracts.md) | Shared family validators, explicit migrations and derived-fact byte custody |
+| [Lineage and Source Review](modules/source-review.md) | Retained section changes, primary-document review, directory corrections and coverage limits |
 | [Export](modules/export.md) | JSON, Markdown, plain text, and CSV output |
 | [GitHub Pages](modules/pages.md) | Bounded static snapshots, provenance, and deployment workflow |
 | [GUI](modules/gui.md) | Web viewer, API routes, search engine, analytics, alerts dashboard |
@@ -44,7 +49,7 @@ queries, legal analysis, and civic intelligence domains.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.0.2)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.1.0)
 
 ## Updating Docs
 

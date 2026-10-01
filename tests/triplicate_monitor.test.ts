@@ -175,15 +175,17 @@ describe('monitorTriplicate', () => {
     const fetchHtml = async () => FIXTURE_HTML;
 
     const first = await monitorTriplicate({
+      artifactRoot: workDir,
       fetchHtml,
       seenPath,
       outputDir,
-      healthPath: join(workDir, 'source-health.json'),
+      healthPath: join(workDir, 'custom-health.json'),
       sections: singleSection,
       retry: fastRetry,
     });
     expect(first).toHaveLength(3);
-    const health = JSON.parse(await readFile(join(workDir, 'source-health.json'), 'utf-8'));
+    const health = JSON.parse(await readFile(join(workDir, 'custom-health.json'), 'utf-8'));
+    expect((await readFile(join(workDir, 'custom-health-history.jsonl'), 'utf-8')).trim().split('\n')).toHaveLength(1);
     expect(health.sources[0].status).toBe('ok');
     expect(health.sources[0].itemCount).toBe(3);
     for (const item of first) {
@@ -193,10 +195,11 @@ describe('monitorTriplicate', () => {
     }
 
     const second = await monitorTriplicate({
+      artifactRoot: workDir,
       fetchHtml,
       seenPath,
       outputDir,
-      healthPath: join(workDir, 'source-health.json'),
+      healthPath: join(workDir, 'custom-health.json'),
       sections: singleSection,
       retry: fastRetry,
     });
@@ -205,6 +208,7 @@ describe('monitorTriplicate', () => {
 
   test('persists a batch file whose payload carries the binding AI-usage policy', async () => {
     await monitorTriplicate({
+      artifactRoot: workDir,
       fetchHtml: async () => FIXTURE_HTML,
       seenPath,
       outputDir,
@@ -235,6 +239,7 @@ describe('monitorTriplicate', () => {
     let threw = false;
     try {
       result = await monitorTriplicate({
+      artifactRoot: workDir,
       fetchHtml: throwingFetch,
       seenPath,
       outputDir,
@@ -264,6 +269,7 @@ describe('monitorTriplicate', () => {
 
   test('handles a rendered-but-empty page (stale selectors) without throwing', async () => {
     const result = await monitorTriplicate({
+      artifactRoot: workDir,
       fetchHtml: async () => NO_ARTICLES_HTML,
       seenPath,
       outputDir,
@@ -285,6 +291,7 @@ describe('monitorTriplicate', () => {
     };
 
     const result = await monitorTriplicate({
+      artifactRoot: workDir,
       fetchHtml: flakyFetch,
       seenPath,
       outputDir,

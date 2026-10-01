@@ -257,14 +257,36 @@ docker compose --profile llm up --build -d ollama chroma ollama-models
 docker compose --profile llm run --rm readiness
 ```
 
-The GUI can serve deterministic data while optional models are unavailable.
+A genuinely absent/empty corpus can start the GUI with empty search and
+unavailable code statistics. Populate and verify the selected root for code
+features. Orphan core artifacts, malformed manifests, missing declared articles
+and linked namespaces fail startup rather than becoming an empty edition;
+optional models may remain unavailable.
 A successful image build does not establish model readiness, source acceptance,
 or deployment; record each receipt separately. Model names and installed model
 bytes remain an external prerequisite even with pinned service images.
 
-`bun run cron-setup -- --dry-run` prints the host's launchd or cron plan. It
-installs nothing. The plan uses explicit argument arrays/XML escaping on macOS,
-POSIX quoting plus percent escaping for cron, and Sunday 07:00 Pacific scheduling.
-Confirm the macOS host timezone and review the generated paths before any manual
-installation. Scheduled source runs require finite execution budgets and explicit
-unavailable/stale records.
+The compose recipe binds `${CC_OUTPUT_DIR:-./output}` into `/app/output`, keeps
+Ollama and Chroma volumes, starts long-running services with an init process and
+`restart: unless-stopped`, and bounds each container's JSON logs to three 5 MB
+files. `CC_GUI_PORT`, `CC_OLLAMA_PORT` and `CC_CHROMA_PORT` select loopback host
+ports. After an operator-controlled restart, check `/api/health`, backend
+readiness, and an unchanged retained artifact hash before calling the instance
+operational. An isolated owned-container restart drill establishes persistence
+for that drill; it does not install a permanent service or verify all providers.
+
+`bun run cron-setup -- --dry-run` prints the host's Sunday 07:00 Pacific launchd
+or cron plan and installs nothing. Review its paths and the macOS host timezone.
+Explicit `--install`/`--remove --target=/absolute/reviewed-file
+--state=/absolute/scheduler-state` manage only the named target and its ownership
+journal; Linux preserves unrelated jobs. Native activation requires the extra
+`--activate` flag, and removal requires `--deactivate`. Linux activation compares
+the target with an exact current crontab snapshot. No host scheduler is installed
+by setup or by the isolated acceptance tests.
+
+Use `WEEKLY_DEADLINE_MS` for a total weekly budget (default one hour, maximum
+24 hours). SIGTERM/SIGINT cancel inherited work and retain an interrupted attempt;
+restart recovers exact-byte publication journals and authenticated owned browser
+groups. The last completed envelope remains separate from the latest attempt.
+Log rotation requires an explicit idle producer lease; see
+[scheduling commands](../scripts/README.md#scheduling-and-run-ownership).

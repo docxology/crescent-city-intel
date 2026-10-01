@@ -31,8 +31,14 @@ import {
   validatePagesGeoIntel,
   validatePagesGeoObservations,
   validatePagesHtml,
+  replayPagesPublicationArchive,
 } from "./pages_snapshot.js";
 import { hashPublicationTree, publicationHash } from "./publication_bundle.js";
+import { captureArtifactBytes, replayArtifactCustody, canonicalArtifactJson } from "./artifact_custody.js";
+import { PAGES_FACT_INPUT_RECEIPT, validatePagesFactInputReceipt, validatePagesFactTransformIdentity, readPagesInputArchive, type PagesFactInputReceipt } from "./pages_publication_inputs.js";
+import { isDeepStrictEqual } from "node:util";
+import { captureDirectoryTransforms, buildDirectoryArtifactWithCustody } from "./directory.js";
+import { validateArtifact } from "./artifact_contracts.js";
 import { publicExposureErrors } from "./pages_public.js";
 import { EXPECTED_SOURCE_HEALTH } from "./shared/source_health.js";
 import { auditPagesCss, auditStylesheetBraces, type PageCssInput } from "./pages_css.js";
@@ -86,9 +92,9 @@ function parseSitemapEntries(xml: string): { entries: Array<{ loc: string; lastm
  * Invoked by the thin orchestrator scripts/validate-pages.ts, which prints the
  * errors and sets the exit code.
  */
-export async function validatePagesArtifact(destination: string, options: { sourceTemplateDir?: string } = {}): Promise<string[]> {
+export async function validatePagesArtifact(destination: string, options: { sourceTemplateDir?: string; sourceDirectorySeedPath?: string; inputArchive?: string } = {}): Promise<string[]> {
   const errors: string[] = [];
-  const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_GEO_OBSERVATIONS_ARTIFACT];
+  const required = ["index.html", "404.html", ".nojekyll", "data/snapshot.json", PAGES_FACT_INPUT_RECEIPT, "data/source-health.json", "data/source-registry.json", "data/source-discovery.json", PAGES_GEO_INTEL_ARTIFACT, PAGES_GEO_OBSERVATIONS_ARTIFACT];
   for (const relative of required) {
     try { await readFile(join(destination, relative)); }
     catch { errors.push(`missing required Pages asset: ${relative}`); }
@@ -134,6 +140,23 @@ export async function validatePagesArtifact(destination: string, options: { sour
   try {
     snapshot = JSON.parse(await readFile(join(destination, "data/snapshot.json"), "utf8")) as PagesSnapshot;
   } catch { errors.push("data/snapshot.json is not valid JSON"); }
+  try {
+    const receipt = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await captureArtifactBytes(join(destination, PAGES_FACT_INPUT_RECEIPT), 2 * 1024 * 1024)));
+    const snapshotBytes = await captureArtifactBytes(join(destination, "data/snapshot.json"));
+    const input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await captureArtifactBytes(join(destination, "publication-input.json"), 2 * 1024 * 1024)));
+    const bindingErrors = validatePagesFactInputReceipt(receipt, snapshotBytes, input);
+    errors.push(...bindingErrors);
+    if (!bindingErrors.length) {
+      if (receipt.generatedAt !== snapshot?.generatedAt || receipt.commit !== snapshot?.commit) errors.push("public-fact-inputs: snapshot clock or commit differs from receipt");
+      if (canonicalArtifactJson(input) !== canonicalArtifactJson(snapshot?.publication)) errors.push("public-fact-inputs: inline municipal selection differs from publication input");
+      errors.push(...await validatePagesFactTransformIdentity(receipt as PagesFactInputReceipt));
+      if (options.inputArchive) {
+        const retained = await readPagesInputArchive(options.inputArchive);
+        if (retained.receipt.bindingSha256 !== receipt.bindingSha256 || publicationHash(retained.snapshot) !== publicationHash(snapshotBytes)) errors.push("public-fact-inputs: supplied private archive belongs to another publication");
+        else errors.push(...await replayPagesPublicationArchive(options.inputArchive));
+      }
+    }
+  } catch { errors.push("public-fact-inputs: missing or invalid bounded input receipt"); }
 
   let geoIntel: unknown = null;
   const geoIntelSource = await readFile(join(destination, PAGES_GEO_INTEL_ARTIFACT), "utf8").catch(() => null);
@@ -174,6 +197,14 @@ export async function validatePagesArtifact(destination: string, options: { sour
   if (!geoObservationsAvailable && indexHtml.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").includes('data-observations-state="published"')) errors.push("Pages index claims published hazard observations but the artifact does not carry a valid envelope");
 
   if (snapshot) {
+    if (snapshot.events) errors.push(...validateArtifact("events", snapshot.events, { audience: "public" }));
+    if (snapshot.analytics) errors.push(...validateArtifact("analytics-overview", snapshot.analytics, { audience: "public" }));
+    if (snapshot.report?.metadata) errors.push(...validateArtifact("monthly-report", snapshot.report.metadata, { audience: "public" }));
+    if (snapshot.report?.curation) errors.push(...validateArtifact("curation-run", snapshot.report.curation, { audience: "public" }));
+    if (snapshot.report?.weeklySummary) errors.push(...validateArtifact("weekly-summary", snapshot.report.weeklySummary, { audience: "public" }));
+    if (snapshot.report?.pipelineRun) errors.push(...validateArtifact("pipeline-run", snapshot.report.pipelineRun, { audience: "public" }));
+    if (snapshot.healthSummary) errors.push(...validateArtifact("source-health-summary", snapshot.healthSummary, { audience: "public" }));
+    if (Array.isArray(snapshot.sourceHealth)) for (const row of snapshot.sourceHealth) errors.push(...validateArtifact("source-health", row, { audience: "public" }));
     if (snapshot.schemaVersion !== "1.0.0") errors.push(`unsupported snapshot schema: ${String(snapshot.schemaVersion)}`);
     if (!Number.isFinite(Date.parse(snapshot.generatedAt))) errors.push("snapshot generatedAt is not an ISO timestamp");
     if (!["ok", "degraded", "unavailable"].includes(snapshot.status)) errors.push(`invalid snapshot status: ${String(snapshot.status)}`);
@@ -222,6 +253,53 @@ export async function validatePagesArtifact(destination: string, options: { sour
     const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
     if (!geoIntelSummary) errors.push("geo-intel artifact summary cannot be derived");
     else if (JSON.stringify(snapshot.geoIntel) !== JSON.stringify(geoIntelSummary)) errors.push("snapshot geoIntel summary does not match the geo-intel artifact");
+  }
+
+  for (const [file, family, inline] of [["data/events.json", "events", snapshot?.events], ["data/analytics-overview.json", "analytics-overview", snapshot?.analytics], ["data/report-metadata.json", "monthly-report", snapshot?.report?.metadata], ["data/pipeline-run.json", "pipeline-run", snapshot?.report?.pipelineRun], ["data/curation.json", "curation-run", snapshot?.report?.curation], ["data/directory.json", "directory", undefined]] as const) {
+    const raw = await readFile(join(destination, file), "utf8").catch(() => null);
+    if (raw !== null) {
+      try {
+        const parsed = JSON.parse(raw);
+        errors.push(...validateArtifact(family, parsed, { audience: "public" }).map(error => `${file}: ${error}`));
+        if (file !== "data/directory.json" && !isDeepStrictEqual(parsed, inline)) errors.push(`${file}: public artifact does not match its inline snapshot family`);
+      }
+      catch { errors.push(`${file}: invalid JSON`); }
+    }
+  }
+  const standaloneHealth = await readFile(join(destination, "data/source-health.json"), "utf8").catch(() => null);
+  if (standaloneHealth !== null) {
+    try {
+      const rows = JSON.parse(standaloneHealth);
+      if (!Array.isArray(rows) || rows.length > 1000) errors.push("data/source-health.json: invalid health row array");
+      else for (const row of rows) errors.push(...validateArtifact("source-health", row, { audience: "public" }).map(error => `data/source-health.json: ${error}`));
+      if (!isDeepStrictEqual(rows, snapshot?.sourceHealth)) errors.push("data/source-health.json: public artifact does not match inline snapshot health");
+    } catch { errors.push("data/source-health.json: invalid JSON"); }
+  }
+  const standaloneAnalytics = await readFile(join(destination, PAGES_ANALYTICS_ARTIFACT), "utf8").catch(() => null);
+  if (snapshot?.analytics && standaloneAnalytics !== null) {
+    try {
+      const parsed = JSON.parse(standaloneAnalytics);
+      errors.push(...validateArtifact("analytics-overview", parsed, { audience: "public" }).map(error => `${PAGES_ANALYTICS_ARTIFACT}: ${error}`));
+      if (!isDeepStrictEqual(parsed, snapshot.analytics)) errors.push(`${PAGES_ANALYTICS_ARTIFACT}: public artifact does not match its inline snapshot family`);
+    } catch { errors.push(`${PAGES_ANALYTICS_ARTIFACT}: invalid JSON`); }
+  }
+
+  const directoryRaw = await readFile(join(destination, "data/directory.json")).catch(() => null);
+  if (directoryRaw) {
+    try {
+      const directory = JSON.parse(directoryRaw.toString());
+      if (directory.schema === "crescent-city-directory/v1") {
+        const receipt = JSON.parse(await readFile(join(destination, "data/directory-custody.json"), "utf8"));
+        const seed = await captureArtifactBytes(options.sourceDirectorySeedPath ?? join(import.meta.dir, "..", "pages-data", "directory.json"), 4 * 1024 * 1024);
+        const transforms = await captureDirectoryTransforms();
+        const evidence = { inputs: { "seed/directory.json": seed }, transforms, configuration: { generatedAt: directory.generatedAt } };
+        errors.push(...(await replayArtifactCustody(receipt, directoryRaw, evidence, inputs => {
+          const replay = buildDirectoryArtifactWithCustody(inputs["seed/directory.json"]!, transforms, directory.generatedAt);
+          if (!replay) throw new Error("Directory replay has no usable artifact");
+          return replay.bytes;
+        })).map(error => `data/directory-custody.json: ${error}`));
+      }
+    } catch { errors.push("data/directory-custody.json: missing or invalid source/transform receipt"); }
   }
 
   const jsonLdBlocks = [...indexHtml.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(match => match[1]);

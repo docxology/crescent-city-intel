@@ -125,7 +125,7 @@ function ccEscapeAttr(value) {
 
 // Intercept a click on a citation link so it loads the section in place instead
 // of navigating, matching every other in-app navigation.
-function ccInitCrossRefLinks() {
+function ccInitCrossRefLinks(loadSection) {
   document.addEventListener('click', (event) => {
     const link = event.target && event.target.closest ? event.target.closest('a.xref') : null;
     if (!link) return;
@@ -135,3 +135,5 @@ function ccInitCrossRefLinks() {
     loadSection(guid);
   });
 }
+
+export { ccInitCrossRefLinks, ccLinkifyCrossRefs, ccRememberArticleSections, ccNormalizeSectionNumber, ccKnownSectionCount, _resetCrossRefIndex };

@@ -101,6 +101,26 @@ test("response contracts reject wrong real fields instead of claiming success", 
   expect((await geo.json()).view.features.some((feature: { geometry: { type: string } }) => feature.geometry.type === "Polygon")).toBe(true);
 });
 
+test("a populated primary vector projection satisfies the published object-point response contract", async () => {
+  const { withEmptyCorpus } = await import("./helpers/output-root.ts");
+  const { llmHttpFixture } = await import("./helpers/llm-http.ts");
+  const { llmConfig } = await import("../src/llm/config.ts");
+  const { addDocuments } = await import("../src/llm/chroma.ts");
+  const { getEmbeddingProjection } = await import("../src/gui/analytics.ts");
+  const { validateApiResponse } = await import("../src/api/contracts.ts");
+  const backend = llmHttpFixture(), previous = { ...llmConfig };
+  llmConfig.chromaUrl = backend.url;
+  try { await withEmptyCorpus(async () => {
+    await addDocuments({ ids: ["section-fixture"], documents: ["Rates apply"], embeddings: [[1, 2]], metadatas: [{ sectionGuid: "section-fixture", sectionNumber: "8.04.010", sectionTitle: "Rates", articleTitle: "Rates" }] });
+    const projection = await getEmbeddingProjection();
+    expect(projection.points).toHaveLength(1);
+    const url = new URL("http://localhost/api/analytics/embeddings");
+    expect(await validateApiResponse(url, "GET", Response.json(projection))).toEqual([]);
+    const invalid = structuredClone(projection); Reflect.set(invalid.points[0]!, "projections", ["not-a-number"]);
+    expect(await validateApiResponse(url, "GET", Response.json(invalid))).not.toEqual([]);
+  }); } finally { Object.assign(llmConfig, previous); backend.server.stop(true); }
+});
+
 test("inherited JSON property names cannot bypass additionalProperties or required fields", () => {
   const value = JSON.parse('{"__proto__":{"q":"x"},"constructor":"x"}');
   expect(validateApiValue(value, { type: "object", required: ["q"], properties: { q: { type: "string" } }, additionalProperties: false })).toHaveLength(3);

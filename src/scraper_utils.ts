@@ -7,6 +7,8 @@
  */
 
 import type { TocNode, ArticlePage } from "./types.js";
+import { currentRunSignal } from "./shared/run_scope.js";
+import { waitWithSignal } from "./shared/transport.js";
 
 const TOC_TYPES = new Set<TocNode["type"]>([
   "code",
@@ -77,20 +79,23 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
   baseDelayMs: number = 2000,
+  signal = currentRunSignal(),
 ): Promise<{ result: T; retried: boolean; attempts: number }> {
   let lastError: Error | null = null;
   let attempts = 0;
 
   for (let i = 0; i <= maxRetries; i++) {
+    signal?.throwIfAborted();
     attempts = i + 1;
     try {
       const result = await fn();
       return { result, retried: i > 0, attempts };
     } catch (err: any) {
+      signal?.throwIfAborted();
       lastError = err;
       if (i < maxRetries) {
         const delay = baseDelayMs * Math.pow(2, i);
-        await new Promise(r => setTimeout(r, delay));
+        await waitWithSignal(delay, signal ?? new AbortController().signal);
       }
     }
   }

@@ -1,19 +1,19 @@
+import { CCGui } from "../gui-runtime.js";
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { apiFetch, loadSection } from "./10-core.js";
+import { escapeHtml } from "./20-section-tools.js";
+import { closeAllOverlays } from "./40-overlays.js";
 // 70-analytics.js — analytics dashboard, bar charts, PCA, biplot, word loadings, init().
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
 
-    async function loadAnalytics() {
-      const container = document.getElementById('analytics-content');
-      container.innerHTML = '<div class="analytics-loading">⏳ Loading statistics...</div>';
-
-      try {
-        const statsResp = await apiFetch('/api/analytics/stats');
-        const stats = await statsResp.json();
-        if (stats.error) throw new Error(stats.error);
-
+    async function loadAnalytics() { return runReaderTask("analytics-content", async signal => {
+    const container = document.getElementById('analytics-content');
+    CCGui.render(container, '<div class="analytics-loading">⏳ Loading statistics...</div>');
+    try {
+        const statsResp = await readerAwait(readerFetch(apiFetch, signal, '/api/analytics/stats'), signal);
+        const stats = await readerAwait(statsResp.json(), signal);
+        if (stats.error)
+            throw new Error(stats.error);
         let html = '';
-
         // Summary cards
         html += '<div class="analytics-cards">';
         html += card(stats.totalArticles.toLocaleString(), 'Articles');
@@ -22,13 +22,11 @@
         html += card(stats.avgWordsPerSection.toLocaleString(), 'Avg Words/Section');
         html += card(stats.titleBreakdown.length, 'Title Groups');
         html += '</div>';
-
         // Bar charts (sections & words per title)
         html += '<div class="chart-row">';
         html += '<div class="analytics-section"><h3>Sections by Title</h3><div class="chart-container"><canvas id="chart-sections" height="300"></canvas></div></div>';
         html += '<div class="analytics-section"><h3>Word Count by Title</h3><div class="chart-container"><canvas id="chart-words" height="300"></canvas></div></div>';
         html += '</div>';
-
         // PCA scatter
         html += '<div class="analytics-section"><h3>Topic Map — How Sections Relate (PCA)</h3>';
         html += '<div class="chart-container pca-wrapper"><canvas id="chart-pca" height="500"></canvas>';
@@ -50,53 +48,49 @@
             </select>
           </div>
         </div>`;
-
         html += '<div id="pca-tooltip"></div></div>';
         html += '<div class="pca-legend" id="pca-legend"></div>';
+        html += '<div id="pca-section-picker"></div>';
         html += '<p style="color:var(--text-secondary);font-size:12px;margin-top:8px" id="pca-info">Loading embeddings...</p>';
-
         // Word loadings selector + container
         html += `<div class="pc-selector" style="margin-top: 32px">
           <label for="loadings-pc">Show top words for:</label>
           <select id="loadings-pc">${generatePcOptions(0, 10)}</select>
         </div>`;
         html += '<div class="loadings-grid" id="word-loadings-container"></div>';
-
         // Biplot: words in PC1/PC2 space
         html += '<div class="biplot-container"><h4 style="margin:16px 0 8px;color:var(--accent)">Word Biplot — Terms Driving the Two Axes</h4>';
         html += '<div class="chart-container"><canvas id="chart-biplot" height="400"></canvas></div></div>';
         html += '</div>';
-
         // Top/bottom sections (clickable)
         html += '<div class="analytics-section"><h3>Section Length Extremes</h3><div class="top-sections-grid">';
         html += '<div><h4 style="margin-bottom:8px;color:var(--accent)">🔝 Longest Sections</h4><ul class="top-list">';
         for (const s of stats.longestSections) {
-          html += `<li class="section-link" data-guid="${s.guid}"><span><span class="sec-num">${escapeHtml(s.number)}</span>${escapeHtml(s.title)}</span><span class="word-count">${s.words.toLocaleString()} words</span></li>`;
+            html += `<li><button type="button" class="section-link" data-guid="${escapeHtml(s.guid)}"><span><span class="sec-num">${escapeHtml(s.number)}</span>${escapeHtml(s.title)}</span><span class="word-count">${s.words.toLocaleString()} words</span></button></li>`;
         }
         html += '</ul></div>';
         html += '<div><h4 style="margin-bottom:8px;color:var(--accent)">🔻 Shortest Sections</h4><ul class="top-list">';
         for (const s of stats.shortestSections) {
-          html += `<li class="section-link" data-guid="${s.guid}"><span><span class="sec-num">${escapeHtml(s.number)}</span>${escapeHtml(s.title)}</span><span class="word-count">${s.words.toLocaleString()} words</span></li>`;
+            html += `<li><button type="button" class="section-link" data-guid="${escapeHtml(s.guid)}"><span><span class="sec-num">${escapeHtml(s.number)}</span>${escapeHtml(s.title)}</span><span class="word-count">${s.words.toLocaleString()} words</span></button></li>`;
         }
         html += '</ul></div></div></div>';
-
-        container.innerHTML = html;
-
+        CCGui.render(container, html);
         // Attach click handlers for section links
         container.querySelectorAll('.section-link[data-guid]').forEach(el => {
-          el.addEventListener('click', () => navigateToSection(el.dataset.guid));
+            el.addEventListener('click', () => navigateToSection(el.dataset.guid));
         });
-
         // Render bar charts
         drawBarChart('chart-sections', stats.titleBreakdown.map(t => t.title), stats.titleBreakdown.map(t => t.sectionCount), 'Sections');
         drawBarChart('chart-words', stats.titleBreakdown.map(t => t.title), stats.titleBreakdown.map(t => t.wordCount), 'Words');
-
         // Load embeddings in background
         loadPCA();
-      } catch (err) {
-        container.innerHTML = `<div class="analytics-error">❌ ${err.message}</div>`;
-      }
     }
+    catch (err) {
+        if (signal.aborted)
+            return;
+        CCGui.render(container, `<div class="analytics-error">❌ ${err.message}</div>`);
+    }
+}); }
 
     function card(value, label) {
       return `<div class="analytics-card"><div class="card-value">${value}</div><div class="card-label">${label}</div></div>`;
@@ -177,51 +171,57 @@
     let _cachedLoadings = null;
     let _cachedVariance = [];
 
-    async function loadPCA() {
-      const info = document.getElementById('pca-info');
-      try {
-        const resp = await apiFetch('/api/analytics/embeddings');
-        const data = await resp.json();
+    async function loadPCA() { return runReaderTask("pca-info", async signal => {
+    const info = document.getElementById('pca-info');
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, '/api/analytics/embeddings'), signal);
+        const data = await readerAwait(resp.json(), signal);
         if (data.error) {
-          info.textContent = `⚠️ ${data.error}`;
-          return;
+            info.textContent = `⚠️ ${data.error}`;
+            return;
         }
         if (!data.points || data.points.length === 0) {
-          info.textContent = 'No topic map yet — the code has not been indexed. Run: bun run index.';
-          return;
+            info.textContent = 'No topic map yet — the code has not been indexed. Run: bun run index.';
+            return;
         }
         pcaPoints = data.points;
+        const picker = document.getElementById('pca-section-picker');
+        CCGui.render(picker, '<label for="pca-section">Mapped section (keyboard accessible):</label><select id="pca-section">' + pcaPoints.map((point, index) => `<option value="${index}">${escapeHtml(point.number || point.sectionNumber || '')} ${escapeHtml(point.title || point.sectionTitle || '')}</option>`).join('') + '</select><button type="button" id="pca-open-section">Open selected section</button><p id="pca-section-values" role="status" aria-live="polite"></p>');
+        const selection = document.getElementById('pca-section');
+        const describe = () => { const point = pcaPoints[Number(selection.value)]; document.getElementById('pca-section-values').textContent = point ? 'Principal component coordinates: ' + point.projections.map((value, index) => `PC${index + 1} ${Number(value).toFixed(3)}`).join('; ') + '. These coordinates describe the current sample; they do not establish legal similarity.' : ''; };
+        selection.addEventListener('change', describe);
+        document.getElementById('pca-open-section').addEventListener('click', () => navigateToSection(pcaPoints[Number(selection.value)]?.guid));
+        describe();
         _cachedVariance = data.variance;
         const xIdx = parseInt(document.getElementById('pca-x')?.value || '0');
         const yIdx = parseInt(document.getElementById('pca-y')?.value || '1');
-
         const totalVar = _cachedVariance.reduce((a, b) => a + b, 0) || 1;
-        info.innerHTML = `${data.totalVectors} sections mapped • PC${xIdx + 1}: ${((data.variance[xIdx] / totalVar) * 100).toFixed(1)}% of variation • PC${yIdx + 1}: ${((data.variance[yIdx] / totalVar) * 100).toFixed(1)}% of variation`;
-
+        CCGui.render(info, `${data.totalVectors} sections mapped • PC${xIdx + 1}: ${((data.variance[xIdx] / totalVar) * 100).toFixed(1)}% of variation • PC${yIdx + 1}: ${((data.variance[yIdx] / totalVar) * 100).toFixed(1)}% of variation`);
         drawPCA(xIdx, yIdx);
         buildPCALegend();
-
         // Render word loadings if available
         const wordLoadings = Array.isArray(data.wordLoadings) ? data.wordLoadings : data.wordLoadings?.data;
         if (wordLoadings && wordLoadings.length > 0) {
-          _cachedLoadings = wordLoadings;
-          // Initial render with default (PC1)
-          renderWordLoadings(null, 0);
-          drawBiplot(_cachedLoadings, xIdx, yIdx);
-
-          // Wire up event listeners
-          document.getElementById('pca-x')?.addEventListener('change', updateCharts);
-          document.getElementById('pca-y')?.addEventListener('change', updateCharts);
-          document.getElementById('pca-color')?.addEventListener('change', updateCharts);
-          document.getElementById('loadings-pc')?.addEventListener('change', (e) => {
-            renderWordLoadings(null, parseInt(e.target.value));
-          });
+            _cachedLoadings = wordLoadings;
+            // Initial render with default (PC1)
+            renderWordLoadings(null, 0);
+            drawBiplot(_cachedLoadings, xIdx, yIdx);
+            // Wire up event listeners
+            document.getElementById('pca-x')?.addEventListener('change', updateCharts);
+            document.getElementById('pca-y')?.addEventListener('change', updateCharts);
+            document.getElementById('pca-color')?.addEventListener('change', updateCharts);
+            document.getElementById('loadings-pc')?.addEventListener('change', (e) => {
+                renderWordLoadings(null, parseInt(e.target.value));
+            });
         }
-      } catch (err) {
+    }
+    catch (err) {
+        if (signal.aborted)
+            return;
         console.error(err);
         info.textContent = `⚠️ Could not load the topic map: ${err.message}`;
-      }
     }
+}); }
 
     function updateCharts() {
       const xIdx = parseInt(document.getElementById('pca-x')?.value || '0');
@@ -233,7 +233,7 @@
         // Update info text
         const info = document.getElementById('pca-info');
         const totalVar = _cachedVariance.reduce((a, b) => a + b, 0) || 1;
-        info.innerHTML = `${pcaPoints.length} sections mapped • PC${xIdx + 1}: ${((_cachedVariance[xIdx] / totalVar) * 100).toFixed(1)}% of variation • PC${yIdx + 1}: ${((_cachedVariance[yIdx] / totalVar) * 100).toFixed(1)}% of variation`;
+        CCGui.render(info, `${pcaPoints.length} sections mapped • PC${xIdx + 1}: ${((_cachedVariance[xIdx] / totalVar) * 100).toFixed(1)}% of variation • PC${yIdx + 1}: ${((_cachedVariance[yIdx] / totalVar) * 100).toFixed(1)}% of variation`);
       }
     }
 
@@ -344,7 +344,7 @@
         for (let i = 0; i < clusterColors.length; i++) {
           html += `<span class="pca-legend-item"><span class="pca-legend-swatch" style="background:${clusterColors[i]}"></span>Cluster ${i + 1}</span>`;
         }
-        legend.innerHTML = html;
+        CCGui.render(legend, html);
         return;
       }
 
@@ -353,9 +353,7 @@
         const bn = parseInt(b.replace(/\D/g, ''), 10) || 999;
         return an - bn;
       });
-      legend.innerHTML = groups.map(g =>
-        `<span class="pca-legend-item"><span class="pca-legend-swatch" style="background:${titleColor(g)}"></span>${g}</span>`
-      ).join('');
+      CCGui.render(legend, groups.map(g => `<span class="pca-legend-item"><span class="pca-legend-swatch" style="background:${titleColor(g)}"></span>${g}</span>`).join(''));
     }
 
     /** Render horizontal bar charts for word loadings, filtered by PC selection */
@@ -391,7 +389,7 @@
       }
       html += '</div>';
 
-      container.innerHTML = html;
+      CCGui.render(container, html);
     }
 
 
@@ -533,11 +531,13 @@
         tooltip.style.display = 'block';
         tooltip.style.left = (mx + 16) + 'px';
         tooltip.style.top = (my - 10) + 'px';
-        tooltip.innerHTML = `<strong>${escapeHtml(closest.sectionNumber)}</strong><br>${escapeHtml(closest.sectionTitle)}<br><span style="color:var(--text-secondary);font-size:11px">${escapeHtml(closest.articleTitle)} • ${closest.titleGroup}</span>`;
+        CCGui.render(tooltip, `<strong>${escapeHtml(closest.sectionNumber)}</strong><br>${escapeHtml(closest.sectionTitle)}<br><span style="color:var(--text-secondary);font-size:11px">${escapeHtml(closest.articleTitle)} • ${closest.titleGroup}</span>`);
       } else {
         tooltip.style.display = 'none';
       }
     });
 
     // Start
-    init();
+
+
+export { loadAnalytics };

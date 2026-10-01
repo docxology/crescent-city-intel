@@ -34,6 +34,7 @@ import { indexConfigSignature, type IndexManifest, type PlannedChunk } from './l
 import { custodyHash } from './corpus_editions.js';
 import { EMBED_BATCH_SIZE } from './constants.js';
 import { runBoundedChild } from './shared/subprocess.js';
+import { withProducerScope, currentRunSignal, type ProducerOptions } from './shared/run_scope.js';
 import { sourceHealth, errorMessage, writeJsonAtomic } from './shared/source_health.js';
 import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
@@ -538,7 +539,10 @@ export async function reindexRetainedYouTubeTranscripts(options: { signal?: Abor
  * never reprocessed, matching every other monitor's semantics), extracts
  * + indexes transcripts for new videos, and persists per-video JSON output.
  */
-export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
+export async function monitorYouTube(limit = 15, options: ProducerOptions = {}): Promise<YouTubeTranscript[]> {
+  return withProducerScope('youtube', options, () => monitorYouTubeOwned(limit));
+}
+async function monitorYouTubeOwned(limit: number): Promise<YouTubeTranscript[]> {
   logger.info('=== Starting Crescent City YouTube Meeting Monitoring ===');
 
   const idempotency = new IdempotencyStore(seenVideosPath());
@@ -552,6 +556,7 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
   let indexingFailures = 0;
 
   for (const video of videos) {
+    currentRunSignal()?.throwIfAborted();
     if (idempotency.has(video.id)) continue;
     // Defensive validation: video ids are used verbatim in file paths and the
     // yt-dlp `-o` template below. They originate from the official channel's
@@ -570,7 +575,7 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
     await writeJsonAtomic(join(youtubeOutputDir(), `${video.id}.json`), transcript);
 
     if (transcript.status === 'ok') {
-      const indexed = await indexYouTubeTranscript(transcript).catch((err: any) => {
+      const indexed = await indexYouTubeTranscript(transcript, { signal: currentRunSignal() }).catch((err: any) => {
         logger.error(`Failed to index transcript for video ${video.id}`, { error: err.message });
         indexingFailures++;
         return 0;
@@ -592,7 +597,7 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
   }
 
   if (newCount > 0) {
-    await idempotency.save();
+    await idempotency.save({ signal: currentRunSignal() });
   }
 
   // Health semantics: the LISTING is the source of truth for freshness (fresh
@@ -614,6 +619,7 @@ export async function monitorYouTube(limit = 15): Promise<YouTubeTranscript[]> {
       })
       : listing.health;
   await writeJsonAtomic(paths.youtubeHealth, {
+    schemaVersion: 'crescent-city-source-health/v1',
     checkedAt: new Date().toISOString(),
     sources: [health],
   });

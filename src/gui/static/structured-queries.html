@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="assets/reader.css">
   <title>The Quadruplicate — Structured Queries</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
-  <script src="assets/gui-runtime.js"></script>
   <style>
     body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
     header{background:#c41e1e;color:#fff;padding:18px 24px}
@@ -76,90 +77,6 @@
       <div id="similar-error" class="error-state hidden"></div>
     </section>
   </main>
-  <script>
-    const key = window.__CC_API_KEY__;
-    function apiFetch(url) {
-      return CCGui.apiFetch(url);
-    }
-    function show(id){document.getElementById(id).classList.remove("hidden");}
-    function hide(id){document.getElementById(id).classList.add("hidden");}
-    function setError(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.remove("hidden");}
-    function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-
-    async function resolveGuid(input) {
-      if (/[0-9a-f]{8}-[0-9a-f]{4}/i.test(input)) return input;
-      const resp = await apiFetch(`/api/search?q=${encodeURIComponent(input)}&field=number&limit=1`);
-      const data = await resp.json();
-      return data.results?.[0]?.guid ?? null;
-    }
-
-    document.getElementById("history-load").addEventListener("click", async () => {
-      const input = document.getElementById("history-guid").value.trim();
-      if (!input) return;
-      hide("history-empty-result"); hide("history-empty"); hide("history-error");
-      const out = document.getElementById("history-content");
-      out.innerHTML = "<p>Loading…</p>";
-      try {
-        const guid = await resolveGuid(input);
-        if (!guid) { out.innerHTML = ""; show("history-empty-result"); return; }
-        const resp = await apiFetch(`/api/history/${encodeURIComponent(guid)}`);
-        if (resp.status === 404) { out.innerHTML = ""; show("history-empty-result"); return; }
-        const data = await resp.json();
-        if (!resp.ok) { out.innerHTML = ""; setError("history-error", data.error || `Request failed (${resp.status})`); return; }
-        let html = `<h3>§ ${esc(data.number)}</h3><p>${esc(data.rawHistory ?? "")}</p>`;
-        if (data.entries?.length) {
-          html += '<table><thead><tr><th>Ordinance</th><th>Action</th><th>Year</th></tr></thead><tbody>';
-          for (const e of data.entries) html += `<tr><td>${esc(e.ordinance)}</td><td>${esc(e.action)}</td><td>${esc(e.date ?? "—")}</td></tr>`;
-          html += "</tbody></table>";
-        } else {
-          html += '<p class="empty-state">This section carries no parsed history entries.</p>';
-        }
-        out.innerHTML = html;
-      } catch { out.innerHTML = ""; setError("history-error", "Failed to reach /api/history"); }
-    });
-
-    document.getElementById("compare-run").addEventListener("click", async () => {
-      const in1 = document.getElementById("compare-guid1").value.trim();
-      const in2 = document.getElementById("compare-guid2").value.trim();
-      if (!in1 || !in2) return;
-      hide("compare-empty"); hide("compare-error");
-      const out = document.getElementById("compare-result");
-      out.innerHTML = "<p>Comparing…</p>";
-      try {
-        const g1 = await resolveGuid(in1);
-        const g2 = await resolveGuid(in2);
-        if (!g1 || !g2) { out.innerHTML = ""; show("compare-empty"); return; }
-        const resp = await apiFetch(`/api/compare?guid1=${encodeURIComponent(g1)}&guid2=${encodeURIComponent(g2)}`);
-        const data = await resp.json();
-        if (!resp.ok) { out.innerHTML = ""; setError("compare-error", data.error || `Request failed (${resp.status})`); return; }
-        const pct = (data.similarity * 100).toFixed(1);
-        out.innerHTML =
-          `<p>Similarity <span class="metric">${pct}%</span> · word delta <span class="metric">${data.wordCountDelta > 0 ? "+" : ""}${data.wordCountDelta}</span></p>` +
-          `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">` +
-          `<div><h5>Only in § ${esc(data.number1)}</h5><div class="only">${esc(data.onlyInFirst.slice(0,20).join("\n"))}</div></div>` +
-          `<div><h5>Only in § ${esc(data.number2)}</h5><div class="only">${esc(data.onlyInSecond.slice(0,20).join("\n"))}</div></div></div>`;
-      } catch { document.getElementById("compare-result").innerHTML = ""; setError("compare-error", "Failed to reach /api/compare"); }
-    });
-
-    document.getElementById("similar-run").addEventListener("click", async () => {
-      const input = document.getElementById("similar-guid").value.trim();
-      const limit = parseInt(document.getElementById("similar-limit").value, 10) || 10;
-      if (!input) return;
-      hide("similar-empty-result"); hide("similar-error");
-      const out = document.getElementById("similar-result");
-      out.innerHTML = "<p>Searching…</p>";
-      try {
-        const guid = await resolveGuid(input);
-        if (!guid) { out.innerHTML = ""; show("similar-empty-result"); return; }
-        const resp = await apiFetch(`/api/similar/${encodeURIComponent(guid)}?limit=${limit}`);
-        const data = await resp.json();
-        if (!resp.ok) { out.innerHTML = ""; setError("similar-error", data.error || `Request failed (${resp.status})`); return; }
-        if (!data.results?.length) { out.innerHTML = ""; show("similar-empty-result"); return; }
-        let html = '<table><thead><tr><th>Section</th><th>Score</th><th>Why</th></tr></thead><tbody>';
-        for (const r of data.results) html += `<tr><td>${esc(r.section?.number ?? r.section?.guid)}</td><td>${Number(r.score ?? 0).toFixed(2)}</td><td>${esc(r.reason)}</td></tr>`;
-        out.innerHTML = html + "</tbody></table>";
-      } catch { out.innerHTML = ""; setError("similar-error", "Failed to reach /api/similar"); }
-    });
-  </script>
+  <script type="module" src="assets/structured-queries.js"></script>
 </body>
 </html>

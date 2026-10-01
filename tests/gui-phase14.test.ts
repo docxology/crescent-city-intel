@@ -20,22 +20,22 @@ import { buildDocsModuleIndex } from "../src/gui/docs_dashboard.ts";
 const ROOT = process.cwd();
 const read = (...parts: string[]): string => readFileSync(join(ROOT, ...parts), "utf-8");
 
-const dashboard = read("src", "gui", "static", "docs-dashboard.html");
-const queries = read("src", "gui", "static", "structured-queries.html");
+const dashboard = read("src", "gui", "static", "docs-dashboard.html") + read("src", "gui", "static", "assets", "docs-dashboard.js");
+const queries = read("src", "gui", "static", "structured-queries.html") + read("src", "gui", "static", "assets", "structured-queries.js");
 const routes = read("src", "gui", "routes.ts");
 const server = read("src", "gui", "server.ts");
 const spec = read("openapi.yaml");
 
 describe("docs/modules dashboard page", () => {
   test("the page exists and renders an explicit empty state for absent backing data", () => {
-    const page = read("src", "gui", "static", "docs-dashboard.html");
+    const page = dashboard;
     expect(page).toContain('id="dashboard-empty-state"');
     expect(page).toContain("No modules found.");
     expect(page).toContain("no roster to show");
   });
 
   test("the page fetches the derived endpoint and renders both rosters", () => {
-    const page = read("src", "gui", "static", "docs-dashboard.html");
+    const page = dashboard;
     expect(page).toContain('"/api/docs/modules"');
     expect(page).toContain('id="modules-body"');
     expect(page).toContain('id="surfaces-body"');

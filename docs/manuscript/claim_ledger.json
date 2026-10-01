@@ -134,6 +134,42 @@
       ],
       "scope": "structural evidence and versioned bounded benchmark contract",
       "notEstablished": "Claim entailment, independent corroboration, model factuality, fairness, or legal reliability"
+    },
+    {
+      "id": "implementation-derived-custody",
+      "statement": "Derived producers compute from captured inputs and Pages binds the final snapshot to retained input and transform hash receipts with local replay.",
+      "status": "implemented",
+      "evidence": [
+        "src/derived_publication.ts",
+        "src/pages_publication_inputs.ts",
+        "src/pages_snapshot.ts",
+        "tests/derived-publication.test.ts"
+      ],
+      "scope": "bounded deterministic byte identity and local replay",
+      "notEstablished": "Universal upstream raw-source custody, semantic support, or independently retrieved source truth"
+    },
+    {
+      "id": "implementation-primary-clocks",
+      "statement": "All twenty alert sources have consumption-time source-specific freshness policies separating retrieval from primary observation or product dates.",
+      "status": "implemented",
+      "evidence": [
+        "src/source_clocks.ts",
+        "src/alerts/composite.ts",
+        "tests/source-clocks.test.ts",
+        "tests/fuel-source-dates.test.ts"
+      ],
+      "scope": "declared clocks and captured-source date regression",
+      "notEstablished": "Comprehensive geographic coverage or continuous primary-source availability"
+    },
+    {
+      "id": "observation-native-rag-20261001",
+      "statement": "Native current diagnostics found listed sections in six of six applicable retrieval cases, with six of eight disposition matches and fourteen of sixteen retained-context matches.",
+      "status": "observed",
+      "evidence": [
+        "docs/evidence/rag-native-2026-10-01.json"
+      ],
+      "scope": "named small versioned suites with cached local models",
+      "notEstablished": "Semantic entailment, legal currency, independence, model usefulness, or an all-case success"
     }
   ]
 }

@@ -33,6 +33,22 @@ $$ {#eq:source_state}
 
 The four-valued state contract is summarized in [@eq:source_state].
 
+The consumption contract distinguishes retrieval, primary observation, product
+date and explicit validity clocks. Source-specific cadence policies reassess
+age when reading an artifact; a recent fetch cannot renew an expired drought
+product or an old vessel position. Dates with an absent timezone remain
+unknown, and publication timestamps cannot establish an event occurrence.
+Calendar recurrence supports a bounded subset with explicit exclusions,
+cancellations and revision precedence; unsupported rules remain diagnostics.
+
+Derived producers retain their selected input bytes and transformation hashes
+before computing events, analytics or monthly reports. Pages builds from a
+reconstructed captured input tree and emits a public hash receipt bound to its
+final snapshot. Private archives support deterministic local replay; public
+hashes alone cannot establish the underlying source contents or their truth.
+Recoverable publication bundles preserve the previous complete state after
+interruption, and parent deadlines stop further work and reap owned processes.
+
 The state is not an ordinal quality score. In particular,
 unavailable is not worse-than-empty in a numerical sense; it is a different
 epistemic statement. A source-health summary reports counts for each state and

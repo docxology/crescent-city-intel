@@ -2,7 +2,7 @@
 
 ## System Overview
 
-The Crescent City Intelligence Platform is a complete pipeline for scraping,
+The Crescent City Intelligence Platform provides a pipeline for scraping,
 verifying, exporting, viewing, querying, monitoring, alerting, and analyzing
 the Crescent City, CA municipal code from [ecode360.com](https://ecode360.com/CR4919).
 It includes 20 real-time alert monitors (8 core + 12 extended), 12 civic intelligence domains,
@@ -34,24 +34,26 @@ ecode360.com/CR4919
 │ BM25│           │+SSE    │
 │+Fuzzy│          └────────┘
 └─────┘
+```
 
 The static public surface is built separately by `pages_snapshot.ts` from a
 bounded allowlist of generated artifacts. It is deployed by GitHub Actions and
 does not connect to the local GUI API, Ollama, or ChromaDB.
 
+```text
 Real-Time Intelligence Layer (20 monitors: 8 core + 12 extended):
 ┌──────────────────────────────────────┐
 │ Alerts                                │
 │  noaa_tsunami.ts    NOAA CAP          │
 │  usgs_earthquake.ts USGS GeoJSON      │
-│  nws_weather.ts     NWS CAZ006        │
+│  nws_weather.ts     NWS CAZ101        │
 │  noaa_tides.ts      CO-OPS 9419750    │
 │  cdfw_fishing.ts    CDFW crab season  │
 │  epa_airnow.ts      EPA AQI           │
 │  calfire_wildfire.ts CAL FIRE         │
 │  ndbc_marine.ts     NDBC buoys        │
 │  nws_marine.ts     NWS CWF (PZZ450)   │
-│  usdm_drought.ts   USDM DSCI         │
+│  usdm_drought.ts   USDM area %       │
 │  pge_psps.ts       PSPS shutoffs     │
 │  hrrr_smoke.ts     HMS/HRRR smoke    │
 │  caltrans_roads.ts Caltrans roads    │
@@ -64,6 +66,7 @@ Real-Time Intelligence Layer (20 monitors: 8 core + 12 extended):
 │  ais.ts            AIS vessel feeds  │
 │  severity.ts       20-monitor composite│
 └──────────────────────────────────────┘
+```
 
 Each monitor is published under a `source` name in
 `output/alerts/source-health.json`, and that name — not the module filename — is
@@ -95,7 +98,7 @@ stated here rather than left to be inferred:
 | `ais.ts` | `ais` | AIS Vessel Traffic | `output/alerts/ais/` |
 
 Two monitors write outside `output/alerts/`: tides and fishing, which keep their
-own top-level directories because their history predates the alerts layout. A
+own stable top-level artifact directories. A
 third vocabulary exists in the composite's `monitors` record, which spells air
 quality `airQuality` (camelCase) where everything else says `airquality`;
 `SEVERITY_MONITOR_KEYS` in `src/alerts/severity.ts` names it and
@@ -104,6 +107,7 @@ quality `airQuality` (camelCase) where everything else says `airquality`;
 `MONITOR_KEYS` in `src/alerts/composite.ts` is the canonical roster. Every other
 list derives from it or is asserted against it — see `src/alerts/AGENTS.md`.
 
+```text
 Structured Query + Legal Analysis:
 ┌──────────────────────────────────────┐
 │ structured_queries.ts                │
@@ -119,103 +123,60 @@ Monitoring:
 ┌──────────────────────────────────────┐
 │  monitor.ts          Change detection│
 │  news_monitor.ts     RSS/Atom (configured + health)│
-│  gov_meeting_monitor.ts 3 commissions│
+│  gov_meeting_monitor.ts Official archives│
 │  monthly_report.ts  Civic health     │
 └──────────────────────────────────────┘
 ```
 
-## Data Flow
+## Data flow and authorities
 
 ```mermaid
-graph LR
-    A[ecode360.com] -->|Playwright| B[Scraper]
-    B --> C[output/toc.json]
-    B --> D[output/articles/*.json]
-    B --> E[output/manifest.json]
-    D --> F[Verifier]
-    C --> F
-    E --> F
-    F --> G[verification-report.json]
-    D --> H[Exporter]
-    C --> H
-    H --> I[JSON + Markdown + TXT + CSV]
-    D --> J[GUI Server]
-    C --> J
-    D --> K[LLM Indexer]
-    K -->|Ollama| L[ChromaDB]
-    L --> M[RAG Pipeline]
-
-    subgraph Monitoring
-      N[monitor.ts] -->|reads| D
-      O[news_monitor.ts] -->|RSS| P[output/news/]
-      Q[gov_meeting_monitor.ts] -->|HTML| R[output/gov_meetings/]
-      Y[youtube_monitor.ts] -->|yt-dlp/VTT| Z[output/youtube/]
-      T[triplicate_monitor.ts] -->|Playwright/reference metadata| U[output/triplicate/]
-      V[curation.ts] -->|news + meetings + YouTube only| W[output/curated/]
-      X[monthly_report.ts] -->|period-filtered state| AA[output/reports/]
-      AA --> AB[pages_snapshot.ts] --> AC[GitHub Pages static snapshot]
-      P --> H1[source-health]
-      R --> H1
-      Z --> H1
-      U --> H1
-    end
-
-    subgraph Alerts
-      S[noaa_tsunami.ts] -->|api.weather.gov| T[output/alerts/tsunami/]
-      U[usgs_earthquake.ts] -->|earthquake.usgs.gov| V[output/alerts/earthquake/]
-      W[nws_weather.ts] -->|api.weather.gov| X[output/alerts/weather/]
-    end
-
-    scripts/weekly-check.ts --> N
-    scripts/weekly-check.ts --> O
-    scripts/weekly-check.ts --> Q
-    scripts/weekly-check.ts --> S
-    scripts/weekly-check.ts --> U
-    scripts/weekly-check.ts --> W
+flowchart LR
+    Primary[Municipal primary source] --> Corpus[Retained HTML and parsed sections]
+    Corpus --> Verify[Local replay plus live TOC/sample]
+    Verify --> Core[One eligible core bundle or whole reviewed seed]
+    Registry[Canonical sources and clock policies] --> Producers[Bounded owned monitors]
+    Producers --> Batch[Committed batch health and seen state]
+    Batch --> Capture[Captured derived inputs]
+    Capture --> Derived[Events analytics and monthly reports]
+    Schemas[Versioned shared family and HTTP schemas] --> Derived
+    Derived --> DTO[Allowlisted public DTOs]
+    Core --> Pages[Captured Pages inputs and private replay]
+    DTO --> Pages
+    Pages --> Stage[Validated staged tree and recoverable promotion]
+    Stage --> Hosting[Hosted artifact and separate live acceptance]
+    Corpus --> GUI[Primary API and explicit ESM readers]
+    Schemas --> GUI
+    Corpus --> Index[Staged complete vector edition]
+    Index --> RAG[Unverified generated answer and citation diagnostics]
 ```
 
-## Module Dependency Graph
+`schema_validation.ts` and `artifact_contracts.ts` are reused at producer/loader,
+annotated API response and Pages boundaries. Structural `openapi.yaml` governs
+HTTP methods/auth/inputs/responses; `doc_inventory.ts` generates configuration,
+qualified export and HTTP inventories without evaluating actual environment
+values. Dynamic configuration reads remain disclosed.
 
-```mermaid
-graph TD
-    logger --> types
-    types --> constants
-    shared/source_health --> pages_snapshot
-    pages_snapshot --> pages/static
-    constants --> shared/paths
-    shared/paths --> shared/data
-    types --> utils
-    logger --> utils
-    utils --> browser
-    browser --> toc
-    toc --> content
-    content --> scrape
-    toc --> verify
-    utils --> verify
-    shared/data --> export
-    utils --> export
-    shared/data --> gui/search
-    gui/search --> gui/routes
-    gui/routes --> gui/server
-    api/middleware --> gui/server
-    shared/data --> gui/analytics
-    domains --> gui/routes
-    monitor --> gui/routes
-    llm/config --> llm/ollama
-    llm/config --> llm/chroma
-    llm/ollama --> llm/embeddings
-    llm/chroma --> llm/embeddings
-    llm/ollama --> llm/rag
-    llm/chroma --> llm/rag
-    logger --> monitor
-    logger --> news_monitor
-    logger --> gov_meeting_monitor
-    logger --> alerts/noaa_tsunami
-    logger --> alerts/usgs_earthquake
-    logger --> alerts/nws_weather
-```
+`shared/paths.ts` and `shared/run_scope.ts` retain root/cancellation ownership.
+`shared/storage.ts`, `shared/artifact_transaction.ts` and owned process/browser
+receipts protect same-root writes, interrupted publication and descendant
+shutdown. `source_clocks.ts` keeps acquisition time separate from required
+observation/product evidence. `artifact_custody.ts`, `derived_publication.ts`
+and `pages_publication_inputs.ts` bind exact inputs/transformers/configuration/
+outputs and support private local replay. These bindings do not establish legal
+or semantic truth.
+
+The GUI imports explicit modules and one mutable state owner. Reader lifecycle,
+inert rendering and local assets share the API's finite/cancellation/privacy
+boundaries. The private directory/semantic review ledgers and source-bound
+`corpus_lineage.ts` candidates retain unknown facts and named review status;
+public projection never invents completed human review.
 
 ## Directory Structure
+
+This is an orientation map; [AGENTS.md](../AGENTS.md#directory-map) contains the
+full checked source inventory and [generated exports](generated/exports.md) names
+qualified declarations.
 
 ```text
 src/
@@ -263,7 +224,7 @@ src/
   alerts/
     noaa_tsunami.ts     # NOAA CAP tsunami alert monitor
     usgs_earthquake.ts  # USGS GeoJSON earthquake monitor
-    nws_weather.ts      # NWS weather alert monitor (CAZ006)
+    nws_weather.ts      # NWS weather alert monitor (CAZ101)
 scripts/
   weekly-check.ts       # Weekly health check orchestrator
   run-monitor.ts        # Change detection script
@@ -285,7 +246,7 @@ output/                 # Scraped data (gitignored)
 | Dependency | Purpose | Required |
 | :--- | :--- | :--- |
 | [Bun](https://bun.sh) | Runtime + test runner | Always |
-| [Playwright](https://playwright.dev) | Browser automation for scraping | Scraper only |
+| [Playwright](https://playwright.dev) | Owned browser acquisition and native reader/Pages checks | Scraper and browser acceptance |
 | [@xmldom/xmldom](https://github.com/xmldom/xmldom) | XML/RSS parsing | News + NOAA monitors |
 | [Ollama](https://ollama.ai) | Embeddings + chat models | LLM features |
 | [ChromaDB](https://trychroma.com) | Vector storage | LLM features |
@@ -294,7 +255,7 @@ output/                 # Scraped data (gitignored)
 
 | Mode | Start command | Requires |
 | :--- | :--- | :--- |
-| GUI only | `bun run gui` | Scraped `output/` data |
+| GUI only | `bun run gui` | Selected artifact root; genuinely absent/empty data yields empty search and unavailable code stats |
 | Full RAG | `bun run gui` + `bun run index` | Ollama + ChromaDB + scraped data |
-| Monitoring | `bun run weekly-check` | Cron + scraped data |
+| Monitoring | `bun run weekly-check` | Declared source access and selected artifact root; scheduler activation is separate |
 | Alerts | `bun run alerts` | Internet access |

@@ -235,12 +235,6 @@ describe("lane cci-frontend: authored markup + export gate", () => {
   test("exported Pages artifact passes validate-pages with the new cci-frontend gate assertions", async () => {
     await withFixture(async root => {
       await writePublicationFixture(root);
-      await put(root, "state/analytics-overview.json", {
-        schemaVersion: "1.0.0",
-        generatedAt: "2026-08-28T00:00:00Z",
-        inputFingerprint: "0".repeat(64),
-        operatorSignalsNoticed: [],
-      });
       const destination = join(root, "pages");
       await exportPagesSnapshot({ outputDir: root, destination, seedDir: join(root, "no-seed"), generatedAt: "2026-08-28T00:00:00Z" });
       const validate = Bun.spawnSync(["bun", "scripts/validate-pages.ts", destination], { cwd: process.cwd(), stdout: "pipe", stderr: "pipe", env: { ...process.env, CC_TEST_FIXTURE: "1" } });
@@ -264,12 +258,6 @@ describe("lane cci-frontend: authored markup + export gate", () => {
   test("negative controls: each R3 gate assertion fails on a mutated export", async () => {
     await withFixture(async root => {
       await writePublicationFixture(root);
-      await put(root, "state/analytics-overview.json", {
-        schemaVersion: "1.0.0",
-        generatedAt: "2026-08-28T00:00:00Z",
-        inputFingerprint: "0".repeat(64),
-        operatorSignalsNoticed: [],
-      });
       // One real meeting batch, so the P1-L cases below have a meeting record
       // (and its labelled document) to mutate in the exported artifact.
       await put(root, "gov_meetings/gov_meetings-2026-08-28.json", {

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "crescent-city-native-diagnostics/v1",
+  "version": "3.1.0",
+  "generatedAt": "2026-10-01T12:08:14.791Z",
+  "receiptSha256": "d6a789795f17d93b4e9def5e2443ea1394de510ff83167d232b911d4fdb6681f",
+  "identity": {
+    "casesSha256": "415297755a11306ca194fa5098301b7ac5373d529bfb73726b73ab942f70872e",
+    "corpusManifestSha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
+    "indexManifestSha256": "9a47abad83c0bbaf4e5519224c4e156fdf2090572ec306ed5d475073af04ff77",
+    "chatModel": "gemma3:4b",
+    "embeddingModel": "nomic-embed-text",
+    "configSignature": "v2:model=nomic-embed-text:chunk=1500:overlap=150",
+    "stableIndexReceipt": true,
+    "stableCorpusReceipt": true
+  },
+  "retrieval": {
+    "cases": 8,
+    "retrievalApplicable": 6,
+    "retrievalHitAny": 6,
+    "dispositionMatches": 6,
+    "errors": 0
+  },
+  "mismatches": [
+    {
+      "id": "building-permits-occupation",
+      "expected": "generated-unverified",
+      "actual": "abstained",
+      "citationStatus": "invalid"
+    },
+    {
+      "id": "future-vote-unsupported",
+      "expected": "abstained",
+      "actual": "generated-unverified",
+      "citationStatus": "valid"
+    }
+  ],
+  "retainedContext": {
+    "cases": 16,
+    "generated": 16,
+    "dispositionMatches": 14,
+    "semanticSupport": "unassessed",
+    "mismatches": [
+      {
+        "id": "unsupported-abstain",
+        "expected": "abstained",
+        "actual": "generated-unverified"
+      },
+      {
+        "id": "unknown-citation",
+        "expected": "abstained",
+        "actual": "generated-unverified"
+      }
+    ]
+  },
+  "verifiedFactuality": false,
+  "semanticEntailment": "unassessed",
+  "boundary": "Native local generation and mechanical citation/abstention classification; this does not establish semantic support, independence, legal currency, model usefulness or general accuracy."
+}

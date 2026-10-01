@@ -276,6 +276,13 @@ export interface SourceHealth {
   status: SourceHealthStatus;
   checkedAt: string;
   fetchedAt?: string;
+  /** Upstream observation/product clocks, distinct from the retrieval clock. */
+  observedAt?: string;
+  productDate?: string;
+  validUntil?: string;
+  timestampBasis?: "retrieval" | "observation" | "product";
+  observationAgeMs?: number;
+  observationFreshness?: "fresh" | "stale" | "unknown";
   itemCount: number;
   url?: string;
   error?: string;

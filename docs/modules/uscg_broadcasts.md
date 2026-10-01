@@ -10,16 +10,16 @@ notices relevant to the North Coast.
 ## Endpoint
 
 - Listing: `https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0&date-range={START}--{END}&items_per_page=50`
-  - Server-rendered Drupal table — no JS, no API key. Verified live 2026-09-08.
+  - Server-rendered Drupal table; no API key. Current availability is recorded
+    by the monitor, separately from the fixture capture date below.
   - Window: trailing 35 days (`USCG_BNM_WINDOW_DAYS`), `items_per_page=50`.
 - Message detail: `https://www.navcen.uscg.gov/broadcast-notice-to-mariners-message?guid={GUID}`
   - Fetched **only** for rows that pass the North Coast relevance filter
     (usually zero extra requests per run).
 
-The District 11 *Local* Notice to Mariners page was evaluated first and
-rejected: it is a weekly-PDF download list with no per-notice text. The
-Sector-Humboldt-Bay-only listing (`sector=37`) is too thin (14 messages in a
-90-day window, many with empty geographic fields).
+The BNM listing supplies per-notice metadata for the relevance filter. Weekly
+PDF catalogs and sector-specific lists have different units and coverage; they
+do not establish completeness of the District-wide North Coast notice sample.
 
 ## Surface
 
@@ -51,9 +51,10 @@ Sector-Humboldt-Bay-only listing (`sector=37`) is too thin (14 messages in a
 - `EXPECTED_SOURCE_HEALTH` in `src/shared/source_health.ts`.
 - `scripts/run-alerts.ts` batch (entry `runNullableMonitor("uscg", ...)`).
 - Healer roster derives from `ALERT_MONITOR_SOURCE_NAMES` automatically.
-- `computeAlertSeverity` (severity.ts) does not yet score the `uscg` composite
-  input; `buildExtendedCompositeInput` already shapes it
-  (`totalBroadcasts` / `relevantCount` / `worstLevel` / `available`).
+- `computeAlertSeverity` consumes the `uscg` composite input shaped by
+  `buildExtendedCompositeInput` (`totalBroadcasts` / `relevantCount` /
+  `worstLevel` / `available`). USCG ADVISORY maps to the advisory-class
+  composite WATCH tier; absent or expired evidence remains unavailable.
 
 ## Tests
 

@@ -1,5 +1,6 @@
 node_modules/
 output/
+.output.*/
 .pages/
 .pages-build-*/
 dist/

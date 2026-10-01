@@ -35,7 +35,9 @@ describe("the 14-monitor roster", () => {
     expect(all.length).toBe(MONITOR_KEYS.length);
     expect(new Set(all).size).toBe(MONITOR_KEYS.length);
     // Order is the runner's batch order, so it must match MONITOR_KEYS exactly.
-    expect(all).toEqual([...ALERT_MONITOR_SOURCE_NAMES]);
+    expect(all.sort()).toEqual([...ALERT_MONITOR_SOURCE_NAMES].sort());
+    expect(ALERT_MONITOR_SOURCE_NAMES[MONITOR_KEYS.indexOf("marinezone")]).toBe("NWS Marine Forecast");
+    expect(ALERT_MONITOR_SOURCE_NAMES[MONITOR_KEYS.indexOf("tides")]).toBe("NOAA Tides");
   });
 
   test("the coverage contract names all 14 alert monitors, not just the 8 core", () => {

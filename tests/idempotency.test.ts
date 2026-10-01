@@ -94,6 +94,11 @@ describe("IdempotencyStore — core semantics", () => {
 });
 
 describe("IdempotencyStore — persistence", () => {
+  test("oversized, linked and over-cap persisted inputs remain bounded without replacing their evidence", async () => {
+    const fs = await import("node:fs/promises"); const p = storePath("oversized"); const fd = await fs.open(p, "wx"); await fd.truncate(8_000_001); await fd.close(); const store = new IdempotencyStore(p); await store.load(); expect(store.size).toBe(0); store.record("new"); await expect(store.save()).rejects.toThrow("corrupt idempotency"); expect((await fs.stat(p)).size).toBe(8_000_001);
+    const target = storePath("outside"), alias = storePath("alias"); await writeFile(target, '{}'); await fs.symlink(target, alias); const linked = new IdempotencyStore(alias); await linked.load(); linked.record("new"); await expect(linked.save()).rejects.toThrow("corrupt idempotency"); expect(await readFile(target, "utf8")).toBe('{}');
+    const capped = storePath("capped"); await writeFile(capped, JSON.stringify({ oldest: { hash: "1", firstSeen: "2020-01-01", lastSeen: "2020-01-01" }, newest: { hash: "2", firstSeen: "2021-01-01", lastSeen: "2021-01-01" } })); const small = new IdempotencyStore(capped, 1); await small.load(); expect(small.size).toBe(1); expect(small.has("newest")).toBe(true);
+  });
   test("save then load round-trips all records", async () => {
     const p = storePath("roundtrip");
     const store = new IdempotencyStore(p);

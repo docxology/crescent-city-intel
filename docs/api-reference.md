@@ -2,6 +2,15 @@
 
 Selected reference for exported functions, interfaces, and constants.
 
+The [generated export inventory](generated/exports.md) records qualified source
+paths, public declarations and declaration hashes. The [generated HTTP
+inventory](generated/http.md) structurally derives methods, authentication,
+parameters and response media from OpenAPI. Regenerate/check both with
+`bun run scripts/generate-docs.ts --write` / `--check`; runtime implementations,
+return semantics and evidence limitations still require their module guides and
+tests. [Artifact contracts](modules/artifact-contracts.md) describe shared checked
+family boundaries and migration policy.
+
 > **This is a module reference, not a route catalogue.** It documents what each
 > module exports. The HTTP surface is specified in
 > [`openapi.yaml`](../openapi.yaml) — the authority for a
@@ -257,7 +266,7 @@ The CLI wrappers are `bun run pages:export` and `bun run pages:validate`.
 | :--- | :--- | :--- | :--- |
 | `monitorNOAATsunamiAlerts` | `noaa_tsunami.ts` | `() → Promise<void>` | Fetch NOAA CAP alerts, save to `output/alerts/tsunami/` |
 | `monitorUSGSEarthquakeAlerts` | `usgs_earthquake.ts` | `() → Promise<void>` | Fetch USGS GeoJSON, filter by proximity and magnitude |
-| `monitorNWSWeatherAlerts` | `nws_weather.ts` | `() → Promise<void>` | Fetch NWS alerts for CAZ006, categorize by severity |
+| `monitorNWSWeatherAlerts` | `nws_weather.ts` | `() → Promise<void>` | Fetch NWS alerts for CAZ101, categorize by severity |
 
 ---
 

@@ -13,7 +13,7 @@ import type { SourceDefinition, SourceDiscoveryReport, SourceHealth, SourceHealt
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { runtimeMetadata } from "./shared/orchestration.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
-import { buildDirectoryArtifact, summarizeDirectory, type DirectoryArtifact } from "./directory.js";
+import { buildDirectoryArtifact, buildDirectoryArtifactWithCustody, captureDirectoryTransforms, summarizeDirectory, type DirectoryArtifact } from "./directory.js";
 import { isActiveNewsSource } from "./news_monitor.js";
 import type { AnalyticsOverview } from "./analytics_backend.js";
 import { buildGeoIntel } from "./geo.js";
@@ -22,7 +22,12 @@ import { buildEventsArtifact, buildEventsIcs, collectEvents, type EventsArtifact
 import { GEO_INTEL_CONTRACT_SCHEMA, GEO_OBSERVATIONS_SCHEMA, type GeoObservationsEnvelope } from "./geo_observations.js";
 
 import { selectPublicationBundle, promotePublicationDirectory, writePublicationInputReceipt, hashPublicationTree, publicationHash, type PublicationBundle, type PublicationReceipt } from "./publication_bundle.js";
-import { publicAnalytics, publicAlerts, publicEvents, publicReports, publicSourceRegistry, publicSourceDiscovery, assertPublicArtifact } from "./pages_public.js";
+import { captureArtifactBytes } from "./artifact_custody.js";
+import { assertArtifact } from "./artifact_contracts.js";
+import { withOutputRoot } from "./shared/paths.js";
+import { isStrictTimestamp } from "./schema_validation.js";
+import { capturePagesPublicationInputs, withCapturedPagesInputs, assertPagesInputsUnchanged, createPagesFactInputReceipt, retainPagesInputArchive, readPagesInputArchive, validatePagesFactTransformIdentity, PAGES_FACT_INPUT_RECEIPT, type PagesInputCapture } from "./pages_publication_inputs.js";
+import { publicAnalytics, publicAlerts, publicEvents, publicReports, publicSourceRegistry, publicSourceDiscovery, publicSourceHealth, assertPublicArtifact, assertPublicFamilyArtifact } from "./pages_public.js";
 
 const REPOSITORY_URL = "https://github.com/docxology/crescent-city-intel";
 const NEWSPAPER_NAME = "The Quadruplicate";
@@ -1221,7 +1226,7 @@ async function readJson<T>(path: string): Promise<T | null> {
   }
 }
 
-async function loadPagesGeoIntel(outputDir: string, seedDir: string): Promise<GeoIntelSurface> {
+async function loadPagesGeoIntel(outputDir: string, seedDir: string, generatedAt?: string): Promise<GeoIntelSurface> {
   const candidates = await Promise.all([
     readJson<unknown>(join(outputDir, "geo-intel.json")),
     readJson<unknown>(join(seedDir, "geo-intel.json")),
@@ -1234,7 +1239,7 @@ async function loadPagesGeoIntel(outputDir: string, seedDir: string): Promise<Ge
 
   // The in-repo domain surface is the final offline fallback, so Pages never
   // requires a scraper, API key, network request, or local service for geo data.
-  const surface = buildPagesGeoIntel();
+  const surface = buildPagesGeoIntel({ ...buildGeoIntel(), ...(generatedAt ? { generatedAt } : {}) });
   const errors = validatePagesGeoIntel(surface);
   if (errors.length > 0) throw new Error(`Cannot build public geo-intel artifact: ${errors.join("; ")}`);
   return surface;
@@ -1462,7 +1467,9 @@ async function collectHealth(outputDir: string, checkedAt: string): Promise<Sour
   const health: SourceHealth[] = [];
   for (const relativePath of SOURCE_HEALTH_FILES) {
     const parsed = await readJson<unknown>(join(outputDir, relativePath));
-    if (!isRecord(parsed) || !Array.isArray(parsed.sources)) continue;
+    if (parsed === null) continue;
+    assertArtifact("source-health-report", parsed, { allowLegacyHealthEnvelope: true });
+    if (!isRecord(parsed) || !Array.isArray(parsed.sources)) throw new Error(`Invalid source health: ${relativePath}`);
     for (const source of parsed.sources) {
       if (!isRecord(source)) continue;
       const status = source.status;
@@ -1473,6 +1480,12 @@ async function collectHealth(outputDir: string, checkedAt: string): Promise<Sour
         status: status as SourceHealthStatus,
         checkedAt: isoValue(source.checkedAt) ?? new Date(0).toISOString(),
         fetchedAt: isoValue(source.fetchedAt) ?? undefined,
+        observedAt: isoValue(source.observedAt) ?? undefined,
+        productDate: typeof source.productDate === "string" ? source.productDate : undefined,
+        validUntil: isoValue(source.validUntil) ?? undefined,
+        timestampBasis: ["retrieval", "observation", "product"].includes(String(source.timestampBasis)) ? source.timestampBasis as SourceHealth["timestampBasis"] : undefined,
+        observationAgeMs: typeof source.observationAgeMs === "number" ? source.observationAgeMs : undefined,
+        observationFreshness: ["fresh", "stale", "unknown"].includes(String(source.observationFreshness)) ? source.observationFreshness as SourceHealth["observationFreshness"] : undefined,
         itemCount: typeof source.itemCount === "number" && Number.isFinite(source.itemCount) ? source.itemCount : 0,
         url: typeof source.url === "string" && /^https?:\/\//i.test(source.url) ? source.url : undefined,
         error: ["unavailable", "stale"].includes(String(status)) ? "Source unavailable for this edition; follow the cited source." : undefined,
@@ -1488,7 +1501,7 @@ async function collectHealth(outputDir: string, checkedAt: string): Promise<Sour
       });
     }
   }
-  return completeSourceHealth(health, checkedAt);
+  return publicSourceHealth(completeSourceHealth(health, checkedAt)) as SourceHealth[];
 }
 
 async function collectCurrentAlerts(outputDir: string): Promise<{ composite: JsonRecord | null; current: JsonRecord[] }> {
@@ -1578,6 +1591,7 @@ export async function buildPagesSnapshot(
   seedDir = "pages-data",
   selectedBundle?: PublicationBundle,
   selectedArtifacts?: { geoIntel: GeoIntelSurface; geoObservations: GeoObservationsEnvelope | null; directory: DirectoryArtifact | null },
+  context?: { commit: string | null; fallbackRegistry: SourceDefinition[] },
 ): Promise<PagesSnapshot> {
   const resolvedOutput = resolve(outputDir);
   const resolvedSeed = resolve(seedDir);
@@ -1593,7 +1607,7 @@ export async function buildPagesSnapshot(
   const health = await collectHealth(resolvedOutput, generatedAt);
   const healthSummary = summarizeSourceHealth(health, generatedAt);
   const registryPayload = await readFirstJson<{ sources?: SourceDefinition[] }>("source-registry.json");
-  const sourceRegistry = Array.isArray(registryPayload?.sources) ? registryPayload.sources : getSourceRegistry();
+  const sourceRegistry = Array.isArray(registryPayload?.sources) ? registryPayload.sources : structuredClone(context?.fallbackRegistry ?? getSourceRegistry());
   const registryFingerprint = await sourceRegistryFingerprint(sourceRegistry);
   const persistedDiscovery = await readFirstJson<SourceDiscoveryReport>("source-discovery.json");
   const sourceDiscovery = persistedDiscovery?.registryFingerprint === registryFingerprint && persistedDiscovery.sourceCount === sourceRegistry.length
@@ -1620,7 +1634,7 @@ export async function buildPagesSnapshot(
   const curation = await readJson<JsonRecord>(join(resolvedOutput, "state/curation-report.json"));
   const analytics = await readJson<AnalyticsOverview>(join(resolvedOutput, "state/analytics-overview.json"));
   const codeAvailable = bundle.root !== null;
-  const geoIntel = selectedArtifacts?.geoIntel ?? await loadPagesGeoIntel(resolvedOutput, resolvedSeed);
+  const geoIntel = selectedArtifacts?.geoIntel ?? await loadPagesGeoIntel(resolvedOutput, resolvedSeed, generatedAt);
   const geoIntelSummary = summarizePagesGeoIntel(geoIntel);
   const geoObservations = selectedArtifacts ? selectedArtifacts.geoObservations : await loadPagesGeoObservations(resolvedOutput, resolvedSeed);
   // Local-establishments directory: seed first (hand-curated, source-cited),
@@ -1633,7 +1647,7 @@ export async function buildPagesSnapshot(
   const events: EventsArtifact =
     persistedEvents?.schemaVersion === "crescent-city-events/v1" && Array.isArray(persistedEvents.events)
       ? persistedEvents
-      : buildEventsArtifact(generatedAt, await collectEvents(resolvedOutput));
+      : buildEventsArtifact(generatedAt, await collectEvents(resolvedOutput, new Date(generatedAt)));
   if (!geoIntelSummary) throw new Error("Cannot summarize public geo-intel artifact");
 
   const [news, meetings, youtube, triplicate, curated] = await Promise.all([
@@ -1644,7 +1658,7 @@ export async function buildPagesSnapshot(
     collectCurated(join(resolvedOutput, "curated")),
   ]);
 
-  const commit = runtimeMetadata().commit;
+  const commit = context ? context.commit : runtimeMetadata().commit;
   const snapshot: PagesSnapshot = {
     schemaVersion: "1.0.0",
     generatedAt,
@@ -1713,6 +1727,12 @@ export async function buildPagesSnapshot(
     },
   };
   assertPublicArtifact(snapshot);
+  assertPublicFamilyArtifact("events", snapshot.events);
+  if (snapshot.analytics) assertPublicFamilyArtifact("analytics-overview", snapshot.analytics);
+  if (snapshot.report.metadata) assertPublicFamilyArtifact("monthly-report", snapshot.report.metadata);
+  if (snapshot.report.pipelineRun) assertPublicFamilyArtifact("pipeline-run", snapshot.report.pipelineRun);
+  if (snapshot.report.weeklySummary) assertPublicFamilyArtifact("weekly-summary", snapshot.report.weeklySummary);
+  if (snapshot.report.curation) assertPublicFamilyArtifact("curation-run", snapshot.report.curation);
   return snapshot;
 }
 
@@ -1725,10 +1745,10 @@ async function captureSitemapTemplates(): Promise<{ html: Record<string, string>
     try {
       const before = await handle.stat();
       if (!before.isFile() || before.size > 2 * 1024 * 1024) throw new Error(`Pages template is not a bounded regular file: ${file}`);
-      const bytes = await handle.readFile();
+      const bytes = await captureArtifactBytes(join(STATIC_DIR, file), 2 * 1024 * 1024);
       const after = await handle.stat();
       if (before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || bytes.length !== before.size) throw new Error(`Pages template changed during capture: ${file}`);
-      html[file] = bytes.toString("utf8");
+      html[file] = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
       provenance.templates[file] = { sourceSha256: publicationHash(bytes), bytes: bytes.length, mtimeUtcDate: Number.isFinite(before.mtimeMs) ? before.mtime.toISOString().slice(0, 10) : null };
     } finally { await handle.close(); }
   }
@@ -1740,23 +1760,74 @@ async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+interface PagesCapturedConfiguration {
+  schemaVersion: "crescent-city-pages-replay/v1";
+  generatedAt: string; commit: string | null; fallbackRegistry: SourceDefinition[];
+  sitemapProvenance: PagesSitemapProvenance;
+}
+interface PagesExportInputContext { capture: PagesInputCapture; configuration: PagesCapturedConfiguration; archiveRoot?: string }
+/** Capture before any build. No producer reads in the exporter escape these private roots. */
 export async function exportPagesSnapshot(options: { outputDir?: string; municipalDir?: string; destination?: string; generatedAt?: string; seedDir?: string } = {}): Promise<PagesExportResult> {
+  const output = resolve(options.outputDir ?? "output"), seed = resolve(options.seedDir ?? "pages-data");
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
+  if (!isStrictTimestamp(generatedAt)) throw new Error("Pages export requires a valid assessment timestamp");
+  const capture = await capturePagesPublicationInputs(output, seed, options.municipalDir ? resolve(options.municipalDir) : output);
+  const templates = await captureSitemapTemplates();
+  for (const [file, row] of Object.entries(templates.provenance.templates)) {
+    const bytes = capture.transforms[`src/pages/static/${file}`];
+    if (!bytes || publicationHash(bytes) !== row.sourceSha256 || bytes.byteLength !== row.bytes) throw new Error("Pages template changed between input and date capture");
+  }
+  const configuration: PagesCapturedConfiguration = { schemaVersion: "crescent-city-pages-replay/v1", generatedAt, commit: runtimeMetadata().commit, fallbackRegistry: JSON.parse(JSON.stringify(getSourceRegistry())), sitemapProvenance: templates.provenance };
+  return withCapturedPagesInputs(capture, roots => exportCapturedPagesSnapshot({ ...options, outputDir: roots.output, seedDir: roots.seed, municipalDir: roots.municipal, generatedAt }, { capture, configuration, archiveRoot: output }));
+}
+
+/** Replay retained inputs with the current byte-identical transformer; no source code is executed from an archive. */
+export async function replayPagesPublicationArchive(archive: string): Promise<string[]> {
+  const retained = await readPagesInputArchive(archive);
+  const sourceErrors = await validatePagesFactTransformIdentity(retained.receipt);
+  if (sourceErrors.length) return sourceErrors;
+  const configuration = retained.configuration as PagesCapturedConfiguration;
+  if (configuration?.schemaVersion !== "crescent-city-pages-replay/v1" || !isStrictTimestamp(configuration.generatedAt) || !Array.isArray(configuration.fallbackRegistry) || configuration.fallbackRegistry.length > 1000 || configuration.commit !== retained.receipt.commit || configuration.generatedAt !== retained.receipt.generatedAt || configuration.sitemapProvenance?.schemaVersion !== "crescent-city-sitemap-provenance/v1") throw new Error("Invalid Pages archive replay configuration");
+  const scratch = await mkdtemp(join((await import("node:os")).tmpdir(), "cci-pages-replay-"));
+  try {
+    const result = await withCapturedPagesInputs(retained.capture, roots => exportCapturedPagesSnapshot({ outputDir: roots.output, seedDir: roots.seed, municipalDir: roots.municipal, generatedAt: configuration.generatedAt, destination: join(scratch, "public") }, { capture: retained.capture, configuration }));
+    const replay = await captureArtifactBytes(join(result.destination, "data/snapshot.json"));
+    if (replay.byteLength === retained.snapshot.byteLength && publicationHash(replay) === retained.receipt.snapshot.sha256) return [];
+    const expected = JSON.parse(new TextDecoder().decode(retained.snapshot)), actual = JSON.parse(new TextDecoder().decode(replay));
+    const fields = Object.keys(expected).filter(key => JSON.stringify(expected[key]) !== JSON.stringify(actual[key]));
+    return [`public-fact-inputs: deterministic snapshot replay mismatch (${fields.slice(0, 10).join(", ") || "serialization"})`];
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+}
+
+async function exportCapturedPagesSnapshot(options: { outputDir?: string; municipalDir?: string; destination?: string; generatedAt?: string; seedDir?: string }, inputContext: PagesExportInputContext): Promise<PagesExportResult> {
   const destination = resolve(options.destination ?? ".pages");
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const seedDir = options.seedDir ?? "pages-data";
   const sourceRoot = resolve(options.outputDir ?? "output");
   const seedRoot = resolve(seedDir);
   const bundle = await selectPublicationBundle(options.municipalDir ? resolve(options.municipalDir) : sourceRoot, seedRoot);
-  const geoIntel = await loadPagesGeoIntel(sourceRoot, seedRoot);
+  const geoIntel = await loadPagesGeoIntel(sourceRoot, seedRoot, generatedAt);
   const geoObservations = await loadPagesGeoObservations(sourceRoot, seedRoot);
-  const directorySeedRaw = await readJson<unknown>(join(seedRoot, "directory.json"))
-    ?? await readJson<unknown>(join(sourceRoot, "directory.json"));
-  const directory = directorySeedSafeBuild(directorySeedRaw, generatedAt);
-  const snapshot = await buildPagesSnapshot(sourceRoot, generatedAt, seedRoot, bundle, { geoIntel, geoObservations, directory });
+  let directorySeedBytes: Uint8Array | null = null;
+  let directorySeedPath: string | undefined;
+  for (const directoryRoot of [seedRoot, sourceRoot]) {
+    try { directorySeedPath = join(directoryRoot, "directory.json"); directorySeedBytes = await captureArtifactBytes(directorySeedPath, 4 * 1024 * 1024); break; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  }
+  let directoryBundle: ReturnType<typeof buildDirectoryArtifactWithCustody> = null;
+  if (directorySeedBytes) {
+    directoryBundle = buildDirectoryArtifactWithCustody(directorySeedBytes, await captureDirectoryTransforms(), generatedAt);
+  }
+  const directory = directoryBundle?.artifact ?? null;
+  const snapshot = await withOutputRoot(sourceRoot, () => buildPagesSnapshot(sourceRoot, generatedAt, seedRoot, bundle, { geoIntel, geoObservations, directory }, inputContext.configuration));
   const temporary = await mkdtemp(join(dirname(destination), ".pages-build-"));
   const files: string[] = [];
   try {
-    const templates = await captureSitemapTemplates();
+    const templates = { provenance: inputContext.configuration.sitemapProvenance, html: Object.fromEntries(Object.keys(inputContext.configuration.sitemapProvenance.templates).map(file => {
+      const bytes = inputContext.capture.transforms[`src/pages/static/${file}`];
+      if (!bytes) throw new Error("Pages captured template is absent");
+      return [file, new TextDecoder("utf-8", { fatal: true }).decode(bytes)];
+    })) };
     snapshot.sitemapProvenance = templates.provenance;
     assertPublicArtifact(snapshot);
     const editionDate = generatedAt.slice(0, 10);
@@ -1764,7 +1835,8 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     // with normal (effectively immutable) caching — §1.6 unblocked for CSS/JS.
     const sharedAssetPaths: Record<string, string> = {};
     for (const asset of PAGES_SHARED_ASSETS) {
-      const bytes = await readFile(join(STATIC_DIR, "assets", asset.source));
+      const bytes = inputContext.capture.transforms[`src/pages/static/assets/${asset.source}`];
+      if (!bytes) throw new Error("Pages captured shared asset is absent");
       const hashed = pagesContentHashName(asset.hashPrefix + asset.source.split(".").pop(), bytes);
       await mkdir(join(temporary, "assets"), { recursive: true });
       await writeFile(join(temporary, hashed), bytes);
@@ -1809,7 +1881,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     }
     const indexWithAssets = resolveAssetPlaceholders(indexHtmlFinal.replace("  <script>", `${PAGES_SHARED_JS_TAG}\n  <script>`));
     await writeFile(join(temporary, "index.html"), assertNoAssetPlaceholders(indexWithAssets, "index.html"), "utf8");
-    const page404Template = await readFile(join(STATIC_DIR, "404.html"), "utf8");
+    const page404Bytes = inputContext.capture.transforms["src/pages/static/404.html"];
+    if (!page404Bytes) throw new Error("Pages captured 404 template is absent");
+    const page404Template = new TextDecoder("utf-8", { fatal: true }).decode(page404Bytes);
     const page404Chromed = embedPagesFooter(
       embedPagesBreadcrumb(
         embedPagesNav(page404Template, null, { rootAbsolute: true }),
@@ -1888,7 +1962,9 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     // unavailable envelope is the honest answer, and snapshot.files.directory
     // stays null so nothing claims a directory that does not exist.
     if (directory) {
-      await writeJson(join(temporary, PAGES_DIRECTORY_ARTIFACT), directory);
+      await writeFile(join(temporary, PAGES_DIRECTORY_ARTIFACT), directoryBundle!.bytes);
+      await writeJson(join(temporary, "data/directory-custody.json"), directoryBundle!.receipt);
+      files.push("data/directory-custody.json");
     } else {
       await writeJson(join(temporary, PAGES_DIRECTORY_ARTIFACT), {
         schema: "crescent-city-directory-unavailable/v1",
@@ -2031,13 +2107,19 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     }
 
     await writePublicationInputReceipt(temporary, bundle.receipt);
-    const cname = await readFile(join(import.meta.dir, "..", "CNAME"), "utf8").catch(() => null);
-    if (cname !== null) await writeFile(join(temporary, "CNAME"), cname);
+    const cname = inputContext.capture.transforms["CNAME"];
+    if (cname !== undefined) await writeFile(join(temporary, "CNAME"), cname);
+    const snapshotBytes = await captureArtifactBytes(join(temporary, "data/snapshot.json"));
+    const inputReceipt = createPagesFactInputReceipt(inputContext.capture, snapshotBytes, inputContext.configuration, bundle.receipt, generatedAt, snapshot.commit);
+    await writeJson(join(temporary, PAGES_FACT_INPUT_RECEIPT), inputReceipt);
+    files.push(PAGES_FACT_INPUT_RECEIPT);
     const hashes = await hashPublicationTree(temporary);
     await writeJson(join(temporary, "publication-manifest.json"), { schemaVersion: "crescent-city-publication/v1", editionId: publicationHash(JSON.stringify(hashes)), input: bundle.receipt, files: hashes });
     const { validatePagesArtifact } = await import("./pages_validation.js");
-    const checked = await validatePagesArtifact(temporary);
+    const checked = await validatePagesArtifact(temporary, { sourceDirectorySeedPath: directorySeedPath });
     if (checked.length) throw new Error(`Staged publication rejected: ${checked.join("; ")}`);
+    await assertPagesInputsUnchanged(inputContext.capture);
+    if (inputContext.archiveRoot) await retainPagesInputArchive(inputContext.archiveRoot, inputContext.capture, inputContext.configuration, inputReceipt, snapshotBytes);
     const promotion = await promotePublicationDirectory(temporary, destination);
     files.push("publication-input.json", "publication-manifest.json");
     return {

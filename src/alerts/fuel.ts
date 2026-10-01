@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 /**
  * California retail gasoline price monitor (#18).
  *
@@ -30,8 +31,10 @@ import { mkdir } from "fs/promises";
 import { join } from "path";
 import {
   writeJsonAtomic,
-  appendBoundedJsonlSync,
 } from "../shared/source_health.js";
+import { readBoundedArtifact, replaceArtifacts } from '../shared/artifact_transaction.js';
+import { custodyHash } from '../corpus_editions.js';
+import { assertSafeFilesystemPath } from '../shared/storage.js';
 import { outputRoot } from "../shared/paths.js";
 import { boundedFetchText } from "./connector.js";
 
@@ -111,7 +114,10 @@ export function parseEiaWeeklyPrices(html: string): FuelWeekPrice[] {
     for (const cell of monthSegment.matchAll(/class='B5'>(\d{2})\/(\d{2})&nbsp;<\/td>\s*<td class='B3'>([\d.]+)&nbsp;/gi)) {
       const price = Number(cell[3]);
       if (!Number.isFinite(price)) continue;
-      const weekOf = new Date(Date.UTC(Number(year), monthNum - 1, Number(cell[1]))).toISOString();
+      const cellMonth = Number(cell[1]), cellDay = Number(cell[2]);
+      const weekOf = `${year}-${String(cellMonth).padStart(2, '0')}-${String(cellDay).padStart(2, '0')}`;
+      const date = new Date(`${weekOf}T00:00:00Z`);
+      if (cellMonth !== monthNum || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== weekOf) throw new Error('EIA weekly row has an invalid or mismatched end date');
       prices.push({ weekOf, pricePerGallon: price });
     }
   }
@@ -169,30 +175,38 @@ export async function appendFuelHistory(
   fetchedAt = new Date().toISOString(),
 ): Promise<void> {
   if (prices.length === 0) return;
+  for (const week of prices) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(week.weekOf) || !Number.isFinite(Date.parse(`${week.weekOf}T00:00:00Z`)) || new Date(`${week.weekOf}T00:00:00Z`).toISOString().slice(0, 10) !== week.weekOf || !Number.isFinite(week.pricePerGallon) || week.pricePerGallon < 0) throw new Error('Fuel history requires valid primary civil dates and finite nonnegative prices');
+  }
+  await assertSafeFilesystemPath(fuelHistoryPath());
   await mkdir(outputDir(), { recursive: true });
-  const seen = new Set<string>();
   const historyFile = fuelHistoryPath();
-  try {
-    const { readFileSync } = await import("fs");
-    if (readFileSync(historyFile, "utf-8")) {
-      for (const line of readFileSync(historyFile, "utf-8").split("\n").filter(Boolean)) {
-        try { seen.add(String(JSON.parse(line).weekOf)); } catch { /* skip corrupt row */ }
-      }
-    }
-  } catch { /* no history yet */ }
+  const prior = await readBoundedArtifact(historyFile, 8 * 1024 * 1024);
+  const retained: string[] = []; const seen = new Set<string>(); let unverified = 0;
+  for (const line of prior?.toString('utf8').split('\n').filter(Boolean) ?? []) {
+    let row: Record<string, unknown>; try { row = JSON.parse(line); } catch { unverified++; continue; }
+    if (!row || row.dateBasis !== 'eia-weekly-end-date/v2' || typeof row.weekOf !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(row.weekOf) || !Number.isFinite(Date.parse(`${row.weekOf}T00:00:00Z`)) || new Date(`${row.weekOf}T00:00:00Z`).toISOString().slice(0, 10) !== row.weekOf || typeof row.pricePerGallon !== 'number' || !Number.isFinite(row.pricePerGallon)) { unverified++; continue; }
+    if (!seen.has(row.weekOf)) { retained.push(line); seen.add(row.weekOf); }
+  }
   for (const week of prices) {
     if (seen.has(week.weekOf)) continue;
-    appendBoundedJsonlSync(historyFile, JSON.stringify({
+    retained.push(JSON.stringify({
       id: `fuel-${week.weekOf}`,
       type: "fuel",
+      dateBasis: "eia-weekly-end-date/v2",
       weekOf: week.weekOf,
       pricePerGallon: week.pricePerGallon,
       level: "CALM",
       summary: `California retail gasoline $${week.pricePerGallon.toFixed(2)}/gal (week of ${week.weekOf})`,
       url: EIA_CA_RETAIL_GAS_URL,
       fetchedAt,
-    }));
+    })); seen.add(week.weekOf);
   }
+  const archive = prior && unverified ? `state/history-evidence/fuel/${custodyHash(prior)}` : null;
+  await replaceArtifacts(outputRoot(), [
+    ...(archive ? [{ path: `${archive}.jsonl`, bytes: prior! }, { path: `${archive}.json`, text: `${JSON.stringify({ schemaVersion: 'fuel-history-recovery/v1', priorSha256: custodyHash(prior!), unverifiedRecords: unverified, recoveredAt: fetchedAt, reason: 'Earlier end-date parser did not bind MM/DD dates; originals retained, active history rebuilt from canonical primary dates.' }, null, 2)}\n` }] : []),
+    { path: 'alerts/fuel/history.jsonl', text: `${retained.slice(-10_000).join('\n')}\n` },
+  ]);
 }
 
 /** Bounded live fetch through the shared connector. */
@@ -204,7 +218,8 @@ function fetchEiaWeeklyPage(): Promise<string> {
 }
 
 /** Run the monitor: fetch, parse, classify, persist current.json + deduped history. */
-export async function runFuelMonitor(): Promise<FuelReport | null> {
+export async function runFuelMonitor(options: ProducerOptions = {}): Promise<FuelReport | null> { return withProducerScope("alert-fuel", options, () => runFuelMonitorInScope()); }
+async function runFuelMonitorInScope(): Promise<FuelReport | null> {
   logger.info("Checking EIA weekly California retail gasoline price");
   lastFuelError = undefined;
   try {

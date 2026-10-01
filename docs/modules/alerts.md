@@ -15,12 +15,12 @@ mistaken for calm readings.
 | 3 | NWS Weather | `api.weather.gov` | `output/alerts/weather/` | `alerts/nws_weather.ts` |
 | 4 | NOAA Tides | `tidesandcurrents.noaa.gov` | `output/tides/` | `alerts/noaa_tides.ts` |
 | 5 | CDFW Fishing | `wildlife.ca.gov` | `output/fishing/` | `alerts/cdfw_fishing.ts` |
-| 6 | EPA Air Quality | `airnowapi.org` | `output/alerts/airquality/` | `alerts/epa_airnow.ts` |
+| 6 | EPA Air Quality | Optional AirNow ZIP API + public PM2.5 KML | `output/alerts/airquality/` | `alerts/epa_airnow.ts` |
 | 7 | CAL FIRE Wildfire | `fire.ca.gov` | `output/alerts/wildfire/` | `alerts/calfire_wildfire.ts` |
 | 8 | NDBC Marine Buoy | `ndbc.noaa.gov` | `output/alerts/marine/` | `alerts/ndbc_marine.ts` |
 | 9 | NWS Marine Forecast | NWS KEKA CWF text product (PZZ450) | `output/alerts/marinezone/` | `alerts/nws_marine.ts` |
 | 10 | USCG Broadcasts | USCG NAVCEN District 11 BNM listing | `output/alerts/uscg/` | `alerts/uscg_broadcasts.ts` |
-| 11 | USDM Drought | `droughtmonitor.unl.edu` (DSCI) | `output/alerts/drought/` | `alerts/usdm_drought.ts` |
+| 11 | USDM Drought | `usdmdataservices.unl.edu` categorical county area percentages | `output/alerts/drought/` | `alerts/usdm_drought.ts` |
 | 12 | PG&E PSPS | Official PG&E browser-rendered event page | `output/alerts/psps/` | `alerts/pge_psps.ts` |
 | 13 | HRRR Smoke | NOAA HMS smoke plumes | `output/alerts/smoke/` | `alerts/hrrr_smoke.ts` |
 | 14 | Caltrans Roads | Caltrans road conditions | `output/alerts/roads/` | `alerts/caltrans_roads.ts` |
@@ -93,14 +93,17 @@ Polls the USGS GeoJSON significant hour feed for earthquakes within 200 km of Cr
 
 ## `src/alerts/nws_weather.ts` — NWS Weather Alerts
 
-Monitors National Weather Service alerts for the Northwest CA coastal zone (CAZ006).
+Monitors National Weather Service alerts for the Coastal Del Norte public forecast zone (CAZ101).
 
 ### Data Source
 
-`GET https://api.weather.gov/alerts/active?zone=CAZ006`
+`GET https://api.weather.gov/alerts/active?zone=CAZ101`
 
 `zone` and `region` are mutually exclusive on `api.weather.gov`; this monitor
-uses `zone=CAZ006` alone for the Northwest CA coastal zone.
+uses `zone=CAZ101` alone for the Coastal Del Norte public forecast zone, as
+declared in the [official NWS zone inventory](https://www.weather.gov/eka/Public_Zone_Change_2026).
+The declared endpoint and local fixtures do not establish a successful current
+live alerts response; a failed JSON response remains unavailable.
 
 ### Severity Categorization
 
@@ -122,7 +125,13 @@ Fetches 48-hour tide predictions for Crescent City Harbor (station 9419750).
 
 ### Data Source
 
-`GET https://api.tidesandcurrents.noaa.gov/api/v1/tide/...`
+`GET https://api.tidesandcurrents.noaa.gov/api/prod/datagetter`
+
+Both observations and predictions request `time_zone=gmt`. New reports mark
+NOAA civil timestamps as UTC; unmarked legacy timestamps remain ambiguous.
+Only a valid decimal sensor reading within two hours can enter current water
+level scoring. Prediction maxima remain forecasts, and a fresh retrieval does
+not freshen an old or missing sensor reading. See the [NOAA API contract](https://api.tidesandcurrents.noaa.gov/api/prod/).
 
 ### Output
 
@@ -132,25 +141,37 @@ Fetches 48-hour tide predictions for Crescent City Harbor (station 9419750).
 
 ## `src/alerts/cdfw_fishing.ts` — CDFW Dungeness Crab Season
 
-Tracks California's annual Dungeness crab season calendar and CDFW North Coast marine bulletins.
+Combines an estimated annual Dungeness crab season calendar with fetched CDFW
+North Coast marine bulletins. The calendar estimate is not a verified current
+opening order; follow the cited CDFW source for regulatory decisions. A failed
+bulletin check returns unavailable rather than an empty successful report.
 
 ### Output
 
-`output/fishing/fishing-status.json` + `history.jsonl`
+`output/fishing/fishing-<timestamp>.json` + `output/fishing/history.jsonl`
 
 ---
 
 ## `src/alerts/epa_airnow.ts` — EPA AirNow Air Quality
 
-Fetches real-time Air Quality Index (AQI) data from the EPA AirNow API for Crescent City (ZIP 95531).
+Reads preliminary AirNow AQI observations for the Crescent City area. With a
+key, the monitor first tries the ZIP 95531 endpoint; without a key or usable
+fresh API readings, it reads the public PM2.5 KML product.
 
 ### Data Source
 
-`GET https://www.airnowapi.org/aq/observation/zipCode/current/`
+`GET https://www.airnowapi.org/aq/observation/zipCode/current` (optional keyed API)
+
+`GET https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml`
+(keyless fallback). The fallback selects the nearest valid station within
+80 km and retains its declared observation time. Both paths require primary
+observations no more than two hours old. A reachable product with no usable
+nearby reading remains unavailable for composite scoring; it cannot establish
+good air. PM2.5 fallback data do not imply ozone or PM10 measurements.
 
 ### Prerequisites
 
-`AIRNOW_API_KEY` env var (free at [airnowapi.org](https://airnowapi.org))
+`AIRNOW_API_KEY` enables the keyed ZIP API. It is optional for the public KML path.
 
 ### Exports
 
@@ -158,7 +179,8 @@ Fetches real-time Air Quality Index (AQI) data from the EPA AirNow API for Cresc
 | :--- | :--- | :--- |
 | `classifyAqi(aqi)` | `(number) → AirQualityLevel` | Classify AQI into 6 severity levels |
 | `getAdvisory(level)` | `(AirQualityLevel) → string\|null` | Health advisory message |
-| `fetchAirQuality(key?)` | `(string?) → Promise<AirQualityReport>` | Fetch from API |
+| `fetchAirQuality(key?)` | `(string?) → Promise<AirQualityReport>` | Try the keyed API, then the public product; retain transport identity and primary clocks |
+| `fetchPublicAirNowKml()` | `() → Promise<AirQualityReport>` | Read keyless nearby PM2.5 observations |
 | `runAirQualityMonitor()` | `() → Promise<AirQualityReport\|null>` | Main monitor entry point |
 
 ### AQI Classification
@@ -251,6 +273,18 @@ Fetches real-time marine observations from 3 NDBC buoy stations nearest to Cresc
 
 ---
 
+## `src/alerts/usdm_drought.ts` — County drought area
+
+The Del Norte FIPS 06015 producer reads
+`GetDroughtSeverityStatisticsByAreaPercent` with `statisticsType=2`. These are
+categorical county area percentages for None and D0–D4, not DSCI scores or
+cumulative D0-or-worse percentages. The latest valid `MapDate` becomes
+`productDate`; `severeDroughtPercent` sums D2–D4. The source-clock policy admits
+this weekly product for at most ten days, subject to an earlier supplied
+`ValidEnd`. A fresh retrieval cannot change its map date. Reports are retained
+in `output/alerts/drought/current.json` and deduplicated product history in
+`output/alerts/drought/history.jsonl`.
+
 ## `src/alerts/severity.ts` — Composite alert severity
 
 Aggregates all 20 alert monitors (8 core + 12 extended: drought, PSPS, smoke, roads, schools, NWS marine forecast, USCG broadcasts, permits, dredging, fuel, PacFIN reports, AIS vessel traffic) into a single composite severity level.
@@ -287,7 +321,7 @@ source's health after a run.
 | `buildCompositeInput({tsunami, earthquake, weather, airquality, wildfire, marine, tidesReport, fishingReport})` | `(object) → CompositeInput` | Normalize per-monitor reports (including the tides + fishing history-path reports) into `computeAlertSeverity` inputs |
 | `buildTidesInput(report)` / `buildFishingInput(report)` | `(report) → MonitorStatus` | Shape the two report-only monitors into scorer inputs; import directly from `src/alerts/composite.ts` |
 | `classifySourceHealth(definition, settledResult, errors, checkedAt)` | `(...) → SourceHealth` | Map a settled monitor result to `ok` / `empty` / `unavailable` / `stale` with reason + item count |
-| `isFreshReport(report, windowMs?)` | `(report, number?) → boolean` | Freshness gate (matches air/wildfire/marine): stale reports count as unavailable |
+| `isFreshReport(report, now?, key?)` | `(report, number?, SourceClockKey?) → boolean` | Keyed source-clock policy; unkeyed callers use the generic compatibility window |
 
 ### Source-health classification
 
@@ -320,9 +354,9 @@ a unified chronological timeline with per-type statistics.
 
 ## Common Patterns
 
-- **Non-throwing**: All public functions return gracefully on error
+- **Typed degradation**: Source failures produce explicit unavailable outcomes; admission, cancellation and persistence failures may reject and remain visible to the runner
 - **Persistent JSONL history**: All monitors append to `history.jsonl` for analytics
-- **In-process deduplication**: Module-level `Set<string>` tracks processed IDs
+- **Persisted deduplication**: Producers load retained IDs within their root-owned invocation; process restart does not create an empty seen baseline
 - **import.meta.main**: Each file can be run directly via `bun run src/alerts/<file>.ts`
 - **Composite severity**: `run-alerts.ts` runs all 20 monitors and computes the composite from all 20. The 12 extended civic and marine inputs feed it through `buildExtendedCompositeInput`.
 
@@ -372,8 +406,27 @@ monitor is analysed" stays a checkable property.
   (`{severity, reason, assessedAt, source}`) is fired at that URL with a bounded
   timeout (`ALERT_WEBHOOK_TIMEOUT_MS`, default 5000). Fire-and-forget — a
   webhook failure never fails an alert run. Notification is a composite-level
-  concern; delivery/retry receipts are scoped separately in TODO.md (M28).
-- **Fire weather (Red Flag)** is already covered by the `CAZ006` zone fetch; the
-  NWS weather monitor now flags each alert with `isRedFlag` and reports
-  `redFlagCount` in `current.json`, so Del Norte red-flag/warning conditions are
-  surfaced without a separate monitor.
+  concern. Bounded retry/protocol receipts describe local acceptance; actual
+  opted-in destination receipt/display remains in TODO.md (M07).
+- **Fire weather (Red Flag)**: returned weather alerts are classified with
+  `isRedFlag` and counted in `current.json`. This public forecast-zone request
+  does not establish complete coverage of separate fire-weather zones or a
+  successful current upstream check.
+
+## Current-cycle execution and primary clocks
+
+The real batch runner accepts canonical singleton/mixed subsets, rejects unknown
+or empty selections, records a cycle UUID and current per-monitor attempts, and
+preserves omitted producers' observation ages. A crashed producer or old current
+file cannot contribute current severity. Fixture-backed singleton coverage uses
+all canonical monitor keys rather than a second count ledger. Healer retry state
+is durable through restart/backoff and distinguishes eligible retry from producer
+execution and actual notification delivery.
+
+`src/source_clocks.ts` declares each monitor's retrieval, observation or product
+basis and maximum age. For observation/product families, missing, future or
+expired primary evidence yields unknown/stale availability even after a fresh
+fetch. AirNow and buoy observations, marine/smoke/drought/fuel products and AIS
+positions retain their actual clocks and units. These policies do not prove
+provider completeness, uncollected local geography or correctness of a model's
+interpretation; source outages remain coverage facts.

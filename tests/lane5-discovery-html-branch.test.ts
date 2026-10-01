@@ -10,7 +10,7 @@
  * from a copy of the logic.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { discoverFromSource, type DropCounters, type EventSourceRecord } from "../src/event_discovery.ts";
+import { discoverFromSource, MAX_EVENTS_PER_SOURCE, type DropCounters, type EventSourceRecord } from "../src/event_discovery.ts";
 
 let localServer: Bun.Server<undefined> | undefined;
 afterEach(() => { localServer?.stop(true); localServer = undefined; });
@@ -44,11 +44,29 @@ describe("discovery date provenance over real local HTTP", () => {
     expect(result.publishedItems?.[0]?.publicationAt).toBe("2026-09-15T18:00:00.000Z");
     expect(counters.droppedUndated).toBe(1);
   });
-  test("cancelled and recurrence-bearing ICS records count as unsupported", async () => {
-    serveHtml('BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Recurring\nDTSTART:20261001T020000Z\nRRULE:FREQ=WEEKLY\nEND:VEVENT\nBEGIN:VEVENT\nSUMMARY:Cancelled\nDTSTART:20261001\nSTATUS:CANCELLED\nEND:VEVENT\nEND:VCALENDAR');
+  test("supported ICS recurrence expands exact occurrences, cancellation stays omitted and unsupported rules remain explicit", async () => {
+    serveHtml('BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:weekly\nSUMMARY:Recurring\nDTSTART:20261001T020000Z\nRRULE:FREQ=WEEKLY;COUNT=3\nEND:VEVENT\nBEGIN:VEVENT\nUID:cancelled\nSUMMARY:Cancelled\nDTSTART:20261001\nSTATUS:CANCELLED\nEND:VEVENT\nBEGIN:VEVENT\nUID:unsupported\nSUMMARY:Unsupported hourly\nDTSTART:20261001T020000Z\nRRULE:FREQ=HOURLY\nEND:VEVENT\nEND:VCALENDAR');
     const counters: DropCounters = { droppedAmbiguous: 0, droppedUndated: 0 };
-    const result = await discoverFromSource({ ...htmlSource, type: "ics" }, counters, { fixtureOrigin: new URL(htmlSource.url).origin });
-    expect(result.events).toHaveLength(0); expect(counters.droppedUnsupported).toBe(2); expect(counters.droppedUndated).toBe(0);
+    const result = await discoverFromSource({ ...htmlSource, type: "ics" }, counters, { fixtureOrigin: new URL(htmlSource.url).origin, calendarWindow: { startDay: "2026-09-30", endDay: "2026-10-15" } });
+    expect(result.status).toBe("ok");
+    expect(result.events.map(event => event.dateStart)).toEqual(["2026-09-30", "2026-10-07", "2026-10-14"]);
+    expect(result.events.map(event => event.calendarEvidence?.recurrenceId)).toEqual(["20261001T020000Z", "20261008T020000Z", "20261015T020000Z"]);
+    for (const event of result.events) {
+      expect(event.title).toBe("Recurring"); expect(event.timeNote).toBe("19:00");
+      expect(event.calendarEvidence).toMatchObject({ uid: "weekly", timezone: "UTC", timeBasis: "utc" });
+    }
+    expect(result.calendarDiagnostics).toEqual([{ uid: "unsupported", reason: "unsupported RRULE: FREQ=HOURLY" }]);
+    expect(counters).toEqual({ droppedAmbiguous: 0, droppedUndated: 0, droppedUnsupported: 1 });
+  });
+  test("real recurring ICS discovery retains its occurrence cap and diagnostic", async () => {
+    serveHtml('BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:bounded\nSUMMARY:Daily program\nDTSTART:20261001T180000Z\nRRULE:FREQ=DAILY;COUNT=100\nEND:VEVENT\nEND:VCALENDAR');
+    const counters: DropCounters = { droppedAmbiguous: 0, droppedUndated: 0 };
+    const result = await discoverFromSource({ ...htmlSource, type: "ics" }, counters, { fixtureOrigin: new URL(htmlSource.url).origin, calendarWindow: { startDay: "2026-10-01", endDay: "2026-12-30" } });
+    expect(result.status).toBe("ok"); expect(result.events).toHaveLength(MAX_EVENTS_PER_SOURCE);
+    expect(result.events[0]?.calendarEvidence?.recurrenceId).toBe("20261001T180000Z");
+    expect(result.events.at(-1)?.calendarEvidence?.recurrenceId).toBe("20261119T180000Z");
+    expect(result.calendarDiagnostics).toEqual([{ uid: "bounded", reason: "calendar occurrence cap reached" }]);
+    expect(counters).toEqual({ droppedAmbiguous: 0, droppedUndated: 0, droppedUnsupported: 1 });
   });
 });
 

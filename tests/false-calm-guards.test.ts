@@ -194,7 +194,7 @@ describe("tides: a forecast is not an observation", () => {
       summary: "Max predicted water level 7.4 ft",
     } as never);
     expect(input.waterLevelFt).toBeNull();
-    expect(input.available).toBe(true);
+    expect(input.available).toBe(false);
   });
 
   test("a fishing report built from a real season estimate still reports its own availability", () => {
@@ -230,7 +230,7 @@ describe("freshness windows", () => {
   });
 
   test("a fresh extended report is available", () => {
-    const fresh = { timestamp: new Date().toISOString(), readings: [], compositeSeverity: computeDroughtComposite([]), severeDroughtPercent: 0, summary: "No drought category in this captured empty county result" };
+    const fresh = { timestamp: new Date().toISOString(), productDate: new Date().toISOString().slice(0, 10), readings: [], compositeSeverity: computeDroughtComposite([]), severeDroughtPercent: 0, summary: "No drought category in this captured empty county result" };
     const input = buildExtendedCompositeInput({ drought: fresh }) as Record<string, { available: boolean }>;
     expect(input.drought!.available).toBe(true);
     expect((buildExtendedCompositeInput({ drought: { timestamp: fresh.timestamp } }) as Record<string, { available: boolean }>).drought!.available).toBe(false);

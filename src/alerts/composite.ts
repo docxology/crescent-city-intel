@@ -20,7 +20,8 @@ import type { SourceHealth, SourceHealthStatus } from "../types.js";
 // them rather than restating the literals, so a URL can only be changed in one
 // place and the health record can never name an endpoint the monitor no longer
 // calls.
-import { USDM_API_URL } from "./usdm_drought.js";
+import { USDM_AREA_PCT_URL } from "./usdm_drought.js";
+import { assessSourceClock, SOURCE_CLOCK_POLICIES, type SourceClockKey } from "../source_clocks.js";
 // The health record names the endpoint the monitor ACTUALLY calls. PG&E's
 // exported JSON constant still exists (retained as the documented dead path)
 // but 404s, AirFire's constant likewise, and QuickMap's serves an SPA shell —
@@ -126,11 +127,11 @@ export function isMonitorEvidenceValid(key: MonitorKey, value: unknown): boolean
 }
 
 /**
- * A monitor report is "fresh" only if its fetchedAt/timestamp is within the
- * last hour. Anything else is treated as absent so a stale snapshot is not
- * presented as current.
+ * Keyed monitors use their source-specific observation/product/retrieval policy.
+ * Unkeyed callers retain the configurable generic report-time compatibility check.
  */
-export function isFreshReport(report: unknown, now = Date.now()): boolean {
+export function isFreshReport(report: unknown, now = Date.now(), key?: SourceClockKey): boolean {
+  if (key) return assessSourceClock(key, report, now).usable;
   const record = asRecord(report);
   const timestamp = record.sourceProduct ? record.observedAt ?? record.timestamp : record.observedAt ?? record.fetchedAt ?? record.timestamp;
   if (typeof timestamp !== "string") return false;
@@ -139,21 +140,7 @@ export function isFreshReport(report: unknown, now = Date.now()): boolean {
   return Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= alertFreshnessWindowMs();
 }
 
-/**
- * The extended monitors report `available: reports.X != null` — "did this monitor
- * produce a report in this run?" — with no freshness gate, unlike the eight core
- * monitors, which are gated through `isFreshReport`. Two windows then govern the
- * alert layer: `FRESHNESS_WINDOW_MS` here (1 hour, hardcoded) and
- * `DEFAULT_FRESHNESS_WINDOW_MS` in `shared/source_health.ts` (24 hours,
- * env-overridable). The same report can be `ok` under one and `stale` under the
- * other, and `SOURCE_FRESHNESS_WINDOW_MS` has no effect on alerts at all, so the
- * stricter of the two policies is not the one an operator can tune.
- *
- * One window, one place. `ALERT_FRESHNESS_WINDOW_MS` overrides it; unparseable or
- * non-positive values fall back to the 1-hour default rather than disabling the
- * gate, because a gate that silently turns off is how a stale snapshot starts
- * being presented as a current reading.
- */
+/** Generic unkeyed compatibility window; production monitor clocks live in source_clocks.ts. */
 function alertFreshnessWindowMs(): number {
   const parsed = Number((process.env.ALERT_FRESHNESS_WINDOW_MS ?? "").trim());
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 60 * 60 * 1000;
@@ -170,14 +157,22 @@ function alertFreshnessWindowMs(): number {
  * the monitor still reported healthy (`ok`, itemCount 72). A missing reading is
  * now `null` → `available: false` → "unavailable", never a plausible number.
  */
-export function buildTidesInput(report: TideReport | null): {
+export function buildTidesInput(report: TideReport | null, now = Date.now()): {
   waterLevelFt: number | null;
   available: boolean;
 } {
-  const observed = Number(report?.waterLevel?.v);
+  const rawLevel = report?.waterLevel?.v;
+  const observed = typeof rawLevel === "string" && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(rawLevel.trim()) ? Number(rawLevel) : NaN;
+  const rawTime = report?.waterLevel?.t;
+  const civilTime = rawTime && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(rawTime);
+  const time = civilTime ? report?.timeZone === "UTC" ? rawTime.replace(" ", "T") + ":00Z" : undefined : rawTime;
+  const age = time ? now - Date.parse(time) : NaN;
+  const explicitUtc = typeof time === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(time);
+  const validCivil = explicitUtc && Number.isFinite(Date.parse(time!)) && new Date(time!).toISOString().slice(0, 16) === time!.slice(0, 16) && Number(time!.slice(17, 19)) < 60;
+  const current = validCivil && Number.isFinite(age) && age >= 0 && age <= 2 * 3_600_000 && Number.isFinite(observed);
   return {
-    waterLevelFt: report && Number.isFinite(observed) ? observed : null,
-    available: !!report,
+    waterLevelFt: report && current && Number.isFinite(observed) ? observed : null,
+    available: !!report && current,
   };
 }
 
@@ -210,13 +205,13 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
   const wildfireR = asRecord(wildfire);
   const marineR = asRecord(marine);
 
-  const tidesInput = buildTidesInput(tidesReport);
+  const tidesInput = buildTidesInput(tidesReport, now);
   const fishingInput = buildFishingInput(fishingReport);
   // Availability is freshness-gated here (consistent with air/wildfire/marine):
   // a stale snapshot must not be presented as a current reading. The orchestrator
   // always passes a just-generated report, so `now` defaults to Date.now().
-  const tides = { ...tidesInput, available: tidesInput.available && isFreshReport(tidesReport, now) };
-  const fishing = { ...fishingInput, available: fishingInput.available && isFreshReport(fishingReport, now) };
+  const tides = { ...tidesInput, available: tidesInput.available && isFreshReport(tidesReport, now, "tides") };
+  const fishing = { ...fishingInput, available: fishingInput.available && isFreshReport(fishingReport, now, "fishing") };
 
   // Tsunami: read the monitor's OWN threatLevel (warning/watch/advisory),
   // NOT the CAP `severity` enum (Minor/Moderate/Severe/Extreme).
@@ -227,7 +222,7 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
     tsunami: {
       warningCount: tsunamiAlerts.filter((a: any) => a.threatLevel === "warning").length,
       watchCount: tsunamiAlerts.filter((a: any) => a.threatLevel === "watch" || a.threatLevel === "advisory").length,
-      available: isMonitorEvidenceValid("tsunami", tsunami) && isFreshReport(tsunami, now),
+      available: isMonitorEvidenceValid("tsunami", tsunami) && isFreshReport(tsunami, now, "tsunami"),
     },
     earthquake: {
       events: (Array.isArray(earthquakeR.events) ? earthquakeR.events : []).map((e: any) => ({
@@ -236,18 +231,18 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
         tsunami: e.tsunami ?? 0,
         place: e.place ?? "",
       })),
-      available: isMonitorEvidenceValid("earthquake", earthquake) && isFreshReport(earthquake, now),
+      available: isMonitorEvidenceValid("earthquake", earthquake) && isFreshReport(earthquake, now, "earthquake"),
     },
     weather: {
       severities: weatherAlerts.map((a: any) => a.severityLevel ?? "advisory"),
       count: weatherAlerts.length,
-      available: isMonitorEvidenceValid("weather", weather) && isFreshReport(weather, now),
+      available: isMonitorEvidenceValid("weather", weather) && isFreshReport(weather, now, "weather"),
     },
     tides,
     fishing,
     airQuality: {
       maxAqi: airR.maxAqi ?? 0,
-      available: isMonitorEvidenceValid("airquality", airquality) && isFreshReport(airquality, now) && Array.isArray(airR.readings) && airR.readings.length > 0,
+      available: isMonitorEvidenceValid("airquality", airquality) && isFreshReport(airquality, now, "airquality") && Array.isArray(airR.readings) && airR.readings.length > 0,
     },
     wildfire: {
       incidentCount: wildfireR.totalIncidents ?? 0,
@@ -258,7 +253,7 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
       // large fire that is far away (e.g. interior Humboldt, ~130 km out).
       hasLargeFireNearby: (Array.isArray(wildfireR.incidents) ? wildfireR.incidents : []).some((i: any) =>
         i.acres >= 1000 && i.containmentPercent < 50 && i.distanceKm !== null && i.distanceKm <= 50),
-      available: isMonitorEvidenceValid("wildfire", wildfire) && isFreshReport(wildfire, now),
+      available: isMonitorEvidenceValid("wildfire", wildfire) && isFreshReport(wildfire, now, "wildfire"),
     },
     marine: {
       // Prefer the primary buoy (46027) exactly as ndbc_marine.ts does —
@@ -275,7 +270,7 @@ export function buildCompositeInput(payload: CompositePayload): Record<string, a
           windSpeedKt: primary?.windSpeedKt ?? null,
         };
       })(),
-      available: isMonitorEvidenceValid("marine", marine) && isFreshReport(marine, now) && Array.isArray(marineR.observations) && marineR.observations.length > 0,
+      available: isMonitorEvidenceValid("marine", marine) && isFreshReport(marine, now, "marine") && Array.isArray(marineR.observations) && marineR.observations.length > 0,
     },
   };
 }
@@ -331,19 +326,19 @@ export function buildExtendedCompositeInput(
     drought: {
       severity: (drought.compositeSeverity as string) ?? "NONE",
       severeDroughtPercent: typeof drought.severeDroughtPercent === "number" ? drought.severeDroughtPercent : 0,
-      available: isMonitorEvidenceValid("drought", reports.drought) && isFreshReport(reports.drought, now),
+      available: isMonitorEvidenceValid("drought", reports.drought) && isFreshReport(reports.drought, now, "drought"),
     },
     psps: {
       status: (psps.overallStatus as string) ?? "NONE",
       eventCount: typeof psps.totalEvents === "number" ? psps.totalEvents : 0,
       delNorteAffected: psps.delNorteAffected === true,
-      available: isMonitorEvidenceValid("psps", reports.psps) && isFreshReport(reports.psps, now),
+      available: isMonitorEvidenceValid("psps", reports.psps) && isFreshReport(reports.psps, now, "psps"),
     },
     smoke: {
       peakLevel: "UNKNOWN",
       peakAqi: null,
       maxPm25: null,
-      available: isHmsSmokeReport(reports.smoke) && isFreshReport(reports.smoke, now),
+      available: isHmsSmokeReport(reports.smoke) && isFreshReport(reports.smoke, now, "smoke"),
       density: isHmsSmokeReport(reports.smoke) ? smoke.density : "unknown",
       sourceProduct: "noaa-hms",
     },
@@ -351,56 +346,56 @@ export function buildExtendedCompositeInput(
       severity: (roads.overallSeverity as string) ?? "NONE",
       hasMajorClosure: roads.hasMajorClosure === true,
       incidentCount: typeof roads.totalIncidents === "number" ? roads.totalIncidents : 0,
-      available: isMonitorEvidenceValid("roads", reports.roads) && isFreshReport(reports.roads, now),
+      available: isMonitorEvidenceValid("roads", reports.roads) && isFreshReport(reports.roads, now, "roads"),
     },
     schools: {
       status: (schools.districtStatus as string) ?? "OPEN",
       hasActiveClosure: schools.hasActiveClosure === true,
       hasActiveDelay: schools.hasActiveDelay === true,
       eventCount: typeof schools.totalEvents === "number" ? schools.totalEvents : 0,
-      available: isMonitorEvidenceValid("schools", reports.schools) && isFreshReport(reports.schools, now),
+      available: isMonitorEvidenceValid("schools", reports.schools) && isFreshReport(reports.schools, now, "schools"),
     },
     marinezone: {
       worstLevel: (marinezone.worstLevel as string) ?? "CALM",
       peakWindKt: typeof marinezone.peakWindKt === "number" ? marinezone.peakWindKt : null,
-      available: isMonitorEvidenceValid("marinezone", reports.marinezone) && isFreshReport(reports.marinezone, now),
+      available: isMonitorEvidenceValid("marinezone", reports.marinezone) && isFreshReport(reports.marinezone, now, "marinezone"),
     },
     uscg: {
       totalBroadcasts: typeof uscg.totalBroadcasts === "number" ? uscg.totalBroadcasts : 0,
       relevantCount: typeof uscg.relevantCount === "number" ? uscg.relevantCount : 0,
       worstLevel: (uscg.worstLevel as string) ?? "CALM",
-      available: isMonitorEvidenceValid("uscg", reports.uscg) && isFreshReport(reports.uscg, now),
+      available: isMonitorEvidenceValid("uscg", reports.uscg) && isFreshReport(reports.uscg, now, "uscg"),
     },
     permits: {
       catalogSize: typeof permits.catalogSize === "number" ? permits.catalogSize : 0,
       changeCount: Array.isArray(permits.changedEntries) ? permits.changedEntries.length : 0,
       worstLevel: (permits.worstLevel as string) ?? "CALM",
-      available: isMonitorEvidenceValid("permits", reports.permits) && isFreshReport(reports.permits, now),
+      available: isMonitorEvidenceValid("permits", reports.permits) && isFreshReport(reports.permits, now, "permits"),
     },
     dredging: {
       totalUrls: typeof dredging.totalUrls === "number" ? dredging.totalUrls : 0,
       relevantCount: typeof dredging.relevantCount === "number" ? dredging.relevantCount : 0,
       worstLevel: (dredging.worstLevel as string) ?? "CALM",
-      available: isMonitorEvidenceValid("dredging", reports.dredging) && isFreshReport(reports.dredging, now),
+      available: isMonitorEvidenceValid("dredging", reports.dredging) && isFreshReport(reports.dredging, now, "dredging"),
     },
     fuel: {
       latestPrice: typeof fuel.latest?.pricePerGallon === "number" ? fuel.latest.pricePerGallon : null,
       deltaVsMedian: typeof fuel.deltaVsMedian === "number" ? fuel.deltaVsMedian : null,
       worstLevel: (fuel.worstLevel as string) ?? "CALM",
-      available: isMonitorEvidenceValid("fuel", reports.fuel) && isFreshReport(reports.fuel, now),
+      available: isMonitorEvidenceValid("fuel", reports.fuel) && isFreshReport(reports.fuel, now, "fuel"),
     },
     pacfin: {
       reportCount: typeof pacfin.reportCount === "number" ? pacfin.reportCount : 0,
       changeCount: Array.isArray(pacfin.changedReports) ? pacfin.changedReports.length : 0,
       landingDataAvailable: pacfin.landingDataAvailable === true,
       worstLevel: (pacfin.worstLevel as string) ?? "CALM",
-      available: isMonitorEvidenceValid("pacfin", reports.pacfin) && isFreshReport(reports.pacfin, now),
+      available: isMonitorEvidenceValid("pacfin", reports.pacfin) && isFreshReport(reports.pacfin, now, "pacfin"),
     },
     ais: {
       vesselsObserved: typeof ais.vesselsObserved === "number" ? ais.vesselsObserved : 0,
       vesselsInWatchArea: Array.isArray(ais.vesselsInWatchArea) ? ais.vesselsInWatchArea.length : 0,
       worstLevel: (ais.worstLevel as string) ?? "CALM",
-      available: ais.coversDelNorteWaters === true && isFreshReport(reports.ais, now),
+      available: ais.coversDelNorteWaters === true && isFreshReport(reports.ais, now, "ais"),
     },
   };
 }
@@ -415,7 +410,7 @@ export type ExtendedMonitorSpec = readonly [
 ];
 
 export const EXTENDED_MONITOR_SPECS: readonly ExtendedMonitorSpec[] = [
-  ["USDM Drought", "drought", "readings", USDM_API_URL, "US Drought Monitor west-region JSON (Del Norte FIPS 06015)"],
+  ["USDM Drought", "drought", "readings", USDM_AREA_PCT_URL, "US Drought Monitor county area-percent CSV (Del Norte FIPS 06015)"],
   // PG&E's named JSON endpoint now 404s; the monitor reads the browser-rendered
   // event page. Name the endpoint actually called, so an auditor following this
   // health record is not sent to a dead URL.
@@ -453,11 +448,13 @@ export const CORE_MONITOR_SOURCE_NAMES: readonly string[] = [
  * All alert-monitor source names (8 core + 7 base extended + the five
  * 2026-09-28 expansion monitors), in MONITOR_KEYS order.
  */
-export const ALERT_MONITOR_SOURCE_NAMES: readonly string[] = [
-  ...CORE_MONITOR_SOURCE_NAMES.slice(0, 6), // tsunami..marine
-  ...CORE_MONITOR_SOURCE_NAMES.slice(6),    // tides, fishing
-  ...EXTENDED_MONITOR_SPECS.map(([source]) => source),
-];
+const sourceByMonitorKey = new Map<string, string>([
+  ...["tsunami", "earthquake", "weather", "airquality", "wildfire", "marine", "tides", "fishing"].map((key, index) => [key, CORE_MONITOR_SOURCE_NAMES[index]!] as [string, string]),
+  ...EXTENDED_MONITOR_SPECS.map(([source, key]) => [key, source] as [string, string]),
+]);
+export const ALERT_MONITOR_SOURCE_NAMES: readonly string[] = MONITOR_KEYS.map(key => {
+  const source = sourceByMonitorKey.get(key); if (!source) throw new Error(`Missing canonical source for alert key ${key}`); return source;
+});
 
 /**
  * Build the SourceHealth definitions for the extended (index >= 8) monitors
@@ -497,14 +494,14 @@ export function classifySourceHealth(
   checkedAt = new Date().toISOString(),
 ): SourceHealth {
   const sourceId = sourceIdForMonitor(`alert:${definition.key}`);
+  if (definition.key === "ais" && definition.report !== null && asRecord(definition.report).coversDelNorteWaters !== true) return sourceHealth(definition.source, "unavailable", checkedAt, { sourceId, url: definition.url, itemCount: 0, error: "AIS feed has no established Del Norte coverage; local calmness unknown", provenance: definition.provenance });
   if (definition.report !== null && !isMonitorEvidenceValid(definition.key, definition.report)) return sourceHealth(definition.source, "unavailable", checkedAt, { sourceId, url: definition.url, itemCount: 0, error: "Monitor report fails the current scoring evidence contract", provenance: definition.provenance });
   if (definition.key === "smoke" && definition.report !== null && !isHmsSmokeReport(definition.report)) return sourceHealth(definition.source, "unavailable", checkedAt, { sourceId, url: definition.url, itemCount: 0, error: "Smoke report lacks the current HMS source/time/null-concentration contract; historical values are unverified", provenance: definition.provenance });
-  if (definition.key === "ais" && asRecord(definition.report).coversDelNorteWaters !== true) return sourceHealth(definition.source, "unavailable", checkedAt, { sourceId, url: definition.url, itemCount: 0, error: "AIS feed has no established Del Norte coverage; local calmness unknown", provenance: definition.provenance });
   const fetchedAt = (() => {
     const r = asRecord(definition.report);
     return r.fetchedAt ?? r.timestamp;
   })();
-  const fresh = isFreshReport(definition.report, Date.parse(checkedAt));
+  const { usable: fresh, reason: clockReason, ...clock } = assessSourceClock(definition.key, definition.report, Date.parse(checkedAt));
   // The "null-report on failure" family: for these monitors a null value means
   // the monitor failed to produce a report, not that it produced an empty one.
   // This used to read `index >= 3`, so the family was defined by where a monitor
@@ -515,12 +512,12 @@ export function classifySourceHealth(
   let status: SourceHealthStatus = failed
     ? "unavailable"
     : !fresh
-      ? "stale"
+      ? clock.observationFreshness === "unknown" ? "unavailable" : "stale"
       : definition.itemCount === 0 ? "empty" : "ok";
 
   const error = result.status === "rejected"
     ? String(result.reason instanceof Error ? result.reason.message : result.reason)
-    : failed ? (monitorErrors.get(definition.key) ?? "Monitor returned no report") : undefined;
+    : failed ? (monitorErrors.get(definition.key) ?? "Monitor returned no report") : clockReason;
 
   const health: SourceHealth = {
     source: definition.source,
@@ -532,6 +529,8 @@ export function classifySourceHealth(
     url: definition.url,
     ...(error ? { error } : {}),
     provenance: definition.provenance,
+    ...clock,
+    freshnessWindowMs: SOURCE_CLOCK_POLICIES[definition.key].maxAgeMs,
   };
   if (fetchedAt) {
     const ageMs = Date.parse(checkedAt) - Date.parse(fetchedAt);
@@ -541,5 +540,6 @@ export function classifySourceHealth(
     // not usable. Omit the age instead and let the status carry the truth.
     if (Number.isFinite(ageMs) && ageMs >= 0) health.ageMs = ageMs;
   }
-  return health;
+  const { source, status: currentStatus, checkedAt: checked, ...details } = health;
+  return sourceHealth(source, currentStatus, checked, details);
 }

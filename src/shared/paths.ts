@@ -1,5 +1,14 @@
 /** Centralized path resolution for output files */
 import { OUTPUT_DIR, ARTICLES_DIR } from "../constants.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { resolve } from "node:path";
+
+const rootContext = new AsyncLocalStorage<string>();
+/** Capture ownership across awaits without changing process-wide configuration. */
+export function withOutputRoot<T>(root: string, task: () => T): T {
+  if (!root || root.includes("\0")) throw new Error("Invalid artifact root");
+  return rootContext.run(resolve(root), task);
+}
 
 /**
  * The artifact-root seam. Production never sets CC_OUTPUT_DIR, so every path
@@ -16,12 +25,12 @@ import { OUTPUT_DIR, ARTICLES_DIR } from "../constants.js";
  * so a test can scope the redirection to one block instead of the whole process.
  */
 export function outputRoot(): string {
-  return process.env.CC_OUTPUT_DIR ?? OUTPUT_DIR;
+  return rootContext.getStore() ?? process.env.CC_OUTPUT_DIR ?? OUTPUT_DIR;
 }
 
 /** The articles directory, following outputRoot() when the seam is set. */
 export function articlesRoot(): string {
-  const root = process.env.CC_OUTPUT_DIR;
+  const root = rootContext.getStore() ?? process.env.CC_OUTPUT_DIR;
   return root ? `${root}/articles` : ARTICLES_DIR;
 }
 

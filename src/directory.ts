@@ -7,6 +7,9 @@
 // Each entry carries a source citation. Recorded editorial consultation/review
 // dates stay unknown unless supplied; artifact generation and HTTP reachability
 // do not establish that every cited field was verified. No LLM is used here.
+import { validateArtifact, DIRECTORY_CATEGORY_VALUES } from "./artifact_contracts.js";
+import { createArtifactCustody, captureArtifactBytes, type ArtifactCustodyReceipt } from "./artifact_custody.js";
+import { join } from "node:path";
 import { isIP } from "node:net";
 import { isPublicAddress, redactUrl } from "./shared/transport.js";
 
@@ -14,19 +17,7 @@ export const PAGES_DIRECTORY_ARTIFACT = "data/directory.json";
 export const DIRECTORY_SCHEMA = "crescent-city-directory/v1";
 
 /** Pull-down menu categories, in canonical order. */
-export const DIRECTORY_CATEGORIES = [
-  "Government",
-  "Schools",
-  "Healthcare",
-  "Restaurants",
-  "Churches",
-  "Retail",
-  "Services",
-  "Finance",
-  "Media",
-  "Lodging",
-  "Attractions",
-] as const;
+export const DIRECTORY_CATEGORIES = DIRECTORY_CATEGORY_VALUES;
 
 export type DirectoryCategory = (typeof DIRECTORY_CATEGORIES)[number];
 
@@ -50,6 +41,22 @@ export interface DirectoryArtifact {
   count: number;
   categories: Array<{ category: DirectoryCategory; count: number }>;
   entries: DirectoryEntry[];
+}
+
+export const DIRECTORY_CUSTODY_TRANSFORMS = ["src/directory.ts", "src/artifact_contracts.ts", "src/schema_validation.ts", "src/artifact_custody.ts", "src/shared/transport.ts", "package.json", "bun.lock"] as const;
+export async function captureDirectoryTransforms(projectRoot = join(import.meta.dir, "..")): Promise<Record<string, Uint8Array>> {
+  const result: Record<string, Uint8Array> = {};
+  for (const file of DIRECTORY_CUSTODY_TRANSFORMS) result[file] = await captureArtifactBytes(join(projectRoot, file));
+  return result;
+}
+
+/** Bind actual input bytes and transformer/schema files; generation time is not editorial review. */
+export function buildDirectoryArtifactWithCustody(seedBytes: Uint8Array, transforms: Record<string, Uint8Array>, generatedAt: string): { artifact: DirectoryArtifact; bytes: Uint8Array; receipt: ArtifactCustodyReceipt } | null {
+  if (seedBytes.byteLength > 4 * 1024 * 1024) throw new Error("Directory seed exceeds byte bound");
+  const artifact = buildDirectoryArtifact(generatedAt, JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(seedBytes)));
+  if (!artifact) return null;
+  const bytes = new TextEncoder().encode(`${JSON.stringify(artifact, null, 2)}\n`);
+  return { artifact, bytes, receipt: createArtifactCustody("directory", bytes, { inputs: { "seed/directory.json": seedBytes }, transforms, configuration: { generatedAt } }, generatedAt) };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -154,6 +161,7 @@ export function parseDirectoryArtifact(text: string): DirectoryArtifact | null {
       && ((parsed as Record<string, unknown>).entries as unknown[]).length > 0
     ) {
       const record = parsed as Record<string, unknown>;
+      if (validateArtifact("directory", record, { audience: "public" }).length) return null;
       if (typeof record.generatedAt !== "string" || !validEvidenceDate(record.generatedAt)) return null;
       const validated = buildDirectoryArtifact(record.generatedAt, record);
       if (!validated || record.count !== validated.count || !Array.isArray(record.categories)) return null;

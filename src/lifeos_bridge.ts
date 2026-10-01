@@ -28,6 +28,7 @@ import { writeJsonAtomic, writeTextAtomic, sourceHealth, isSourceHealthReceipt }
 import { redactUrl } from "./shared/transport.js";
 import { acquireFileLease } from "./shared/storage.js";
 import type { SourceHealth } from "./types.js";
+import { readBoundedArtifact } from "./shared/artifact_transaction.js";
 
 export interface LifeosItem {
   title: string;
@@ -249,4 +250,17 @@ export async function writeDigest(digest: LifeosDigest, customizationsDir: strin
     } catch (error) { if (!committed) await restore(journal); throw error; }
     return { datedPath, customLatest, dataLatest, receiptPath, sha256 };
   } finally { for (const release of releases.reverse()) await release(); }
+}
+
+/** Atomic receipt selects retained bytes, so partially replaced latest copies are never consumed. */
+export async function readCommittedDigest(dataDir: string): Promise<LifeosDigest> {
+  const bytes = await readBoundedArtifact(join(dataDir, 'digest-receipt.json'), 16_384);
+  if (!bytes) throw new Error('No committed digest receipt');
+  const receipt = JSON.parse(bytes.toString('utf8')) as Record<string, unknown>;
+  if (receipt.schemaVersion !== 'lifeos-digest-transfer/v2' || typeof receipt.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(receipt.sha256) || typeof receipt.generatedAt !== 'string') throw new Error('Invalid committed digest receipt');
+  const version = await readBoundedArtifact(join(dataDir, 'versions', receipt.sha256, 'digest.json'), 4_000_000);
+  if (!version || custodyHash(version) !== receipt.sha256) throw new Error('Committed digest version failed byte custody');
+  const digest = JSON.parse(version.toString('utf8')) as LifeosDigest;
+  if (digest.meta?.contract_version !== '2.0.0' || digest.meta.generated_at !== receipt.generatedAt) throw new Error('Unsupported committed digest contract');
+  return digest;
 }

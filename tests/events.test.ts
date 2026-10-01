@@ -253,7 +253,7 @@ describe("collectEvents against real fixture output trees", () => {
       await writeFixture(root, "gov_meetings/unsafe.json", { items: [{ ...meeting, title: "Unsafe meeting URL", link: "https://example.org/#auth=private-fixture-token" }] });
       const first = await collectEvents(root); const originalId = first.find(event => event.title === meeting.title)!.id;
       expect(JSON.stringify(first)).not.toContain("private-fixture-token"); expect(first.some(event => event.title === "Unsafe meeting URL")).toBe(false);
-      const video = first.find(event => event.kind === "youtube")!; expect(video.dateStart).toBeNull(); expect(video.publicationAt).toBe("20261011"); expect(video.status).toBe("unknown");
+      const video = first.find(event => event.kind === "youtube")!; expect(video.dateStart).toBeNull(); expect(video.publicationAt).toBe("2026-10-11"); expect(video.status).toBe("unknown");
       expect(first.find(event => event.title === "Archived minutes")!.dateStart).toBeNull();
       const calendar = buildEventsIcs(first); expect(calendar.match(/BEGIN:VEVENT/g)).toHaveLength(1); expect(calendar).not.toContain("DTSTART;VALUE=DATE:20261012"); expect(calendar).not.toContain("DTSTART;VALUE=DATE:20261011");
       await writeFixture(root, "gov_meetings/another.json", { items: [{ title: "A new meeting", link: "https://example.org/new", date: "2026-10-09", source: "Planning Commission" }] });
@@ -296,7 +296,7 @@ describe("collectEvents against real fixture output trees", () => {
       const datedNews = events.find(event => event.title === "Hot Dog Hangout at Arcata PD HQ");
       expect(datedNews).toBeDefined();
       expect(datedNews!.dateStart).toBeNull();
-      expect(datedNews!.publicationAt).toBe("Sat, 29 Aug 2026 08:07:14 -0700");
+      expect(datedNews!.publicationAt).toBe("2026-08-29T15:07:14.000Z");
       expect(datedNews!.status).toBe("unknown");
       expect(buildEventsIcs([datedNews!])).not.toContain("BEGIN:VEVENT");
 

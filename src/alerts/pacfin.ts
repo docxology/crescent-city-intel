@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 /**
  * PacFIN (Pacific Fisheries Information Network) report-catalog monitor (#19).
  *
@@ -252,7 +253,8 @@ function fetchPacfinDashboard(): Promise<string> {
 }
 
 /** Run the monitor: fetch, parse the public catalog, diff, persist. */
-export async function runPacfinMonitor(): Promise<PacfinMonitorReport | null> {
+export async function runPacfinMonitor(options: ProducerOptions = {}): Promise<PacfinMonitorReport | null> { return withProducerScope("alert-pacfin", options, () => runPacfinMonitorInScope()); }
+async function runPacfinMonitorInScope(): Promise<PacfinMonitorReport | null> {
   logger.info("Checking PacFIN public report catalog (landing figures stay credential-gated)");
   lastPacfinError = undefined;
   try {

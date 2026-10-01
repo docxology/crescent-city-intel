@@ -6,7 +6,16 @@ import { describe, test, expect, afterAll, beforeAll } from "bun:test";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { maybeSendSeverityWebhook, sendWebhook, isWebhookConfigured, webhookTimeoutMs } from "../src/alerts/notify.ts";
+import { maybeSendSeverityWebhook as productionNotify, sendWebhook as productionSend, isWebhookConfigured, webhookTimeoutMs } from "../src/alerts/notify.ts";
+import { withTransportScope } from "../src/shared/transport.ts";
+function maybeSendSeverityWebhook(report: Parameters<typeof productionNotify>[0]) {
+  const value = process.env.ALERT_WEBHOOK_URL;
+  return productionNotify(report, value ? { origin: new URL(value).origin } : undefined);
+}
+function sendWebhook(...args: Parameters<typeof productionSend>) {
+  const origin = new URL(args[0]).origin;
+  return withTransportScope({ fixture: { origin, allowedOrigins: [origin] } }, () => productionSend(...args));
+}
 
 let server: ReturnType<typeof Bun.serve> | null = null;
 let captured: { body: unknown } | null = null;

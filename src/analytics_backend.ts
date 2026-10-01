@@ -6,6 +6,7 @@
  * separate from the optional LLM narrative so a provider outage cannot erase
  * metrics or turn an unavailable source into a calm one.
  */
+import { validateArtifact, assertArtifact } from "./artifact_contracts.js";
 import { existsSync } from "fs";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
@@ -15,11 +16,14 @@ import { llmConfig } from "./llm/config.js";
 import { checkChatProvider, chatWithProvider, configuredChatModel } from "./llm/provider.js";
 import { buildSourceDiscoveryReport, getSourceRegistry, sourceRegistryFingerprint } from "./source_registry.js";
 import { isActiveNewsSource } from "./news_monitor.js";
-import { isCivilDate } from "./events.js";
+import { canonicalPublicationDate } from "./events.js";
 import { paths } from "./shared/paths.js";
 import { completeSourceHealth, summarizeSourceHealth, writeJsonAtomic } from "./shared/source_health.js";
 import { computeSha256, truncateText } from "./utils.js";
 import type { SourceHealth, SourceHealthSummary } from "./types.js";
+import { withProducerScope, type ProducerOptions } from "./shared/run_scope.js";
+import { captureDerivedInputs, withCapturedDerivedInputs, retainDerivedOutput } from "./derived_publication.js";
+import { readSamplingReceipt, type SamplingReceipt } from "./trend_sampling.js";
 
 export const ANALYTICS_OVERVIEW_SCHEMA = "1.0.0" as const;
 export const ANALYTICS_SUMMARY_PROMPT_VERSION = "2026-07-24-analytics-overview-v1";
@@ -83,6 +87,7 @@ export interface OverviewItem {
 }
 
 export interface AnalyticsOverview {
+  sampling?: SamplingReceipt;
   schemaVersion: typeof ANALYTICS_OVERVIEW_SCHEMA;
   generatedAt: string;
   inputFingerprint: string;
@@ -141,8 +146,8 @@ export interface AnalyticsOverview {
   };
 }
 
-interface OverviewBuildOptions { generatedAt?: string }
-interface OverviewWriteOptions extends OverviewBuildOptions { summarize?: boolean }
+interface OverviewBuildOptions { generatedAt?: string; seedPath?: string | null }
+interface OverviewWriteOptions extends OverviewBuildOptions, ProducerOptions { summarize?: boolean }
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -155,6 +160,7 @@ async function readJson<T>(path: string): Promise<T | null> {
 async function readHealthReports(checkedAt = new Date().toISOString()): Promise<SourceHealth[]> {
   const files = [paths.newsHealth, paths.govMeetingsHealth, paths.youtubeHealth, paths.triplicateHealth, paths.alertsHealth];
   const reports = await Promise.all(files.map(path => readJson<{ sources?: SourceHealth[] }>(path)));
+  for (const report of reports) if (report !== null) assertArtifact("source-health-report", report, { allowLegacyHealthEnvelope: true });
   return completeSourceHealth(reports.flatMap(report => Array.isArray(report?.sources) ? report.sources : []), checkedAt);
 }
 
@@ -219,7 +225,7 @@ function normalizeItem(item: JsonRecord, fallbackSource: string): OverviewItem |
   const dateKey = ["publishedAt", "pubDate", "date", "uploadDate"].find(key => typeof item[key] === "string" && !!String(item[key]).trim());
   const rawDate = dateKey ? String(item[dateKey]) : null;
   const sourceDate = dateKey === "uploadDate" && rawDate && /^\d{8}$/.test(rawDate) ? `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}` : rawDate;
-  const date = sourceDate && (/^\d{4}-\d{2}-\d{2}$/.test(sourceDate) ? isCivilDate(sourceDate) : Number.isFinite(Date.parse(sourceDate))) ? sourceDate : null;
+  const date = canonicalPublicationDate(sourceDate);
   return {
     id: typeof item.id === "string" ? item.id : typeof item.videoId === "string" ? item.videoId : url ?? title,
     title,
@@ -364,7 +370,7 @@ function stableInput(value: unknown): string {
 export async function buildAnalyticsOverview(options: OverviewBuildOptions = {}): Promise<AnalyticsOverview> {
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const [code, health, alertAnalytics, alerts, curation, pipeline, reportMetadata, discovery, search] = await Promise.all([
-    getCodeStats(),
+    getCodeStats({ seedPath: options.seedPath }),
     readHealthReports(generatedAt),
     Promise.resolve(buildAlertAnalytics()),
     readJson<JsonRecord>(join(paths.output, "alerts", "composite", "current.json")),
@@ -460,7 +466,17 @@ function summaryPrompt(overview: AnalyticsOverview): string {
 }
 
 export async function writeAnalyticsOverview(options: OverviewWriteOptions = {}): Promise<AnalyticsOverview> {
+  return withProducerScope("analytics-overview", options, async () => {
+    const root = paths.output, generatedAt = options.generatedAt ?? new Date().toISOString();
+    const evidence = await captureDerivedInputs(root, "analytics", { generatedAt, summarize: options.summarize === true, promptVersion: ANALYTICS_SUMMARY_PROMPT_VERSION, model: configuredChatModel() });
+    const overview = await withCapturedDerivedInputs(evidence, stage => writeAnalyticsOverviewOwned({ ...options, generatedAt, seedPath: evidence.inputs['custody/municipal-code-seed.json'] ? join(stage, 'custody', 'municipal-code-seed.json') : null }));
+    await retainDerivedOutput(root, "analytics-overview", join(root, "state", "analytics-overview.json"), overview, evidence, generatedAt);
+    return overview;
+  });
+}
+async function writeAnalyticsOverviewOwned(options: OverviewWriteOptions): Promise<AnalyticsOverview> {
   const overview = await buildAnalyticsOverview(options);
+  overview.sampling = await readSamplingReceipt(paths.output, overview.generatedAt);
   const previous = await readJson<AnalyticsOverview>(paths.analyticsOverview);
   if (!options.summarize) {
     const reusable = previous?.llm?.status === "ok" && previous.llm.inputFingerprint === overview.inputFingerprint && previous.llm.promptVersion === ANALYTICS_SUMMARY_PROMPT_VERSION;
@@ -489,11 +505,10 @@ export async function writeAnalyticsOverview(options: OverviewWriteOptions = {})
       }
     }
   }
-  await writeJsonAtomic(paths.analyticsOverview, overview);
   return overview;
 }
 
 export async function readAnalyticsOverview(): Promise<AnalyticsOverview | null> {
   const overview = await readJson<AnalyticsOverview>(paths.analyticsOverview);
-  return overview?.schemaVersion === ANALYTICS_OVERVIEW_SCHEMA ? overview : null;
+  return overview && validateArtifact("analytics-overview", overview).length === 0 ? overview : null;
 }

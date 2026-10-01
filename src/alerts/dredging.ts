@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 /**
  * Crescent City Harbor District dredging / marine-construction monitor (#17).
  *
@@ -208,7 +209,8 @@ function fetchHarborSitemap(): Promise<string> {
 }
 
 /** Run the monitor: fetch, parse, keyword-filter, persist current.json + deduped history. */
-export async function runDredgingMonitor(): Promise<DredgingReport | null> {
+export async function runDredgingMonitor(options: ProducerOptions = {}): Promise<DredgingReport | null> { return withProducerScope("alert-dredging", options, () => runDredgingMonitorInScope()); }
+async function runDredgingMonitorInScope(): Promise<DredgingReport | null> {
   logger.info("Checking Crescent City Harbor District for dredging / marine-construction posts");
   lastDredgingError = undefined;
   try {

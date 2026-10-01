@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 /**
  * USCG Broadcast Notice to Mariners (BNM) monitor — Coast Guard District 11.
@@ -346,7 +347,8 @@ async function fetchBnmSynopsis(row: UscgBnmRow): Promise<string | null> {
 }
 
 /** Run the monitor: fetch, parse, filter, persist current.json + deduped history. */
-export async function runUscgBroadcastMonitor(): Promise<UscgBroadcastReport | null> {
+export async function runUscgBroadcastMonitor(options: ProducerOptions = {}): Promise<UscgBroadcastReport | null> { return withProducerScope("alert-uscg-broadcasts", options, () => runUscgBroadcastMonitorInScope()); }
+async function runUscgBroadcastMonitorInScope(): Promise<UscgBroadcastReport | null> {
   logger.info("Checking USCG District 11 Broadcast Notices to Mariners");
   lastUscgError = undefined;
   try {

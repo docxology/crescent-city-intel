@@ -292,9 +292,10 @@ describe("buildInsightReport end to end", () => {
         expect(entry.paragraph.length).toBeGreaterThan(0);
         expect(entry.direction).not.toBe("insufficient");
       });
-      // Wildfire-driven domains must appear among the top movers.
-      const topIds = report.top.map(entry => entry.domainId);
-      expect(topIds).toContain("public-safety");
+      // Activity without historical source checks has no defensible trend denominator.
+      expect(report.top).toEqual([]);
+      expect(report.provenance.activity.sampling!.comparable).toBe(false);
+      expect(report.provenance.activity.sampling!.current.missingSlots).toBeGreaterThan(0);
       // Every asserted paragraph traces back to the deterministic trend rows.
       for (const entry of report.top) {
         const trend = report.trends.find(t => t.domainId === entry.domainId)!;

@@ -8,8 +8,8 @@ paper:
   # Paper edition metadata, independent of the application package version.
   title: "Evidence-Bounded Civic Intelligence: The Quadruplicate Platform"
   subtitle: "A provenance-preserving platform for municipal code, local sources, safety signals, and grounded summaries"
-  version: "3.0.2"
-  date: "2026-09-30"
+  version: "3.1.0"
+  date: "2026-10-01"
 
 authors:
   - name: "Crescent City Intelligence Project"

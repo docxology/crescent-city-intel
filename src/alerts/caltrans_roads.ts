@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -234,7 +235,8 @@ export async function fetchRoadIncidents(): Promise<RoadIncident[] | null> {
 }
 
 /** Main monitor entry point */
-export async function runRoadClosureMonitor(): Promise<RoadClosureReport | null> {
+export async function runRoadClosureMonitor(options: ProducerOptions = {}): Promise<RoadClosureReport | null> { return withProducerScope("alert-caltrans-roads", options, () => runRoadClosureMonitorInScope()); }
+async function runRoadClosureMonitorInScope(): Promise<RoadClosureReport | null> {
   logger.info("Checking Caltrans road closures for Del Norte County routes");
   lastRoadsError = undefined;
 

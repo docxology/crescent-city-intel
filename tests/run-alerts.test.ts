@@ -15,6 +15,7 @@
 import { describe, test, expect } from "bun:test";
 import { buildTidesInput, buildFishingInput, buildExtendedCompositeInput } from "../src/alerts/composite.ts";
 import type { TideReport } from "../src/alerts/noaa_tides.ts";
+import { coopsUrl } from "../src/alerts/noaa_tides.ts";
 import type { FishingReport } from "../src/alerts/cdfw_fishing.ts";
 
 function makeTideReport(maxPredictedLevel: number, observedLevel: number | null = null): TideReport {
@@ -89,6 +90,28 @@ describe("buildTidesInput", () => {
     // false-calm/false-alarm class this repo treats as a correctness bug.
     const input = buildTidesInput(makeTideReport(7.1, null));
     expect(input.waterLevelFt).toBeNull();
+    expect(input.available).toBe(false);
+  });
+
+  test("NOAA requests UTC and ambiguous legacy civil clocks cannot score as observations", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    for (const product of ["water_level", "predictions"]) expect(new URL(coopsUrl(product, "20261001", "20261002")).searchParams.get("time_zone")).toBe("gmt");
+    const report = makeTideReport(7.1, 4.2);
+    report.waterLevel!.t = "2026-10-01 11:54";
+    expect(buildTidesInput(report, now)).toEqual({ waterLevelFt: null, available: false });
+    report.timeZone = "UTC";
+    expect(buildTidesInput(report, now)).toEqual({ waterLevelFt: 4.2, available: true });
+    for (const time of ["2026-02-30 11:54", "2026-10-01 14:00", "2026-10-01 08:00", "2026-10-01T11:54:00", "2026-10-01T25:54:00Z"]) {
+      report.waterLevel!.t = time;
+      expect(buildTidesInput(report, now)).toEqual({ waterLevelFt: null, available: false });
+    }
+    report.waterLevel!.t = "2026-10-01 11:54";
+    for (const value of ["", "0x10", "0b1000", "0o10", "Infinity", "1e2"]) {
+      report.waterLevel!.v = value;
+      expect(buildTidesInput(report, now)).toEqual({ waterLevelFt: null, available: false });
+    }
+    report.waterLevel!.v = "-0.25";
+    expect(buildTidesInput(report, now)).toEqual({ waterLevelFt: -0.25, available: true });
   });
 });
 

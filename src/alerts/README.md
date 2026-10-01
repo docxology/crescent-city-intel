@@ -9,7 +9,7 @@ Hazard and civic monitoring for Crescent City, CA. The canonical roster is
 | :--- | :--- | :--- |
 | **NOAA Tsunami** (`noaa_tsunami.ts`) | [api.weather.gov](https://api.weather.gov/alerts/active?area=CA) | `Actual` + `Alert` msgType, tsunami Warning/Watch/Advisory, Crescent City / Del Norte area |
 | **USGS Earthquake** (`usgs_earthquake.ts`) | [earthquake.usgs.gov](https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson) | Within 200 km of 41.7485°N, 124.2028°W; ≥ M4.0 |
-| **NWS Weather** (`nws_weather.ts`) | [api.weather.gov CAZ006](https://api.weather.gov/alerts/active?zone=CAZ006) | Northwest CA coastal zone; advisory / watch / warning categorized |
+| **NWS Weather** (`nws_weather.ts`) | [api.weather.gov CAZ101](https://api.weather.gov/alerts/active?zone=CAZ101) | Coastal Del Norte public forecast zone; advisory / watch / warning categorized |
 
 This table introduces three alert sources. See
 [`AGENTS.md`](AGENTS.md) and

@@ -140,6 +140,9 @@ describe("fuel — EIA weekly California retail gasoline", () => {
       expect(week.pricePerGallon).toBeLessThan(10);
       expect(Number.isFinite(Date.parse(week.weekOf))).toBe(true);
     }
+    expect(new Set(prices.map(week => week.weekOf)).size).toBe(prices.length);
+    expect(prices.find(week => week.weekOf === '2026-09-21')?.pricePerGallon).toBe(6.112);
+    expect(prices.filter(week => week.weekOf.startsWith('2026-09-')).map(week => week.weekOf)).toEqual(['2026-09-07', '2026-09-14', '2026-09-21']);
   });
 
   test("reports the latest OBSERVED week and an 8-week median", () => {

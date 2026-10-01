@@ -28,7 +28,7 @@ import { buildEffectiveDate, buildEffectiveDatesReport } from "../src/gui/effect
 const ROOT = process.cwd();
 const read = (...parts: string[]): string => readFileSync(join(ROOT, ...parts), "utf-8");
 
-const page = read("src", "gui", "static", "phase10-legal.html");
+const page = read("src", "gui", "static", "phase10-legal.html") + read("src", "gui", "static", "assets", "phase10-legal.js");
 const routes = read("src", "gui", "routes.ts");
 const server = read("src", "gui", "server.ts");
 const spec = read("openapi.yaml");

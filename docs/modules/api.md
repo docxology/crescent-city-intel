@@ -1,58 +1,48 @@
-# API Middleware Module
+# HTTP contracts and notification boundaries
 
-## `src/api/middleware.ts` — HTTP Request Middleware
+`src/api/contracts.ts` parses `openapi.yaml` structurally as the HTTP
+method/authentication/input/response authority. Generated
+[HTTP documentation](../generated/http.md) derives from that same document;
+serialization layout is not a contract. The release gate checks route/method
+parity and rejects deliberately malformed workflow/spec sources.
 
-Composable middleware chain applied to every GUI server request before route handlers execute. Returns `null` to pass through, or a `Response` to short-circuit.
+## Middleware and admission
 
-### Exports
+`applyMiddleware(req, socketIp?)` applies API method/authentication, request
+logging and sliding-window quotas before a handler. Pass Bun's actual socket
+peer from `server.requestIP(req)`; forwarded identities are honored only for
+explicit `CRESCENT_TRUSTED_PROXY_IPS` peers. Local peers remain subject to quota.
+Public routes and declared methods come from OpenAPI rather than a second
+hand-maintained allowlist. API credentials use `X-API-Key`, with configured
+comma-separated keys or a generated per-boot key.
 
-| Export | Signature | Description |
-| :--- | :--- | :--- |
-| `applyMiddleware` | `(req: Request, socketIp?: string) → Promise<Response \| null>` | Run full middleware chain; `null` means pass through |
+Logs retain bounded allowlisted operational metadata, not query/body/history,
+credentials or raw client identity. Static key bootstrap additionally requires
+a trusted loopback peer and allowed Host with the declared proxy policy; escaped
+JSON and a response nonce CSP keep credentials out of untrusted static responses.
 
-### Middleware Chain
+`src/api/admission.ts` bounds expensive concurrent operations and rejects an
+already aborted request before starting work. Cancellation bounds the HTTP
+response while underlying work holds its admission until settlement; model,
+vector and analytical callers inherit `Request.signal` and finite byte/work caps.
+Malformed/excessive inputs and unsupported methods fail before expensive work.
+Checked responses reuse shared `x-artifact-family` validators where a route
+returns a persisted family; other responses retain their OpenAPI schema.
 
-Applied in order:
+Quota/admission state is local to one server process and resets on restart.
+Multi-instance production operation needs a separately reviewed deployment
+policy; local tests do not establish a distributed quota contract.
 
-| Middleware | Behavior |
-| :--- | :--- |
-| **Request logger** | Logs method, URL path, client IP, response time (ms) |
-| **Rate limiter** | Sliding-window cap: 100 requests per IP per hour (`RATE_LIMIT_MAX_REQUESTS`), with stricter per-path limits for `/api/chat` (20), `/api/summarize` (20), and `/api/analytics/embeddings` (10). Returns `429 Too Many Requests` on violation. |
-| **API key auth** | Validates the `X-API-Key` header against `CRESCENT_CITY_API_KEY`. Returns `401 Unauthorized` on failure. (A prior `?api_key=` query-param form was removed for credential-leak reasons.) |
+## Notification delivery
 
-### Bypass and Public Paths
+`src/alerts/notify.ts` sends bounded severity webhooks without failing the alert
+run. `src/notifications/push.ts` validates configured destinations and implements
+VAPID encrypted Web Push or webhook delivery with finite retry/deadline receipts.
+Missing configuration yields `disabled`; rejection/unavailability yields `failed`;
+a protocol acknowledgement yields `accepted`. Keys, subscription records and
+personal destinations remain private and outside Pages artifacts.
 
-**Rate-limit bypass**: `GET /api/health`, `GET /api/monitor/status`, `GET /api/openapi.yaml`.
-
-**Public paths** (no API key required): `/api/health`, `/api/stats`, `/api/stats/count`, `/api/toc`, `/api/domains`, `/api/search`, `/api/sections`, `/api/openapi.yaml`, `/api/docs`, `/api/curated`.
-
-### Configuration
-
-| Env variable | Default | Description |
-| :--- | :--- | :--- |
-| `CRESCENT_CITY_API_KEY` | _(random per-boot)_ | Valid API key(s) — comma-separated for multiple |
-| `RATE_LIMIT_MAX_REQUESTS` | `100` | Sliding-window request cap per IP per hour |
-
-### Integration
-
-```typescript
-// src/gui/server.ts
-import { applyMiddleware } from "../api/middleware.js";
-
-const server = Bun.serve({
-  fetch: async (req) => {
-    const middlewareResponse = await applyMiddleware(req);
-    if (middlewareResponse !== null) return middlewareResponse;
-    // ... route handling
-  }
-});
-```
-
-### Notes
-
-- Rate limit store is **in-memory** — resets on server restart. For production with multiple instances, replace with a Redis-backed store.
-- API keys are checked by exact string match. Multiple keys can be provided comma-separated in `CRESCENT_CITY_API_KEY`.
-
-## `src/notifications/push.ts` — Desktop Push Notifications
-
-Two graceful-degradation notification paths from the GUI: webhook POST via `ALERT_WEBHOOK_URL` (fire-and-forget) and VAPID web push via `PUSH_PUBLIC_KEY`/`PUSH_PRIVATE_KEY`. Absent env vars disable the path; nothing throws.
+Real local HTTP/encryption fixtures exercise the delivery protocol. They do not
+establish an actual user's browser display, remote destination delivery or
+permanent subscriptions. Opted-in destination acceptance is the narrow remaining
+notification scope in [TODO.md](../../TODO.md).

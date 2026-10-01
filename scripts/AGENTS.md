@@ -17,6 +17,8 @@ thin Python adapter for the external manuscript renderer.
 
 | Script | npm alias | What it orchestrates (delegates to) |
 | :--- | :--- | :--- |
+| `generate-docs.ts` | `bun run scripts/generate-docs.ts --write` / `--check` | TypeScript AST configuration/exports and structural OpenAPI inventories (`src/doc_inventory.ts`) |
+| `source-coverage.ts` | `bun run scripts/source-coverage.ts` | Read-only registry-grounded retained evidence; prints a bounded public assessment, writes nothing (`src/source_coverage.ts`) |
 | `weekly-check.ts` | `bun run weekly-check` | Full weekly health check: monitor + all 20 alerts (8 core + 12 extended) + news + meetings + analytics (`src/weekly_pipeline.ts`) |
 | `run-monitor.ts` | `bun run monitor` | Municipal code change detection (`src/monitor.ts`) |
 | `run-alerts.ts` | `bun run alerts` / `bun run alerts:all` | All 20 alert monitors concurrently (8 core + 12 extended) + composite severity computation (`src/alerts/batch.ts`) |
@@ -37,14 +39,14 @@ thin Python adapter for the external manuscript renderer.
 | `ci-monitor-smoke.ts` | (CI-internal) | Run the alert batch and report each monitor's own verdict from `output/alerts/source-health.json`. Rejects a failed child, missing/duplicate roster entries, invalid status/counts, or old-cycle timestamps. Genuine source outages remain explicit coverage facts; uploads contain a public DTO |
 | `run-geo-observations.ts` | `bun run geo:observations` | Build the live geo-observations companion envelope (`src/geo_observations.ts`) |
 | `check-geo-sync.ts` | `bun run geo:sync-check` | Rebuild-compare drift guard over the tracked `pages-data/geo-intel.json` seed (enforced by `src/release_gate.ts`) |
-| `repair-output.ts` | `bun run repair-output` | Historical output repair/quarantine utility (`src/shared/orchestration.ts`) |
+| `repair-output.ts` | `bun run repair-output` | Recoverable historical output repair/quarantine and explicit receipt rollback (`src/output_migrations.ts`) |
 | `browser-smoke.ts` | `bun run test:browser` | Real Playwright/Chromium smoke test of the running GUI (render + API-key trust boundary + api auth + semantic-search fallback) (`src/browser_smoke.ts`) |
 | `lifeos-bridge.ts` | `bun run lifeos:bridge` | Writes the LifeOS/Pulse LocalIntelligence digest (North Coast: Del Norte + Humboldt) from this platform's outputs (`src/lifeos_bridge.ts`) |
 | `lifeos-daily.sh` | `bun run lifeos:daily` | Refresh news/meetings/alerts then write the LifeOS digest; non-zero exit if any step fails (cron-driven) |
 | `validate-manuscript.ts` | `bun run manuscript:check` | Validate the source-controlled IMRAD manuscript and claim ledger (`src/manuscript_variables.ts`) |
 | `hydrate-manuscript.ts` | `bun run manuscript:hydrate` | Hydrate manuscript tokens from the canonical analytics envelope (`src/manuscript_variables.ts`) |
 | `z_generate_manuscript_variables.py` | template renderer hook | Thin Python adapter that delegates to the Bun hydrator |
-| `cron-setup.sh` | `bun run cron-setup -- --dry-run` | Render an escaped macOS launchd / Linux cron plan; installs nothing |
+| `cron-setup.sh` / `scheduler-plan.ts` | `bun run cron-setup -- --dry-run` | Scheduler plan plus explicit owned target install/remove/log rotation (`src/scheduler.ts`) |
 
 ## Adding New Scripts
 
@@ -62,8 +64,11 @@ validator and staged hydrator are `src/manuscript_document.ts` and
 promotion live in `src/publication_bundle.ts`; public DTOs live in
 `src/pages_public.ts`. New script logic belongs in an importable source module.
 
-`scheduler-plan.ts` and `cron-setup.sh` accept only explicit dry-run planning and
-install nothing. `stack-readiness.ts` checks real HTTP responses and required
+`scheduler-plan.ts` and `cron-setup.sh` default to no action: choose `--dry-run`
+or explicit `--install`/`--remove` with `--target=` and `--state=`. Native activation
+requires `--activate`/`--deactivate`; it is separate from isolated file acceptance.
+Rotation requires `--rotate-log=` and `--producer-lease=` and refuses a live writer.
+`stack-readiness.ts` checks real HTTP responses and required
 models with finite time/byte limits; a container build is a separate evidence
 plane. Strict tests use `bun run test:typecheck` without widening production
 `tsconfig.json`.

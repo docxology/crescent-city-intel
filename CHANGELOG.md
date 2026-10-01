@@ -8,6 +8,45 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.1.0] — 2026-10-01
+
+- Added cadence-specific retrieval, observation, product and validity clocks for
+  all 20 alert sources. Re-fetching old observations cannot make them current.
+  Corrected USDM area-percent selection, EIA weekly dates, NOAA tide UTC clocks,
+  AirNow primary timestamps, AIS position freshness and school-closure parsing;
+  ambiguous tide clocks and failed school pages remain unavailable.
+  NWS weather requests and registry identity now use Coastal Del Norte CAZ101;
+  foreign-zone-only responses cannot manufacture local quiet coverage.
+- Added captured-input replay and hash custody for events, analytics, monthly
+  reports and Pages public projections, with private retained evidence and
+  public-safe receipts. Preserved municipal editions and directory seed custody.
+- Unified strict versioned artifact validators, public projections and structural
+  API schemas; generated export, configuration and HTTP inventories now have a
+  release-gate drift check. Corrected the populated embedding projection schema.
+- Propagated parent cancellation and output-root ownership through producers,
+  browsers, SDK requests and weekly runs. Added recoverable artifact bundles,
+  atomic idempotency publication, dead-controller recovery and exact-byte rollback.
+  Recovery refuses linked namespaces and unauthenticated launcher directories.
+  Browser shutdown waits for actual child reaping, retains failed cleanup for
+  retry, and cannot close another browser when passed an unregistered page.
+- Added bounded calendar recurrence, exclusions, cancellations, revision precedence
+  and timezone evidence. Unsupported recurrence remains an explicit diagnostic.
+  Sampling receipts expose cadence, denominators, gaps and comparable windows.
+- Replaced implicit GUI globals with explicit ES modules and shared reader
+  lifecycle controls; expanded real-browser keyboard, mobile, cancellation,
+  storage-denial, download, annotation and adversarial-content acceptance.
+- Added reproducible semantic-review packages, retained-corpus lineage and
+  directory correction review mechanics. Citation matching, raw-document hashes
+  and extraction are kept separate from human semantic or legal verification.
+- Added committed LifeOS digest reads, ownership-preserving scheduler installation
+  plans and isolated installation/rotation tests; verified native persistent GUI
+  restart. Actual private consumer adoption and production scheduler installation
+  remain separate acceptance boundaries.
+- Refreshed source and research artifacts and regenerated the public website.
+  Release receipts distinguish deterministic checks, native acceptance, hosted
+  artifacts and live publication; missing local regulated-record coverage stays
+  visible.
+
 
 ## [3.0.2] — 2026-09-30
 

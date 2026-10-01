@@ -1,40 +1,51 @@
+import { CCGui } from "../gui-runtime.js";
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { apiFetch } from "./10-core.js";
+import { escapeHtml } from "./20-section-tools.js";
 // 130-readability.js — readability panel.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // ─ Readability Panel ─
-    async function loadReadabilityPanel() {
-      const el = document.getElementById('readability-content');
-      try {
-        const resp = await apiFetch('/api/readability');
-        if (!resp.ok) { el.innerHTML = '<p style="color:var(--text-secondary)">No readability scores yet. Run: bun run readability</p>'; return; }
-        const data = await resp.json();
+    async function loadReadabilityPanel() { return runReaderTask("readability-content", async signal => {
+    const el = document.getElementById('readability-content');
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, '/api/readability'), signal);
+        if (!resp.ok) {
+            CCGui.render(el, '<p style="color:var(--text-secondary)">No readability scores yet. Run: bun run readability</p>');
+            return;
+        }
+        const data = await readerAwait(resp.json(), signal);
         let html = '';
         // Actual /api/readability shape: { totalSections, scored, averageGradeLevel, hardestSections, easiestSections, allScores? }
         if (typeof data.averageGradeLevel === 'number') {
-          html += `<div class="intel-grid"><div class="intel-card"><h4>Avg Grade Level</h4><div class="metric">${data.averageGradeLevel.toFixed(1)}</div></div><div class="intel-card"><h4>Scored Sections</h4><div class="metric">${data.scored ?? '—'}</div></div><div class="intel-card"><h4>Total Sections</h4><div class="metric">${data.totalSections ?? '—'}</div></div></div>`;
-          // Difficulty distribution — only computable when the full score list is present
-          if (Array.isArray(data.allScores) && data.allScores.length > 0) {
-            const distribution = {};
-            for (const row of data.allScores) {
-              const d = row.score?.difficulty ?? 'unknown';
-              distribution[d] = (distribution[d] ?? 0) + 1;
+            html += `<div class="intel-grid"><div class="intel-card"><h4>Avg Grade Level</h4><div class="metric">${data.averageGradeLevel.toFixed(1)}</div></div><div class="intel-card"><h4>Scored Sections</h4><div class="metric">${data.scored ?? '—'}</div></div><div class="intel-card"><h4>Total Sections</h4><div class="metric">${data.totalSections ?? '—'}</div></div></div>`;
+            // Difficulty distribution — only computable when the full score list is present
+            if (Array.isArray(data.allScores) && data.allScores.length > 0) {
+                const distribution = {};
+                for (const row of data.allScores) {
+                    const d = row.score?.difficulty ?? 'unknown';
+                    distribution[d] = (distribution[d] ?? 0) + 1;
+                }
+                html += '<table class="intel-table" style="margin-top:16px"><thead><tr><th>Difficulty</th><th>Count</th></tr></thead><tbody>';
+                for (const [k, v] of Object.entries(distribution)) {
+                    html += `<tr><td>${k}</td><td>${v}</td></tr>`;
+                }
+                html += '</tbody></table>';
             }
-            html += '<table class="intel-table" style="margin-top:16px"><thead><tr><th>Difficulty</th><th>Count</th></tr></thead><tbody>';
-            for (const [k, v] of Object.entries(distribution)) { html += `<tr><td>${k}</td><td>${v}</td></tr>`; }
-            html += '</tbody></table>';
-          }
-          if (Array.isArray(data.hardestSections) && data.hardestSections.length > 0) {
-            html += '<h4 style="margin:16px 0 8px">Hardest Sections</h4><table class="intel-table"><thead><tr><th>Section</th><th>Title</th><th>Grade Level</th><th>Difficulty</th></tr></thead><tbody>';
-            for (const row of data.hardestSections) {
-              html += `<tr><td>${escapeHtml(row.number)}</td><td>${escapeHtml(row.title)}</td><td>${row.score?.gradeLevel ?? '—'}</td><td>${row.score?.difficulty ?? '—'}</td></tr>`;
+            if (Array.isArray(data.hardestSections) && data.hardestSections.length > 0) {
+                html += '<h4 style="margin:16px 0 8px">Hardest Sections</h4><table class="intel-table"><thead><tr><th>Section</th><th>Title</th><th>Grade Level</th><th>Difficulty</th></tr></thead><tbody>';
+                for (const row of data.hardestSections) {
+                    html += `<tr><td>${escapeHtml(row.number)}</td><td>${escapeHtml(row.title)}</td><td>${row.score?.gradeLevel ?? '—'}</td><td>${row.score?.difficulty ?? '—'}</td></tr>`;
+                }
+                html += '</tbody></table>';
             }
-            html += '</tbody></table>';
-          }
         }
-        el.innerHTML = html || '<p style="color:var(--text-secondary)">No readability scores yet.</p>';
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load readability scores.</p>'; }
+        CCGui.render(el, html || '<p style="color:var(--text-secondary)">No readability scores yet.</p>');
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not load readability scores.</p>');
+    }
+}); }
 
     // ─ Readability history trend (additive; wave-2 endpoint) ────────
     // GET /api/readability/history?limit=60 → { total, count, offset, limit,
@@ -46,7 +57,7 @@
     const READABILITY_HISTORY_EMPTY_HTML = '<p style="color:var(--text-secondary)">No readability history recorded yet \u2014 run <code>bun run readability</code></p>';
 
     function readabilityHistoryEmpty(el) {
-      el.innerHTML = READABILITY_HISTORY_EMPTY_HTML;
+      CCGui.render(el, READABILITY_HISTORY_EMPTY_HTML);
     }
 
     function readabilityHistoryRow(entry) {
@@ -78,31 +89,44 @@
       return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin-top:8px" role="img" aria-label="30-day average ease trend"><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="2"/></svg>`;
     }
 
-    async function loadReadabilityHistory() {
-      const el = document.getElementById('readability-history-content');
-      if (!el) return;
-      try {
-        const resp = await apiFetch('/api/readability/history?limit=60');
-        if (!resp.ok) { readabilityHistoryEmpty(el); return; }
-        const data = await resp.json();
+    async function loadReadabilityHistory() { return runReaderTask("readability-history-content", async signal => {
+    const el = document.getElementById('readability-history-content');
+    if (!el)
+        return;
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, '/api/readability/history?limit=60'), signal);
+        if (!resp.ok) {
+            readabilityHistoryEmpty(el);
+            return;
+        }
+        const data = await readerAwait(resp.json(), signal);
         const entries = Array.isArray(data?.entries) ? data.entries : [];
-        if (entries.length === 0) { readabilityHistoryEmpty(el); return; }
+        if (entries.length === 0) {
+            readabilityHistoryEmpty(el);
+            return;
+        }
         let html = '<p style="color:var(--text-secondary);margin-bottom:8px">'
-          + `${entries.length} run${entries.length === 1 ? '' : 's'} recorded`;
+            + `${entries.length} run${entries.length === 1 ? '' : 's'} recorded`;
         if (typeof data?.trend?.latest === 'number' && isFinite(data.trend.latest)) {
-          html += ` \u00b7 latest ease ${data.trend.latest.toFixed(1)}`;
+            html += ` \u00b7 latest ease ${data.trend.latest.toFixed(1)}`;
         }
         if (typeof data?.trend?.delta === 'number' && isFinite(data.trend.delta)) {
-          html += ` \u00b7 30-day delta <span style="color:${data.trend.delta >= 0 ? '#22c55e' : '#ef4444'}">${data.trend.delta >= 0 ? '+' : ''}${data.trend.delta.toFixed(1)}</span>`;
+            html += ` \u00b7 30-day delta <span style="color:${data.trend.delta >= 0 ? '#22c55e' : '#ef4444'}">${data.trend.delta >= 0 ? '+' : ''}${data.trend.delta.toFixed(1)}</span>`;
         }
         html += '</p>';
         html += '<table class="intel-table"><thead><tr><th>Run</th><th>Reading ease</th><th>Reading fog</th></tr></thead><tbody>';
-        for (const entry of entries) html += readabilityHistoryRow(entry);
+        for (const entry of entries)
+            html += readabilityHistoryRow(entry);
         html += '</tbody></table>';
         html += readabilityHistoryTrendSvg(data?.trend);
-        el.innerHTML = html;
-      } catch { readabilityHistoryEmpty(el); }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        readabilityHistoryEmpty(el);
+    }
+}); }
 
     // Wrap the panel loader so the history trend loads alongside the panel;
     // the verbatim function above is only relocated, never rewritten.
@@ -111,3 +135,5 @@
       await _baseLoadReadabilityPanel();
       try { await loadReadabilityHistory(); } catch { /* non-fatal */ }
     };
+
+export { loadReadabilityPanel };

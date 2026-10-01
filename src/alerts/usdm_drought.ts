@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -7,7 +8,7 @@ import { outputRoot } from "../shared/paths.js";
  * Fetches the US Drought Monitor data from the University of Nebraska-Lincoln
  * and classifies drought severity (D0-D4) for Del Norte County, CA.
  *
- * API: https://droughtmonitor.unl.edu/data/json/USDM_west.json
+ * API: https://usdmdataservices.unl.edu/api/CountyStatistics/
  *
  * Usage:
  *   bun run src/alerts/usdm_drought.ts
@@ -56,6 +57,10 @@ export interface DroughtReading {
 
 export interface DroughtReport {
   timestamp: string;
+  fetchedAt?: string;
+  productDate?: string;
+  observedAt?: string;
+  validUntil?: string;
   readings: DroughtReading[];
   compositeSeverity: DroughtSeverity;
   severeDroughtPercent: number;
@@ -78,12 +83,12 @@ function loadProcessedIds(): Set<string> {
   return ids;
 }
 
-function appendHistory(readings: DroughtReading[]): void {
+function appendHistory(readings: DroughtReading[], productDate: string): void {
   try {
     mkdirSync(HISTORY_DIR(), { recursive: true });
     for (const r of readings) {
-      const id = r.fips + "-" + r.severity + "-" + new Date().toISOString().slice(0, 10);
-      const record = JSON.stringify({ id: id, ...r, fetchedAt: new Date().toISOString() });
+      const id = r.fips + "-" + r.severity + "-" + productDate;
+      const record = JSON.stringify({ id: id, ...r, productDate, observedAt: `${productDate}T00:00:00Z`, fetchedAt: new Date().toISOString() });
       appendBoundedJsonlSync(HISTORY_FILE(), record);
     }
   } catch (err) {
@@ -131,7 +136,7 @@ function usdmWindow(): { start: string; end: string } {
 
 export async function fetchDroughtData(): Promise<DroughtReport> {
   const { start, end } = usdmWindow();
-  const url = USDM_API_URL.replace("{START}", start).replace("{END}", end);
+  const url = USDM_AREA_PCT_URL.replace("{START}", start).replace("{END}", end);
   const response = await fetch(url, {
     headers: { Accept: "text/csv" },
     signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
@@ -141,18 +146,20 @@ export async function fetchDroughtData(): Promise<DroughtReport> {
   }
   const text = await response.text();
   const rows = csvRows(text);
-  const latest = rows.at(-1);
+  const dated = rows.filter(row => row.FIPS === TARGET_FIPS).map(row => ({ row, date: /^\d{8}$/.test(row.MapDate ?? "") ? `${row.MapDate.slice(0, 4)}-${row.MapDate.slice(4, 6)}-${row.MapDate.slice(6, 8)}` : row.MapDate }));
+  if (dated.some(item => !/^\d{4}-\d{2}-\d{2}$/.test(item.date ?? "") || !Number.isFinite(Date.parse(`${item.date}T00:00:00Z`)) || new Date(`${item.date}T00:00:00Z`).toISOString().slice(0, 10) !== item.date || Date.parse(`${item.date}T00:00:00Z`) > Date.now())) throw new Error("USDM county product contains invalid or future MapDate");
+  dated.sort((a, b) => b.date.localeCompare(a.date));
+  const latest = dated[0]?.row;
   if (!latest) throw new Error("USDM API returned no county rows for the last 35 days");
 
-  // DSCI is the composite 0-500 index; derive the category mix from the
-  // area-percent feed for the same MapDate when it is present.
-  const dsci = Number(latest.DSCI ?? 0);
-  const severity: DroughtSeverity =
-    dsci <= 0 ? "NONE" : dsci < 50 ? "D0" : dsci < 100 ? "D1" : dsci < 250 ? "D2" : dsci < 350 ? "D3" : "D4";
-  const readings: DroughtReading[] = [
-    { fips: TARGET_FIPS, county: TARGET_COUNTY, state: "CA", severity, percent: 100 },
-  ];
-  const mapDate = latest.MapDate ?? "";
+  // statisticsType=2 is categorical area percentage, not cumulative D0-or-worse.
+  const readings: DroughtReading[] = (["NONE", "D0", "D1", "D2", "D3", "D4"] as const).map(severity => {
+    const value = latest[severity === "NONE" ? "None" : severity];
+    if (value === undefined || value.trim() === "" || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100) throw new Error("USDM county product has invalid area percentage");
+    return { fips: TARGET_FIPS, county: TARGET_COUNTY, state: "CA", severity, percent: Number(value) };
+  });
+  if (Math.abs(readings.reduce((sum, row) => sum + row.percent, 0) - 100) > 0.1) throw new Error("USDM categorical area percentages do not total 100");
+  const mapDate = dated[0]!.date;
 
   const compositeSeverity = computeDroughtComposite(readings);
   const severeDroughtPercent = readings
@@ -170,14 +177,19 @@ export async function fetchDroughtData(): Promise<DroughtReport> {
 
   return {
     timestamp: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+    productDate: mapDate,
+    observedAt: `${mapDate}T00:00:00Z`,
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(latest.ValidEnd ?? "") ? { validUntil: `${latest.ValidEnd}T23:59:59Z` } : {}),
     readings,
     compositeSeverity,
     severeDroughtPercent,
-    summary: "Del Norte County (map of " + mapDate + "): DSCI " + dsci + "/500 -> " + severityNames[compositeSeverity] + ".",
+    summary: "Del Norte County (map of " + mapDate + "): " + severityNames[compositeSeverity] + "; " + severeDroughtPercent + "% in D2–D4.",
   };
 }
 
-export async function runDroughtMonitor(): Promise<DroughtReport | null> {
+export async function runDroughtMonitor(options: ProducerOptions = {}): Promise<DroughtReport | null> { return withProducerScope("alert-usdm-drought", options, () => runDroughtMonitorInScope()); }
+async function runDroughtMonitorInScope(): Promise<DroughtReport | null> {
   logger.info("Checking USDA drought monitor for Del Norte County");
   lastDroughtError = undefined;
   try {
@@ -187,9 +199,9 @@ export async function runDroughtMonitor(): Promise<DroughtReport | null> {
     if (report.readings.length > 0) {
       const processedIds = loadProcessedIds();
       for (const r of report.readings) {
-        const id = r.fips + "-" + r.severity + "-" + report.timestamp.slice(0, 10);
+        const id = r.fips + "-" + r.severity + "-" + report.productDate;
         if (!processedIds.has(id)) {
-          appendHistory([r]);
+          appendHistory([r], report.productDate!);
         }
       }
     }

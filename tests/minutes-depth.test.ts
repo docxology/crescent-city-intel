@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "fs/promises";
+import { mkdtemp, rm, writeFile, readFile, symlink, open, stat } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -148,6 +148,14 @@ describe("document hash change detection (Phase 4.2)", () => {
 });
 
 describe("meeting doc-hash baseline persistence", () => {
+  test("malformed, oversized and linked baselines are refused and retained exactly", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "doc-hashes-invalid-")); const path = join(dir, "state.json"), outside = join(dir, "outside.json"), alias = join(dir, "alias.json");
+    try {
+      for (const original of ['{ not json', JSON.stringify({ hashes: { "https://example.test/doc.pdf": 5 } }), JSON.stringify({ hashes: "invalid" })]) { await writeFile(path, original); await expect(loadMeetingDocHashes(path)).rejects.toThrow(); expect(await readFile(path, "utf8")).toBe(original); }
+      const fd = await open(path, "w"); await fd.truncate(8_000_001); await fd.close(); await expect(loadMeetingDocHashes(path)).rejects.toThrow("bounded"); expect((await stat(path)).size).toBe(8_000_001);
+      await writeFile(outside, '{}'); await symlink(outside, alias); await expect(loadMeetingDocHashes(alias)).rejects.toThrow("symlinks"); await expect(saveMeetingDocHashes({}, alias)).rejects.toThrow("symlinks"); expect(await readFile(outside, "utf8")).toBe('{}');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
   test("save then load round-trips the per-URL map, not the envelope", async () => {
     const dir = await mkdtemp(join(tmpdir(), "doc-hashes-"));
     try {

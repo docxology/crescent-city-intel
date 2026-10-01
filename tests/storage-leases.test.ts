@@ -1,10 +1,20 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readFile, rm, writeFile, utimes } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, utimes, symlink, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acquireFileLease, withFileLease, withFileLeaseSync } from "../src/shared/storage.ts";
 import { IdempotencyStore } from "../src/shared/idempotency.ts";
 import { existsSync } from "node:fs";
+import { recoverArtifactTransactions } from "../src/shared/artifact_transaction.ts";
+import { recoverOwnedBrowsers } from "../src/browser_launcher.ts";
+
+test("linked state namespaces refuse recovery and sync admission without touching outside bytes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cci-state-link-")), outside = await mkdtemp(join(tmpdir(), "cci-state-outside-")); const sentinel = join(outside, "artifact-transactions.lock"); const bytes = JSON.stringify({ pid: 0, token: "outside-owner", startedAt: "2020-01-01T00:00:00Z" }); await writeFile(sentinel, bytes); await utimes(sentinel, new Date(0), new Date(0)); await symlink(outside, join(root, "state"));
+  try {
+    await expect(recoverArtifactTransactions(root)).rejects.toThrow("symlinks"); await expect(recoverOwnedBrowsers(root)).rejects.toThrow("symlinks"); await expect(acquireFileLease(join(root, "state", "producers", "news.lock"))).rejects.toThrow("symlinks"); expect(() => withFileLeaseSync(join(root, "state", "writer.lock"), () => "unsafe")).toThrow("symlinks");
+    expect(await readFile(sentinel, "utf8")).toBe(bytes); expect(await readdir(outside)).toEqual(["artifact-transactions.lock"]);
+  } finally { await rm(root, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }); }
+});
 
 test("a parent abort ends a real child-owned lease wait and leaves owner/data intact", async () => {
   const root = await mkdtemp(join(tmpdir(), "cci-cancel-lease-")); const storePath = join(root, "seen.json"); const path = `${storePath}.lock`;

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -26,6 +27,7 @@ import { appendFileSync, existsSync, readFileSync, mkdirSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from "../shared/source_health.js";
+import { assessSourceClock } from "../source_clocks.js";
 
 const logger = createLogger("ndbc_marine_alert");
 
@@ -88,6 +90,9 @@ export interface BuoyObservation {
 
 export interface MarineReport {
   timestamp: string;
+  fetchedAt?: string;
+  observedAt?: string;
+  excludedObservations?: Array<{ stationId: string; timestamp: string; reason: string }>;
   observations: BuoyObservation[];
   /** Primary station ID (nearest) */
   primaryStation: string;
@@ -258,16 +263,20 @@ export async function fetchBuoyObservation(station: typeof MONITORED_STATIONS[nu
   }
 }
 
-export async function runMarineMonitor(): Promise<MarineReport | null> {
+export async function runMarineMonitor(options: ProducerOptions = {}): Promise<MarineReport | null> { return withProducerScope("alert-ndbc-marine", options, () => runMarineMonitorInScope()); }
+async function runMarineMonitorInScope(): Promise<MarineReport | null> {
   logger.info("Fetching NDBC buoy data for Crescent City marine region");
   lastMarineError = undefined;
 
   try {
     const observations: BuoyObservation[] = [];
+    const excludedObservations: NonNullable<MarineReport["excludedObservations"]> = [];
 
     for (const station of MONITORED_STATIONS) {
       const obs = await fetchBuoyObservation(station);
       if (obs) {
+        const clock = assessSourceClock("marine", { observedAt: obs.timestamp });
+        if (!clock.usable) { excludedObservations.push({ stationId: obs.stationId, timestamp: obs.timestamp, reason: clock.reason! }); continue; }
         observations.push(obs);
         const processedIds = loadProcessedIds();
         const id = `${obs.stationId}-${obs.timestamp}`;
@@ -295,6 +304,9 @@ export async function runMarineMonitor(): Promise<MarineReport | null> {
 
     const report: MarineReport = {
       timestamp: new Date().toISOString(),
+      fetchedAt: new Date().toISOString(),
+      observedAt: observations.map(item => item.timestamp).sort()[0],
+      excludedObservations,
       observations,
       primaryStation: primary?.stationId ?? "46027",
       level,

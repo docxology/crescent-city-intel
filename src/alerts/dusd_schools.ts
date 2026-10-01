@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
 /**
@@ -21,6 +22,7 @@ import { mkdir } from "fs/promises";
 import { join } from "path";
 import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from "../shared/source_health.js";
 
+import { pacificDay, isCivilDate } from "../events.js";
 const logger = createLogger("dusd_schools_alert");
 
 /** DUSD official website. */
@@ -166,132 +168,42 @@ function extractHeadlineText(html: string): string {
 /**
  * Fetch DUSD announcements that may contain school closure info.
  */
-export async function fetchSchoolClosures(): Promise<SchoolClosureItem[]> {
-  const today = new Date().toISOString().slice(0, 10);
+/** A current acquisition cannot turn an undated announcement into today's closure. */
+export function parseSchoolClosurePage(html: string, sourceUrl: string, asOf: Date = new Date()): SchoolClosureItem[] {
+  const today = pacificDay(asOf);
+  const visible = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (visible.length < 40 || !/del norte|dnusd|dusd/i.test(visible) || /(?:sign in|log in) to (?:continue|view)|access denied|just a moment/i.test(extractHeadlineText(html))) throw new Error('District response does not establish a usable announcement page');
+  const blocks = [...html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi)].map(match => match[1]!);
+  const candidates = blocks.length ? blocks : [html];
   const events: SchoolClosureItem[] = [];
-
-  // Try the main DUSD website first
-  try {
-    const response = await fetch(DUSD_WEBSITE_URL, {
-      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-    });
-    if (response.ok) {
-      const html = await response.text();
-      // Look for closure/delay keywords in the page text
-      const lower = html.toLowerCase();
-      if (lower.includes("school closed") || lower.includes("no school") || lower.includes("delayed opening") || lower.includes("dnsud closed")) {
-        const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
-        const title = titleMatch ? titleMatch[1].trim() : "DUSD Announcement";
-        const status = classifySchoolStatus(title);
-        events.push({
-          id: "dusd-site-" + today,
-          title,
-          date: today,
-          status,
-          affectedSchools: [],
-          reason: "Posted on DUSD website",
-          delayMinutes: extractDelayMinutes(title),
-          sourceUrl: DUSD_WEBSITE_URL,
-          announcedAt: new Date().toISOString(),
-        });
-      }
-    }
-  } catch (err) {
-    logger.warn("DUSD website not reachable for closure check", { error: String(err) });
+  for (const block of candidates) {
+    const headline = extractHeadlineText(block);
+    if (!/school|student|district/i.test(headline)) continue;
+    const status = classifySchoolStatus(headline);
+    if (status === 'OPEN') continue;
+    // Only an explicit occurrence day in the headline, or its literal "today", qualifies.
+    // A <time> publication stamp elsewhere in a post never supplies this day.
+    const day = headline.match(/\b(\d{4}-\d{2}-\d{2})\b/)?.[1] ?? (/\btoday\b/i.test(headline) ? today : null);
+    if (!day || !isCivilDate(day)) throw new Error('School status announcement lacks a valid occurrence date');
+    if (day !== today) continue;
+    events.push({ id: 'dusd-' + new Bun.CryptoHasher('sha256').update(sourceUrl + '|' + headline + '|' + day).digest('hex').slice(0, 20), title: headline, date: day, status, affectedSchools: [], reason: 'Explicit occurrence day in district announcement headline', delayMinutes: extractDelayMinutes(headline), sourceUrl, announcedAt: null });
   }
-
-  // Try the alerts/news page
-  try {
-    const response = await fetch(DUSD_ALERTS_URL, {
-      signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS),
-    });
-    if (response.ok) {
-      const html = await response.text();
-      const lower = html.toLowerCase();
-      // Look for closure-related posts/news items
-      const keywords = ["closed", "delay", "late start", "no school", "dismiss", "closure", "snow", "weather", "emergency"];
-      const found = keywords.some(k => lower.includes(k));
-      if (found) {
-        // Try to extract individual items
-        const itemRegex = /<article[^>]*>|<div[^>]*class="[^"]*(?:news|post|item|alert)[^"]*"[^>]*>/gi;
-        const items: string[] = [];
-        let match;
-        while ((match = itemRegex.exec(html)) !== null) {
-          const start = match.index;
-          const end = html.indexOf("</article>", start);
-          if (end > start) items.push(html.slice(start, end + 10));
-        }
-
-        if (items.length === 0) {
-          // Fallback: classify the page's HEADLINE, never its whole body.
-          // Scanning the full HTML meant that any page containing the word
-          // "closed" — a footer "Emergency Information" link, a "Closure"
-          // nav item, an unrelated "Applications Closed" post — produced a
-          // synthetic `status: "CLOSED"` event stamped with *today's* date,
-          // which set hasActiveClosure and drove the composite to WARNING
-          // ("School closure active"). Scope the fallback to the document
-          // title and headings: the only text that can actually announce
-          // today's status.
-          const headline = extractHeadlineText(html);
-          const status = classifySchoolStatus(headline.toLowerCase());
-          if (status !== "OPEN") {
-            events.push({
-              id: "dusd-news-" + today,
-              title: "DUSD News Page: " + status.toLowerCase().replace("_", " "),
-              date: today,
-              status,
-              affectedSchools: [],
-              reason: "Posted on DUSD alerts page",
-              delayMinutes: extractDelayMinutes(headline.toLowerCase()),
-              sourceUrl: DUSD_ALERTS_URL,
-              announcedAt: new Date().toISOString(),
-            });
-          }
-        } else {
-          for (const item of items) {
-            const itemLower = item.toLowerCase();
-            if (keywords.some(k => itemLower.includes(k))) {
-              const titleMatch = item.match(/<h[2-4][^>]*>([^<]*)<\/h[2-4]>/i);
-              const title = titleMatch ? titleMatch[1].trim() : "DUSD Alert";
-              const status = classifySchoolStatus(title);
-              // A closure announced last week is not a closure today. These
-              // events are stamped with `today`, so gate on the one signal that
-              // distinguishes them: the post's own date, when the markup has one.
-              const posted = item.match(/\b(\d{4}-\d{2}-\d{2})\b/);
-              if (status !== "OPEN" && (!posted || posted[1] === today)) {
-                events.push({
-                  id: "dusd-news-" + events.length + "-" + today,
-                  title,
-                  date: today,
-                  status,
-                  affectedSchools: [],
-                  reason: "Posted on DUSD alerts page",
-                  delayMinutes: extractDelayMinutes(title),
-                  sourceUrl: DUSD_ALERTS_URL,
-                  announcedAt: new Date().toISOString(),
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-  } catch (err) {
-    logger.warn("DUSD alerts page not reachable", { error: String(err) });
+  return events;
+}
+export async function fetchSchoolClosures(): Promise<SchoolClosureItem[]> {
+  const asOf = new Date(); const events: SchoolClosureItem[] = [];
+  for (const url of [DUSD_WEBSITE_URL, DUSD_ALERTS_URL]) {
+    const response = await fetch(url, { signal: AbortSignal.timeout(SOURCE_FETCH_TIMEOUT_MS) });
+    if (!response.ok) throw new Error('Incomplete district source coverage: HTTP ' + response.status);
+    events.push(...parseSchoolClosurePage(await response.text(), url, asOf));
   }
-
-  // De-duplicate by title + status
   const seen = new Set<string>();
-  return events.filter(e => {
-    const key = e.status + "|" + e.title;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return events.filter(event => { const identity = event.status + '|' + event.title + '|' + event.date; if (seen.has(identity)) return false; seen.add(identity); return true; });
 }
 
 /** Main monitor entry point */
-export async function runSchoolClosureMonitor(): Promise<SchoolClosureReport | null> {
+export async function runSchoolClosureMonitor(options: ProducerOptions = {}): Promise<SchoolClosureReport | null> { return withProducerScope("alert-dusd-schools", options, () => runSchoolClosureMonitorInScope()); }
+async function runSchoolClosureMonitorInScope(): Promise<SchoolClosureReport | null> {
   logger.info("Checking Del Norte Unified School District closures");
   lastSchoolsError = undefined;
 

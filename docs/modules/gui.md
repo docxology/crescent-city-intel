@@ -72,8 +72,9 @@ In-memory full-text search across all municipal code sections.
 | `search` | `(query, options?) → PagedSearchResult` | BM25 keyword search with pagination, title/type/field filters, highlight, and fuzzy-correction fallback |
 | `getIndexedCount` | `() → number` | Current number of indexed sections |
 
-`initSearch()` (called by `server.ts` on startup) loads all sections into
-memory as a singleton; subsequent calls no-op.
+`initSearch()` (called by `server.ts` on startup) initializes the in-memory
+index for the selected artifact root. Shared loaders and cache identity preserve
+root ownership across concurrent and redirected reads.
 
 ### Ranking Algorithm
 
@@ -256,8 +257,8 @@ event count and the latest monitor level from `/api/monitor/alerts`:
 | `deriveAlertDisplayState(health, condition)` | Preserve health-state precedence so missing evidence is never rendered as calm |
 | `alertHeatIntensity(count, maximum)` | Scale a count into the stable heatmap range 0–4 |
 
-The single-file frontend mirrors this pure model because the GUI has no browser
-build step. Pure zero-mock tests exercise the TypeScript contract, and the real
+The no-build ESM frontend renders the corresponding trend model through its
+explicit reader modules. Pure zero-mock tests exercise the TypeScript contract, and the real
 Playwright smoke opens the Alerts panel and verifies the rendered trend,
 heatmap, source-state rows, and accessible cell labels.
 
@@ -265,19 +266,26 @@ heatmap, source-state rows, and accessible cell labels.
 
 ## `src/gui/static/index.html` — Frontend
 
-No-build SPA. The markup shell lives in `index.html`, with styles and scripts
-under `src/gui/static/assets/` (loaded by classic `<script src>` / `<link>` tags,
-with explicit load order and shared window globals).
+No-build SPA. `index.html` imports one `assets/gui-app.js` ES module entry
+point; reader dependencies and shared mutable state are explicit. Dedicated
+HTML readers have their own imported controllers. Generated markup uses the
+scoped `CCGui.render()` inert-template sanitizer; it does not patch every page's
+native DOM setter. Local assets and the server nonce CSP avoid remote runtime
+code and prevent generated resource-loading attributes/styles.
 
 ### Asset layout
 
 | Path | Role |
-| :--- | :--- |
-| `index.html` | Markup shell: `<head>` with the `__CC_API_KEY__` bootstrap + CDN tags + `<link rel="stylesheet" href="assets/gui.css">`; the body markup for every panel/overlay; trailing `<script src>` tags in load order. No inline `<style>` and no large inline `<script>` (the key bootstrap excepted). |
-| `assets/gui.css` | Shared stylesheet for the local GUI. |
-| `assets/virtual-list.js` | Windowed list renderer (`createVirtualList`): fixed row height, overscan 5, spacer divs/rows, ResizeObserver. Applied to the search-results dropdown (sets > `SEARCH_VIRTUAL_THRESHOLD` = 24) and the glossary table (rows > `GLOSSARY_VIRTUAL_THRESHOLD` = 40). Uses the same item markup as the unwindowed lists. |
-| `assets/modules/00-nav.js` | Navigation layer (loaded first): hash deep-links (`#<section>` / `#<section>/<tab>`), a header "Go to…" `<select>` (`#nav-jump`), and `Alt+ArrowRight`/`Alt+ArrowLeft` tab cycling within the visible overlay. Purely additive — invokes existing toggle/tab click handlers, never overrides them. |
-| `assets/modules/10-core.js` … `140-fuzzy-keys.js` | Scripts grouped by concern, sharing implicit globals (no IIFE, no namespace). `100-overlay-tabs.js` loads after `130-readability.js` because its `TAB_LOADERS` map eagerly references loader functions; declarations in separate scripts must be loaded before use. |
+| --- | --- |
+| `index.html` | Markup shell, local stylesheet/module entry and request-aware escaped API-key bootstrap |
+| `assets/gui-app.js` | Explicit module initialization and ready-state owner |
+| `assets/app-state.js` | Shared mutable reader state |
+| `assets/gui-runtime.js` | Inert rendering, safe links and local Markdown helpers |
+| `assets/reader-lifecycle.js` / `reader.css` | Bounded latest-request/cancel/retry controls, announcements and focus restoration |
+| `assets/gui.css` | Local GUI layout and theme stylesheet |
+| `assets/virtual-list.js` | Explicitly imported windowed search/glossary renderer |
+| `assets/modules/` | Imported navigation, search, chat, alerts, analytics, source and civic reader functions |
+| `assets/{docs-dashboard,structured-queries,phase10-legal}.js` | Dedicated reader controllers preserving their stable URLs |
 
 ### Navigation
 
@@ -369,3 +377,15 @@ persisted server-side in a bounded JSON artifact under `output/state/`
 (`annotations.json`, written atomically), following the bounded-storage
 precedent of `readability_history.ts`. Browser side lives in
 `gui/static/assets/modules/145-phase9-hazards.js`.
+
+## Reader acceptance boundary
+
+`bun run test:gui-readers` exercises actual primary APIs in isolated roots at
+desktop/mobile widths, including every declared reader tab, keyboard section
+selection, map-note anchors, downloads, summaries, loading cancellation/retry
+and standalone readers. `bun run test:gui-journeys` separately exercises storage
+failure, delayed requests, inert adversarial rendering, API-key handling and
+chat/SSE terminal behavior. These are real local browser/HTTP checks; model
+protocol fixtures and small corpus fixtures are identified rather than presented
+as fresh upstream or semantic acceptance. Exact exported Pages rendering has its
+own command and saved-tree receipt.

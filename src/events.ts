@@ -25,6 +25,8 @@ import { chatWithProvider, checkChatProvider } from './llm/provider.js';
 import { outputRoot } from './shared/paths.js';
 import { writeJsonAtomic } from './shared/source_health.js';
 import { redactUrl } from './shared/transport.js';
+import { withProducerScope, type ProducerOptions } from './shared/run_scope.js';
+import { captureDerivedInputs, withCapturedDerivedInputs, retainDerivedOutput } from './derived_publication.js';
 
 const logger = createLogger('events');
 
@@ -70,6 +72,7 @@ export interface StructuredEvent {
   extractionMethod: 'markup' | 'llm' | null;
   /** The producer's own 0..1 fidelity score, or null when none was recorded. */
   confidence: number | null;
+  calendarEvidence?: { uid: string | null; recurrenceId: string | null; timezone: string | null; timeBasis: 'utc' | 'tzid' | 'floating' | 'date-only' };
 }
 
 export interface EventsArtifact {
@@ -202,10 +205,28 @@ interface RawEventCandidate {
   fetchedAt: string | null;
   extractionMethod: 'markup' | 'llm' | null;
   confidence: number | null;
+  calendarEvidence?: StructuredEvent['calendarEvidence'];
 }
 
 function str(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/** Normalize declared publication metadata without assigning an occurrence or timezone. */
+export function canonicalPublicationDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  let raw = value.trim();
+  if (/^\d{8}$/.test(raw)) raw = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return isCivilDate(raw) ? raw : null;
+  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/);
+  const rss = raw.match(/^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s*)?(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+(?:GMT|UTC|UT|[+-]\d{4})$/i);
+  if (iso) { if (!isCivilDate(iso[1]!) || Number(iso[2]) > 23 || Number(iso[3]) > 59 || Number(iso[4]) > 59) return null; }
+  else if (rss) {
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const civil = `${rss[3]}-${String(months.indexOf(rss[2]!.toLowerCase()) + 1).padStart(2, '0')}-${rss[1]!.padStart(2, '0')}`;
+    if (!isCivilDate(civil) || Number(rss[4]) > 23 || Number(rss[5]) > 59 || Number(rss[6]) > 59) return null;
+  } else return null;
+  const parsed = Date.parse(raw); return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
 }
 
 /** The two clock shapes accepted as a real event time, matched whole-string. */
@@ -283,7 +304,7 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
   const rawDate = item.dateStart ?? item.startDate ?? item.eventStart ?? item.date;
   const dateStart = parseEventDate(rawDate);
   const published = item.publicationAt ?? item.publishedAt ?? item.pubDate ?? item.uploadDate;
-  const publicationAt = parseEventDate(published) ? str(published) : null;
+  const publicationAt = canonicalPublicationDate(published);
   // Publication metadata remains visible on undated notices, but ICS only emits
   // explicitly dated occurrences. Completely undated news stays in its feed.
   if ((kind === 'civic-news' || kind === 'community-listing' || kind === 'holiday-closure') && dateStart === null && publicationAt === null) {
@@ -303,7 +324,7 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
     dateStart,
     publicationAt,
     dateAllDay: true,
-    timeNote: structuredTime ?? extractTimeNote(rawDateStr),
+    timeNote: item.calendarEvidence ? str(item.timeNote) || null : structuredTime ?? extractTimeNote(rawDateStr),
     location: str(item.location) || null,
     organizer: str(item.organizer) || str(item.source) || str(item.channel) || null,
     description: content,
@@ -315,6 +336,7 @@ function mapCandidate(item: Record<string, unknown>, kind: EventKind, defaultSou
     fetchedAt: str(item.fetchedAt) || null,
     extractionMethod: extractionMethodOf(item.extractionMethod),
     confidence: confidenceOf(item.confidence),
+    ...(item.calendarEvidence && typeof item.calendarEvidence === 'object' ? { calendarEvidence: item.calendarEvidence as StructuredEvent['calendarEvidence'] } : {}),
   };
 }
 
@@ -552,7 +574,8 @@ async function loadDiscoveryEvents(outputDir: string): Promise<Array<Record<stri
  * then undated ones by title — so the cap truncates the past, never the future,
  * and the calendar opens on what has not happened yet.
  */
-export async function collectEvents(outputDir = outputRoot()): Promise<StructuredEvent[]> {
+export async function collectEvents(outputDir = outputRoot(), asOf: Date = new Date()): Promise<StructuredEvent[]> {
+  if (!Number.isFinite(asOf.getTime())) throw new Error('Invalid event assessment clock');
   const base = outputDir.replace(/\/+$/, '');
   const [meetingItems, newsItems, youtubeItems] = await Promise.all([
     loadItems(join(base, 'gov_meetings'), true),
@@ -592,7 +615,7 @@ export async function collectEvents(outputDir = outputRoot()): Promise<Structure
 
   const withStatus = dedupeAndMerge(candidates).map(candidate => ({
     ...candidate,
-    status: classify(candidate.dateStart),
+    status: classify(candidate.dateStart, asOf),
   }));
 
   // Truncation must never eat the future. The pool is partitioned first:
@@ -601,7 +624,7 @@ export async function collectEvents(outputDir = outputRoot()): Promise<Structure
   // take the remainder. Sorting everything ascending and slicing at 200 —
   // what this used to do — spent the budget on months-old completed meetings
   // and dropped genuinely upcoming ones off the end.
-  const today = pacificDay();
+  const today = pacificDay(asOf);
   const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
   const upcoming = withStatus
     .filter(event => event.dateStart !== null && event.dateStart >= today)
@@ -634,6 +657,7 @@ export async function collectEvents(outputDir = outputRoot()): Promise<Structure
     fetchedAt: candidate.fetchedAt,
     extractionMethod: candidate.extractionMethod,
     confidence: candidate.confidence,
+    ...(candidate.calendarEvidence ? { calendarEvidence: candidate.calendarEvidence } : {}),
   }));
 }
 
@@ -864,13 +888,18 @@ export function foldIcsLine(line: string): string[] {
   return [parts[0]!, ...parts.slice(1).map(part => ` ${part}`)];
 }
 
-export async function refreshEvents(argv: string[]): Promise<void> {
+export async function refreshEvents(argv: string[], options: ProducerOptions = {}): Promise<void> {
+  return withProducerScope('events', options, () => refreshEventsOwned(argv));
+}
+async function refreshEventsOwned(argv: string[]): Promise<void> {
   const wantsLlm = argv.includes('--llm');
   const limitIndex = argv.indexOf('--limit');
   const limit = limitIndex >= 0 ? Number(argv[limitIndex + 1]) : 200;
   const generatedAt = new Date().toISOString();
 
-  const events = await collectEvents();
+  const root = outputRoot();
+  const evidence = await captureDerivedInputs(root, 'events', { generatedAt, wantsLlm, limit: Number.isFinite(limit) ? limit : 200 });
+  const events = await withCapturedDerivedInputs(evidence, stage => collectEvents(stage, new Date(generatedAt)));
   let summaries: NonNullable<EventsArtifact['summaries']> | undefined;
   let llm: EventsArtifact['llm'] = { attempted: wantsLlm, status: 'skipped', provider: 'none', model: null, summarizedCount: 0 };
 
@@ -899,9 +928,8 @@ export async function refreshEvents(argv: string[]): Promise<void> {
 
   const destination = join(outputRoot(), 'events', 'events.json');
   await mkdir(join(outputRoot(), 'events'), { recursive: true });
-  await writeJsonAtomic(destination, artifact);
   const icsDestination = join(outputRoot(), 'events', 'events.ics');
-  await Bun.write(icsDestination, buildEventsIcs(artifact.events, { stamp: generatedAt }));
+  await retainDerivedOutput(root, 'events', destination, artifact, evidence, generatedAt, [{ path: 'events/events.ics', text: buildEventsIcs(artifact.events, { stamp: generatedAt }) }]);
   logger.info(`wrote ${artifact.count} events (${artifact.llm.status}${artifact.summaries ? `, ${Object.keys(artifact.summaries).length} summaries` : ''}) -> ${destination} + ${icsDestination}`);
 }
 

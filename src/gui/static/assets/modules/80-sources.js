@@ -1,7 +1,10 @@
+import { CCGui } from "../gui-runtime.js";
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { escapeHtml } from "./20-section-tools.js";
+import { escapeHtmlAttr } from "./110-feeds.js";
+import { apiFetch } from "./10-core.js";
+import { appState } from "../app-state.js";
 // 80-sources.js — source coverage and structured output.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // ─── Source coverage and structured output ───────────────────────
     function sourceStatusLabel(value) {
       const status = String(value || 'not-checked');
@@ -25,7 +28,7 @@
       const needle = document.getElementById('source-filter').value.trim().toLowerCase();
       const automation = document.getElementById('source-automation-filter').value;
       const status = document.getElementById('source-status-filter').value;
-      return sourceCoverageRecords.filter(record => {
+      return appState.sourceCoverageRecords.filter(record => {
         const matchesText = !needle || JSON.stringify(record).toLowerCase().includes(needle);
         const matchesAutomation = automation === 'all' || record.automation === automation;
         const matchesStatus = status === 'all' || (record.operationalStatus || 'not-checked') === status;
@@ -34,37 +37,42 @@
     }
 
     function renderSourceCoverage() {
-      const discovery = sourceCoverageData?.discovery || {};
+      const discovery = appState.sourceCoverageData?.discovery || {};
       const records = filteredSourceCoverageRecords();
       const summary = document.getElementById('source-summary-grid');
-      summary.innerHTML = `<div class="intel-card"><h4>Total sources</h4><div class="metric">${discovery.sourceCount ?? sourceCoverageRecords.length}</div><div class="label">fingerprint ${escapeHtml(String(discovery.registryFingerprint || sourceCoverageData?.registryFingerprint || '').slice(0, 16))}</div></div><div class="intel-card"><h4>Monitored</h4><div class="metric">${discovery.monitoredCount ?? 0}</div><div class="label">actively joined to health</div></div><div class="intel-card"><h4>Discovery only</h4><div class="metric">${discovery.discoveryOnlyCount ?? 0}</div><div class="label">known, not continuously monitored</div></div><div class="intel-card"><h4>Reference only</h4><div class="metric">${discovery.referenceOnlyCount ?? 0}</div><div class="label">citation boundary</div></div>`;
+      CCGui.render(summary, `<div class="intel-card"><h4>Total sources</h4><div class="metric">${discovery.sourceCount ?? appState.sourceCoverageRecords.length}</div><div class="label">fingerprint ${escapeHtml(String(discovery.registryFingerprint || appState.sourceCoverageData?.registryFingerprint || '').slice(0, 16))}</div></div><div class="intel-card"><h4>Monitored</h4><div class="metric">${discovery.monitoredCount ?? 0}</div><div class="label">actively joined to health</div></div><div class="intel-card"><h4>Discovery only</h4><div class="metric">${discovery.discoveryOnlyCount ?? 0}</div><div class="label">known, not continuously monitored</div></div><div class="intel-card"><h4>Reference only</h4><div class="metric">${discovery.referenceOnlyCount ?? 0}</div><div class="label">citation boundary</div></div>`);
       const table = document.getElementById('source-table');
-      table.innerHTML = records.length ? `<table class="intel-table"><thead><tr><th>Source</th><th>Automation</th><th>Status</th><th>Authority / region</th><th>Action</th></tr></thead><tbody>${records.map(record => `<tr><td><strong>${escapeHtml(record.name)}</strong><br><span style="font-size:11px;color:var(--text-secondary)">${escapeHtml(record.id)} · ${escapeHtml(record.kind)}</span></td><td>${escapeHtml(record.automation)}</td><td>${sourceStatusLabel(record.operationalStatus)}<br><span style="font-size:11px;color:var(--text-secondary)">${record.itemCount ?? 0} item(s)${record.error ? ` · ${escapeHtml(record.error)}` : ''}</span></td><td>${escapeHtml(record.authority)} · ${escapeHtml(record.region)}</td><td><button class="btn source-inspect" type="button" data-source-id="${escapeHtmlAttr(record.id)}">Inspect</button> <a href="${escapeHtmlAttr(record.canonicalUrl)}" target="_blank" rel="noopener">open</a></td></tr>`).join('')}</tbody></table>` : '<p style="color:var(--text-secondary)">No sources match the selected filters.</p>';
-      const selected = sourceCoverageRecords.find(record => record.id === sourceSelectedId);
-      document.getElementById('source-detail').innerHTML = selected ? `<div class="intel-card"><h4>${escapeHtml(selected.name)}</h4><div style="color:var(--text-secondary);font-size:12px">${sourceStatusLabel(selected.operationalStatus)} · ${escapeHtml(selected.provenance || 'provenance not recorded')}</div><p style="margin:8px 0"><a href="${escapeHtmlAttr(selected.canonicalUrl)}" target="_blank" rel="noopener">${escapeHtml(selected.canonicalUrl)}</a></p><pre style="white-space:pre-wrap;max-height:360px;overflow:auto">${escapeHtml(JSON.stringify(selected, null, 2))}</pre></div>` : '<p style="color:var(--text-secondary)">Select a source row to inspect its full structured record.</p>';
+      CCGui.render(table, records.length ? `<table class="intel-table"><thead><tr><th>Source</th><th>Automation</th><th>Status</th><th>Authority / region</th><th>Action</th></tr></thead><tbody>${records.map(record => `<tr><td><strong>${escapeHtml(record.name)}</strong><br><span style="font-size:11px;color:var(--text-secondary)">${escapeHtml(record.id)} · ${escapeHtml(record.kind)}</span></td><td>${escapeHtml(record.automation)}</td><td>${sourceStatusLabel(record.operationalStatus)}<br><span style="font-size:11px;color:var(--text-secondary)">${record.itemCount ?? 0} item(s)${record.error ? ` · ${escapeHtml(record.error)}` : ''}</span></td><td>${escapeHtml(record.authority)} · ${escapeHtml(record.region)}</td><td><button class="btn source-inspect" type="button" data-source-id="${escapeHtmlAttr(record.id)}">Inspect</button> <a href="${escapeHtmlAttr(record.canonicalUrl)}" target="_blank" rel="noopener">open</a></td></tr>`).join('')}</tbody></table>` : '<p style="color:var(--text-secondary)">No sources match the selected filters.</p>');
+      const selected = appState.sourceCoverageRecords.find(record => record.id === appState.sourceSelectedId);
+      CCGui.render(document.getElementById('source-detail'), selected ? `<div class="intel-card"><h4>${escapeHtml(selected.name)}</h4><div style="color:var(--text-secondary);font-size:12px">${sourceStatusLabel(selected.operationalStatus)} · ${escapeHtml(selected.provenance || 'provenance not recorded')}</div><p style="margin:8px 0"><a href="${escapeHtmlAttr(selected.canonicalUrl)}" target="_blank" rel="noopener">${escapeHtml(selected.canonicalUrl)}</a></p><pre style="white-space:pre-wrap;max-height:360px;overflow:auto">${escapeHtml(JSON.stringify(selected, null, 2))}</pre></div>` : '<p style="color:var(--text-secondary)">Select a source row to inspect its full structured record.</p>');
       const gaps = Array.isArray(discovery.coverageGaps) ? discovery.coverageGaps : [];
-      document.getElementById('source-gaps').innerHTML = gaps.length ? `<div class="intel-card"><h4>Known coverage gaps</h4><ul>${gaps.map(gap => `<li>${escapeHtml(gap)}</li>`).join('')}</ul></div>` : '';
+      CCGui.render(document.getElementById('source-gaps'), gaps.length ? `<div class="intel-card"><h4>Known coverage gaps</h4><ul>${gaps.map(gap => `<li>${escapeHtml(gap)}</li>`).join('')}</ul></div>` : '');
     }
 
-    async function loadSourceCoverage() {
-      const table = document.getElementById('source-table');
-      table.innerHTML = '<p style="color:var(--text-secondary)">Loading source coverage…</p>';
-      try {
-        const response = await apiFetch('/api/sources');
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        sourceCoverageData = await response.json();
-        sourceCoverageRecords = sourceCoverageData.discovery?.sources || (sourceCoverageData.registry || []).map(source => ({ ...source, operationalStatus: 'not-checked', itemCount: 0 }));
+    async function loadSourceCoverage() { return runReaderTask("source-table", async signal => {
+    const table = document.getElementById('source-table');
+    CCGui.render(table, '<p style="color:var(--text-secondary)">Loading source coverage…</p>');
+    try {
+        const response = await readerAwait(readerFetch(apiFetch, signal, '/api/sources'), signal);
+        if (!response.ok)
+            throw new Error(`${response.status} ${response.statusText}`);
+        appState.sourceCoverageData = await readerAwait(response.json(), signal);
+        appState.sourceCoverageRecords = appState.sourceCoverageData.discovery?.sources || (appState.sourceCoverageData.registry || []).map(source => ({ ...source, operationalStatus: 'not-checked', itemCount: 0 }));
         renderSourceCoverage();
-      } catch (error) {
-        table.innerHTML = `<p style="color:#f97316">Source coverage unavailable: ${escapeHtml(error.message || error)}</p>`;
-      }
     }
+    catch (error) {
+        if (signal.aborted)
+            return;
+        CCGui.render(table, `<p style="color:#f97316">Source coverage unavailable: ${escapeHtml(error.message || error)}</p>`);
+    }
+}); }
 
-    async function loadSourceJson() {
-      if (!sourceCoverageData) await loadSourceCoverage();
-      const output = document.getElementById('source-json-output');
-      output.textContent = sourceCoverageData ? JSON.stringify(sourceCoverageData, null, 2) : 'Source coverage unavailable.';
-    }
+    async function loadSourceJson() { return runReaderTask("source-json-output", async signal => {
+    if (!appState.sourceCoverageData)
+        await readerAwait(loadSourceCoverage(), signal);
+    const output = document.getElementById('source-json-output');
+    output.textContent = appState.sourceCoverageData ? JSON.stringify(appState.sourceCoverageData, null, 2) : 'Source coverage unavailable.';
+}); }
 
     // ─── Corpus intelligence panels ──────────────────────────────────
     //
@@ -73,3 +81,5 @@
     // src/section_longevity.ts). Every number rendered here comes from that
     // module's report — nothing is recomputed in the browser, so the panel
     // and the API can never disagree.
+
+export { downloadStructuredJson, filteredSourceCoverageRecords, loadSourceCoverage, loadSourceJson, renderSourceCoverage };

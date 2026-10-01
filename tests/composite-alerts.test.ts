@@ -61,8 +61,8 @@ describe("buildCompositeInput — marine prefers the primary buoy 46027", () => 
       marine: {
         ...fresh(),
         observations: [
-          { stationId: "46022", waveHeightFt: 2, windSpeedKt: 8 },
-          { stationId: "46027", waveHeightFt: 12, windSpeedKt: 30 },
+          { stationId: "46022", timestamp: fresh().fetchedAt, waveHeightFt: 2, windSpeedKt: 8 },
+          { stationId: "46027", timestamp: fresh().fetchedAt, waveHeightFt: 12, windSpeedKt: 30 },
         ],
       },
     });
@@ -76,7 +76,7 @@ describe("buildCompositeInput — tides/fishing availability freshness", () => {
   test("a stale tides report is treated as unavailable (freshness-gated)", () => {
     const stale = {
       fetchedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      waterLevel: { v: "6.5" },
+      waterLevel: { v: "6.5", t: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
       maxPredictedLevel: 6.5,
     };
     const input = buildCompositeInput({
@@ -86,13 +86,13 @@ describe("buildCompositeInput — tides/fishing availability freshness", () => {
     });
     expect(input.tides.available).toBe(false);
     // Even though a water level is present, a stale snapshot must not elevate.
-    expect(input.tides.waterLevelFt).toBe(6.5);
+    expect(input.tides.waterLevelFt).toBeNull();
   });
 
   test("a fresh tides report is available", () => {
     const fresh = {
       fetchedAt: new Date().toISOString(),
-      waterLevel: { v: "4.2" },
+      waterLevel: { v: "4.2", t: new Date().toISOString() },
       maxPredictedLevel: 7.2,
     };
     const input = buildCompositeInput({

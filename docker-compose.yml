@@ -2,9 +2,11 @@ services:
   gui:
     build: .
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${CC_GUI_PORT:-3000}:3000"
     environment:
       PORT: "3000"
+      HEADLESS_BROWSER: "1"
+      CC_OUTPUT_DIR: /app/output
       LOG_LEVEL: info
       OLLAMA_URL: "${OLLAMA_URL:-http://ollama:11434}"
       CHROMA_URL: "${CHROMA_URL:-http://chroma:8000}"
@@ -17,14 +19,21 @@ services:
       EMBEDDING_MODEL: "${EMBEDDING_MODEL:-nomic-embed-text}"
       CHAT_MODEL: "${CHAT_MODEL:-gemma3:4b}"
     volumes:
-      - ./output:/app/output
+      - ${CC_OUTPUT_DIR:-./output}:/app/output
+    init: true
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
     restart: unless-stopped
 
   ollama:
     profiles: [llm]
     image: ollama/ollama:0.34.2
     ports:
-      - "127.0.0.1:11434:11434"
+      - "127.0.0.1:${CC_OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
@@ -32,18 +41,32 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    init: true
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
     restart: unless-stopped
 
   chroma:
     profiles: [llm]
     image: chromadb/chroma:1.5.9
     ports:
-      - "127.0.0.1:8001:8000"
+      - "127.0.0.1:${CC_CHROMA_PORT:-8001}:8000"
     volumes:
       - chroma_data:/data
     environment:
       CHROMA_PERSIST_PATH: /data
       ANONYMIZED_TELEMETRY: "FALSE"
+    init: true
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
     restart: unless-stopped
 
   ollama-models:

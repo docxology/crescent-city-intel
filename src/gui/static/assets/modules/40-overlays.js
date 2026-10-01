@@ -1,7 +1,9 @@
+import { cancelReaderTasks } from "../reader-lifecycle.js";
+import { CCGui } from "../gui-runtime.js";
+import { chatCancel, chatPanel } from "./10-core.js";
+import { loadChatModels } from "./50-chat.js";
+import { appState } from "../app-state.js";
 // 40-overlays.js — theme persistence, top-level nav toggles, closeAllOverlays, welcome linktree wiring.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // Theme toggle (with localStorage persistence)
     (function initTheme() {
       const saved = CCGui.storage.get("theme");
@@ -27,6 +29,7 @@
     // opening Analytics or Alerts left Intelligence open behind them).
     const OVERLAY_TOGGLE_IDS = ['analytics-toggle', 'feeds-toggle', 'sources-toggle', 'alerts-toggle', 'chat-toggle', 'dev-toggle'];
     function closeAllOverlays() {
+      cancelReaderTasks(); appState.activeChatController?.abort();
       document.getElementById('analytics-overlay').classList.remove('open');
       document.getElementById('feeds-overlay').classList.remove('open');
       document.getElementById('sources-overlay').classList.remove('open');
@@ -61,8 +64,10 @@
       }
     });
     document.getElementById("chat-close").addEventListener("click", () => {
-      activeChatController?.abort();
+      appState.activeChatController?.abort();
       chatPanel.classList.remove("open");
       document.getElementById("chat-toggle").classList.remove("active");
     });
-    chatCancel.addEventListener("click", () => activeChatController?.abort());
+    chatCancel.addEventListener("click", () => appState.activeChatController?.abort());
+
+export { closeAllOverlays };

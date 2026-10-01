@@ -1,7 +1,8 @@
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { CCGui } from "../gui-runtime.js";
+import { ccInitCrossRefLinks, ccLinkifyCrossRefs, ccRememberArticleSections } from "./15-cross-ref-links.js";
+import { copyPermalink, escapeHtml, exportSection, summarizeSection, toggleBookmark } from "./20-section-tools.js";
 // 10-core.js — core bootstrap: apiFetch wrapper, error banner, state, DOM refs, TOC, stats, welcome, section viewer.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // Wraps the native fetch() so every same-origin API call carries the key
     // the server injected into this page (see server.ts serveIndexHtml()).
     // Falls back to a bare fetch if the placeholder was never substituted
@@ -25,10 +26,6 @@
     // State
     let tocData = null;
     let activeGuid = null;
-    let sourceCoverageData = null;
-    let sourceCoverageRecords = [];
-    let sourceSelectedId = null;
-    const summaryCache = new Map(); // guid → { summary, model }
 
     // DOM refs
     const tocTree = document.getElementById("toc-tree");
@@ -37,16 +34,14 @@
     const searchResults = document.getElementById("search-results");
     const chatPanel = document.getElementById("chat-panel");
     const chatMessages = document.getElementById("chat-messages");
-    const chatHistory = []; // multi-turn context sent with each chat request (bounded server-side)
     const chatInput = document.getElementById("chat-input");
     const chatCancel = document.getElementById("chat-cancel");
-    let activeChatController = null;
 
     // Init
     async function init() {
       // One delegated listener for citation links, installed before the first
       // render so a click on a link in the very first article is handled.
-      ccInitCrossRefLinks();
+      ccInitCrossRefLinks(loadSection);
       await loadToc();
       await loadStats();
     }
@@ -62,7 +57,7 @@
         tocTree.dataset.state = "ready";
       } catch (e) {
         tocTree.dataset.state = "unavailable";
-        tocTree.innerHTML = '<div style="padding:16px;color:var(--text-secondary)">Could not load the table of contents. Run the scraper first (bun run scrape).</div>';
+        CCGui.render(tocTree, '<div style="padding:16px;color:var(--text-secondary)">Could not load the table of contents. Run the scraper first (bun run scrape).</div>');
       } finally { tocTree.setAttribute("aria-busy", "false"); }
     }
 
@@ -118,19 +113,24 @@
       } catch { }
     }
 
-    async function loadWelcomeAnalytics() {
-      const target = document.getElementById('welcome-analytics');
-      if (!target) return;
-      try {
-        const response = await apiFetch('/api/analytics/overview');
-        if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-        const overview = await response.json();
+    async function loadWelcomeAnalytics() { return runReaderTask("welcome-analytics", async signal => {
+    const target = document.getElementById('welcome-analytics');
+    if (!target)
+        return;
+    try {
+        const response = await readerAwait(readerFetch(apiFetch, signal, '/api/analytics/overview'), signal);
+        if (!response.ok)
+            throw new Error(`${response.status} ${response.statusText}`);
+        const overview = await readerAwait(response.json(), signal);
         const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 4) : [];
-        target.innerHTML = `<strong>${escapeHtml(overview.headline || 'Current analytical signal')}</strong><div style="margin-top:6px">${escapeHtml(overview.summary || '')}</div><div style="margin-top:8px;font-size:11px;color:var(--text-secondary)">${escapeHtml(overview.llm?.status === 'ok' ? `AI summary · ${overview.llm.provider}/${overview.llm.model}` : `Computed summary · AI provider ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)}</li>`).join('')}</ul>` : ''}`;
-      } catch (error) {
-        target.innerHTML = `<strong>Analytical overview unavailable.</strong><div style="margin-top:6px;color:var(--text-secondary)">${escapeHtml(error.message || error)}</div>`;
-      }
+        CCGui.render(target, `<strong>${escapeHtml(overview.headline || 'Current analytical signal')}</strong><div style="margin-top:6px">${escapeHtml(overview.summary || '')}</div><div style="margin-top:8px;font-size:11px;color:var(--text-secondary)">${escapeHtml(overview.llm?.status === 'ok' ? `AI summary · ${overview.llm.provider}/${overview.llm.model}` : `Computed summary · AI provider ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)}</li>`).join('')}</ul>` : ''}`);
     }
+    catch (error) {
+        if (signal.aborted)
+            return;
+        CCGui.render(target, `<strong>Analytical overview unavailable.</strong><div style="margin-top:6px;color:var(--text-secondary)">${escapeHtml(error.message || error)}</div>`);
+    }
+}); }
 
     function renderToc(node, container, depth) {
       if (!node) return;
@@ -212,25 +212,23 @@
       container.appendChild(div);
     }
 
-    async function loadArticle(guid, node) {
-      try {
-        const resp = await apiFetch(`/api/article/${guid}`);
-        if (!resp.ok) throw new Error("Not found");
-        const article = await resp.json();
+    async function loadArticle(guid, node) { return runReaderTask("content", async signal => {
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, `/api/article/${guid}`), signal);
+        if (!resp.ok)
+            throw new Error("Not found");
+        const article = await readerAwait(resp.json(), signal);
         activeGuid = guid;
-
         // Teach the cross-reference linker which section numbers exist. A
         // citation is only linked once the client has actually seen its target,
         // so a reader never clicks a link to a section that is not there.
         ccRememberArticleSections(article);
-
         let html = `<div class="section-header">
           <h2>${escapeHtml(article.number ? article.number + ": " : "")}${escapeHtml(article.title)}</h2>
         </div>`;
-
         html += '<div class="article-sections">';
         for (const s of article.sections) {
-          html += `<div class="article-section" id="section-${s.guid}">
+            html += `<div class="article-section" id="section-${s.guid}">
             <h3>${escapeHtml(s.number)}: ${escapeHtml(s.title)}</h3>
             <div class="section-text">${ccLinkifyCrossRefs(escapeHtml(s.text))}</div>
             ${s.history ? `<div class="section-history">${escapeHtml(s.history)}</div>` : ""}
@@ -239,17 +237,21 @@
           </div>`;
         }
         html += '</div>';
-
-        content.innerHTML = html;
-        content.scrollTop = 0;
-      } catch {
-        content.innerHTML = '<div class="content-placeholder">Article not found</div>';
-      }
+        CCGui.render(content, html);
+        content.scrollTop = 0; const heading = content.querySelector('h2'); if (heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(content, '<div class="content-placeholder">Article not found</div>');
+    }
+}); }
 
-    async function loadSection(guid, node) {
-      // Show loading skeleton
-      content.innerHTML = `
+    async function loadSection(guid, node) { return runReaderTask("content", async signal => {
+    // Show loading skeleton
+    CCGui.render(
+// Show loading skeleton
+content, `
         <div class="content-placeholder">
           <div style="padding:40px 24px;">
             <div style="height:24px;background:var(--bg-secondary);border-radius:6px;margin-bottom:12px;width:60%;animation:pulse 1.5s infinite;"></div>
@@ -258,18 +260,17 @@
             <div style="height:16px;background:var(--bg-secondary);border-radius:4px;margin-bottom:8px;width:98%;animation:pulse 1.5s infinite;"></div>
             <div style="height:16px;background:var(--bg-secondary);border-radius:4px;margin-bottom:8px;width:90%;animation:pulse 1.5s infinite;"></div>
           </div>
-        </div>`;
-      try {
-        const resp = await apiFetch(`/api/section/${guid}`);
-        if (!resp.ok) throw new Error("Not found");
-        const section = await resp.json();
+        </div>`);
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, `/api/section/${guid}`), signal);
+        if (!resp.ok)
+            throw new Error("Not found");
+        const section = await readerAwait(resp.json(), signal);
         activeGuid = guid;
-
         // Check if bookmarked
         const bookmarks = CCGui.storage.json("cc-bookmarks", []);
         const isBookmarked = bookmarks.some(b => b.guid === guid);
-
-        content.innerHTML = `
+        CCGui.render(content, `
           <div class="section-header">
             <div class="article-title">${escapeHtml(section.articleTitle || "")}</div>
             <h2>${escapeHtml(section.number)}: ${escapeHtml(section.title)}</h2>
@@ -285,12 +286,16 @@
             ${section.history ? `<div class="section-history">${escapeHtml(section.history)}</div>` : ""}
             <button class="summarize-btn" data-action="summarize" data-guid="${escapeHtml(guid)}" data-number="${escapeHtml(section.number)}" data-title="${escapeHtml(section.title)}">✨ Summarize</button>
             <div id="summary-${guid}"></div>
-          </div>`;
-        content.scrollTop = 0;
-      } catch {
-        content.innerHTML = '<div class="content-placeholder">Section not found</div>';
-      }
+            <p id="export-${guid}" role="status" aria-live="polite"></p>
+          </div>`);
+        content.scrollTop = 0; const heading = content.querySelector('h2'); if (heading) { heading.tabIndex = -1; heading.focus({preventScroll:true}); }
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(content, '<div class="content-placeholder">Section not found</div>');
+    }
+}); }
 
     content.addEventListener("click", event => {
       const button = event.target.closest("[data-action]");
@@ -303,3 +308,5 @@
       if (button.dataset.action === "bookmark") toggleBookmark(guid, button.dataset.number, button.dataset.title);
       if (button.dataset.action === "export") exportSection(guid);
     });
+
+export { apiFetch, chatCancel, chatInput, chatMessages, chatPanel, init, loadSection, searchInput, searchResults };

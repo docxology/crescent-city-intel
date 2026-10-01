@@ -1,7 +1,10 @@
 /** Own an argument-array child, its process group, pipes and terminal receipt. */
 import { spawn } from "node:child_process";
+import { currentRunSignal } from "./run_scope.js";
 export interface ChildResult { stdout: string; stderr: string; exitCode: number; status: "ok" | "failed" | "timeout" | "cancelled" | "output-limit" | "spawn-failed"; reaped: boolean; pid?: number }
 export async function runBoundedChild(argv: readonly string[], options: { timeoutMs?: number; maxBytes?: number; signal?: AbortSignal; cwd?: string } = {}): Promise<ChildResult> {
+  const parent = currentRunSignal();
+  if (parent) options = { ...options, signal: options.signal ? AbortSignal.any([parent, options.signal]) : parent };
   const timeoutMs = options.timeoutMs ?? 45_000; const maxBytes = options.maxBytes ?? 4_000_000;
   if (!argv.length || argv.some(argument => typeof argument !== "string" || argument.includes("\0")) || !Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 3_600_000 || !Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw new Error("Invalid bounded child invocation");
   options.signal?.throwIfAborted();

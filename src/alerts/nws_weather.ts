@@ -1,6 +1,9 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
+import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "../constants.js";
+export { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "../constants.js";
 /**
  * NWS Weather Alert Processing for Crescent City.
  * Monitors National Weather Service alerts for coastal flood, high wind, and storm warnings,
@@ -14,11 +17,6 @@ import { join } from 'path';
 import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from '../shared/source_health.js';
 
 const logger = createLogger('nws_weather_alert');
-
-// NWS API endpoint for active alerts in California (specifically for Northwest CA zone)
-// NB: `zone` and `region` are mutually exclusive on api.weather.gov and combining
-// them returns HTTP 400 — `zone=CAZ006` alone (Northwest CA coastal zone) is correct.
-const NWS_ALERTS_URL = 'https://api.weather.gov/alerts/active?zone=CAZ006';
 
 const CRESCENT_CITY_LAT = 41.7485;
 const CRESCENT_CITY_LNG = -124.2028;
@@ -64,7 +62,6 @@ function appendWeatherHistory(alert: any, severityLevel: string): void {
 }
 
 // Cache to prevent duplicate processing of the same alert (seeded from JSONL history)
-const processedAlerts = loadProcessedIds();
 
 /**
  * Interface for NWS alert properties
@@ -88,6 +85,8 @@ interface NWSAlertProperties {
   response: string;
   onset: string;
   parameters: Record<string, any>;
+  affectedZones?: string[];
+  geocode?: { UGC?: string[] };
   geometry?: {
     type: string;
     coordinates: number[][][] | number[][];
@@ -158,41 +157,36 @@ export function pointInPolygon(point: { lat: number; lng: number }, polygon: num
 /**
  * Check if an alert affects Crescent City area.
  *
- * NOTE: This keyword list is deliberately broader than noaa_tsunami.ts because NWS
- * weather alerts commonly use generic zone names ("coastal", "marine", "CAZ006")
- * rather than city-specific names. Tsunami alerts already pre-filter by event type
- * at the API level, so a tighter keyword set is sufficient there.
+ * Explicit forecast-zone membership takes precedence over prose. When membership
+ * is absent, use local place names or a polygon containing Crescent City.
  */
 export function isCrescentCityRelevant(alert: {
   areaDesc: string;
   description: string;
+  affectedZones?: string[];
+  geocode?: { UGC?: string[] };
   geometry?: {
     type: string;
     coordinates: number[][][] | number[][];
   } | null;
 }): boolean {
-  // First check by area description
-  const crescentCityKeywords = [
-    'crescent city',
-    'del norte',
-    'california coast',
-    'northern california',
-    'northwest california',
-    'caz006',
-    'ca',
-    'california',
-    'coastal',
-    'marine',
-  ];
-  
-  const areaDescLower = alert.areaDesc.toLowerCase();
-  const descriptionLower = alert.description.toLowerCase();
-  
-  if (crescentCityKeywords.some(keyword => 
-    areaDescLower.includes(keyword) || descriptionLower.includes(keyword)
-  )) {
-    return true;
+  const zones = new Set<string>();
+  for (const value of alert.affectedZones ?? []) {
+    try {
+      const url = new URL(value);
+      const match = url.pathname.match(/^\/zones\/forecast\/([A-Z]{2}Z\d{3})\/?$/i);
+      if (url.origin === 'https://api.weather.gov' && !url.username && !url.password && !url.search && !url.hash && match) zones.add(match[1]!.toUpperCase());
+    } catch { /* malformed references do not establish membership */ }
   }
+  for (const value of alert.geocode?.UGC ?? []) {
+    if (/^[A-Z]{2}Z\d{3}$/i.test(value)) zones.add(value.toUpperCase());
+  }
+  if (zones.size > 0) return zones.has(NWS_FORECAST_ZONE);
+
+  // Zone codes in areaDesc are exact identifiers, not a generic "CA" match.
+  const namedZones = alert.areaDesc.match(/\b[A-Z]{2}Z\d{3}\b/gi) ?? [];
+  if (namedZones.length > 0) return namedZones.some(zone => zone.toUpperCase() === NWS_FORECAST_ZONE);
+  if (/\b(?:crescent city|del norte)\b/i.test(`${alert.areaDesc}\n${alert.description}`)) return true;
   
   // If we have geometry data, do a more precise check
   if (alert.geometry && alert.geometry.coordinates) {
@@ -270,7 +264,7 @@ async function saveAlertToFile(alert: any, severityLevel: 'advisory' | 'watch' |
     severityLevel: severityLevel,
   };
 
-  await writeFile(filename, JSON.stringify(alertData, null, 2));
+  await writeJsonAtomic(filename, alertData);
   logger.info(`Saved NWS weather alert to ${filename}`);
 }
 
@@ -278,7 +272,9 @@ async function saveAlertToFile(alert: any, severityLevel: 'advisory' | 'watch' |
  * Main NWS weather alert monitoring function.
  * Exported for use by thin orchestrator scripts.
  */
-export async function monitorNWSWeatherAlerts(): Promise<void> {
+export async function monitorNWSWeatherAlerts(options: ProducerOptions = {}): Promise<void> { return withProducerScope("alert-nws-weather", options, () => monitorNWSWeatherAlertsInScope()); }
+async function monitorNWSWeatherAlertsInScope(): Promise<void> {
+  const processedAlerts = loadProcessedIds();
   logger.info('=== Starting NWS Weather Alert Monitoring ===');
   
   try {
@@ -296,7 +292,7 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
     const data: NWSAlertResponse = await response.json();
     
     // Filter for active alerts and extract relevant information
-    const alerts = data.features
+    const activeAlerts = data.features
       .filter(feature => 
         feature.properties.status === 'Actual' && 
         feature.properties.msgType === 'Alert'
@@ -320,8 +316,18 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
         response: feature.properties.response,
         onset: feature.properties.onset,
         parameters: feature.properties.parameters,
+        affectedZones: feature.properties.affectedZones,
+        geocode: feature.properties.geocode,
         geometry: feature.geometry
       }));
+    const alerts = activeAlerts.filter(isCrescentCityRelevant);
+    const geographicMismatchCount = activeAlerts.length - alerts.length;
+    if (geographicMismatchCount > 0 && alerts.length === 0) {
+      throw new Error(`NWS returned ${geographicMismatchCount} active alert(s) without established ${NWS_FORECAST_ZONE} coverage`);
+    }
+    if (geographicMismatchCount > 0) logger.warn('Excluded NWS alerts outside established Coastal Del Norte coverage', {
+      forecastZone: NWS_FORECAST_ZONE, excludedCount: geographicMismatchCount,
+    });
     
     logger.info(`Found ${alerts.length} active NWS alerts`, { count: alerts.length });
     
@@ -331,17 +337,6 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
     for (const alert of alerts) {
       // Skip if we've already processed this alert
       if (processedAlerts.has(alert.id)) {
-        continue;
-      }
-      
-      // Check if alert is relevant to Crescent City
-      if (!isCrescentCityRelevant(alert)) {
-        logger.info(`Skipping non-relevant NWS alert: ${alert.headline}`, {
-          area: alert.areaDesc,
-          event: alert.event,
-          severity: alert.severity
-        });
-        processedAlerts.add(alert.id); // Still mark as processed to avoid re-checking
         continue;
       }
       
@@ -405,7 +400,7 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
       ...a,
       severityLevel: getAlertSeverityLevel(a.severity, a.certainty, a.urgency),
       // Del Norte fire-weather (Red Flag Warning/Watch) flows through the same
-      // CAZ006 zone feed; flag it explicitly so dashboards/reports can surface
+      // current Coastal Del Norte zone feed; flag it so dashboards/reports can surface
       // it without a separate monitor.
       isRedFlag: /red\s*flag/i.test(a.event ?? ''),
     }));
@@ -424,9 +419,11 @@ export async function monitorNWSWeatherAlerts(): Promise<void> {
         ? `${watchCount} active NWS Watch(es) for Del Norte coastal zone`
         : advisoryOnly > 0
           ? `${advisoryOnly} active NWS Advisory(ies) for Del Norte coastal zone`
-          : 'No active NWS alerts for the Del Norte coastal zone (CAZ006)';
+          : `No active NWS alerts for the Del Norte coastal zone (${NWS_FORECAST_ZONE})`;
     await writeJsonAtomic(join(HISTORY_DIR(), 'current.json'), {
       fetchedAt: new Date().toISOString(),
+      forecastZone: NWS_FORECAST_ZONE,
+      geographicMismatchCount,
       alerts: enrichedAlerts,
       redFlagCount,
       level,

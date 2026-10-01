@@ -6,6 +6,7 @@ import { outputRoot } from "../shared/paths.js";
 import { writeJsonAtomic } from "../shared/source_health.js";
 import { withFileLease } from "../shared/storage.js";
 import { computeSha256 } from "../utils.js";
+import { boundedHttpFetch, waitWithSignal, currentTransportSignal, withTransportScope } from "../shared/transport.js";
 const log = createLogger("alert-webhook");
 export function webhookUrl(): string { return (process.env.ALERT_WEBHOOK_URL ?? "").trim(); }
 export function isWebhookConfigured(): boolean { return webhookUrl().length > 0; }
@@ -19,13 +20,14 @@ export async function sendWebhook(url: string, payload: unknown, timeoutMs = 500
   if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) throw new Error("Invalid webhook destination");
   const body = JSON.stringify(payload);
   if (body.length > 16_000) throw new Error("Webhook payload exceeds its limit");
-  const response = await fetch(target, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/json" }, body, signal: AbortSignal.timeout(Math.max(1, Math.min(30_000, timeoutMs))) });
+  const response = await boundedHttpFetch(target.toString(), { method: "POST", maxRedirects: 0, maxBytes: 64_000, headers: { "Content-Type": "application/json" }, body, timeoutMs: Math.max(1, Math.min(30_000, timeoutMs)) });
   await response.body?.cancel();
   return { ok: response.ok, status: response.status };
 }
 /** Never throws; a failed POST never consumes the transition's dedupe receipt. */
-export async function maybeSendSeverityWebhook(report: { level?: string; reason?: string; assessedAt?: string }): Promise<void> {
+export async function maybeSendSeverityWebhook(report: { level?: string; reason?: string; assessedAt?: string }, fixture?: { origin: string }): Promise<void> {
   const url = webhookUrl(); if (!url) return;
+  if (fixture) return withTransportScope({ fixture: { origin: fixture.origin, allowedOrigins: [new URL(url).origin] } }, () => maybeSendSeverityWebhook(report));
   try {
     const statePath = join(outputRoot(), "state", "alert-webhook-level.json");
     await withFileLease(`${statePath}.lock`, async () => {
@@ -45,9 +47,9 @@ export async function maybeSendSeverityWebhook(report: { level?: string; reason?
           }
           if (result.status < 500 && result.status !== 429) break;
         } catch { /* bounded transport failure remains retryable */ }
-        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 100 * (2 ** attempt)));
+        if (attempt < 2) await waitWithSignal(100 * (2 ** attempt), currentTransportSignal() ?? new AbortController().signal);
       }
       log.warn("Severity webhook not accepted; transition retained for retry");
-    }, { waitMs: 1000 });
+    }, { waitMs: 1000, signal: currentTransportSignal() });
   } catch { log.warn("Severity webhook could not be completed; retry remains eligible"); }
 }

@@ -1,7 +1,11 @@
+import { CCGui } from "../gui-runtime.js";
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { closeAllOverlays } from "./40-overlays.js";
+import { loadAnalytics } from "./70-analytics.js";
+import { escapeHtmlAttr, loadAlertTimeline } from "./110-feeds.js";
+import { escapeHtml } from "./20-section-tools.js";
+import { apiFetch } from "./10-core.js";
 // 60-alerts.js — analytics-toggle wiring, alert trends/heatmap/correlations, alerts dashboard.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // ─── Analytics ─────────────────────────────────────────
     const TITLE_COLORS = [
       '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db',
@@ -207,7 +211,7 @@
       const select = document.getElementById('alert-trend-type');
       if (!alertTrendViewModel || !root || !select) return;
       if (!select.options.length) {
-        select.innerHTML = ALERT_TREND_TYPES.map(type => `<option value="${escapeHtmlAttr(type)}">${ALERT_TREND_ICONS[type]} ${escapeHtml(type)}</option>`).join('');
+        CCGui.render(select, ALERT_TREND_TYPES.map(type => `<option value="${escapeHtmlAttr(type)}">${ALERT_TREND_ICONS[type]} ${escapeHtml(type)}</option>`).join(''));
       }
       const type = ALERT_TREND_TYPES.includes(selectedType) ? selectedType : (select.value || 'tsunami');
       select.value = type;
@@ -249,7 +253,7 @@
         : '';
       const historyTotal = Number.isFinite(alertTrendFetchMeta?.reportedHistoryTotal) ? alertTrendFetchMeta.reportedHistoryTotal : 0;
 
-      root.innerHTML = `
+      CCGui.render(root, `
         <div class="alert-trend-summary">
           <span class="alert-state-chip" data-state="${escapeHtmlAttr(row.displayState)}">${escapeHtml(statusText)}</span>
           <strong>${ALERT_TREND_ICONS[row.type]} ${escapeHtml(row.source)}</strong> · ${row.windowEvents} recorded event${row.windowEvents === 1 ? '' : 's'} from ${escapeHtml(alertTrendViewModel.startDate)} through ${escapeHtml(alertTrendViewModel.endDate)} UTC · ${escapeHtml(healthText)} · ${escapeHtml(conditionText)}. ${escapeHtml(mostRecent)}
@@ -263,90 +267,95 @@
             <tbody>${heatRows}</tbody>
           </table>
         </div>
-        <p class="alert-trend-note">Bounded union of the latest timeline (maximum 1,000 entries) and at most ${ALERT_TREND_HISTORY_LIMIT} history entries per type; exact overlaps are deduplicated and rendering is capped at ${ALERT_TREND_EVENT_LIMIT.toLocaleString()} records. Processed ${alertTrendViewModel.processedEvents.toLocaleString()} unique sampled records (${alertTrendViewModel.duplicateEvents.toLocaleString()} overlaps, ${alertTrendViewModel.invalidEvents.toLocaleString()} invalid, ${alertTrendViewModel.truncatedEvents.toLocaleString()} truncated); the per-type endpoints currently expose ${historyTotal.toLocaleString()} records before paging.${fetchWarning}</p>`;
+        <p class="alert-trend-note">Bounded union of the latest timeline (maximum 1,000 entries) and at most ${ALERT_TREND_HISTORY_LIMIT} history entries per type; exact overlaps are deduplicated and rendering is capped at ${ALERT_TREND_EVENT_LIMIT.toLocaleString()} records. Processed ${alertTrendViewModel.processedEvents.toLocaleString()} unique sampled records (${alertTrendViewModel.duplicateEvents.toLocaleString()} overlaps, ${alertTrendViewModel.invalidEvents.toLocaleString()} invalid, ${alertTrendViewModel.truncatedEvents.toLocaleString()} truncated); the per-type endpoints currently expose ${historyTotal.toLocaleString()} records before paging.${fetchWarning}</p>`);
       root.setAttribute('aria-busy', 'false');
     }
 
-    async function loadAlertTrends() {
-      const root = document.getElementById('alert-trends-content');
-      root.setAttribute('aria-busy', 'true');
-      const failures = [];
-      async function boundedJson(path, label) {
+    async function loadAlertTrends() { return runReaderTask("alert-trends-content", async signal => {
+    const root = document.getElementById('alert-trends-content');
+    root.setAttribute('aria-busy', 'true');
+    const failures = [];
+    async function boundedJson(path, label) {
         try {
-          const response = await apiFetch(path);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return await response.json();
-        } catch (error) {
-          failures.push(`${label}: ${alertTrendText(error?.message || error, 100) || 'request failed'}`);
-          return null;
+            const response = await readerAwait(readerFetch(apiFetch, signal, path), signal);
+            if (!response.ok)
+                throw new Error(`HTTP ${response.status}`);
+            return await readerAwait(response.json(), signal);
         }
-      }
-
-      const [timeline, health, monitor, histories] = await Promise.all([
+        catch (error) {
+            if (signal.aborted)
+                return;
+            failures.push(`${label}: ${alertTrendText(error?.message || error, 100) || 'request failed'}`);
+            return null;
+        }
+    }
+    const [timeline, health, monitor, histories] = await readerAwait(Promise.all([
         boundedJson('/api/alerts/timeline', 'timeline'),
         boundedJson('/api/health', 'source health'),
         boundedJson('/api/monitor/alerts', 'current monitors'),
-        Promise.all(ALERT_TREND_TYPES.map(type =>
-          boundedJson(`/api/alerts/${encodeURIComponent(type)}/history?limit=${ALERT_TREND_HISTORY_LIMIT}`, `${type} history`))),
-      ]);
-      const events = Array.isArray(timeline?.timeline) ? [...timeline.timeline] : [];
-      let reportedHistoryTotal = 0;
-      histories.forEach((history, index) => {
-        if (!history) return;
+        Promise.all(ALERT_TREND_TYPES.map(type => boundedJson(`/api/alerts/${encodeURIComponent(type)}/history?limit=${ALERT_TREND_HISTORY_LIMIT}`, `${type} history`))),
+    ]), signal);
+    const events = Array.isArray(timeline?.timeline) ? [...timeline.timeline] : [];
+    let reportedHistoryTotal = 0;
+    histories.forEach((history, index) => {
+        if (!history)
+            return;
         const type = ALERT_TREND_TYPES[index];
-        if (Number.isFinite(history.total) && history.total >= 0) reportedHistoryTotal += Math.floor(history.total);
+        if (Number.isFinite(history.total) && history.total >= 0)
+            reportedHistoryTotal += Math.floor(history.total);
         for (const value of Array.isArray(history.alerts) ? history.alerts : []) {
-          events.push(value && typeof value === 'object' && !value.type ? { ...value, type } : value);
+            events.push(value && typeof value === 'object' && !value.type ? { ...value, type } : value);
         }
-      });
-
-      alertTrendViewModel = buildAlertTrendViewClient(
-        events,
-        Array.isArray(health?.alertSources) ? health.alertSources : monitor?.alerts?.sourceHealth?.sources,
-        alertTrendCurrentLevels(monitor),
-      );
-      alertTrendFetchMeta = { failures, reportedHistoryTotal };
-      renderAlertTrends(document.getElementById('alert-trend-type').value || 'tsunami');
-    }
+    });
+    alertTrendViewModel = buildAlertTrendViewClient(events, Array.isArray(health?.alertSources) ? health.alertSources : monitor?.alerts?.sourceHealth?.sources, alertTrendCurrentLevels(monitor));
+    alertTrendFetchMeta = { failures, reportedHistoryTotal };
+    renderAlertTrends(document.getElementById('alert-trend-type').value || 'tsunami');
+}); }
 
     document.getElementById('alert-trend-type').addEventListener('change', event => renderAlertTrends(event.target.value));
 
     // ─── Cross-monitor correlations ──────────────────────────────────
-    async function loadAlertCorrelations() {
-      const root = document.getElementById('alert-correlations-content');
-      if (!root) return;
-      root.setAttribute('aria-busy', 'true');
-      try {
-        const data = await apiFetch('/api/alerts/correlation').then(r => r.json());
+    async function loadAlertCorrelations() { return runReaderTask("alert-correlations-content", async signal => {
+    const root = document.getElementById('alert-correlations-content');
+    if (!root)
+        return;
+    root.setAttribute('aria-busy', 'true');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, '/api/alerts/correlation').then(r => r.json()), signal);
         const pairs = Array.isArray(data.pairs) ? data.pairs : [];
         if (pairs.length === 0) {
-          root.innerHTML = '<p style="color:var(--text-muted, #888);">No correlation pairs are being tracked yet.</p>';
-        } else {
-          const rows = pairs.map(p => {
-            const observed = `${p.observedPairs} pair${p.observedPairs === 1 ? '' : 's'}`;
-            const lift = p.lift === null ? '–' : `${p.lift}× more often than chance`;
-            const lag = p.medianLagMinutes === null ? '–' : `${p.medianLagMinutes} min median lag`;
-            const cadence = p.cadenceSensitive ? ' · <span style="color:#b45309">cadence-sensitive</span>' : '';
-            const sample = p.samples && p.samples[0]
-              ? `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.15rem;">e.g. ${escapeHtml(p.samples[0].aDescription)} then ${escapeHtml(p.samples[0].bDescription)} (${p.samples[0].lagMinutes} min)</div>`
-              : '';
-            return `<div style="padding:0.5rem; border:1px solid var(--border, #333); border-radius:6px; background:var(--bg-primary, #111); margin-bottom:0.4rem;">
+            CCGui.render(root, '<p style="color:var(--text-muted, #888);">No correlation pairs are being tracked yet.</p>');
+        }
+        else {
+            const rows = pairs.map(p => {
+                const observed = `${p.observedPairs} pair${p.observedPairs === 1 ? '' : 's'}`;
+                const lift = p.lift === null ? '–' : `${p.lift}× more often than chance`;
+                const lag = p.medianLagMinutes === null ? '–' : `${p.medianLagMinutes} min median lag`;
+                const cadence = p.cadenceSensitive ? ' · <span style="color:#b45309">cadence-sensitive</span>' : '';
+                const sample = p.samples && p.samples[0]
+                    ? `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.15rem;">e.g. ${escapeHtml(p.samples[0].aDescription)} then ${escapeHtml(p.samples[0].bDescription)} (${p.samples[0].lagMinutes} min)</div>`
+                    : '';
+                return `<div style="padding:0.5rem; border:1px solid var(--border, #333); border-radius:6px; background:var(--bg-primary, #111); margin-bottom:0.4rem;">
 <strong style="font-size:0.85rem;">${escapeHtml(p.typeA)} → ${escapeHtml(p.typeB)}</strong> <span style="color:var(--text-muted, #888); font-size:0.75rem;">window ${p.windowMinutes} min</span>
 <div style="font-size:0.8rem;">${observed} · ${lift} · ${lag}${cadence}</div>
 ${sample}
 </div>`;
-          }).join('');
-          const notes = Array.isArray(data.notes) && data.notes.length
-            ? `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.4rem;">${data.notes.map(n => escapeHtml(n)).join(' ')}</div>`
-            : '';
-          root.innerHTML = rows + notes;
+            }).join('');
+            const notes = Array.isArray(data.notes) && data.notes.length
+                ? `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.4rem;">${data.notes.map(n => escapeHtml(n)).join(' ')}</div>`
+                : '';
+            CCGui.render(root, rows + notes);
         }
-      } catch (err) {
-        root.innerHTML = '<p style="color:#b45309;">Correlations unavailable: ' + escapeHtml(String(err && err.message || err)) + '</p>';
-      } finally {
-        root.setAttribute('aria-busy', 'false');
-      }
     }
+    catch (err) {
+        if (signal.aborted)
+            return;
+        CCGui.render(root, '<p style="color:#b45309;">Correlations unavailable: ' + escapeHtml(String(err && err.message || err)) + '</p>');
+    }
+    finally {
+        root.setAttribute('aria-busy', 'false');
+    }
+}); }
 
     // ─── Alerts Dashboard (all monitor types + timeline) ─────────
     document.getElementById('alerts-toggle').addEventListener('click', () => {
@@ -366,78 +375,78 @@ ${sample}
       }
     });
 
-    async function loadAlertsDashboard() {
-      const container = document.getElementById('alerts-content');
-      try {
+    async function loadAlertsDashboard() { return runReaderTask("alerts-content", async signal => {
+    const container = document.getElementById('alerts-content');
+    try {
         // Fetch composite severity + all monitor data
-        const [alertsResp, timelineResp] = await Promise.all([
-          apiFetch('/api/monitor/alerts'),
-          apiFetch('/api/alerts/timeline'),
-        ]);
-        const alertsData = await alertsResp.json();
-        const timelineData = await timelineResp.ok ? await timelineResp.json() : null;
-
+        const [alertsResp, timelineResp] = await readerAwait(Promise.all([
+            readerFetch(apiFetch, signal, '/api/monitor/alerts'),
+            readerFetch(apiFetch, signal, '/api/alerts/timeline'),
+        ]), signal);
+        const alertsData = await readerAwait(alertsResp.json(), signal);
+        const timelineData = await readerAwait(timelineResp.ok, signal) ? await readerAwait(timelineResp.json(), signal) : null;
         let html = '';
-
         // Composite severity banner
         const composite = alertsData.alerts?.composite;
         if (composite) {
-          const levelColors = { CALM: '#22c55e', WATCH: '#eab308', WARNING: '#f97316', EMERGENCY: '#ef4444' };
-          const compositeLevel = alertTrendText(composite.level, 40).toUpperCase() || 'UNKNOWN';
-          const color = levelColors[compositeLevel] || '#888';
-          html += `<div style="padding:0.75rem; border-radius:8px; background:${color}22; border:1px solid ${color}; margin-bottom:0.5rem;">`;
-          html += `<strong style="color:${color}; font-size:1.1rem;">${escapeHtml(compositeLevel)}</strong>`;
-          html += `<span style="margin-left:0.5rem; color:var(--text-muted, #888);">${escapeHtml(alertTrendText(composite.reason, 300) || 'No reason recorded')}</span>`;
-          html += `<span style="float:right; font-size:0.8rem; color:var(--text-muted, #888);">${escapeHtml(alertTrendTimestamp(composite.assessedAt))}</span>`;
-          html += '</div>';
+            const levelColors = { CALM: '#22c55e', WATCH: '#eab308', WARNING: '#f97316', EMERGENCY: '#ef4444' };
+            const compositeLevel = alertTrendText(composite.level, 40).toUpperCase() || 'UNKNOWN';
+            const color = levelColors[compositeLevel] || '#888';
+            html += `<div style="padding:0.75rem; border-radius:8px; background:${color}22; border:1px solid ${color}; margin-bottom:0.5rem;">`;
+            html += `<strong style="color:${color}; font-size:1.1rem;">${escapeHtml(compositeLevel)}</strong>`;
+            html += `<span style="margin-left:0.5rem; color:var(--text-muted, #888);">${escapeHtml(alertTrendText(composite.reason, 300) || 'No reason recorded')}</span>`;
+            html += `<span style="float:right; font-size:0.8rem; color:var(--text-muted, #888);">${escapeHtml(alertTrendTimestamp(composite.assessedAt))}</span>`;
+            html += '</div>';
         }
-
         // Per-monitor grid
         const monitorOrder = ['tsunami', 'earthquake', 'weather', 'tides', 'fishing', 'airquality', 'wildfire', 'marine', 'marinezone', 'drought', 'psps', 'smoke', 'roads', 'schools', 'uscg', 'permits', 'dredging', 'fuel', 'pacfin', 'ais'];
         const monitorIcons = { tsunami: '🌊', earthquake: '🌍', weather: '⛈️', tides: '🕐', fishing: '🦀', airquality: '🌫️', wildfire: '🔥', marine: '⚓', marinezone: '⛵', drought: '🏜️', psps: '⚡', smoke: '💨', roads: '🛣️', schools: '🏫', uscg: '📻', permits: '📋', dredging: '🏗️', fuel: '⛽', pacfin: '🐟', ais: '🚢' };
-
         html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0.5rem; margin-bottom:1rem;">';
         for (const type of monitorOrder) {
-          const data = alertsData.alerts?.[type];
-          const icon = monitorIcons[type] || '📊';
-          if (data) {
-            const summary = alertTrendText(data.summary, 80) || alertTrendText(data.level, 40) || 'Data available';
-            const level = (alertTrendText(data.level, 40) || (data.overallStatus ? 'CHECK' : 'OK')).toUpperCase();
-            const levelColors = { CALM: '#22c55e', WATCH: '#eab308', WARNING: '#f97316', EMERGENCY: '#ef4444', GOOD: '#22c55e', ADVISORY: '#eab308', NONE: '#22c55e' };
-            const color = levelColors[level] || '#888';
-            html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333);">`;
-            html += `<div style="font-size:0.9rem;">${icon} <strong>${escapeHtml(type)}</strong></div>`;
-            html += `<div style="font-size:0.8rem; color:${color};">${escapeHtml(level)}</div>`;
-            html += `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.25rem;">${escapeHtml(summary)}</div>`;
-            html += '</div>';
-          } else {
-            html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333); opacity:0.5;">`;
-            html += `<div style="font-size:0.9rem;">${icon} <strong>${type}</strong></div>`;
-            html += `<div style="font-size:0.75rem; color:var(--text-muted, #888);">No data yet</div>`;
-            html += '</div>';
-          }
+            const data = alertsData.alerts?.[type];
+            const icon = monitorIcons[type] || '📊';
+            if (data) {
+                const summary = alertTrendText(data.summary, 80) || alertTrendText(data.level, 40) || 'Data available';
+                const level = (alertTrendText(data.level, 40) || (data.overallStatus ? 'CHECK' : 'OK')).toUpperCase();
+                const levelColors = { CALM: '#22c55e', WATCH: '#eab308', WARNING: '#f97316', EMERGENCY: '#ef4444', GOOD: '#22c55e', ADVISORY: '#eab308', NONE: '#22c55e' };
+                const color = levelColors[level] || '#888';
+                html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333);">`;
+                html += `<div style="font-size:0.9rem;">${icon} <strong>${escapeHtml(type)}</strong></div>`;
+                html += `<div style="font-size:0.8rem; color:${color};">${escapeHtml(level)}</div>`;
+                html += `<div style="font-size:0.75rem; color:var(--text-muted, #888); margin-top:0.25rem;">${escapeHtml(summary)}</div>`;
+                html += '</div>';
+            }
+            else {
+                html += `<div style="padding:0.5rem; border-radius:6px; background:var(--bg-primary, #111); border:1px solid var(--border, #333); opacity:0.5;">`;
+                html += `<div style="font-size:0.9rem;">${icon} <strong>${type}</strong></div>`;
+                html += `<div style="font-size:0.75rem; color:var(--text-muted, #888);">No data yet</div>`;
+                html += '</div>';
+            }
         }
         html += '</div>';
-
         // Timeline summary
         if (timelineData && timelineData.totalEvents > 0) {
-          const totalEvents = Number.isFinite(timelineData.totalEvents) ? Math.max(0, Math.floor(timelineData.totalEvents)) : 0;
-          html += `<div style="margin-top:0.5rem;">`;
-          html += `<strong>📊 Alert Timeline:</strong> ${totalEvents} total events`;
-          if (timelineData.mostActiveType) {
-            html += ` · Most active: <strong>${escapeHtml(alertTrendText(timelineData.mostActiveType, 40))}</strong>`;
-          }
-          if (timelineData.mostRecentAlert) {
-            const recent = timelineData.mostRecentAlert;
-            const recentDescription = alertTrendText(recent.description, 80) || 'No description';
-            html += `<div style="font-size:0.8rem; color:var(--text-muted, #888); margin-top:0.25rem;">`;
-            html += `Most recent: [${escapeHtml(alertTrendText(recent.type, 40) || 'unknown')}] ${escapeHtml(recentDescription)} — ${escapeHtml(alertTrendTimestamp(recent.timestamp))}</div>`;
-          }
-          html += '</div>';
+            const totalEvents = Number.isFinite(timelineData.totalEvents) ? Math.max(0, Math.floor(timelineData.totalEvents)) : 0;
+            html += `<div style="margin-top:0.5rem;">`;
+            html += `<strong>📊 Alert Timeline:</strong> ${totalEvents} total events`;
+            if (timelineData.mostActiveType) {
+                html += ` · Most active: <strong>${escapeHtml(alertTrendText(timelineData.mostActiveType, 40))}</strong>`;
+            }
+            if (timelineData.mostRecentAlert) {
+                const recent = timelineData.mostRecentAlert;
+                const recentDescription = alertTrendText(recent.description, 80) || 'No description';
+                html += `<div style="font-size:0.8rem; color:var(--text-muted, #888); margin-top:0.25rem;">`;
+                html += `Most recent: [${escapeHtml(alertTrendText(recent.type, 40) || 'unknown')}] ${escapeHtml(recentDescription)} — ${escapeHtml(alertTrendTimestamp(recent.timestamp))}</div>`;
+            }
+            html += '</div>';
         }
-
-        container.innerHTML = html || '<p style="color:var(--text-muted, #888);">No alert data available yet. Run: bun run alerts</p>';
-      } catch (err) {
-        container.innerHTML = '<p style="color:#f97316;">Could not load alerts. Is the server running?</p>';
-      }
+        CCGui.render(container, html || '<p style="color:var(--text-muted, #888);">No alert data available yet. Run: bun run alerts</p>');
     }
+    catch (err) {
+        if (signal.aborted)
+            return;
+        CCGui.render(container, '<p style="color:#f97316;">Could not load alerts. Is the server running?</p>');
+    }
+}); }
+
+export { alertTrendText, alertTrendTimestamp, tabLoaded };

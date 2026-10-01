@@ -22,9 +22,12 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import * as cheerio from "cheerio";
 import { outputRoot } from "./shared/paths.js";
+import { withProducerScope, type ProducerOptions } from "./shared/run_scope.js";
+import { writeJsonAtomic } from "./shared/source_health.js";
 import { boundedHttpFetch, type TransportOptions } from "./shared/transport.js";
 import { classify, extractTimeNote as sanitizeTimeNote, MAX_SOURCE_LINKS, parseEventDate, isCivilDate } from "./events.js";
 import { createLogger } from "./logger.js";
+import { expandCalendar } from "./calendar_recurrence.js";
 
 const logger = createLogger("event-discovery");
 
@@ -76,6 +79,7 @@ export interface DiscoveredEvent {
   confidence: number;
   /** Feed publication timestamp is separate from the occurrence date. */
   publicationAt?: string | null;
+  calendarEvidence?: { uid: string | null; recurrenceId: string | null; timezone: string | null; timeBasis: "utc" | "tzid" | "floating" | "date-only" };
 }
 
 export interface DiscoveryArtifact {
@@ -101,6 +105,7 @@ export interface DiscoveryArtifact {
     error?: string;
     eventsFound: number;
     publishedItems?: Array<{ title: string; url: string; publicationAt: string | null }>;
+    calendarDiagnostics?: Array<{ uid: string | null; reason: string }>;
   }>;
   provenance: {
     groundRules: string[];
@@ -142,6 +147,12 @@ export async function fetchFeed(url: string, timeoutMs = FETCH_TIMEOUT_MS, trans
 // ---------------------------------------------------------------------------
 
 interface IcsVevent {
+  uid?: string;
+  recurrenceId?: string;
+  sequence?: number;
+  exdates?: string[];
+  rdates?: string[];
+  recurrenceIssues?: string[];
   summary: string;
   dtstart: string;
   location?: string;
@@ -177,11 +188,16 @@ export function parseIcsEvents(text: string): IcsVevent[] {
   const lines = unfoldIcsLines(text);
   const events: IcsVevent[] = [];
   let current: Partial<IcsVevent> | null = null;
+  let recurrenceZones: Array<string | undefined> = [];
   for (const line of lines) {
     const upper = line.toUpperCase();
-    if (upper.startsWith("BEGIN:VEVENT")) { current = {}; continue; }
+    if (upper.startsWith("BEGIN:VEVENT")) { current = {}; recurrenceZones = []; continue; }
     if (upper.startsWith("END:VEVENT")) {
-      if (current?.summary && current.dtstart) events.push(current as IcsVevent);
+      if (current?.status === "CANCELLED" && current.uid && current.recurrenceId) { current.summary ??= "Cancelled occurrence"; current.dtstart ??= current.recurrenceId; }
+      if (current?.summary && current.dtstart) {
+        if (recurrenceZones.some(zone => zone !== current!.tzid)) current.recurrenceIssues = ['Recurrence property TZID differs from DTSTART'];
+        events.push(current as IcsVevent);
+      }
       current = null;
       continue;
     }
@@ -192,6 +208,11 @@ export function parseIcsEvents(text: string): IcsVevent[] {
     const prop = property.split(";")[0];
     const value = line.slice(colonIndex + 1);
     switch (prop) {
+      case "UID": current.uid ??= value; break;
+      case "RECURRENCE-ID": current.recurrenceId = value; break;
+      case "SEQUENCE": current.sequence = /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : -1; break;
+      case "EXDATE": recurrenceZones.push(line.slice(0, colonIndex).match(/TZID=([^;:]+)/i)?.[1]); current.exdates = [...current.exdates ?? [], ...value.split(",")]; break;
+      case "RDATE": recurrenceZones.push(line.slice(0, colonIndex).match(/TZID=([^;:]+)/i)?.[1]); current.rdates = [...current.rdates ?? [], ...value.split(",")]; break;
       case "SUMMARY": current.summary ??= unescapeIcs(value); break;
       case "DTSTART": current.dtstart ??= value; current.tzid = line.slice(0, colonIndex).match(/TZID=([^;:]+)/i)?.[1]; break;
       case "RRULE": current.recurrence = value; break;
@@ -420,6 +441,7 @@ export interface SourceResult {
   error?: string;
   events: DiscoveredEvent[];
   publishedItems?: Array<{ title: string; url: string; publicationAt: string | null }>;
+  calendarDiagnostics?: Array<{ uid: string | null; reason: string }>;
 }
 
 /** Fetch + parse one source; degrades to an errored result instead of throwing. */
@@ -546,7 +568,7 @@ export function parseTriplicateCalendar(raw: string): TriplicateCalendarEvent[] 
 export async function discoverFromSource(
   source: EventSourceRecord,
   counters: DropCounters,
-  options: { fixtureOrigin?: string; resolveLlm?: (listingText: string) => Promise<LlmResolution | null> } = {},
+  options: { fixtureOrigin?: string; resolveLlm?: (listingText: string) => Promise<LlmResolution | null>; calendarWindow?: { startDay: string; endDay: string } } = {},
 ): Promise<SourceResult> {
   try {
     let transport: TransportOptions = {};
@@ -559,15 +581,16 @@ export async function discoverFromSource(
     const { text, httpStatus } = await fetchFeed(source.url, FETCH_TIMEOUT_MS, transport);
 
     if (source.type === "ics") {
-      const resolved: DiscoveredEvent[] = parseIcsEvents(text).filter(vevent => {
-        if (vevent.recurrence || vevent.status === "CANCELLED") { counters.droppedUnsupported = (counters.droppedUnsupported ?? 0) + 1; return false; }
-        return true;
-      }).map(vevent => ({
+      const now = new Date();
+      const window = options.calendarWindow ?? { startDay: new Date(+now - 30 * 86_400_000).toISOString().slice(0, 10), endDay: new Date(+now + 180 * 86_400_000).toISOString().slice(0, 10) };
+      const expansion = expandCalendar(parseIcsEvents(text), { ...window, maxOccurrences: MAX_EVENTS_PER_SOURCE });
+      counters.droppedUnsupported = (counters.droppedUnsupported ?? 0) + expansion.diagnostics.length;
+      const resolved: DiscoveredEvent[] = expansion.events.map(vevent => ({
         title: vevent.summary,
         kind: /meeting|agenda|commission|council/i.test(vevent.summary) ? "government-meeting" : "community-listing",
         dateStart: icsDateToIso(vevent.dtstart, vevent.tzid),
         dateAllDay: !/T\d{2}/.test(vevent.dtstart),
-        timeNote: icsTimeNote(vevent.dtstart, vevent.tzid),
+        timeNote: /T\d{2}/.test(vevent.dtstart) && !vevent.tzid && !/Z$/.test(vevent.dtstart) ? `${icsTimeNote(vevent.dtstart)} (floating; timezone unspecified)` : icsTimeNote(vevent.dtstart, vevent.tzid),
         location: vevent.location ?? null,
         organizer: source.name,
         description: vevent.description ?? "",
@@ -576,12 +599,13 @@ export async function discoverFromSource(
         sourceLinks: [vevent.url ?? source.url],
         extractionMethod: "markup",
         confidence: 0.95,
+        calendarEvidence: { uid: vevent.uid ?? null, recurrenceId: vevent.recurrenceId ?? null, timezone: /Z$/.test(vevent.dtstart) ? "UTC" : vevent.tzid ?? null, timeBasis: !/T\d{2}/.test(vevent.dtstart) ? "date-only" : /Z$/.test(vevent.dtstart) ? "utc" : vevent.tzid ? "tzid" : "floating" },
       }));
       const dated = resolved.filter(e => {
-        if (e.dateStart === null) { counters.droppedUndated += 1; return false; }
+        if (e.dateStart === null) { counters.droppedUndated += 1; expansion.diagnostics.push({ uid: e.calendarEvidence?.uid ?? null, reason: "Unknown timezone or invalid occurrence date" }); return false; }
         return true;
       });
-      return { status: "ok", httpStatus, events: dated.slice(0, MAX_EVENTS_PER_SOURCE) };
+      return { status: "ok", httpStatus, events: dated.slice(0, MAX_EVENTS_PER_SOURCE), calendarDiagnostics: expansion.diagnostics };
     }
 
     if (source.type === "rss") {
@@ -987,6 +1011,7 @@ export async function buildDiscoveryArtifact(
       error: result.error,
       eventsFound: result.events.length,
       ...("publishedItems" in result && result.publishedItems ? { publishedItems: result.publishedItems } : {}),
+      ...("calendarDiagnostics" in result && result.calendarDiagnostics ? { calendarDiagnostics: result.calendarDiagnostics } : {}),
     })),
     provenance: {
       groundRules: [
@@ -1002,13 +1027,16 @@ export async function buildDiscoveryArtifact(
 }
 
 // CLI entry: write the artifact to output/events/event_discovery.json
+export async function refreshEventDiscovery(options: ProducerOptions = {}): Promise<DiscoveryArtifact> {
+  return withProducerScope('event-discovery', options, async () => {
+    const artifact = await buildDiscoveryArtifact();
+    await writeJsonAtomic(join(outputRoot(), 'events', 'event_discovery.json'), artifact);
+    return artifact;
+  });
+}
 if (import.meta.main) {
-  buildDiscoveryArtifact()
+  refreshEventDiscovery()
     .then(async artifact => {
-      const { mkdir, writeFile } = await import("fs/promises");
-      const dir = join(outputRoot(), "events");
-      await mkdir(dir, { recursive: true });
-      await writeFile(join(dir, "event_discovery.json"), JSON.stringify(artifact, null, 2));
       logger.info(`discovery artifact written: ${artifact.counts.count} events (${artifact.counts.sourcesOk}/${artifact.counts.sourcesOk + artifact.counts.sourcesErrored} sources ok)`);
     })
     .catch((error: unknown) => {

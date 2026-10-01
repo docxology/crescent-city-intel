@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 /**
  * AIS vessel-traffic monitor (#20).
  *
@@ -231,7 +232,8 @@ function fetchAisFeed(url: string): Promise<string> {
 }
 
 /** Run the monitor: fetch, parse, watch-box filter, persist current.json + deduped history. */
-export async function runAisMonitor(): Promise<AisReport | null> {
+export async function runAisMonitor(options: ProducerOptions = {}): Promise<AisReport | null> { return withProducerScope("alert-ais", options, () => runAisMonitorInScope()); }
+async function runAisMonitorInScope(): Promise<AisReport | null> {
   const feedUrl = process.env[AIS_FEED_URL_ENV] || DIGITRAFFIC_AIS_URL;
   logger.info("Checking AIS vessel traffic (feed: " + redactUrl(feedUrl) + ")");
   lastAisError = undefined;

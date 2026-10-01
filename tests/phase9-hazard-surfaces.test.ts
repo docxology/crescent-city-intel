@@ -20,6 +20,7 @@ const html = readFileSync(join(process.cwd(), "src", "gui", "static", "index.htm
 const routes = readFileSync(join(process.cwd(), "src", "gui", "routes.ts"), "utf-8");
 const moduleDir = join(process.cwd(), "src", "gui", "static", "assets", "modules");
 const phase9 = readFileSync(join(moduleDir, "145-phase9-hazards.js"), "utf-8");
+const entry = readFileSync(join(moduleDir, "..", "gui-app.js"), "utf-8");
 const openapi = readFileSync(join(process.cwd(), "openapi.yaml"), "utf-8");
 
 describe("string contracts: Phase 9 SPA surfaces", () => {
@@ -31,13 +32,14 @@ describe("string contracts: Phase 9 SPA surfaces", () => {
     expect(html).toContain('id="annotation-place-indicator"');
   });
 
-  test("index.html loads the phase 9 module after the alerts module", () => {
-    expect(html).toContain('<script src="assets/modules/145-phase9-hazards.js"></script>');
-    expect(html.indexOf("60-alerts.js")).toBeLessThan(html.indexOf("145-phase9-hazards.js"));
+  test("index.html loads the explicit entry point which imports the hazard controller", () => {
+    expect(html).toContain('<script type="module" src="assets/gui-app.js"></script>');
+    expect(entry).toContain("import './modules/145-phase9-hazards.js'");
+    expect(phase9).toContain('from "./10-core.js"');
   });
 
   test("the AQ widget fetches the real airquality endpoints and states its empty + stale conditions", () => {
-    expect(phase9).toContain("fetchAlertJson('/api/alerts/airquality')");
+    expect(phase9).toContain("fetchAlertJson('/api/alerts/airquality', signal)");
     expect(phase9).toContain("'/api/alerts/airquality/history?limit=14'");
     expect(phase9).toContain('data-empty="airquality"');
     expect(phase9).toContain("bun run alerts:airquality");
@@ -46,7 +48,7 @@ describe("string contracts: Phase 9 SPA surfaces", () => {
   });
 
   test("the wildfire map fetches the real wildfire report and renders incidents honestly", () => {
-    expect(phase9).toContain("fetchAlertJson('/api/alerts/wildfire')");
+    expect(phase9).toContain("fetchAlertJson('/api/alerts/wildfire', signal)");
     expect(phase9).toContain("data-empty=\"wildfire\"");
     expect(phase9).toContain("No active CAL FIRE incidents in the Del Norte search area.");
     expect(phase9).toContain("angular position is layout only");
@@ -54,10 +56,10 @@ describe("string contracts: Phase 9 SPA surfaces", () => {
   });
 
   test("annotation wiring posts to /api/annotations and shows its empty state", () => {
-    expect(phase9).toContain("apiFetch('/api/annotations'");
+    expect(phase9).toContain("readerFetch(apiFetch, signal, '/api/annotations'");
     expect(phase9).toContain("data-empty=\"annotations\"");
-    expect(phase9).toContain("No annotations yet — click the map, then save a note.");
-    expect(phase9).toContain("Click the wildfire map first to place the note anchor.");
+    expect(phase9).toContain("No annotations yet — choose map percentages or click the map, then save a note.");
+    expect(phase9).toContain("Choose map percentages or click the wildfire map first to place the note anchor.");
   });
 
   test("the routes and spec agree on /api/annotations", () => {

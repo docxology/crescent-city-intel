@@ -47,6 +47,13 @@ valid row/count/category invariants, and optional editorial `consultedAt`/
 reachability does not establish field verification. Credential URLs and private
 literal hosts fail the export.
 
+Available directory exports include `data/directory-custody.json`, binding the
+actual seed bytes, fixed transformer/URL/schema authority, package/lockfile bytes
+and generated output. Validation replays the directory and rejects mismatched
+source, transformer, configuration or output even when publication tree hashes
+have been recomputed. See [artifact contracts](artifact-contracts.md) for explicit
+legacy read policy and the distinction between byte custody and field truth.
+
 ## Public artifact
 
 The export contains the dashboard, JSON snapshot, source-health artifact, the
@@ -255,3 +262,23 @@ Three offline validators behind `bun run pages:validate`: `pages_css.ts` is the 
 ## `src/pages_seed.ts` — Verified Seed Refresh
 
 Copies tracked public seed artifacts from a verified output directory into `pages-data/`, gating on the verification report and parsing every file before it is copied. Invoked by `bun run pages:seed`.
+
+## Captured public-fact inputs and private replay
+
+`src/pages_publication_inputs.ts` captures approved producer/seed/core membership
+and exact bytes before rendering, together with the actual source/static/package/
+lockfile transformations. The exporter computes from reconstructed private roots
+and refuses an input or transformer edition change during publication. The final
+snapshot has `data/public-fact-inputs.json` hash commitments separate from the
+municipal input receipt, directory receipt and whole-tree manifest.
+
+Exact raw input archives live under the selected ignored output root at
+`state/pages-publication/`, with private file modes. They are never copied to
+Pages. `replayPagesPublicationArchive(archive)` validates retained membership,
+configuration and byte hashes, requires current byte-identical transformer
+sources, and recomputes the saved snapshot through the actual exporter. It does
+not execute archived source code or fetch upstream data. Public-only validation
+checks hash commitments and current transformation identity; without the private
+archive it cannot independently recover or interpret hidden input contents.
+Independent replay and whole-tree rehash negative controls are distinct from
+source semantics, human review, hosted checks and deployed bytes.

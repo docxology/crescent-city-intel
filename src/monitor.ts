@@ -10,9 +10,11 @@ import { readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import { createLogger } from "./logger.js";
 import { computeSha256 } from "./utils.js";
-import { paths } from "./shared/paths.js";
+import { paths, outputRoot } from "./shared/paths.js";
 import { loadToc, loadManifest, loadAllArticles } from "./shared/data.js";
 import type { ArticlePage, TocNode, MonitorReport } from "./types.js";
+import { withProducerScope, currentRunSignal } from "./shared/run_scope.js";
+import { writeJsonAtomic, writeTextAtomic } from "./shared/source_health.js";
 
 const log = createLogger("monitor");
 
@@ -98,7 +100,10 @@ export async function checkSectionCoverage(): Promise<{
 }
 
 /** Run full monitoring check and generate report */
-export async function runMonitor(options: { reportPath?: string } = {}): Promise<MonitorReport> {
+export async function runMonitor(options: { reportPath?: string; signal?: AbortSignal; outputDir?: string } = {}): Promise<MonitorReport> {
+  return withProducerScope("municipal-monitor", options, () => runMonitorOwned(options));
+}
+async function runMonitorOwned(options: { reportPath?: string; signal?: AbortSignal }): Promise<MonitorReport> {
   log.info("=== Municipal Code Change Detection Monitor ===");
 
   if (!existsSync(paths.toc) || !existsSync(paths.manifest)) {
@@ -144,7 +149,8 @@ export async function runMonitor(options: { reportPath?: string } = {}): Promise
   // The destination is injectable so a test can exercise the real monitor
   // without writing into the corpus the published snapshot is built from.
   const reportPath = options.reportPath ?? paths.monitorReport;
-  await writeFile(reportPath, JSON.stringify(report, null, 2));
+  currentRunSignal()?.throwIfAborted();
+  await writeJsonAtomic(reportPath, report);
   log.info(`Report saved to ${reportPath}`);
   log.info(`Overall: ${report.overallStatus.toUpperCase()} — ${report.summary}`);
 
@@ -158,18 +164,18 @@ export async function runMonitor(options: { reportPath?: string } = {}): Promise
         changes: [...mismatches, ...missing.map((s: string) => `Missing: ${s}`)],
         summary: report.summary,
       };
-      const diffPath = join(process.cwd(), "output", "monitor-diff.json");
-      await mkdir(join(process.cwd(), "output"), { recursive: true });
-      await writeFile(diffPath, JSON.stringify(diffReport, null, 2));
+      const diffPath = join(outputRoot(), "monitor-diff.json");
+      await mkdir(outputRoot(), { recursive: true });
+      await writeJsonAtomic(diffPath, diffReport);
       log.info(`Diff report written to ${diffPath}`);
 
       // Archive version snapshot
-      const snapshotDir = join(process.cwd(), "output", "snapshots");
+      const snapshotDir = join(outputRoot(), "snapshots");
       await mkdir(snapshotDir, { recursive: true });
       const snapshotPath = join(snapshotDir, `snapshot-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
       if (existsSync(paths.manifest)) {
         const manifestData = await readFile(paths.manifest, "utf-8");
-        await writeFile(snapshotPath, manifestData);
+        await writeTextAtomic(snapshotPath, manifestData);
         log.info(`Version snapshot archived to ${snapshotPath}`);
       }
     } catch (err: any) {

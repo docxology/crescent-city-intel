@@ -11,6 +11,8 @@ import type {
 import { paths, outputRoot } from "./paths.js";
 import { validateArticleCustody } from "../corpus_editions.js";
 import { createLogger } from "../logger.js";
+import { assertSafeFilesystemPath } from "./storage.js";
+import { captureArtifactBytes } from "../artifact_custody.js";
 
 const logger = createLogger("data");
 
@@ -74,13 +76,27 @@ export async function loadArticle(guid: string): Promise<ArticlePage> {
 /** Load all article files from the articles directory (in parallel) */
 export async function loadAllArticles(root = outputRoot()): Promise<ArticlePage[]> {
   const dir = `${root}/articles`;
-  if (!existsSync(dir)) return [];
+  await assertSafeFilesystemPath(dir);
+  const manifestPath = `${root}/manifest.json`;
+  await assertSafeFilesystemPath(manifestPath);
+  let manifest: ScrapeManifest;
+  try {
+    manifest = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await captureArtifactBytes(manifestPath, 8 * 1024 * 1024))) as ScrapeManifest;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    const entries: string[] = await readdir(dir).catch(error => { if (error.code === "ENOENT") return []; throw error; });
+    // An unused volume may contain an empty articles directory. Any article or
+    // core corpus artifact without its manifest is an incomplete edition.
+    const coreFiles = ["toc.json", "crescent-city-code.json", "verification-report.json"];
+    const rootEntries: string[] = await readdir(root).catch(error => { if (error.code === "ENOENT") return []; throw error; });
+    if (entries.length || coreFiles.some(file => rootEntries.includes(file))) throw new Error("Corpus artifacts exist without a manifest; corpus is incomplete");
+    return [];
+  }
   // Sort for deterministic corpus ordering — `readdir` order is filesystem-
   // dependent, and every downstream consumer (search, export, structured
   // queries, index fingerprints) would otherwise inherit run-to-run
   // nondeterminism (see embeddings.ts index-fingerprint determinism claim).
-  const manifest = JSON.parse(await readFile(`${root}/manifest.json`, "utf8")) as ScrapeManifest;
-  if (!manifest.articles || typeof manifest.articles !== "object" || Array.isArray(manifest.articles)) throw new Error("Invalid corpus manifest membership");
+  if (!manifest || typeof manifest !== "object" || !manifest.articles || typeof manifest.articles !== "object" || Array.isArray(manifest.articles)) throw new Error("Invalid corpus manifest membership");
   const jsonFiles = Object.keys(manifest.articles).sort().map(guid => {
     if (!/^[A-Za-z0-9_-]+$/.test(guid)) throw new Error("Unsafe article GUID in manifest");
     return `${guid}.json`;

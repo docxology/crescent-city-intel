@@ -1,0 +1,31 @@
+import { test, expect } from "bun:test";
+import { join } from "node:path";
+import { buildDirectoryArtifact, buildDirectoryArtifactWithCustody } from "../src/directory.ts";
+import { createDirectoryReviewLedger, directoryEntryIdentity, proposeDirectoryCorrection, decideDirectoryCorrection, reassessDirectoryFieldSource, directoryReviewQueue } from "../src/directory_review.ts";
+import { captureArtifactBytes, validateArtifactCustody } from "../src/artifact_custody.ts";
+const stamp = "2026-09-30T00:00:00Z", later = "2026-09-30T01:00:00Z";
+const bytes = (value: string) => new TextEncoder().encode(value);
+const seed = { entries: [{ name: "Library", category: "Government", address: null, phone: null, website: null, description: null, source: "https://example.test/library" }] };
+test("directory source fields start unknown; an owned correction explicitly records review without changing generated time", () => {
+  const artifact = buildDirectoryArtifact(stamp, seed)!, ledger = createDirectoryReviewLedger(artifact), id = directoryEntryIdentity(artifact.entries[0]!);
+  expect(directoryReviewQueue(artifact, ledger)).toHaveLength(6);
+  expect(Object.values(ledger.entries[id]!).every(row => row.reviewedAt === null && row.consultedAt === null && row.sourceSha256 === null)).toBe(true);
+  const sourceBytes = bytes("Official library directory: phone 555-0100.");
+  const proposed = proposeDirectoryCorrection(artifact, ledger, { entryIdentity: id, field: "phone", proposed: "555-0100", sourceUrl: seed.entries[0]!.source, sourceBytes, evidenceSpan: "phone 555-0100", submittedAt: stamp });
+  expect(artifact.entries[0]!.phone).toBeNull(); expect(proposed.entries[id]!.phone.status).toBe("disputed");
+  expect(proposed.corrections[0]!.owner).toBe("directory-editor");
+  const reviewed = decideDirectoryCorrection(artifact, proposed, proposed.corrections[0]!.id, { owner: "directory-editor", status: "accepted", reviewedAt: later, sourceBytes });
+  expect(reviewed.artifact.entries[0]!.phone).toBe("555-0100"); expect(reviewed.artifact.generatedAt).toBe(stamp);
+  expect(reviewed.ledger.entries[id]!.phone.reviewedAt).toBe(later); expect(directoryReviewQueue(reviewed.artifact, reviewed.ledger)).toHaveLength(5);
+  const changed = reassessDirectoryFieldSource(reviewed.artifact, reviewed.ledger, id, "phone", bytes("Official directory changed"), "2026-09-30T02:00:00Z");
+  expect(changed.entries[id]!.phone.reviewedAt).toBeNull(); expect(changed.entries[id]!.phone.status).toBe("disputed"); expect(directoryReviewQueue(reviewed.artifact, changed)).toHaveLength(6);
+  const corrupt = structuredClone(proposed); corrupt.corrections[0]!.proposed = "555-9999";
+  expect(() => decideDirectoryCorrection(artifact, corrupt, proposed.corrections[0]!.id, { owner: "directory-editor", status: "accepted", reviewedAt: later, sourceBytes })).toThrow("binding mismatch");
+  expect(() => decideDirectoryCorrection(artifact, proposed, proposed.corrections[0]!.id, { owner: "directory-editor", status: "accepted", reviewedAt: later, sourceBytes: bytes("changed source") })).toThrow("source evidence");
+});
+test("actual directory producer binds exact seed and transformation files", async () => {
+  const seedBytes = bytes(JSON.stringify(seed)), transforms = { "src/directory.ts": await captureArtifactBytes(join(process.cwd(), "src/directory.ts")), "src/artifact_contracts.ts": await captureArtifactBytes(join(process.cwd(), "src/artifact_contracts.ts")) };
+  const result = buildDirectoryArtifactWithCustody(seedBytes, transforms, stamp)!;
+  expect(validateArtifactCustody(result.receipt, result.bytes, { inputs: { "seed/directory.json": seedBytes }, transforms, configuration: { generatedAt: stamp } })).toEqual([]);
+  expect(result.artifact.entries[0]!.reviewedAt).toBeNull();
+});

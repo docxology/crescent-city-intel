@@ -5,6 +5,8 @@ import { dirname } from "path";
 import { appendFileSync, readFileSync, writeFileSync, renameSync } from "fs";
 import { throwIfAborted, redactUrl } from "./transport.js";
 import type { SourceHealth, SourceHealthStatus, SourceHealthSummary } from "../types.js";
+import { currentRunSignal } from "./run_scope.js";
+import { NWS_ALERTS_URL } from "../constants.js";
 
 /**
  * Default cap for the on-disk JSONL history files (alert history.jsonl, etc).
@@ -46,7 +48,7 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "Del Norte Triplicate deep content", url: "https://www.triplicate.com/news/", monitor: "triplicate" },
   { source: "NOAA Tsunami", url: "https://api.weather.gov/alerts/active?area=CA", monitor: "alerts" },
   { source: "USGS Earthquake", url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", monitor: "alerts" },
-  { source: "NWS Weather", url: "https://api.weather.gov/alerts/active?zone=CAZ006", monitor: "alerts" },
+  { source: "NWS Weather", url: NWS_ALERTS_URL, monitor: "alerts" },
   { source: "NOAA Tides", url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", monitor: "alerts" },
   { source: "CDFW Fishing", url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", monitor: "alerts" },
   { source: "EPA AirNow", url: "https://files.airnowtech.org/airnow/today/airnowlatest_pm25aqi.kml", monitor: "alerts" },
@@ -103,6 +105,19 @@ export function sourceHealth(
     }
   } else {
     health.freshness = "unknown";
+  }
+  if (health.timestampBasis && health.timestampBasis !== "retrieval") {
+    const observation = health.observedAt ?? (health.productDate ? `${health.productDate}T00:00:00Z` : undefined);
+    const age = observation ? Date.parse(checkedAt) - Date.parse(observation) : NaN;
+    if (!observation || !isIsoTimestamp(observation) || !Number.isFinite(age) || age < 0 || health.validUntil && (!isIsoTimestamp(health.validUntil) || Date.parse(health.validUntil) < Date.parse(observation))) {
+      health.observationFreshness = "unknown"; delete health.observationAgeMs;
+      health.status = "unavailable"; health.error ??= "Primary observation/product clock missing, invalid or future";
+    } else {
+      health.observationAgeMs = age;
+      // The producer declares its cadence window; consumers recheck it without rewriting fetchedAt.
+      health.observationFreshness = age <= (health.freshnessWindowMs ?? DEFAULT_FRESHNESS_WINDOW_MS) && (!health.validUntil || Date.parse(checkedAt) <= Date.parse(health.validUntil)) ? "fresh" : "stale";
+      if (["ok", "empty"].includes(health.status) && health.observationFreshness === "stale") health.status = "stale";
+    }
   }
   if (!isIsoTimestamp(checkedAt) || health.fetchedAt && health.freshness === "unknown") {
     health.status = "unavailable"; health.error ??= "Invalid or future source timestamp; freshness unknown";
@@ -193,15 +208,19 @@ async function writeFileSynced(path: string, data: string): Promise<void> {
 }
 
 /** Write a JSON artifact atomically so concurrent runs cannot truncate it. */
-export async function writeJsonAtomic(path: string, value: unknown, options: { signal?: AbortSignal } = {}): Promise<void> {
+export async function writeJsonAtomic(path: string, value: unknown, options: { signal?: AbortSignal | null } = {}): Promise<void> {
+  const healthEnvelope = path.endsWith("source-health.json") && value && typeof value === "object" && !Array.isArray(value) && Array.isArray((value as Record<string, unknown>).sources);
+  if (healthEnvelope) value = { ...value as object, schemaVersion: "crescent-city-source-health/v1" };
   await writeTextAtomic(path, `${JSON.stringify(value, null, 2)}\n`, options);
+  if (healthEnvelope && options.signal !== null) await appendBoundedJsonl(path.replace(/source-health\.json$/, "source-health-history.jsonl"), value);
 }
 
-export async function writeTextAtomic(path: string, value: string, options: { signal?: AbortSignal } = {}): Promise<void> {
-  if (options.signal) throwIfAborted(options.signal);
+export async function writeTextAtomic(path: string, value: string, options: { signal?: AbortSignal | null } = {}): Promise<void> {
+  const signal = options.signal === null ? undefined : options.signal ?? currentRunSignal();
+  if (signal) throwIfAborted(signal);
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  try { if (options.signal) throwIfAborted(options.signal); await writeFileSynced(temporary, value); if (options.signal) throwIfAborted(options.signal); await rename(temporary, path); }
+  try { if (signal) throwIfAborted(signal); await writeFileSynced(temporary, value); if (signal) throwIfAborted(signal); await rename(temporary, path); }
   finally { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
 
@@ -220,6 +239,10 @@ export function isSourceHealthReceipt(value: unknown): value is SourceHealth {
   if (typeof source.source !== "string" || !source.source.trim() || !["ok", "empty", "unavailable", "stale"].includes(String(source.status)) || !isIsoTimestamp(source.checkedAt) || !Number.isSafeInteger(source.itemCount) || Number(source.itemCount) < 0) return false;
   if (source.sourceId !== undefined && (typeof source.sourceId !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(source.sourceId))) return false;
   if (source.fetchedAt !== undefined && !isIsoTimestamp(source.fetchedAt)) return false;
+  for (const key of ["observedAt", "validUntil"]) if (source[key] !== undefined && !isIsoTimestamp(source[key])) return false;
+  if (source.productDate !== undefined && (typeof source.productDate !== "string" || !isIsoTimestamp(`${source.productDate}T00:00:00Z`))) return false;
+  if (source.timestampBasis !== undefined && !["retrieval", "observation", "product"].includes(String(source.timestampBasis))) return false;
+  if (source.observationFreshness !== undefined && !["fresh", "stale", "unknown"].includes(String(source.observationFreshness))) return false;
   for (const key of ["url", "error", "provenance"]) if (source[key] !== undefined && typeof source[key] !== "string") return false;
   if (typeof source.url === "string") {
     try { const url = new URL(source.url); if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || redactUrl(source.url) !== url.toString()) return false; }
@@ -228,7 +251,7 @@ export function isSourceHealthReceipt(value: unknown): value is SourceHealth {
   if (source.freshness !== undefined && !["fresh", "stale", "unknown"].includes(String(source.freshness))) return false;
   if (source.disabled !== undefined && typeof source.disabled !== "boolean") return false;
   if (source.httpStatus !== undefined && (!Number.isSafeInteger(source.httpStatus) || Number(source.httpStatus) < 100 || Number(source.httpStatus) > 599)) return false;
-  for (const key of ["ageMs", "durationMs", "freshnessWindowMs"]) if (source[key] !== undefined && (typeof source[key] !== "number" || !Number.isFinite(source[key]) || Number(source[key]) < 0)) return false;
+  for (const key of ["ageMs", "durationMs", "freshnessWindowMs", "observationAgeMs"]) if (source[key] !== undefined && (typeof source[key] !== "number" || !Number.isFinite(source[key]) || Number(source[key]) < 0)) return false;
   return true;
 }
 
@@ -277,8 +300,10 @@ export async function appendBoundedJsonl(
   record: string | unknown,
   maxLines = JSONL_HISTORY_MAX_LINES,
 ): Promise<void> {
+  const signal = currentRunSignal(); if (signal) throwIfAborted(signal);
   await mkdir(dirname(path), { recursive: true });
   await withFileLease(`${path}.lock`, async () => {
+  if (signal) throwIfAborted(signal);
   await appendFile(path, toJsonLine(record));
   try {
     const lines = (await readFile(path, "utf-8")).split("\n");
@@ -286,7 +311,7 @@ export async function appendBoundedJsonl(
       await writeTextAtomic(path, boundedTail(lines, trimTarget(maxLines)));
     }
   } catch (error) { throw new Error(`History trim failed: ${errorMessage(error)}`); }
-  });
+  }, { signal });
 }
 
 /** Synchronous bounded JSONL appender for monitors that persist with fs sync
@@ -296,7 +321,9 @@ export function appendBoundedJsonlSync(
   record: string | unknown,
   maxLines = JSONL_HISTORY_MAX_LINES,
 ): void {
+  const signal = currentRunSignal(); if (signal) throwIfAborted(signal);
   withFileLeaseSync(`${path}.lock`, () => {
+  if (signal) throwIfAborted(signal);
   appendFileSync(path, toJsonLine(record));
   try {
     const lines = readFileSync(path, "utf-8").split("\n");

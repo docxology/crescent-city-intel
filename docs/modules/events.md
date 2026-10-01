@@ -34,7 +34,8 @@ monitor output into one calendar feed plus an iCalendar export.
 - `buildEventsIcs(events, { stamp })` is a pure builder producing RFC 5545
   text: VCALENDAR 2.0, all-day VEVENTs (`DTSTART;VALUE=DATE`,
   exclusive `DTEND` next day), escaped text fields, folded lines (75 octets),
-  and a status mapping (scheduled/completed → CONFIRMED, unknown → TENTATIVE).
+  and a status mapping (scheduled/completed → CONFIRMED, unknown → TENTATIVE,
+  explicitly cancelled → CANCELLED).
 - Determinism: UIDs are `<event-id>@crescent-city-intel`; DTSTAMP comes from
   the explicit stamp or the fixed default `19700101T000000Z` — the clock is
   never read inside the builder. Undated events are skipped rather than given
@@ -86,8 +87,12 @@ events, the library district, the Chamber/visit site, DNACA, and DNUSD.
 2. Parsers produce candidates per source type:
    - `ics`: RFC 5545 subset (line unfolding, escapes, DATE/DATE-TIME). Pacific,
      UTC, and floating local dates are supported; other TZIDs stay unresolved.
-     Cancelled and RRULE records are counted as unsupported; recurrence is not
-     expanded into invented occurrences.
+     `calendar_recurrence.ts` expands the supported DAILY/WEEKLY/MONTHLY/YEARLY
+     subset within a declared finite window and occurrence cap. UID, SEQUENCE,
+     RECURRENCE-ID, EXDATE/RDATE and cancellation govern occurrence identity;
+     conflicting revisions, unsupported rules/value/timezone combinations and
+     excessive replay ranges emit named diagnostics. Wall times retain their
+     source basis through DST instead of inventing a UTC instant.
    - `rss`: RSS `<item>` + Atom `<entry>` via cheerio XML mode. Publication
      timestamps remain `publicationAt`; only explicit event-start fields can
      supply an occurrence date.
@@ -102,7 +107,10 @@ events, the library district, the Chamber/visit site, DNACA, and DNUSD.
    their own `droppedUnsupported` counter. A model-resolved date remains an
    extraction proposal, not a verified claim.
 4. Every event carries `sourceUrl`, `sourceName`, `sourceLinks`,
-   `extractionMethod` ('markup' | 'llm'), and a 0..1 `confidence`.
+   `extractionMethod` ('markup' | 'llm'), and a 0..1 `confidence`. Optional
+   `calendarEvidence` preserves UID, recurrence identity, timezone and
+   UTC/TZID/floating/date-only basis. Floating time notes remain explicit;
+   calendar exports do not fabricate a source timezone.
 5. **Reconciliation** vs `output/events/events.json`: same normalized title
    within +/-1 day marks the copy reconciled; conflicting dates prefer the
    markup-derived record, keep both URLs, and flag `needsReview`.
@@ -126,3 +134,14 @@ strict-parsing, reconciliation merge/conflict logic, registry loading, and
 no-network determinism of `buildDiscoveryArtifact`. Real local HTTP fixtures
 use an explicit exact loopback `fixtureOrigin`; production callers cannot gain
 private-network access through an ambient test-mode environment variable.
+
+## Shared validation and retained inputs
+
+The aggregated `crescent-city-events/v1` artifact uses the shared events family
+validator at producer and public boundaries. Its paginated discovery API remains
+a separate contract. The producer computes from captured retained source bytes
+and publishes the exact output/ICS siblings with a derived custody receipt.
+Meeting archive attachment dates do not independently schedule a meeting; only
+an actual occurrence-eligible primary notice can supply that date. Recurrence
+fixtures certify the supported parser/expansion rules, not complete regional
+calendar coverage or human-reviewed source interpretation.

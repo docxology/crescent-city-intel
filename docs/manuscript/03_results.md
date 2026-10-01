@@ -34,6 +34,17 @@ to a dedicated parser. Discovery is therefore visible without being mistaken
 for collection. The complete run inventory is reported in
 [@tbl:snapshot_inventory].
 
+## Native retrieval and disposition diagnostics
+
+The separately recorded native diagnostics for the 2026-10-01 release used
+cached local models and a retained municipal index. All six applicable
+retrieval cases found a listed section, while six of eight mechanical
+disposition expectations matched. A sixteen-case retained-context replay
+generated sixteen answers with fourteen matching disposition expectations.
+These mismatches remain recorded in `docs/evidence/rag-native-2026-10-01.json`;
+they are not converted into passing semantic evaluations. Claim support,
+source independence, legal currency and user usefulness remain unassessed.
+
 ## Worked example: unavailable is not calm
 
 An illustrative unavailable response has `status: "unavailable"` and

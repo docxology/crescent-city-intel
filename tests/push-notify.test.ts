@@ -1,5 +1,10 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { isPushConfigured, sendPushNotification } from "../src/notifications/push.ts";
+import { isPushConfigured, sendPushNotification as productionPush } from "../src/notifications/push.ts";
+function sendPushNotification(title: string, body: string, url?: string) {
+  let destination = process.env.ALERT_WEBHOOK_URL;
+  try { destination = JSON.parse(process.env.PUSH_SUBSCRIBER ?? "null")?.endpoint ?? destination; } catch { /* malformed configuration is exercised unchanged */ }
+  return productionPush(title, body, url, destination ? { origin: new URL(destination).origin } : undefined);
+}
 const keys = ["ALERT_WEBHOOK_URL", "PUSH_PUBLIC_KEY", "PUSH_PRIVATE_KEY", "PUSH_SUBSCRIBER", "PUSH_CONTACT_EMAIL"];
 let original: Record<string, string | undefined>;
 beforeEach(() => { original = Object.fromEntries(keys.map(key => [key, process.env[key]])); for (const key of keys) delete process.env[key]; });

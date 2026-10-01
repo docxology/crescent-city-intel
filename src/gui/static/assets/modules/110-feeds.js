@@ -1,124 +1,152 @@
+import { runReaderTask, readerAwait, readerFetch } from "../reader-lifecycle.js";
+import { apiFetch } from "./10-core.js";
+import { escapeHtml } from "./20-section-tools.js";
+import { alertTrendText, alertTrendTimestamp } from "./60-alerts.js";
+import { GLOSSARY_VIRTUAL_THRESHOLD, createVirtualList } from "../virtual-list.js";
+import { CCGui } from "../gui-runtime.js";
 // 110-feeds.js — civic dashboard, alert timeline, search analytics, glossary, xrefs, report, curated feed, API explorer.
-// Extracted verbatim from the former inline <script> block in index.html (v2.7.0 asset
-// split). Plain classic script: globals stay implicit (no IIFE, no namespace). Load order
-// matches the original single-script execution order.
     // ─ Overview ─
-    async function loadIntelOverview() {
-      const grid = document.getElementById('intel-overview-grid');
-      try {
-        const [overview, health, alerts, timeline] = await Promise.all([
-          apiFetch('/api/analytics/overview').then(r => r.ok ? r.json() : null).catch(() => null),
-          apiFetch('/api/health').then(r => r.json()).catch(() => null),
-          apiFetch('/api/monitor/alerts').then(r => r.json()).catch(() => null),
-          apiFetch('/api/alerts/timeline').then(r => r.json()).catch(() => null),
-        ]);
+    async function loadIntelOverview() { return runReaderTask("intel-overview-grid", async signal => {
+    const grid = document.getElementById('intel-overview-grid');
+    try {
+        const [overview, health, alerts, timeline] = await readerAwait(Promise.all([
+            readerFetch(apiFetch, signal, '/api/analytics/overview').then(r => r.ok ? r.json() : null).catch(() => null),
+            readerFetch(apiFetch, signal, '/api/health').then(r => r.json()).catch(() => null),
+            readerFetch(apiFetch, signal, '/api/monitor/alerts').then(r => r.json()).catch(() => null),
+            readerFetch(apiFetch, signal, '/api/alerts/timeline').then(r => r.json()).catch(() => null),
+        ]), signal);
         let html = '';
         if (overview) {
-          const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 8) : [];
-          html += `<div class="intel-card" style="grid-column:1/-1"><h4>${escapeHtml(overview.headline || 'Current analytical signal')}</h4><p style="line-height:1.55">${escapeHtml(overview.summary || '')}</p><div class="label">${escapeHtml(overview.llm?.status === 'ok' ? `AI summary · ${overview.llm.provider}/${overview.llm.model}` : `Computed summary · AI provider ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)} <span class="label">Next: ${escapeHtml(signal.nextStep)}</span></li>`).join('')}</ul>` : '<div class="label">No warning signals were recorded.</div>'}</div>`;
-          html += `<div class="intel-card"><h4>Code sections</h4><div class="metric">${overview.metrics.code.sections}</div><div class="label">${overview.metrics.code.articles} articles · ${overview.metrics.code.words} words</div></div><div class="intel-card"><h4>AI briefs</h4><div class="metric">${overview.metrics.content.curated}</div><div class="label">source-grounded items</div></div><div class="intel-card"><h4>Alert events</h4><div class="metric">${overview.metrics.alerts.totalEvents}</div><div class="label">historical monitor events</div></div><div class="intel-card"><h4>Source gaps</h4><div class="metric">${overview.metrics.sources.missing}</div><div class="label">unavailable or stale</div></div>`;
+            const signals = Array.isArray(overview.signals) ? overview.signals.slice(0, 8) : [];
+            html += `<div class="intel-card" style="grid-column:1/-1"><h4>${escapeHtml(overview.headline || 'Current analytical signal')}</h4><p style="line-height:1.55">${escapeHtml(overview.summary || '')}</p><div class="label">${escapeHtml(overview.llm?.status === 'ok' ? `AI summary · ${overview.llm.provider}/${overview.llm.model}` : `Computed summary · AI provider ${overview.llm?.status || 'not recorded'}`)} · evidence ${escapeHtml(String(overview.inputFingerprint || '').slice(0, 16))}…</div>${signals.length ? `<ul style="margin:10px 0 0 18px">${signals.map(signal => `<li><strong>${escapeHtml(signal.title)}</strong> — ${escapeHtml(signal.detail)} <span class="label">Next: ${escapeHtml(signal.nextStep)}</span></li>`).join('')}</ul>` : '<div class="label">No warning signals were recorded.</div>'}</div>`;
+            html += `<div class="intel-card"><h4>Code sections</h4><div class="metric">${overview.metrics.code.sections}</div><div class="label">${overview.metrics.code.articles} articles · ${overview.metrics.code.words} words</div></div><div class="intel-card"><h4>AI briefs</h4><div class="metric">${overview.metrics.content.curated}</div><div class="label">source-grounded items</div></div><div class="intel-card"><h4>Alert events</h4><div class="metric">${overview.metrics.alerts.totalEvents}</div><div class="label">historical monitor events</div></div><div class="intel-card"><h4>Source gaps</h4><div class="metric">${overview.metrics.sources.missing}</div><div class="label">unavailable or stale</div></div>`;
         }
         if (health) {
-          html += `<div class="intel-card"><h4>System Status</h4><div class="metric">${health.status === 'ok' ? '✅' : '⚠️'}</div><div class="label">Health</div></div>`;
-          if (health.manifest) {
-            html += `<div class="intel-card"><h4>Data Freshness</h4><div class="metric">${health.manifest.ageDays}</div><div class="label">days old ${health.manifest.stale ? '(⚠️ stale)' : '✅'}</div></div>`;
-          }
-          if (health.manifest?.sectionCount) {
-            html += `<div class="intel-card"><h4>Sections</h4><div class="metric">${health.manifest.sectionCount}</div><div class="label">code sections</div></div>`;
-          }
-          if (health.alertLevel) {
-            const colors = {CALM:'badge-green',WATCH:'badge-yellow',WARNING:'badge-orange',EMERGENCY:'badge-red'};
-            html += `<div class="intel-card"><h4>Composite Alert</h4><div class="metric"><span class="intel-badge ${colors[health.alertLevel]||'badge-blue'}">${health.alertLevel}</span></div></div>`;
-          }
+            html += `<div class="intel-card"><h4>System Status</h4><div class="metric">${health.status === 'ok' ? '✅' : '⚠️'}</div><div class="label">Health</div></div>`;
+            if (health.manifest) {
+                html += `<div class="intel-card"><h4>Data Freshness</h4><div class="metric">${health.manifest.ageDays}</div><div class="label">days old ${health.manifest.stale ? '(⚠️ stale)' : '✅'}</div></div>`;
+            }
+            if (health.manifest?.sectionCount) {
+                html += `<div class="intel-card"><h4>Sections</h4><div class="metric">${health.manifest.sectionCount}</div><div class="label">code sections</div></div>`;
+            }
+            if (health.alertLevel) {
+                const colors = { CALM: 'badge-green', WATCH: 'badge-yellow', WARNING: 'badge-orange', EMERGENCY: 'badge-red' };
+                html += `<div class="intel-card"><h4>Composite Alert</h4><div class="metric"><span class="intel-badge ${colors[health.alertLevel] || 'badge-blue'}">${health.alertLevel}</span></div></div>`;
+            }
         }
         if (timeline) {
-          html += `<div class="intel-card"><h4>Total Alert Events</h4><div class="metric">${timeline.totalEvents}</div><div class="label">across all monitors</div></div>`;
-          if (timeline.mostActiveType) {
-            html += `<div class="intel-card"><h4>Most Active Monitor</h4><div class="metric" style="font-size:18px">${timeline.mostActiveType}</div></div>`;
-          }
+            html += `<div class="intel-card"><h4>Total Alert Events</h4><div class="metric">${timeline.totalEvents}</div><div class="label">across all monitors</div></div>`;
+            if (timeline.mostActiveType) {
+                html += `<div class="intel-card"><h4>Most Active Monitor</h4><div class="metric" style="font-size:18px">${timeline.mostActiveType}</div></div>`;
+            }
         }
         // Domains
         try {
-          const domains = await apiFetch('/api/domains').then(r => r.json());
-          html += `<div class="intel-card"><h4>Intelligence Domains</h4><div class="metric">${domains.length || 12}</div><div class="label">civic domains</div></div>`;
-        } catch { /* skip */ }
+            const domains = await readerAwait(readerFetch(apiFetch, signal, '/api/domains').then(r => r.json()), signal);
+            html += `<div class="intel-card"><h4>Intelligence Domains</h4><div class="metric">${domains.length || 12}</div><div class="label">civic domains</div></div>`;
+        }
+        catch { /* skip */
+            if (signal.aborted)
+                return;
+        }
         // Provider and source-health diagnostics are operational facts, not
         // inferred from a successful page load.
         if (health?.chatProvider) {
-          html += `<div class="intel-card"><h4>Chat Provider</h4><div class="metric" style="font-size:18px">${escapeHtml(health.chatProvider)}</div><div class="label">${escapeHtml(health.chatModel || '')}</div></div>`;
+            html += `<div class="intel-card"><h4>Chat Provider</h4><div class="metric" style="font-size:18px">${escapeHtml(health.chatProvider)}</div><div class="label">${escapeHtml(health.chatModel || '')}</div></div>`;
         }
         for (const [label, sources] of [['News', health?.newsSources], ['Meetings', health?.meetingsSources], ['YouTube', health?.youtubeSources], ['Triplicate', health?.triplicateSources], ['Alerts', health?.alertSources]]) {
-          if (!Array.isArray(sources)) continue;
-          const unavailable = sources.filter(s => s.status === 'unavailable' || s.status === 'stale').length;
-          html += `<div class="intel-card"><h4>${label} Sources</h4><div class="metric">${sources.length - unavailable}/${sources.length}</div><div class="label">${unavailable ? '⚠️ unavailable/stale' : '✅ healthy'}</div></div>`;
+            if (!Array.isArray(sources))
+                continue;
+            const unavailable = sources.filter(s => s.status === 'unavailable' || s.status === 'stale').length;
+            html += `<div class="intel-card"><h4>${label} Sources</h4><div class="metric">${sources.length - unavailable}/${sources.length}</div><div class="label">${unavailable ? '⚠️ unavailable/stale' : '✅ healthy'}</div></div>`;
         }
         html += `<div class="intel-card"><h4>API Contract</h4><div class="metric">v2.5.1</div><div class="label">OpenAPI 3.0.3 · run validate</div></div>`;
         html += `<div class="intel-card"><h4>Version</h4><div class="metric" style="font-size:18px">v2.5.1</div><div class="label">deterministic gate: bun run validate</div></div>`;
-        grid.innerHTML = html || '<p style="color:var(--text-secondary)">No data available yet.</p>';
-      } catch (err) {
-        grid.innerHTML = '<p style="color:var(--text-secondary)">Could not load the overview.</p>';
-      }
+        CCGui.render(grid, html || '<p style="color:var(--text-secondary)">No data available yet.</p>');
     }
+    catch (err) {
+        if (signal.aborted)
+            return;
+        CCGui.render(grid, '<p style="color:var(--text-secondary)">Could not load the overview.</p>');
+    }
+}); }
 
     // ─ Alert Timeline ─
-    async function loadAlertTimeline() {
-      const el = document.getElementById('alert-timeline-content');
-      try {
-        const data = await apiFetch('/api/alerts/timeline').then(r => r.json());
+    async function loadAlertTimeline() { return runReaderTask("alert-timeline-content", async signal => {
+    const el = document.getElementById('alert-timeline-content');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, '/api/alerts/timeline').then(r => r.json()), signal);
         let html = '';
         // Type stats table
         if (data.typeStats?.length > 0) {
-          html += '<table class="intel-table"><thead><tr><th>Monitor</th><th>Events</th><th>First</th><th>Last</th><th>Avg/Day</th></tr></thead><tbody>';
-          for (const s of data.typeStats) {
-            const total = Number.isFinite(s.totalEvents) ? Math.max(0, Math.floor(s.totalEvents)) : 0;
-            const average = Number.isFinite(s.avgPerDay) ? s.avgPerDay.toFixed(2) : '—';
-            const first = alertTrendText(s.firstEvent, 10) || '—';
-            const last = alertTrendText(s.lastEvent, 10) || '—';
-            html += `<tr><td>${escapeHtml(alertTrendText(s.type, 40) || 'unknown')}</td><td>${total}</td><td>${escapeHtml(first)}</td><td>${escapeHtml(last)}</td><td>${average}</td></tr>`;
-          }
-          html += '</tbody></table>';
-        } else {
-          html += '<p style="color:var(--text-secondary)">No alert events recorded yet. Run: bun run alerts</p>';
+            html += '<table class="intel-table"><thead><tr><th>Monitor</th><th>Events</th><th>First</th><th>Last</th><th>Avg/Day</th></tr></thead><tbody>';
+            for (const s of data.typeStats) {
+                const total = Number.isFinite(s.totalEvents) ? Math.max(0, Math.floor(s.totalEvents)) : 0;
+                const average = Number.isFinite(s.avgPerDay) ? s.avgPerDay.toFixed(2) : '—';
+                const first = alertTrendText(s.firstEvent, 10) || '—';
+                const last = alertTrendText(s.lastEvent, 10) || '—';
+                html += `<tr><td>${escapeHtml(alertTrendText(s.type, 40) || 'unknown')}</td><td>${total}</td><td>${escapeHtml(first)}</td><td>${escapeHtml(last)}</td><td>${average}</td></tr>`;
+            }
+            html += '</tbody></table>';
+        }
+        else {
+            html += '<p style="color:var(--text-secondary)">No alert events recorded yet. Run: bun run alerts</p>';
         }
         // Recent events
         if (data.mostRecentAlert) {
-          const r = data.mostRecentAlert;
-          const description = alertTrendText(r.description, 100) || 'No description';
-          html += `<div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary)"><strong>Most Recent Alert:</strong> <span class="intel-badge badge-blue">${escapeHtml(alertTrendText(r.type, 40) || 'unknown')}</span> ${escapeHtml(description)} — ${escapeHtml(alertTrendTimestamp(r.timestamp))}</div>`;
+            const r = data.mostRecentAlert;
+            const description = alertTrendText(r.description, 100) || 'No description';
+            html += `<div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary)"><strong>Most Recent Alert:</strong> <span class="intel-badge badge-blue">${escapeHtml(alertTrendText(r.type, 40) || 'unknown')}</span> ${escapeHtml(description)} — ${escapeHtml(alertTrendTimestamp(r.timestamp))}</div>`;
         }
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the alert timeline.</p>'; }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not load the alert timeline.</p>');
+    }
+}); }
 
     // ─ Search Analytics ─
-    async function loadSearchAnalytics() {
-      const el = document.getElementById('search-analytics-content');
-      try {
-        const data = await apiFetch('/api/search/analytics').then(r => r.json());
+    async function loadSearchAnalytics() { return runReaderTask("search-analytics-content", async signal => {
+    const el = document.getElementById('search-analytics-content');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, '/api/search/analytics').then(r => r.json()), signal);
         let html = `<p style="margin-bottom:12px"><strong>Total queries:</strong> ${data.totalQueries}</p>`;
         if (data.topTerms?.length > 0) {
-          html += '<table class="intel-table"><thead><tr><th>Term</th><th>Count</th></tr></thead><tbody>';
-          for (const t of data.topTerms) {
-            html += `<tr><td>${t.term}</td><td>${t.count}</td></tr>`;
-          }
-          html += '</tbody></table>';
-        } else {
-          html += '<p style="color:var(--text-secondary)">No search queries logged yet. Search the code to populate analytics.</p>';
+            html += '<table class="intel-table"><thead><tr><th>Term</th><th>Count</th></tr></thead><tbody>';
+            for (const t of data.topTerms) {
+                html += `<tr><td>${t.term}</td><td>${t.count}</td></tr>`;
+            }
+            html += '</tbody></table>';
         }
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Failed to load search analytics</p>'; }
+        else {
+            html += '<p style="color:var(--text-secondary)">No search queries logged yet. Search the code to populate analytics.</p>';
+        }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Failed to load search analytics</p>');
+    }
+}); }
 
     // ─ Glossary ─
     let glossaryData = null;
-    async function loadGlossary() {
-      const el = document.getElementById('glossary-content');
-      try {
-        const data = await apiFetch('/api/glossary').then(r => r.json());
+    async function loadGlossary() { return runReaderTask("glossary-content", async signal => {
+    const el = document.getElementById('glossary-content');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, '/api/glossary').then(r => r.json()), signal);
         glossaryData = data.entries || [];
         renderGlossary('');
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the glossary.</p>'; }
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not load the glossary.</p>');
+    }
+}); }
     function renderGlossary(filter) {
       const el = document.getElementById('glossary-content');
       if (!glossaryData) return;
@@ -143,7 +171,7 @@
       }
       destroyGlossaryVirtualList();
       if (filtered.length === 0) {
-        el.innerHTML = html + '<p style="color:var(--text-secondary)">No definitions match that search.</p>';
+        CCGui.render(el, html + '<p style="color:var(--text-secondary)">No definitions match that search.</p>');
         return;
       }
       html += '<table class="intel-table"><thead><tr><th>Term</th><th>Definition</th><th>Section</th></tr></thead><tbody>';
@@ -151,24 +179,24 @@
         html += `<tr><td><strong>${g.term}</strong></td><td>${g.definition.substring(0,200)}</td><td>${g.sectionNumber}</td></tr>`;
       }
       html += '</tbody></table>';
-      el.innerHTML = html;
+      CCGui.render(el, html);
     }
     let glossaryVirtualList = null;
     function destroyGlossaryVirtualList() {
       if (glossaryVirtualList) { glossaryVirtualList.destroy(); glossaryVirtualList = null; }
     }
     function glossaryTbodyHost(el, countPrefix) {
-      el.innerHTML = (countPrefix || '') + '<table class="intel-table"><thead><tr><th>Term</th><th>Definition</th><th>Section</th></tr></thead><tbody></tbody></table>';
+      CCGui.render(el, (countPrefix || '') + '<table class="intel-table"><thead><tr><th>Term</th><th>Definition</th><th>Section</th></tr></thead><tbody></tbody></table>');
       return el.querySelector('tbody');
     }
     document.getElementById('glossary-search').addEventListener('input', (e) => renderGlossary(e.target.value));
 
     // ─ Cross-Refs ─
-    async function loadXRefs() {
-      const el = document.getElementById('xrefs-content');
-      el.innerHTML = '<p style="color:var(--text-secondary)">Validating cross-references (may take a moment)...</p>';
-      try {
-        const data = await apiFetch('/api/cross-refs/validate').then(r => r.json());
+    async function loadXRefs() { return runReaderTask("xrefs-content", async signal => {
+    const el = document.getElementById('xrefs-content');
+    CCGui.render(el, '<p style="color:var(--text-secondary)">Validating cross-references (may take a moment)...</p>');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, '/api/cross-refs/validate').then(r => r.json()), signal);
         const pct = (data.resolutionRate * 100).toFixed(1);
         const badge = data.resolutionRate > 0.9 ? 'badge-green' : data.resolutionRate > 0.7 ? 'badge-yellow' : 'badge-red';
         let html = `<div class="intel-grid" style="margin-bottom:16px">
@@ -178,64 +206,99 @@
           <div class="intel-card"><h4>Unresolved</h4><div class="metric" style="color:#ef4444">${data.unresolvedCount}</div></div>
         </div>`;
         if (data.mostUnresolved?.length > 0) {
-          html += '<h4 style="margin:16px 0 8px">Sections with Most Unresolved References</h4><table class="intel-table"><thead><tr><th>Section</th><th>Unresolved Count</th></tr></thead><tbody>';
-          for (const m of data.mostUnresolved) { html += `<tr><td>§ ${m.sectionNumber}</td><td>${m.count}</td></tr>`; }
-          html += '</tbody></table>';
+            html += '<h4 style="margin:16px 0 8px">Sections with Most Unresolved References</h4><table class="intel-table"><thead><tr><th>Section</th><th>Unresolved Count</th></tr></thead><tbody>';
+            for (const m of data.mostUnresolved) {
+                html += `<tr><td>§ ${m.sectionNumber}</td><td>${m.count}</td></tr>`;
+            }
+            html += '</tbody></table>';
         }
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not validate cross-references.</p>'; }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not validate cross-references.</p>');
+    }
+}); }
 
     // ─ Legislative History ─
-    document.getElementById('history-load-btn').addEventListener('click', async () => {
-      const guid = document.getElementById('history-guid-input').value.trim();
-      if (!guid) return;
-      const el = document.getElementById('history-content');
-      el.innerHTML = '<p style="color:var(--text-secondary)">Loading...</p>';
-      try {
-        const data = await apiFetch(`/api/history/${guid}`).then(r => r.json());
-        if (data.error) { el.innerHTML = `<p style="color:#f97316">${escapeHtml(data.error)}</p>`; return; }
+    document.getElementById('history-load-btn').addEventListener('click', async () => { return runReaderTask("history-content", async signal => {
+    const guid = document.getElementById('history-guid-input').value.trim();
+    if (!guid)
+        return;
+    const el = document.getElementById('history-content');
+    CCGui.render(el, '<p style="color:var(--text-secondary)">Loading...</p>');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, `/api/history/${guid}`).then(r => r.json()), signal);
+        if (data.error) {
+            CCGui.render(el, `<p style="color:#f97316">${escapeHtml(data.error)}</p>`);
+            return;
+        }
         let html = `<h4>§ ${data.number}</h4><p style="color:var(--text-secondary);margin-bottom:12px">${data.rawHistory}</p>`;
         if (data.entries?.length > 0) {
-          html += '<table class="intel-table"><thead><tr><th>Ordinance</th><th>Action</th><th>Year</th></tr></thead><tbody>';
-          for (const e of data.entries) { html += `<tr><td>${e.ordinance}</td><td>${e.action}</td><td>${e.date ?? '—'}</td></tr>`; }
-          html += '</tbody></table>';
+            html += '<table class="intel-table"><thead><tr><th>Ordinance</th><th>Action</th><th>Year</th></tr></thead><tbody>';
+            for (const e of data.entries) {
+                html += `<tr><td>${e.ordinance}</td><td>${e.action}</td><td>${e.date ?? '—'}</td></tr>`;
+            }
+            html += '</tbody></table>';
         }
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load history.</p>'; }
-    });
+        CCGui.render(el, html);
+    }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not load history.</p>');
+    }
+}); });
 
     // ─ Compare Sections ─
-    document.getElementById('compare-btn').addEventListener('click', async () => {
-      const g1 = document.getElementById('compare-guid1').value.trim();
-      const g2 = document.getElementById('compare-guid2').value.trim();
-      if (!g1 || !g2) return;
-      const el = document.getElementById('compare-result');
-      el.innerHTML = '<p style="color:var(--text-secondary)">Comparing...</p>';
-      try {
-        const data = await apiFetch(`/api/compare?guid1=${g1}&guid2=${g2}`).then(r => r.json());
-        if (data.error) { el.innerHTML = `<p style="color:#f97316">${escapeHtml(data.error)}</p>`; return; }
+    document.getElementById('compare-btn').addEventListener('click', async () => { return runReaderTask("compare-result", async signal => {
+    const g1 = document.getElementById('compare-guid1').value.trim();
+    const g2 = document.getElementById('compare-guid2').value.trim();
+    if (!g1 || !g2)
+        return;
+    const el = document.getElementById('compare-result');
+    CCGui.render(el, '<p style="color:var(--text-secondary)">Comparing...</p>');
+    try {
+        const data = await readerAwait(readerFetch(apiFetch, signal, `/api/compare?guid1=${g1}&guid2=${g2}`).then(r => r.json()), signal);
+        if (data.error) {
+            CCGui.render(el, `<p style="color:#f97316">${escapeHtml(data.error)}</p>`);
+            return;
+        }
         const pct = (data.similarity * 100).toFixed(1);
         let html = `<div class="intel-grid" style="margin-bottom:12px">
           <div class="intel-card"><h4>Similarity</h4><div class="metric">${pct}%</div></div>
           <div class="intel-card"><h4>Word Delta</h4><div class="metric">${data.wordCountDelta > 0 ? '+' : ''}${data.wordCountDelta}</div></div>
           <div class="intel-card"><h4>Common Lines</h4><div class="metric">${data.common.length}</div></div>
         </div>`;
-        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><h5>Only in § ${data.number1}</h5><div class="compare-text">${data.onlyInFirst.slice(0,20).join('<br>')}</div></div><div><h5>Only in § ${data.number2}</h5><div class="compare-text">${data.onlyInSecond.slice(0,20).join('<br>')}</div></div></div>`;
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not compare those sections.</p>'; }
-    });
+        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><h5>Only in § ${data.number1}</h5><div class="compare-text">${data.onlyInFirst.slice(0, 20).join('<br>')}</div></div><div><h5>Only in § ${data.number2}</h5><div class="compare-text">${data.onlyInSecond.slice(0, 20).join('<br>')}</div></div></div>`;
+        CCGui.render(el, html);
+    }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not compare those sections.</p>');
+    }
+}); });
 
     // ─ Monthly Report ─
-    async function loadReport() {
-      const el = document.getElementById('report-content');
-      try {
-        const resp = await apiFetch('/api/report/latest');
-        if (resp.status === 404) { el.innerHTML = '<p style="color:var(--text-secondary)">No monthly report has been generated yet. Run: bun run report to create one.</p>'; return; }
-        const md = await resp.text();
-        el.innerHTML = CCGui.markdown(md);
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the monthly report.</p>'; }
+    async function loadReport() { return runReaderTask("report-content", async signal => {
+    const el = document.getElementById('report-content');
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, '/api/report/latest'), signal);
+        if (resp.status === 404) {
+            CCGui.render(el, '<p style="color:var(--text-secondary)">No monthly report has been generated yet. Run: bun run report to create one.</p>');
+            return;
+        }
+        const md = await readerAwait(resp.text(), signal);
+        CCGui.render(el, CCGui.markdown(md));
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not load the monthly report.</p>');
+    }
+}); }
 
     // ─ Curated Feed ─
     // Attribute-safe escaping (also quotes) — distinct from the existing
@@ -247,29 +310,34 @@
       return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     const SOURCE_LABELS = { news: '📰 News', gov_meetings: '🏛️ Gov Meeting', youtube: '📺 YouTube' };
-    async function loadCuratedFeed() {
-      const el = document.getElementById('curated-content');
-      try {
-        const resp = await apiFetch('/api/curated?limit=50');
-        const data = await resp.json();
+    async function loadCuratedFeed() { return runReaderTask("curated-content", async signal => {
+    const el = document.getElementById('curated-content');
+    try {
+        const resp = await readerAwait(readerFetch(apiFetch, signal, '/api/curated?limit=50'), signal);
+        const data = await readerAwait(resp.json(), signal);
         if (!data.items || data.items.length === 0) {
-          el.innerHTML = '<p style="color:var(--text-secondary)">' + escapeHtmlAttr(data.error || 'No curated items yet. Run: bun run curate to refresh.') + '</p>';
-          return;
+            CCGui.render(el, '<p style="color:var(--text-secondary)">' + escapeHtmlAttr(data.error || 'No curated items yet. Run: bun run curate to refresh.') + '</p>');
+            return;
         }
         let html = '';
         for (const item of data.items) {
-          const sourceLabel = SOURCE_LABELS[item.source] || escapeHtmlAttr(item.source);
-          const tags = (item.tags || []).map(t => '<span class="intel-tab" style="padding:2px 8px;font-size:11px;cursor:default">' + escapeHtmlAttr(t) + '</span>').join(' ');
-          html += '<div style="border-bottom:1px solid var(--border);padding:12px 0">'
-            + '<div style="font-size:12px;color:var(--text-secondary)">' + sourceLabel + ' · ' + escapeHtmlAttr(new Date(item.curatedAt).toLocaleString()) + ' · ' + escapeHtmlAttr(item.provider || 'source-only') + ' · ' + escapeHtmlAttr(item.summaryStatus || 'legacy') + '</div>'
-            + '<div style="font-weight:600;margin:4px 0">' + (item.link ? '<a href="' + escapeHtmlAttr(item.link) + '" target="_blank" rel="noopener">' + escapeHtmlAttr(item.title) + '</a>' : escapeHtmlAttr(item.title)) + '</div>'
-            + '<div style="color:var(--text-secondary);margin-bottom:6px">' + escapeHtmlAttr(item.summary) + '</div>'
-            + (tags ? '<div>' + tags + '</div>' : '')
-            + '</div>';
+            const sourceLabel = SOURCE_LABELS[item.source] || escapeHtmlAttr(item.source);
+            const tags = (item.tags || []).map(t => '<span class="intel-tab" style="padding:2px 8px;font-size:11px;cursor:default">' + escapeHtmlAttr(t) + '</span>').join(' ');
+            html += '<div style="border-bottom:1px solid var(--border);padding:12px 0">'
+                + '<div style="font-size:12px;color:var(--text-secondary)">' + sourceLabel + ' · ' + escapeHtmlAttr(new Date(item.curatedAt).toLocaleString()) + ' · ' + escapeHtmlAttr(item.provider || 'source-only') + ' · ' + escapeHtmlAttr(item.summaryStatus || 'legacy') + '</div>'
+                + '<div style="font-weight:600;margin:4px 0">' + (item.link ? '<a href="' + escapeHtmlAttr(item.link) + '" target="_blank" rel="noopener">' + escapeHtmlAttr(item.title) + '</a>' : escapeHtmlAttr(item.title)) + '</div>'
+                + '<div style="color:var(--text-secondary);margin-bottom:6px">' + escapeHtmlAttr(item.summary) + '</div>'
+                + (tags ? '<div>' + tags + '</div>' : '')
+                + '</div>';
         }
-        el.innerHTML = html;
-      } catch { el.innerHTML = '<p style="color:var(--text-secondary)">Could not load the curated feed.</p>'; }
+        CCGui.render(el, html);
     }
+    catch {
+        if (signal.aborted)
+            return;
+        CCGui.render(el, '<p style="color:var(--text-secondary)">Could not load the curated feed.</p>');
+    }
+}); }
 
     // ─ API Explorer ─
     const apiEndpoints = [
@@ -308,9 +376,9 @@
         const methodClass = ep.method === 'GET' ? 'method-get' : 'method-post';
         html += `<div class="api-explorer-item"><span class="api-explorer-method ${methodClass}">${ep.method}</span><span class="api-explorer-path">${ep.path}</span><span style="color:var(--text-secondary);font-size:12px">${ep.desc}</span><button class="api-explorer-btn" data-path="${ep.path}" data-method="${ep.method}">Try</button></div>`;
       }
-      list.innerHTML = html;
+      CCGui.render(list, html);
       list.querySelectorAll('.api-explorer-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => runReaderTask('api-explorer-result', async signal => {
           const path = btn.dataset.path;
           const method = btn.dataset.method;
           const resultEl = document.getElementById('api-explorer-result');
@@ -318,12 +386,15 @@
           resultEl.textContent = `Loading ${method} ${path}...`;
           try {
             const opts = method === 'POST' ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({q:'tsunami'})} : {};
-            const resp = await apiFetch(path, opts);
-            const text = await resp.text();
+            const resp = await readerAwait(readerFetch(apiFetch, signal, path, opts), signal);
+            const text = await readerAwait(resp.text(), signal);
             resultEl.textContent = `${resp.status} ${resp.statusText}\n\n${text.substring(0, 2000)}`;
           } catch (err) {
+            if (signal.aborted) return;
             resultEl.textContent = `Error: ${err.message}`;
           }
-        });
+        }));
       });
     }
+
+export { escapeHtmlAttr, loadAlertTimeline, loadApiExplorer, loadCuratedFeed, loadGlossary, loadIntelOverview, loadReport, loadSearchAnalytics, loadXRefs };

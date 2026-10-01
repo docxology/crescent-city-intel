@@ -1,14 +1,44 @@
 /** Cross-process writer leases; a rename alone does not serialize read/modify/write. */
-import { mkdir, open, readFile, stat, rename, unlink } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, open, readFile, stat, rename, unlink, link, lstat } from "node:fs/promises";
+import { dirname, basename, join, resolve, parse } from "node:path";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, openSync, writeFileSync, closeSync, readFileSync, unlinkSync, statSync, renameSync } from "node:fs";
+import { mkdirSync, openSync, writeFileSync, closeSync, readFileSync, unlinkSync, statSync, renameSync, linkSync, fsyncSync, lstatSync, realpathSync } from "node:fs";
+import { currentRunSignal, remainingRunMs } from "./run_scope.js";
 import { throwIfAborted, waitWithSignal } from "./transport.js";
 
 export interface LeaseOptions { waitMs?: number; staleMs?: number; signal?: AbortSignal; }
 interface Lease { pid: number; token: string; startedAt: string; }
 function alive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch (error: any) { return error?.code !== "ESRCH"; }
+}
+// macOS exposes these OS directories through fixed aliases; user-controlled
+// links below them remain forbidden, including state and producer namespaces.
+function filesystemPath(path: string): string {
+  let absolute = resolve(path);
+  if (process.platform === "darwin") for (const alias of ["/var", "/tmp"]) {
+    if ((absolute === alias || absolute.startsWith(`${alias}/`)) && realpathSync(alias) === `/private${alias}`) absolute = `/private${absolute}`;
+  }
+  return absolute;
+}
+/** Admission before mkdir/lease recovery; never follow an owned namespace link. */
+export async function assertSafeFilesystemPath(path: string): Promise<string> {
+  const absolute = filesystemPath(path); let current = parse(absolute).root; const parts = absolute.slice(current.length).split(/[\\/]/).filter(Boolean);
+  for (const [index, part] of parts.entries()) {
+    current = join(current, part); const info = await lstat(current).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+    if (info?.isSymbolicLink()) throw new Error("Owned filesystem path cannot traverse symlinks");
+    if (info && index < parts.length - 1 && !info.isDirectory()) throw new Error("Owned filesystem parent must be a directory");
+  }
+  return absolute;
+}
+function assertSafeFilesystemPathSync(path: string): string {
+  const absolute = filesystemPath(path); let current = parse(absolute).root; const parts = absolute.slice(current.length).split(/[\\/]/).filter(Boolean);
+  for (const [index, part] of parts.entries()) {
+    current = join(current, part); let info: ReturnType<typeof lstatSync> | null;
+    try { info = lstatSync(current); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; info = null; }
+    if (info?.isSymbolicLink()) throw new Error("Owned filesystem path cannot traverse symlinks");
+    if (info && index < parts.length - 1 && !info.isDirectory()) throw new Error("Owned filesystem parent must be a directory");
+  }
+  return absolute;
 }
 export async function acquireFileLease(path: string, options: LeaseOptions = {}): Promise<() => Promise<void>> {
   return acquireLease(path, options, 0);
@@ -18,17 +48,22 @@ async function acquireLease(path: string, options: LeaseOptions, recoveryDepth: 
   if (recoveryDepth > 16) throw new Error("Excessive abandoned lease recovery guards");
   const deadline = Date.now() + (options.waitMs ?? 5000);
   const staleMs = options.staleMs ?? 30_000;
-  const signal = options.signal ?? new AbortController().signal;
+  const signal = options.signal ?? currentRunSignal() ?? new AbortController().signal;
   const receipt: Lease = { pid: process.pid, token: randomUUID(), startedAt: new Date().toISOString() };
   throwIfAborted(signal);
+  path = await assertSafeFilesystemPath(path);
+  const existing = await lstat(path).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+  if (existing && (!existing.isFile() || existing.size > 4096)) throw new Error("Writer lease must be a bounded regular file");
   await mkdir(dirname(path), { recursive: true });
-  for (;;) {
+  const prepared = join(dirname(path), `.${basename(path)}.${receipt.token}.lease`);
+  const file = await open(prepared, "wx", 0o600);
+  try { await file.writeFile(JSON.stringify(receipt)); await file.sync(); } catch (error) { await unlink(prepared); throw error; } finally { await file.close(); }
+  try { for (;;) {
     throwIfAborted(signal);
     let created = false; let inode: number | undefined;
     try {
-      const file = await open(path, "wx", 0o600);
-      created = true;
-      try { inode = (await file.stat()).ino; throwIfAborted(signal); await file.writeFile(JSON.stringify(receipt)); await file.sync(); } finally { await file.close(); }
+      throwIfAborted(signal); await link(prepared, path);
+      created = true; inode = (await stat(path)).ino;
       const release = async () => {
         const owner = await readFile(path, "utf-8").then(raw => JSON.parse(raw)).catch(() => null);
         if (owner?.token === receipt.token) await unlink(path);
@@ -69,24 +104,30 @@ async function acquireLease(path: string, options: LeaseOptions, recoveryDepth: 
       if (Date.now() >= deadline) throw new Error(`Writer lease unavailable: ${path}`);
       await waitWithSignal(Math.min(25, Math.max(1, deadline - Date.now())), signal);
     }
-  }
+  } } finally { await unlink(prepared).catch(error => { if (error.code !== "ENOENT") throw error; }); }
 }
 
 export async function withFileLease<T>(path: string, task: () => Promise<T>, options?: LeaseOptions): Promise<T> {
   const release = await acquireFileLease(path, options);
-  try { if (options?.signal) throwIfAborted(options.signal); return await task(); } finally { await release(); }
+  try { const signal = options?.signal ?? currentRunSignal(); if (signal) throwIfAborted(signal); return await task(); } finally { await release(); }
 }
 
 /** Sync history writers serialize the entire append/trim transaction across processes. */
 export function withFileLeaseSync<T>(path: string, task: () => T, waitMs = 1000, recoveryDepth = 0): T {
   if (!Number.isFinite(waitMs) || waitMs < 0 || waitMs > 3_600_000) throw new Error("Invalid sync writer lease bounds");
   if (recoveryDepth > 16) throw new Error("Excessive abandoned sync recovery guards");
+  const signal = currentRunSignal(); if (signal) throwIfAborted(signal);
+  waitMs = Math.min(waitMs, remainingRunMs() ?? waitMs);
+  path = assertSafeFilesystemPathSync(path);
+  try { const existing = lstatSync(path); if (!existing.isFile() || existing.size > 4096) throw new Error("Writer lease must be a bounded regular file"); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   mkdirSync(dirname(path), { recursive: true });
   const token = randomUUID(); const deadline = Date.now() + waitMs;
-  for (;;) {
+  const prepared = join(dirname(path), `.${basename(path)}.${token}.lease`); const fd = openSync(prepared, "wx", 0o600);
+  try { writeFileSync(fd, JSON.stringify({ pid: process.pid, token, startedAt: new Date().toISOString() })); fsyncSync(fd); } catch (error) { unlinkSync(prepared); throw error; } finally { closeSync(fd); }
+  try { for (;;) {
+    if (signal) throwIfAborted(signal);
     try {
-      const fd = openSync(path, "wx", 0o600);
-      try { writeFileSync(fd, JSON.stringify({ pid: process.pid, token, startedAt: new Date().toISOString() })); } finally { closeSync(fd); }
+      linkSync(prepared, path);
       break;
     } catch (error: any) {
       if (error.code !== "EEXIST") throw error;
@@ -107,7 +148,7 @@ export function withFileLeaseSync<T>(path: string, task: () => T, waitMs = 1000,
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
     }
   }
-  try { return task(); } finally {
+  try { if (signal) throwIfAborted(signal); return task(); } finally {
     try { if (JSON.parse(readFileSync(path, "utf8")).token === token) unlinkSync(path); } catch (error: any) { if (error.code !== "ENOENT") throw error; }
-  }
+  } } finally { try { unlinkSync(prepared); } catch (error: any) { if (error.code !== "ENOENT") throw error; } }
 }

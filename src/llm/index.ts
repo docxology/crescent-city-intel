@@ -9,6 +9,9 @@ import { llmConfig } from "./config.js";
 import { createLogger } from "../logger.js";
 import * as readline from "readline";
 
+import { evaluateContextReplay } from "./benchmark.js";
+import { buildSemanticReviewPackage, assessSemanticAnnotations, type SemanticReviewInput } from "./semantic_review.js";
+import { open } from "node:fs/promises";
 const log = createLogger("llm-cli");
 const command = process.argv[2];
 
@@ -187,7 +190,28 @@ async function runStatus() {
   }
 }
 
+async function runSemanticReview() {
+  const [inputPath, outputPath, annotationPath, ...extra] = process.argv.slice(3);
+  if (!inputPath || !outputPath || extra.length || command === "review-package" && annotationPath || command === "replay-context" && annotationPath && !/^--deadline-ms=\d+$/.test(annotationPath) || command === "review-assess" && annotationPath?.startsWith("--")) throw new Error("Usage: review-package INPUT OUTPUT | review-assess PACKAGE OUTPUT [ANNOTATIONS] | replay-context SUITE OUTPUT [--deadline-ms=N]");
+  const readJson = async (path: string) => {
+    const file = await open(path, "r");
+    try { const stat = await file.stat(); if (!stat.isFile() || stat.size > 4_000_000) throw new Error("Review input must be a regular JSON file of at most 4 MB"); const bytes = Buffer.alloc(4_000_001); let length = 0; while (length < bytes.length) { const read = await file.read(bytes, length, bytes.length - length); if (!read.bytesRead) break; length += read.bytesRead; } if (length > 4_000_000) throw new Error("Review input exceeded its byte limit"); return JSON.parse(bytes.subarray(0, length).toString("utf8")); }
+    finally { await file.close(); }
+  };
+  const input = await readJson(inputPath);
+  const deadlineMs = annotationPath?.startsWith("--deadline-ms=") ? Number(annotationPath.slice(14)) : undefined;
+  const result = command === "replay-context" ? await evaluateContextReplay(input, {deadlineMs}) : command === "review-package" ? buildSemanticReviewPackage(input as SemanticReviewInput) : assessSemanticAnnotations(input, annotationPath ? await readJson(annotationPath) : undefined);
+  const file = await open(outputPath, "wx", 0o600);
+  try { await file.writeFile(JSON.stringify(result, null, 2) + "\n"); } finally { await file.close(); }
+  console.log("Private review artifact written; supplied annotations do not verify reviewer identity or factuality.");
+}
+
 switch (command) {
+  case "replay-context":
+  case "review-package":
+  case "review-assess":
+    await runSemanticReview();
+    break;
   case "index":
     await runIndex();
     break;
@@ -203,6 +227,7 @@ switch (command) {
   default:
     console.log("Crescent City Municipal Code — LLM Module\n");
     console.log("Commands:");
+    console.log("  review-package INPUT OUTPUT | review-assess PACKAGE OUTPUT [ANNOTATIONS] | replay-context SUITE OUTPUT [--deadline-ms=N]");
     console.log("  bun run src/llm/index.ts index    Index all sections into ChromaDB [--deadline-ms=300000]");
     console.log("  bun run src/llm/index.ts chat     Interactive RAG chat");
     console.log('  bun run src/llm/index.ts query "question"  Single query');

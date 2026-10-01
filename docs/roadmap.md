@@ -1,53 +1,55 @@
 # Roadmap — The Quadruplicate
 
-Delivery proceeds from measured reliability to useful coverage. The existing
-platform has strict source/corpus custody, runtime API contracts, staged
-indexes and publication, and native browser/backend/research acceptance.
-The [current-state review](project-review.md) states the limits of that
-acceptance. [TODO.md](../TODO.md) is the only item-level backlog;
-[CHANGELOG.md](../CHANGELOG.md) is the only version history.
+Delivery proceeds from measured reliability to useful coverage. The operating
+platform uses bounded owned producers, current-cycle source validity, shared
+versioned artifact/API definitions, explicit GUI modules and retained input/
+transformation/output custody. The [current-state review](project-review.md)
+states these contracts and their evidence limits. [TODO.md](../TODO.md) is the
+only item-level backlog; [CHANGELOG.md](../CHANGELOG.md) is the only version
+history.
 
-## Remaining delivery sequence
+## Acceptance sequence
 
 | Stage | Goal | Open scopes | Exit evidence |
-| :--- | :--- | :--- | :--- |
-| 1 | Complete ownership, cancellation and source validity | M04, M06–M08, M21, M24, M31–M33 | Every producer and direct SDK boundary has bounded real failure cases; whole-run cancellation and interrupted recovery preserve exact prior evidence |
-| 2 | Reduce contract duplication and finish reproducible operations | S07, M29–M30, M34; L01–L02 | Generated documentation and family validators share authorities; persistent empty-volume/restart and scheduler fixtures preserve ownership; derived public facts have replayable custody |
-| 3 | Measure usefulness and temporal meaning | M25–M27; L03–L04, L06, L08 | Semantic support and usefulness are evaluated separately; recurrence, revisions, cadence and legal dates retain primary evidence; every reader journey and independent research replay has its own receipt |
-| 4 | Expand observed local coverage | L05, L07 | Source-specific access/budget/ownership, captured representative fixtures, bounded live collection and demonstrated geographic/temporal coverage |
+| --- | --- | --- | --- |
+| 1 | Establish real destination and host operation | M07, M27, M29 | Opted-in notification delivery, actual committed-digest consumer, persistent host restart/scheduler and backup/restore receipts |
+| 2 | Independently interpret source-backed products | L03, L06, L07 | Named human review of answer support, adopted ordinance spans, directory field currency and representative calendar/sampling evidence |
+| 3 | Acquire useful additional local evidence | L05 | Source-specific access/terms/budget ownership plus captured primary local records with declared geographic and temporal units |
+| 4 | Reproduce the precise release externally | L08 | Independent clean-environment deterministic replay, named actual consumer integration, research metrics and separate hosted/live publication receipts |
 
-Parallel work has one owner per file and contract. Security and shared
-infrastructure receive fresh independent review. A source outage remains a
-coverage fact; a runner, parser or custody failure remains an execution or
-integrity failure. Resolve those boundaries before strengthening claims.
+These stages can overlap when their prerequisites exist. Source access does not
+have to wait for production deployment, and local software tests do not have to
+wait for human interpretation. Stronger public claims wait for the corresponding
+source, review or operating receipt. Re-estimate implementation from a concrete
+new counterexample; do not keep a repaired defect listed as future work.
 
 ```mermaid
 flowchart TD
-    A[Source-specific observation validity] --> B[Bounded owned producers]
-    B --> C[Whole-run recovery]
-    D[Shared artifact and API definitions] --> E[Derived fact custody and replay]
-    C --> E
-    E --> F[Independent research acceptance]
-    D --> G[Accessible reader journeys]
-    E --> H[Reviewed amendment and trend evidence]
-    G --> I[Measured RAG usefulness]
-    H --> J[Additional observed local coverage]
-    I --> J
+    A[Bounded source collection and captured bytes] --> B[Shared validation and deterministic replay]
+    B --> C[Independent semantic and legal review]
+    D[Owned persistent operation] --> E[Longitudinal sampling and field currency]
+    F[Source-specific access and local coverage] --> C
+    F --> E
+    C --> G[Measured civic usefulness]
+    E --> G
+    B --> H[Independent release and consumer reproduction]
+    G --> H
 ```
 
-## Planning boundaries
+## Evidence boundaries
 
-- Retain offline deterministic fixtures and actual local HTTP/process/browser
-  failure cases. Separate local tests, native services, hosted workflows,
-  upstream collection, external consumers and deployed-site acceptance.
-- Permit catalogs, PacFIN catalogs, statewide fuel prices and unestablished
-  local AIS coverage must retain their actual meaning. Access, credentials,
-  subscriptions and spending remain explicit owner decisions.
-- Native PDF page extraction preserves bytes and spans; it does not establish
-  votes, ordinance effectivity or semantic extraction correctness. Citation
-  identity does not establish answer support or independent corroboration.
-- Preserve private query/operator state and prior complete editions. Scheduler
-  installation, external private-state edits and notification display have
-  their own ownership and acceptance boundaries.
-- Close an item only after its remaining acceptance has evidence, remove it
-  from TODO, and record the change once in CHANGELOG.
+- Keep deterministic fixtures, real local HTTP/process/browser failures, actual
+  upstream collection, native services, external consumers, hosted workflows and
+  deployed-site acceptance as separately named evidence.
+- Catalog access, statewide fuel, qualitative smoke and foreign AIS observations
+  retain their actual units. Missing primary clocks, parser failures and local
+  coverage gaps cannot become fresh observations through a reachability probe.
+- PDF extraction preserves bytes and spans. It does not establish votes,
+  ordinance authority or legal effectivity. Citation identity and imported
+  annotations do not establish semantic support or independent corroboration.
+- Preserve prior complete editions and private query/operator/source archives.
+  Host activation, personal consumer-state edits, notification opt-in and paid
+  access require precise owner decisions and their own acceptance.
+- Remove an open item only when its stated acceptance has evidence. Record
+  version history once in CHANGELOG and retain the receipt's actual date,
+  source revision and scope.

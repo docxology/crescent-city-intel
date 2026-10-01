@@ -146,7 +146,7 @@ describe("the mapping is honest about what the monitors reported", () => {
 
   test("a report's own fields are carried through unchanged, not re-derived", () => {
     const input = buildExtendedCompositeInput({
-      drought: { timestamp: FRESH, compositeSeverity: "D3", severeDroughtPercent: 42 },
+      drought: { timestamp: FRESH, productDate: FRESH.slice(0, 10), compositeSeverity: "D3", severeDroughtPercent: 42 },
       roads: { timestamp: FRESH, overallSeverity: "WARNING", hasMajorClosure: false, totalIncidents: 7 },
       schools: { timestamp: FRESH, districtStatus: "DELAYED", hasActiveClosure: false, hasActiveDelay: true, totalEvents: 1 },
     });

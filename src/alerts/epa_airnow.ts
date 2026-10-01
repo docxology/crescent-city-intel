@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
+import { withProducerScope, type ProducerOptions } from "../shared/run_scope.js";
 import { boundedHttpFetch as fetch } from "../shared/transport.js";
 import { outputRoot } from "../shared/paths.js";
+import { assessSourceClock } from "../source_clocks.js";
 /**
  * EPA AirNow Air Quality Monitor for Crescent City.
  *
@@ -48,6 +50,7 @@ export function getLastAirQualityError(): string | undefined {
 export type AirQualityLevel = "GOOD" | "MODERATE" | "UNHEALTHY_SENSITIVE" | "UNHEALTHY" | "VERY_UNHEALTHY" | "HAZARDOUS";
 
 export interface AirQualityReading {
+  observedAt?: string;
   /** Parameter name: PM2.5, O3, PM10 */
   parameter: string;
   /** AQI value (0-500) */
@@ -66,6 +69,8 @@ export interface AirQualityReading {
 
 export interface AirQualityReport {
   timestamp: string;
+  fetchedAt?: string;
+  observedAt?: string;
   zipCode: string;
   /** Which AirNow transport produced this report. */
   provider: "airnow-api" | "airnow-public-kml";
@@ -115,6 +120,13 @@ export function classifyAqi(aqi: number): AirQualityLevel {
   return "HAZARDOUS";
 }
 
+export function airnowObservationTime(date: string, hour: number, zone: string): string | null {
+  const offsets: Record<string, number> = { UTC: 0, GMT: 0, PST: -8, PDT: -7, EST: -5, EDT: -4, CST: -6, CDT: -5, MST: -7, MDT: -6 };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(hour) || hour < 0 || hour > 23 || offsets[zone] === undefined) return null;
+  const midnight = Date.parse(`${date}T00:00:00Z`);
+  if (!Number.isFinite(midnight) || new Date(midnight).toISOString().slice(0, 10) !== date) return null;
+  return new Date(midnight + (hour - offsets[zone]!) * 3_600_000).toISOString();
+}
 function categoryNumber(level: AirQualityLevel): number {
   return { GOOD: 1, MODERATE: 2, UNHEALTHY_SENSITIVE: 3, UNHEALTHY: 4, VERY_UNHEALTHY: 5, HAZARDOUS: 6 }[level];
 }
@@ -150,6 +162,7 @@ export async function fetchAirQuality(apiKey?: string): Promise<AirQualityReport
         unit: obs.Unit,
         value: obs.Value,
         agency: obs.AgencyName,
+        observedAt: airnowObservationTime(String(obs.DateObserved ?? "").trim(), Number(obs.HourObserved), String(obs.LocalTimeZone ?? "").trim()) ?? undefined,
       })) : [];
       if (readings.length === 0) {
         // The keyed ZIP endpoint succeeded but produced no observation within
@@ -159,10 +172,13 @@ export async function fetchAirQuality(apiKey?: string): Promise<AirQualityReport
         // network-failure path below.
         throw new Error("AirNow ZIP endpoint returned no current readings within radius");
       }
+      if (readings.some(row => !assessSourceClock("airquality", { observedAt: row.observedAt }).usable)) throw new Error("AirNow ZIP observations lack fresh primary observation clocks");
       const maxAqi = Math.max(...readings.map(r => r.aqi));
       const level = classifyAqi(maxAqi);
       return {
         timestamp: new Date().toISOString(),
+        fetchedAt: new Date().toISOString(),
+        observedAt: readings.map(row => row.observedAt!).sort()[0],
         zipCode: CRESCENT_CITY_ZIP,
         provider: "airnow-api",
         readings,
@@ -214,7 +230,7 @@ export async function fetchPublicAirNowKml(): Promise<AirQualityReport> {
   const xml = await response.text();
   const document = new DOMParser().parseFromString(xml, "text/xml");
   const placemarks = document.getElementsByTagName("Placemark");
-  let nearest: { aqi: number; distanceKm: number; site: string } | null = null;
+  let nearest: { aqi: number; distanceKm: number; site: string; observedAt: string } | null = null;
   for (let index = 0; index < placemarks.length; index += 1) {
     const placemark = placemarks[index];
     const coordinates = placemark.getElementsByTagName("coordinates")[0]?.textContent?.trim() ?? "";
@@ -227,8 +243,13 @@ export async function fetchPublicAirNowKml(): Promise<AirQualityReport> {
     const description = placemark.getElementsByTagName("description")[0]?.textContent ?? "";
     const aqi = parseKmlAqi(description);
     if (aqi === null || (nearest && nearest.distanceKm <= distanceKm)) continue;
+    const update = description.match(/Updated:\s*\w{3}\s+(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s+(AM|PM)\s+([A-Z]{3})/i);
+    const hour = update ? Number(update[4]) % 12 + (update[6]!.toUpperCase() === "PM" ? 12 : 0) : -1;
+    const base = update ? airnowObservationTime(`${update[3]}-${update[1]}-${update[2]}`, hour, update[7]!.toUpperCase()) : null;
+    const observedAt = base && update && Number(update[4]) >= 1 && Number(update[4]) <= 12 && Number(update[5]) < 60 ? new Date(Date.parse(base) + Number(update[5]) * 60_000).toISOString() : null;
+    if (!observedAt || !assessSourceClock("airquality", { observedAt }).usable) continue;
     const site = placemark.getElementsByTagName("Snippet")[0]?.textContent?.trim() || "Crescent City-area AirNow station";
-    nearest = { aqi, distanceKm, site };
+    nearest = { aqi, distanceKm, site, observedAt };
   }
 
   const timestamp = new Date().toISOString();
@@ -247,6 +268,8 @@ export async function fetchPublicAirNowKml(): Promise<AirQualityReport> {
   const level = classifyAqi(nearest.aqi);
   return {
     timestamp,
+    fetchedAt: timestamp,
+    observedAt: nearest.observedAt,
     zipCode: CRESCENT_CITY_ZIP,
     provider: "airnow-public-kml",
     readings: [{ parameter: "PM2.5", aqi: nearest.aqi, category: level, categoryNumber: categoryNumber(level), unit: "AQI", value: nearest.aqi, agency: `AirNow public KML — ${nearest.site}` }],
@@ -258,7 +281,8 @@ export async function fetchPublicAirNowKml(): Promise<AirQualityReport> {
 }
 
 /** Main monitor entry point */
-export async function runAirQualityMonitor(): Promise<AirQualityReport | null> {
+export async function runAirQualityMonitor(options: ProducerOptions = {}): Promise<AirQualityReport | null> { return withProducerScope("alert-epa-airnow", options, () => runAirQualityMonitorInScope()); }
+async function runAirQualityMonitorInScope(): Promise<AirQualityReport | null> {
   logger.info("Checking air quality for Crescent City (ZIP 95531)");
   lastAirQualityError = undefined;
 

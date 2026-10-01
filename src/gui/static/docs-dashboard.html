@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="assets/reader.css">
   <title>The Quadruplicate — Docs &amp; Modules Dashboard</title>
   <script>window.__CC_API_KEY__ = "__CC_API_KEY_INJECT__";</script>
-  <script src="assets/gui-runtime.js"></script>
   <style>
     body{margin:0;background:#ffffff;color:#111;font-family:Georgia,serif}
     header{background:#c41e1e;color:#fff;padding:18px 24px}
@@ -54,48 +55,6 @@
       <table><thead><tr><th>Docs file</th><th>Modules named</th><th>Stale references</th></tr></thead><tbody id="surfaces-body"></tbody></table>
     </div>
   </main>
-  <script>
-    const key = window.__CC_API_KEY__;
-    function apiFetch(url) {
-      return CCGui.apiFetch(url);
-    }
-    function show(id) { document.getElementById(id).classList.remove("hidden"); }
-    function hide(id) { document.getElementById(id).classList.add("hidden"); }
-    async function load() {
-      try {
-        const resp = await apiFetch("/api/docs/modules");
-        if (!resp.ok) { hide("dashboard-loading"); show("dashboard-error-state"); return; }
-        const data = await resp.json();
-        hide("dashboard-loading");
-        if (data.empty) { show("dashboard-empty-state"); return; }
-        const s = data.counts;
-        document.getElementById("dashboard-summary").innerHTML =
-          `<div class="stat"><b>${s.modules}</b>modules in src/</div>` +
-          `<div class="stat"><b>${s.documented}</b>documented</div>` +
-          `<div class="stat ${s.undocumented ? 'miss' : 'ok'}"><b>${s.undocumented}</b>undocumented</div>` +
-          `<div class="stat"><b>${s.docsSurfaces}</b>docs surfaces</div>`;
-        const tbody = document.getElementById("modules-body");
-        for (const m of data.modules) {
-          const docs = m.documentedBy.length
-            ? m.documentedBy.map(d => `<code>${d}</code>`).join(" ")
-            : '<span class="miss">not documented</span>';
-          tbody.insertAdjacentHTML("beforeend", `<tr><td><code>${m.file}</code></td><td>${docs}</td></tr>`);
-        }
-        if (data.modules.length === 0) show("dashboard-roster-empty");
-        const surfaces = document.getElementById("surfaces-body");
-        for (const d of data.docsSurfaces) {
-          const missing = d.missingFiles.length
-            ? `<span class="miss">${d.missingFiles.length}</span>`
-            : '<span class="ok">0</span>';
-          surfaces.insertAdjacentHTML("beforeend", `<tr><td><code>${d.file}</code></td><td>${d.namesModules}</td><td>${missing}</td></tr>`);
-        }
-        show("dashboard-content");
-      } catch {
-        hide("dashboard-loading");
-        show("dashboard-error-state");
-      }
-    }
-    load();
-  </script>
+  <script type="module" src="assets/docs-dashboard.js"></script>
 </body>
 </html>

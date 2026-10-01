@@ -74,7 +74,7 @@ describe("lane1: payload split (Phase 1)", () => {
     const root = await mkdtemp(join(tmpdir(), "pages-lane1-"));
     try {
       await mkdir(join(root, "news"), { recursive: true });
-      await writeFile(join(root, "news/source-health.json"), `${JSON.stringify({ sources: [] })}\n`);
+      await writeFile(join(root, "news/source-health.json"), `${JSON.stringify({ schemaVersion: "crescent-city-source-health/v1", checkedAt: "2026-07-24T01:00:00Z", sources: [] })}\n`);
       await writePublicationFixture(root, "", [{ guid: "a1", title: "Ch.1", number: "1", url: "https://ecode360.com/x", sha256: publicationHash("fixture source"), sections: [{ guid: "s1", number: "§ 1", title: "Purpose", text: "Crescent City", history: "" }] } as unknown as ArticlePage]);
       const destination = join(root, "pages");
       const result = await exportPagesSnapshot({ outputDir: root, destination, generatedAt: "2026-07-24T01:00:00Z" });

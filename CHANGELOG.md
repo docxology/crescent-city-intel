@@ -8,6 +8,30 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.1.1] — 2026-10-01
+
+- Repair Linux owned-browser recovery with bounded `/proc` argument parsing,
+  kernel executable identity and start time checks, removing its external `ps`
+  dependency. Handle natural launcher exit and zombie states while retaining
+  private launcher/root/token authentication and refusing unauthenticated
+  process-group termination.
+- Reject substituted processes carrying the wrapper path as ordinary argument
+  data or spoofed `argv[0]` text. Recovery binds the kernel's Bun executable,
+  exact native argument boundaries and owned group leader identity. macOS uses
+  bounded built-in FFI executable/argument reads; `ps` supplies only PID/group
+  identifiers, and environment bytes are never decoded. Real adversarial fixtures
+  exposed unrelated-process signaling under the old command-text check.
+- Apply the same kernel/argument admission to active launcher shutdown and
+  dead-controller recovery. Refuse an absent owner receipt and retain the
+  private namespace and durable evidence; unknown PIDs cannot authorize a
+  signal or successful cleanup. Cleanup remains bounded and retryable, while
+  explicit disposal of a known never-spawned unused launcher stays separate.
+- Address the browser-recovery boundary that failed hosted v3.1.0 run
+  `36889337718`. The hosted log recorded an identity rejection without the
+  process state, so its exact triggering host condition remains undetermined.
+  Preserve the published v3.1.0 tag and distinguish new patch verification from
+  inherited v3.1.0 native evidence.
+
 ## [3.1.0] — 2026-10-01
 
 - Added cadence-specific retrieval, observation, product and validity clocks for

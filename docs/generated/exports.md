@@ -377,10 +377,10 @@ Qualified source exports, independent of similarly named symbols in other module
 | [src/artifact_custody.ts:84](../../src/artifact_custody.ts#L84) | `createArtifactCustody` | function | `6e1199990af3d33853e949afbab84281a61adae1592d7a91b4d1a6d5ca32d080` |
 | [src/artifact_custody.ts:107](../../src/artifact_custody.ts#L107) | `replayArtifactCustody` | function | `a361991c6ac717f461629eb967b21d9bac597ba4f36e99f242b7e9455ce32725` |
 | [src/artifact_custody.ts:93](../../src/artifact_custody.ts#L93) | `validateArtifactCustody` | function | `adda401edafc46257afa0b25d4f0a50117dc242365200f004ceeb4db3fecbae9` |
-| [src/browser_launcher.ts:10](../../src/browser_launcher.ts#L10) | `BrowserLauncher` | type | `3cf770ba147455a2e5ae3c43dd79cd09ee6e89b7b6af015ddf914f144113995d` |
-| [src/browser_launcher.ts:46](../../src/browser_launcher.ts#L46) | `createBrowserLauncher` | function | `5b3da9a6948a91182a183e8193b84bd52d6629960574ae64a03c5258351e889a` |
-| [src/browser_launcher.ts:14](../../src/browser_launcher.ts#L14) | `recoverOwnedBrowsers` | function | `0992a4bdd70c770a890ae06bb97ec22645baa8533fecee4e00e4cd475a154594` |
-| [src/browser_launcher.ts:64](../../src/browser_launcher.ts#L64) | `terminateBrowserLauncher` | function | `8e4a5cac34e68b79cfe53e2cca3f1f8784ba2fe9ff736bba48d54daa70dd7d61` |
+| [src/browser_launcher.ts:11](../../src/browser_launcher.ts#L11) | `BrowserLauncher` | type | `3cf770ba147455a2e5ae3c43dd79cd09ee6e89b7b6af015ddf914f144113995d` |
+| [src/browser_launcher.ts:126](../../src/browser_launcher.ts#L126) | `createBrowserLauncher` | function | `5b3da9a6948a91182a183e8193b84bd52d6629960574ae64a03c5258351e889a` |
+| [src/browser_launcher.ts:91](../../src/browser_launcher.ts#L91) | `recoverOwnedBrowsers` | function | `0992a4bdd70c770a890ae06bb97ec22645baa8533fecee4e00e4cd475a154594` |
+| [src/browser_launcher.ts:150](../../src/browser_launcher.ts#L150) | `terminateBrowserLauncher` | function | `8e4a5cac34e68b79cfe53e2cca3f1f8784ba2fe9ff736bba48d54daa70dd7d61` |
 | [src/browser_smoke.ts:16](../../src/browser_smoke.ts#L16) | `runBrowserSmoke` | function | `86605434380b721bcd31175fd2b7b9930527820f1396d078fb3c560663ad9770` |
 | [src/browser.ts:28](../../src/browser.ts#L28) | `BrowserOptions` | type | `da02504dc6bdf8bd3b940d1217f6e24f016dfe3ae6b5fd4b71f77080ffb0d042` |
 | [src/browser.ts:98](../../src/browser.ts#L98) | `closeBrowser` | function | `d2ba838326916e3dbcecd6e342b723cdcb4713ed307811e1c824b3121e736684` |

@@ -10,17 +10,63 @@ Manages the Playwright browser lifecycle with anti-detection measures for Cloudf
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `launchBrowser` | `() → Promise<BrowserContext>` | Launches Chromium (non-headless) with custom user agent and automation detection disabled. Returns singleton context. |
-| `closeBrowser` | `() → Promise<void>` | Closes context and browser, resets singletons. |
+| `launchBrowser` | `(options?) → Promise<BrowserContext>` | Returns the context owned by the current output root; respects caller cancellation and retries retained cleanup before replacement. |
+| `closeBrowser` | `(options?) → Promise<ProcessShutdownReceipt \| null>` | Stops the owned process group, confirms direct-child reaping and group disappearance, and retains failed cleanup for retry. |
 | `navigateWithCloudflare` | `(page, url, opts?) → Promise<void>` | Navigates to URL, waits for Cloudflare challenge markers to clear, then waits for SPA render. |
-| `newPage` | `() → Promise<Page>` | Creates a new page with `webdriver=false` injected via `addInitScript`. |
+| `newPage` | `(options?) → Promise<Page>` | Creates a page with `webdriver=false` and records its owning session. |
+| `withPageDeadline` | `(page, operation, timeoutMs, parent?) → Promise<T>` | Bounds the operation and cleanup; force-stops only the page's authenticated owning session. Caller-owned pages grant no authority over another browser. |
+
+### Owned recovery
+
+`src/browser_launcher.ts` retains a private launcher identity before Playwright's
+protocol handshake. Dead-controller recovery requires the matching root, token,
+private identity and an actual process-group leader. The kernel's executable
+path must match the canonical current Bun binary, and the first two structured
+arguments must be the exact interpreter and wrapper script. Caller-supplied
+argument text or a wrapper path used as ordinary data cannot authorize signaling.
+
+Active pre-protocol launcher shutdown uses the same kernel/argument admission as
+dead-controller recovery. Only factory-registered launcher objects are admitted;
+their captured executable, root, token and parent identity govern bounded private
+owner reads. A caller-supplied PID callback cannot replace that authority.
+Repeated watchdog calls share one in-flight cleanup. Cleanup has its own finite
+signal and remaining budget so an interrupted producer does not prevent cleanup
+authentication. A failed termination remains retryable and preserves the retained
+launcher. Both active termination and recovery refuse an absent `owner.json`:
+an unknown PID cannot authorize signaling, successful cleanup, durable recovery
+promotion or removal of the private namespace. The durable receipt, wrapper and
+private identity remain available for investigation and retry. For an admitted
+owner, success requires actual PID and group disappearance. Explicit factory
+disposal of a known never-spawned unused launcher is a separate operation; it
+does not establish process shutdown.
+
+On Linux, bounded `/proc` stat and NUL-separated argument reads plus the kernel
+`exe` path replace the external `ps` dependency. New launcher receipts record the
+kernel start time; recovery checks that identity and repeats the stat read around
+argument and executable capture to reject crossed process generations.
+
+On macOS, built-in Bun FFI calls `proc_pidpath` with a 4 KiB buffer and
+`KERN_PROCARGS2` with a 64 KiB buffer. Only the first two NUL-delimited arguments
+are decoded; trailing environment bytes are never decoded, logged or persisted. Bounded
+`ps` supplies only PID/group identifiers, never command text as authority.
+Unsupported, oversized or mismatched identity data fails closed and preserves
+the receipt. A changed interpreter path across restart also remains refused.
+
+A vanished argument record, missing native identity, zombie or signaling
+permission error is not proof of death and does not grant signaling authority.
+Recovery waits at most one second for both the recorded PID and its group to
+disappear; otherwise it fails and preserves the evidence. A vanished leader with
+live descendants cannot become a successful recovery. Missing private identity
+and ambiguous or substituted processes remain refused. These are recovery
+contracts; the current release's hosted and native execution results belong in
+its separately scoped acceptance receipt.
 
 ### Anti-Detection
 
 - User agent: Chrome 131 on macOS
 - `--disable-blink-features=AutomationControlled` launch arg
 - `navigator.webdriver` overridden to `false`
-- Non-headless mode (visible browser window)
+- Visible browser by default; `HEADLESS_BROWSER=1` enables headless operation
 
 ---
 

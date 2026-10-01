@@ -1,9 +1,12 @@
 # Current project state
 
 The Quadruplicate is a Bun/TypeScript municipal-code and civic-intelligence
-platform with a bounded static public edition. The v3.1.0 operating contract
+platform with a bounded static public edition. The v3.1.1 operating contract
 covers source custody, explicit gaps, finite acquisition, shared family/API
 validation, private diagnostics, staged indexes and recoverable publication.
+It retains the v3.1.0 implementation scope with focused browser lifecycle repairs
+for portability and process ownership; the eight external and human acceptance
+scopes remain open.
 The [release acceptance receipt](release-acceptance.json) names measured checks
 and snapshot identity: read its version, date and scope before attributing a
 result to the current tree. A receipt for an older release does not certify a

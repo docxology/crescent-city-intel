@@ -1,11 +1,11 @@
 {
   "schemaVersion": "crescent-city-release-acceptance/v1",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "date": "2026-10-01",
   "status": "local-verified",
   "baselineCommit": "f527da5699eb37ce6364fdd3d01ab0cc1b9207cd",
   "publication": {
-    "evidenceLocation": "GitHub v3.1.0 release, main checks and Pages deployment records",
+    "evidenceLocation": "GitHub v3.1.1 release, main checks and Pages deployment records",
     "boundary": "Local acceptance is recorded here. Exact published commit, hosted artifact and live hashes are external to avoid a self-referential commit identity."
   },
   "municipal": {
@@ -453,7 +453,7 @@
         "ownedVolumeRemoved": true,
         "unrelatedContainerIdsPreserved": true
       },
-      "boundary": "not exercised; optional providers intentionally unavailable"
+      "boundary": "Actual empty-volume GUI restart passed on the recorded v3.1.0 image; optional model/provider persistence was not exercised."
     },
     "pagesCapturedInputReplay": {
       "publicFiles": 55,
@@ -467,14 +467,17 @@
       "boundary": "Full local 245-article/2206-section capture replay; public commitments do not reconstruct private inputs or establish source truth."
     },
     "paper": {
+      "version": "3.1.1",
       "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
-      "pdfSha256": "6e39385cedcbda9acf0804ee6d037edbd43901b6549cc801377ec64e2d5c868a",
-      "htmlSha256": "7759944014a26a899413984f5b424d68cf091bfa32624200db20d76670b222cb",
+      "pdfSha256": "ed8c9f572fa25c7c2a420d47dea0e485c6ca0d1392ff9fe78faee6cd7d42a907",
+      "htmlSha256": "73612f16d9879d200d20f226bfb9a9bd8660cbcf263c0d2ccd6ec8ca8aebd3af",
       "pdfBytes": 117836,
-      "htmlBytes": 89015,
+      "htmlBytes": 89013,
       "status": "pass",
-      "boundary": "Actual offline PDF and HTML renderer, exact release files retained for publication."
-    }
+      "boundary": "Actual offline patch-edition PDF/HTML renderer; exact release files retained. Municipal/source snapshot evidence remains the recorded original refresh."
+    },
+    "evidenceVersion": "3.1.0",
+    "boundary": "Inherited native acceptance was measured on the v3.1.0 source bytes shown in each receipt; fresh patch acceptance is separately recorded."
   },
   "independentReview": {
     "infrastructure": {
@@ -505,7 +508,8 @@
       "assertions": 110,
       "status": "GO",
       "scope": "Central URL/zone imports, registry and actual batch health identity, following independent geographic-admission review."
-    }
+    },
+    "evidenceVersion": "3.1.0"
   },
   "boundaries": [
     "Byte identity and deterministic replay do not establish source truth or semantic support.",
@@ -516,6 +520,54 @@
     "Human source interpretation, directory currency and legal effectivity remain unreviewed where the retained evidence does not establish them."
   ],
   "releaseGate": {
+    "version": "3.1.1",
+    "status": "pass",
+    "testsPassed": 1985,
+    "testsSkipped": 2,
+    "testsFailed": 0,
+    "assertions": 20307,
+    "testsTotal": 1987,
+    "files": 193,
+    "suiteRuns": [
+      {
+        "kind": "plain",
+        "testsPassed": 1985,
+        "testsSkipped": 2,
+        "testsFailed": 0,
+        "assertions": 20307,
+        "testsTotal": 1987,
+        "files": 193
+      },
+      {
+        "kind": "coverage",
+        "status": "pass",
+        "boundary": "The authoritative gate captures this run and rejects a nonzero exit or failed floor; its individual test summary is not printed."
+      }
+    ],
+    "lineCoveragePercent": 86.06,
+    "functionCoveragePercent": 87.87,
+    "lineCoverageFloorPercent": 60,
+    "strictProductionTypes": "pass",
+    "strictTestTypes": "pass",
+    "outputCorpusFence": "pass",
+    "sourceParity": {
+      "files": 499,
+      "allEqual": true,
+      "treeSha256": "f33736b412011be86c8be00996158141b89179ef55dfb99322aecfdbb7581f7d"
+    },
+    "boundary": "Independent local Git/source copy with populated retained corpus shares the locked dependency installation; Chromium was restored to a task-owned cache after shared cache disappearance. Clean Ubuntu installation, final Linux execution and publication evidence are separately required and recorded externally."
+  },
+  "patch": {
+    "baseVersion": "3.1.0",
+    "baseCommit": "07b63919f2d61227a72bec1b78f43cddade2a434",
+    "failedHostedRun": 36889337718,
+    "failedBoundary": "Real-browser recovery rejected current launcher identity on Linux.",
+    "triggerBoundary": "Hosted logs did not retain process state; exact triggering host condition remains undetermined.",
+    "scope": "Shared active-shutdown and dead-controller process ownership: bounded Linux proc/kernel/start-time admission, Darwin kernel executable and exact native argument boundaries, missing-owner refusal, finite cancellation-independent cleanup, coalesced termination and actual PID/group disappearance. Ambiguous evidence preserves receipts and refuses signaling.",
+    "preservedTag": "v3.1.0"
+  },
+  "inheritedReleaseGate": {
+    "version": "3.1.0",
     "status": "pass",
     "testsPassed": 1981,
     "testsSkipped": 2,
@@ -534,5 +586,40 @@
       "treeSha256": "da65ae26bee2247d06be41ae42501d3dc73ab19d61000fde35852cfaf048575f"
     },
     "boundary": "Separate source copy shares the existing dependency installation. Hosted CI provides a clean lockfile installation."
+  },
+  "patchVerification": {
+    "independentReview": {
+      "status": "GO",
+      "version": "3.1.1",
+      "platform": "darwin",
+      "bun": "1.4.2 (744846f84)",
+      "command": "bun test tests/browser-recovery.test.ts tests/browser-ownership.test.ts tests/weekly-interruption.test.ts tests/weekly-browser-lifetime.test.ts --timeout 30000",
+      "runtimeBoundary": "Locked Chromium in a task-owned Playwright cache; no global-service changes.",
+      "testsPassed": 17,
+      "testsFailed": 0,
+      "assertions": 150,
+      "elapsedSeconds": 13.83,
+      "exitCode": 0,
+      "sourceStableBeforeAndAfter": true,
+      "hashes": {
+        "src/browser_launcher.ts": "92244a5b0dfa59fea9ce66de82e4f093857aebfc67a7ca11c712838b9ec84364",
+        "src/browser.ts": "79c542d1ec4a5ea3eae787784f4e05e2d707707bb2bd13eb15297c7543490bca",
+        "src/shared/process_ownership.ts": "4bc6cd8031643e81ce139ddc57613610cc8786ec7a16162c9c1c933c33494b24",
+        "src/shared/run_scope.ts": "c54d3f920725f9d982e922d39bc18363576c8746a1cdbac37cf0b6f1c8d9b31b",
+        "src/shared/subprocess.ts": "3806e20c988c326231f90ff0116a7aad254c4cbf79c06ff65b38867f338d9cce",
+        "tests/browser-recovery.test.ts": "0ff987401b83225af2239d357766dad0cb9c4004f03f7dc63d497950c8128997"
+      },
+      "scope": "Shared active and recovery identity admission, substituted process refusal, missing-owner receipt retention and restoration/retry, actual child/group disappearance, cancelled producer cleanup, concurrent termination, separate roots and caller-owned page isolation.",
+      "boundary": "Fresh independent code review and existing real offline fixture execution on macOS; final Linux execution remains pending hosted Ubuntu."
+    },
+    "strictProductionTypes": "pass",
+    "strictTestTypes": "pass",
+    "generatedDocumentation": "pass",
+    "nativePlatform": "darwin",
+    "linuxExecution": {
+      "status": "pending-hosted-ubuntu",
+      "boundary": "Docker became unavailable before final patch acceptance. Prior-version container results are inherited evidence; final Linux execution belongs to the exact main Pages run."
+    },
+    "boundary": "Fresh local patch evidence is distinct from inherited v3.1.0 GUI, RAG, replay and container results."
   }
 }

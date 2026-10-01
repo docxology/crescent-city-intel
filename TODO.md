@@ -1,8 +1,10 @@
 # Open acceptance scopes
 
-Updated 2026-10-01 for the v3.1.0 operating contracts. This is the only
-item-level backlog. It contains acceptance that requires real source access,
-external consumers, independent interpretation or production operation.
+Updated 2026-10-01 for the v3.1.1 operating contracts: the v3.1.0 implementation
+scope with focused browser lifecycle repairs for portability and process ownership.
+This is the only item-level backlog. It contains acceptance that requires real
+source access, external consumers, independent interpretation or production
+operation.
 Implementation descriptions and measured receipts live in the
 [current-state review](docs/project-review.md) and module guides; release
 history lives only in [CHANGELOG.md](CHANGELOG.md). The

@@ -76,7 +76,7 @@ adapter configuration; regional integrations retain their reviewed locality.
 | `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |
 | `NEWS_DISABLED_SOURCES` | empty | Comma-separated feed names to mark unavailable without fetching |
 | `GOV_MEETINGS_TIMEOUT_MS` | `10000` | Meeting endpoint timeout |
-| `YT_DLP_TIMEOUT_MS` | `15000` | Maximum time for a YouTube listing/transcript subprocess |
+| `YT_DLP_TIMEOUT_MS` | `45000` | Maximum time for a YouTube listing/transcript subprocess |
 
 The twenty alert monitors declare retrieval, observation or product clocks in
 `src/source_clocks.ts`. Policies reflect each product's cadence: for example,

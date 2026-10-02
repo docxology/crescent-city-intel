@@ -1,6 +1,6 @@
 # Open acceptance scopes
 
-Updated 2026-10-02 for the v3.3.0 operating contracts, including checked GitHub
+Updated 2026-10-02 for the v3.3.1 operating contracts, including checked GitHub
 guidance, bounded County acquisition and tested shared civic-profile methods.
 This is the only item-level backlog. It contains acceptance that requires real
 source access, external consumers, independent interpretation or production

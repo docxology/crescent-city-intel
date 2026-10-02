@@ -1,30 +1,34 @@
 {
   "schemaVersion": "crescent-city-release-acceptance/v1",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "date": "2026-10-02",
-  "recordedAt": "2026-10-02T14:29:02.161Z",
+  "recordedAt": "2026-10-02T16:59:31.403Z",
   "status": "local-verified",
-  "baselineCommit": "335aec90e83232094dad6fd8f5024c240743b7bb",
+  "baselineCommit": "5bd5ea2077c319bd61380c704370ee497d69f406",
   "publication": {
-    "evidenceLocation": "GitHub v3.3.0 release assets and exact main Pages run",
-    "boundary": "Local acceptance recorded here; exact published commit, hosted artifact and live hashes are external to avoid self-reference."
+    "evidenceLocation": "GitHub v3.3.1 release assets and exact main Pages run",
+    "boundary": "Actual local evidence here; exact committed build, hosted tools/gate/source acquisition and live response hashes are separate external receipts to avoid self-reference."
   },
   "priorEvidence": {
-    "version": "3.2.0",
-    "receiptSha256": "41b2579b3755d96971ef6ab8f864c2fc32b16261c93a4eb77e58139dc8181b69",
-    "release": "https://github.com/docxology/crescent-city-intel/releases/tag/v3.2.0",
-    "boundary": "Prior live source refresh, County documents, research rendering and native-model evidence retain their original dates and versions; this local gate does not re-establish them."
+    "version": "3.3.0",
+    "localReceiptSha256": "11452012a76f200aa37df13f789bbab30e42a093d63370896e69c8f3a17bfa99",
+    "publicationReceiptSha256": "4770463b8f9c75a7a1666cf645e14872acd4d1239a031311d9213ee35bc14d79",
+    "releaseUploadReceiptSha256": "33644bbded8f0c40f37d77454f186bc141e2974bf3ce64c6f50a50f3e9a6076f",
+    "release": "https://github.com/docxology/crescent-city-intel/releases/tag/v3.3.0",
+    "commit": "5bd5ea2077c319bd61380c704370ee497d69f406",
+    "annotatedTagObject": "db2f6f16d6c7694bcbb0e0b32239293d94020bfc",
+    "boundary": "Prior successful local/hosted/live publication, original failed hosted attempt and diagnostics retain their exact dates, source identities and limitations; they do not certify this patch."
   },
   "releaseGate": {
     "status": "pass",
-    "testsPassed": 2067,
-    "testsSkipped": 0,
+    "testsPassed": 2066,
+    "testsSkipped": 2,
     "testsFailed": 0,
     "assertions": 17798,
-    "testsTotal": 2067,
+    "testsTotal": 2068,
     "files": 198,
-    "lineCoveragePercent": 86.02,
-    "functionCoveragePercent": 88.19,
+    "lineCoveragePercent": 86.04,
+    "functionCoveragePercent": 88.06,
     "lineCoverageFloorPercent": 60,
     "strictProductionTypes": "pass",
     "strictTestTypes": "pass",
@@ -33,11 +37,11 @@
       "plain pass",
       "coverage pass"
     ],
-    "logSha256": "a3f9306d01a7ef9a818b98e6ae8a26f603df4bfa3ef6d50676746bba51fcd0aa",
+    "logSha256": "86bf735d05412f3854f0a70b5bddb4cc11b489f36dfb95cd9ceef9255c6109d4",
     "sourceParity": {
       "files": 590,
       "allEqual": true,
-      "treeSha256": "2f24ee973d00aa9ac3f6b06e542a09c289cebad899c54f5a696f7aab008a5ce8"
+      "treeSha256": "d86175fa46d97a06ef28a13d47254d290236531f19dd7c142cb8cebdc5d8710b"
     },
     "boundary": "Exact tracked and new public source, test, configuration, workflow, documentation and seed equality with the independently gated copy; the acceptance receipt is excluded to avoid self-reference. Final guides were captured in this copy and checked by the gate. Shared dependency installation; hosted CI independently installs the lockfile on Ubuntu."
   },
@@ -64,152 +68,196 @@
       "src/llm/chroma.ts": "7e101e21be454047c17893fa492e154809fd20c376514cfd58b5903d1990226f",
       "src/llm/embeddings.ts": "25124fdbf36d35e7497468d30ca62a3eebd5f9b25e3b810334f80199fd0f0c23",
       "src/llm/ollama.ts": "d17589b2c90beb0b3debf6df1af9c20c77b32adb3525ee3c8a56a3e0a5fcee99",
-      "src/news_monitor.ts": "13424454ce8c28f846a90ce070408395d66ad517cdbaee36a939980e7b4b4e00"
+      "src/news_monitor.ts": "13424454ce8c28f846a90ce070408395d66ad517cdbaee36a939980e7b4b4e00",
+      "src/pages/static/index.html": "4b74efa70281d9567b13e278c23a99871de253d156c88deb48aaa447e5432353",
+      "README.md": "7daa2f08c8e007c40d1e6284db0f91222fc66d4704631edf01ebadefb21cdb2c",
+      ".github/README.md": "65fc0e1fdffb69bb22fb06635229d7096934fea70dbfc4edaaf9cf706907f5c0",
+      "docs/setup.md": "b03528e9c532478f3cfdfee865612f02cd294c1ab1cd271d8e2300db346a8d58",
+      "docs/configuration.md": "7b44507c50faa90133203331e51033b1c6bf98cb35b62f335984a4c6120c342d",
+      "docs/project-review.md": "19d5c3ddd2b98f40febfcaf5b7664bf2bc8585ab6c659c7dd8cbbf8bc3a96c6c",
+      "CHANGELOG.md": "90c5ecf41f8b3206b1ec4ce2a3b910d8986af1496a3f4e5d4e2755e6d6f24cdb",
+      "package.json": "a4f681ea190c6c9f4e6b94b31fedbb0963ef203b643ebc17cfbb3e91d871610c",
+      "openapi.yaml": "9fbad4e248aa3241612dbbf847d00db6bd34b432bfae87f23330f0904b8cadf3",
+      "tests/youtube_monitor.test.ts": "01bd8edb4a4f30cbd19c26ea61323ab81425832ee57db996e2adc7a71388a846",
+      ".github/workflows/README.md": "cdee427c0e97757ef28578d41147028769f21655c3c68eed9177b27c54061c56",
+      "docs/README.md": "6527e4a00adbfa1a77b917e933ea08f5b15ea14afcb89000e2211d0fc7d08dda",
+      "tests/pages-seo.test.ts": "68f06f137505841ac95e618116344eae28534c8199c7bd3608fad66763ecb970",
+      "TODO.md": "b41dfd9a2b86a1b8c02bec5cd84ea47dfd6f3a63d0c66a3363fa7fcfeec92d28",
+      ".github/workflows/pages.yml": "490272b8fad0272617a856f5e88553ac1fb2092b6ecfc528b0e4ab01542d9b22",
+      "tests/browser-ownership.test.ts": "f4909b8704fda94f87f5a2e81594beab6edb2cb366873bab9840a71ad9068cdc"
     },
-    "finalSharedBoundary": {
+    "changedDocumentationAndPresentation": {
       "status": "GO",
-      "inspectedFiles": 36,
-      "reviewedHashesSha256": "fb7eb75fedf3f9d856342b9ccadd029678991f78b38addd6d5808bf03d42ca6a",
-      "focusedRuns": [
+      "reviewedHashesSha256": "08f9612036dff51b2dcb76c1cfb93d46b27e2a69b2f8122d3e0bd376878242b5",
+      "boundary": "Fresh independent read-only review of changed copy, structured metadata, version/docs and declared operating limits."
+    },
+    "sharedWorkflow": {
+      "status": "GO",
+      "sha256": "490272b8fad0272617a856f5e88553ac1fb2092b6ecfc528b0e4ab01542d9b22",
+      "checks": [
+        "Bun workflow YAML parse",
+        "exact shell block parity and bash syntax",
+        "independent actual upstream checksum and asset digest comparison",
+        "owned destination and bounded download/extraction/version review"
+      ],
+      "boundary": "Fresh independent shared-infrastructure review. Native Linux binary execution and actual transcript availability remain hosted acceptance, not Darwin evidence.",
+      "nativeAcceptance": {
+        "status": "pass",
+        "receiptSha256": "c17d18e133a6679e1bc0c21ef06b885d99f9aeb05c58e53f71893cf7df247ed2",
+        "workflowSha256": "490272b8fad0272617a856f5e88553ac1fb2092b6ecfc528b0e4ab01542d9b22",
+        "run": 37033964541,
+        "attempt": 1,
+        "headSha": "34e114b64e6047f2888745557372f3dee09b7b0e",
+        "url": "https://github.com/docxology/crescent-city-intel/actions/runs/37033964541/attempts/1",
+        "logSha256": "ea1968e0a289f80e0c8a99b631d57cf6e62efc5f4228dc0900e3ba9cb348045a",
+        "blocks": [
+          {
+            "name": "Install pinned transcript dependencies",
+            "sha256": "d4ce6691bac14cc466c9143f90146a1020b3e7bd99c419060dd2bfd962519383",
+            "timeoutMinutes": 5,
+            "exactSourceMatch": true
+          },
+          {
+            "name": "Verify transcript dependency availability",
+            "sha256": "6ab9b173f3d4e40a8d5919ed024a1033ee0f8d6df7ba62af9026a668d31c0c1c",
+            "timeoutMinutes": 1,
+            "exactSourceMatch": true
+          }
+        ],
+        "versions": {
+          "ytDlp": "2026.08.19",
+          "deno": "deno 2.9.7 (stable, release, x86_64-unknown-linux-gnu)",
+          "v8": "15.0.245.2-rusty",
+          "typescript": "6.0.3"
+        },
+        "retainedFailedAttempt": {
+          "run": 37033591512,
+          "attempt": 1,
+          "headSha": "f8dd55857d5dbe8847dec5b9299e037f999843ba",
+          "status": "failed-version-admission",
+          "actualVerificationExitCode": 1,
+          "receiptName": "cci-v331-transcript-tools-native-attempt1.json",
+          "receiptSha256": "d5399bf6418e3fef2fecbb930744a77c2019751c4c6ae0869bc71db44e75437a",
+          "logSha256": "13e1b634fcb3c570f8575b5a5a102516fa199eb7961240eebcac58799c1a4e82",
+          "mechanism": "The first line of pinned Deno long-version output includes release/build/target metadata and differs from the exact expected string deno 2.9.7. The original admission block compared that long output line with the short string."
+        },
+        "boundary": "The exact pinned tools downloaded, passed checksums, extracted the admitted Deno member, executed and passed the corrected version admission in a native Ubuntu job. The earlier long-version comparison failure remains retained. No individual video, transcript access/extraction, model, full application gate, production deployment or current main publication is established by this isolated workflow. The existing diagnostic checkout contains prior ownership instrumentation, which this tool-only job does not invoke. No main branch, release tag, global service, credential or policy was modified by this diagnostic."
+      }
+    },
+    "retainedSharedSource": {
+      "version": "3.3.0",
+      "exactUnchangedHashes": 21,
+      "boundary": "Previously reviewed shared application sources match retained reviewed bytes; new patch checks remain separately required."
+    },
+    "browserFixture": {
+      "schemaVersion": "civic-browser-fixture-peer-review/v1",
+      "recordedAt": "2026-10-02T16:50:27.743Z",
+      "status": "GO",
+      "file": "tests/browser-ownership.test.ts",
+      "sha256": "f4909b8704fda94f87f5a2e81594beab6edb2cb366873bab9840a71ad9068cdc",
+      "scope": "Fresh independent read-only review of the complete test-only diff and surrounding owned-launcher/process cleanup flow, authored by a separate implementation agent.",
+      "finding": "The original and first corrected coverage cases rejected within their setup watchdog but failed mandatory target startup evidence at PID-file read. Changing the target to a shell alone did not repair that assumption. The reviewed tests now establish two distinct contracts: the original total setup deadline must finish owned custody cleanup, and a separate finite readiness phase must prove a live, still-pending real protocol stall before its 400 ms parent-cancellation measurement begins. No production ownership root cause is inferred.",
+      "verificationChecks": [
         {
-          "testsPassed": 23,
-          "testsFailed": 0,
-          "assertions": 91,
-          "files": 2,
-          "boundary": "Direct-reader foreign-TOC admission and legacy default compatibility"
+          "name": "Complete file, diff and surrounding source read",
+          "status": "pass",
+          "basis": "Only the real stalled target helper and two explicit setup/stall test contracts changed; unrelated real Chromium, zombie, cross-root and unrelated-process controls remain intact."
         },
         {
-          "testsPassed": 5,
-          "testsFailed": 0,
-          "assertions": 38,
-          "files": 3,
-          "boundary": "Real FIFO regular-file custody, bounded receipts, reverse default identity and producer contention"
+          "name": "POSIX shell data and argument boundary",
+          "status": "pass",
+          "basis": "The private PID path is single-quoted, with every embedded apostrophe escaped by closing/reopening the quoted string. Fixed /bin/sh, builtin printf, absolute /bin/sleep and literal 60 require no external data as command text or PATH resolution."
+        },
+        {
+          "name": "Original total-setup deadline and owned custody",
+          "status": "pass",
+          "basis": "The original 400 ms launch budget and strict elapsed less than 1000 ms remain; a monotonic minimum elapsed assertion rejects unrelated early launch failure. Exactly one actual durable owner must be closed for the captured root, the private wrapper directory must be gone, and owned-session state must be absent. If the target recorded a PID, that positive safe-integer PID must be dead. Target absence is explicitly not protocol-stall proof in this distinct setup test."
+        },
+        {
+          "name": "Confirmed protocol stall and parent deadline",
+          "status": "pass",
+          "basis": "The real shell writes $$ before exec of sleep, preserving that PID and the inherited owned wrapper process group without a protocol handshake. Readiness is limited to 1500 ms and races real launch failure; it must yield a positive safe-integer PID that is alive with launch still pending. Only then is the 400 ms parent signal armed; rejection, actual signal abortion, strict cancellation elapsed less than 1000 ms, PID death and owned-session absence are required. Overall launch admission is finite at 2500 ms and both test caps remain 5000 ms."
+        },
+        {
+          "name": "Finalizer coordination and failure propagation",
+          "status": "pass",
+          "basis": "The actual launch promise is captured outside the task. Finally clears the timer, aborts the parent, and awaits that launch settlement before restoring environment, closing the captured root or removing files. This prevents duplicate no-server disposal and late cleanup after root removal. Catching the expected launch cancellation only in finalization does not turn the original readiness/assertion error into success."
+        },
+        {
+          "name": "Bun TypeScript parsing",
+          "status": "pass",
+          "basis": "The actual current complete file passed Bun.Transpiler TypeScript parsing without executing test source; this is not strict type-check evidence."
+        },
+        {
+          "name": "Changed-file whitespace check",
+          "status": "ok",
+          "exitCode": 0,
+          "reaped": true
+        },
+        {
+          "name": "Production browser ownership files unchanged",
+          "status": "ok",
+          "exitCode": 0,
+          "reaped": true
         }
       ],
-      "awakeAlertProducer": {
-        "testsPassed": 1,
-        "testsFailed": 0,
-        "assertions": 4,
-        "caseElapsedMs": 157.77,
-        "boundary": "Independent actual same-root mixed producer rerun after verifying the exact host-sleep interval; no runtime or deadline changes."
+      "retainedFirstShellReview": {
+        "name": "cci-v331-browser-fixture-review-shell-attempt1.json",
+        "sha256": "97e1a98ab588a9ca64986b3cae9c815d379b1d6aa79be86f6d1d5099870fb407",
+        "status": "HOLD",
+        "scope": "The earlier source-only GO was followed by an actual mandatory-startup failure and explicitly placed on HOLD; it is not runtime repair evidence."
       },
-      "originalFifoReproduction": {
-        "inheritedDeadlineMs": 100,
-        "settledMs": 18,
-        "disposition": "bounded regular-file rejection"
-      },
-      "boundary": "Fresh independent read-only review after root fixes; focused runs overlap and are separate from aggregate release-gate counts."
-    },
-    "pagesBehavior": {
-      "status": "GO",
-      "testsPassed": 16,
-      "testsFailed": 0,
-      "assertions": 319,
-      "mutationControls": 42,
-      "boundary": "Real isolated Pages CLI mutation controls passed unchanged deadlines; full suite and final committed export/browser are separate evidence."
-    },
-    "profileAndPublication": {
-      "testsPassed": 20,
-      "testsFailed": 0,
-      "assertions": 128,
-      "actualAlternateProducerAndReplay": "pass",
-      "boundary": "Fresh independent read-only review of profile validation, loaders, protected roots and captured identity. Focused offline tests are separate from the full gate."
-    },
-    "geographyAndEvents": {
-      "testsPassed": 106,
-      "testsFailed": 0,
-      "assertions": 586,
-      "files": 7,
-      "actualAlternateRunnerAndDerivedReplay": "pass",
-      "boundary": "Fresh independent review verified four corrected foreign-profile/root/event-contract/UTC offset findings through real owned filesystem and producer flows."
-    },
-    "searchVectorsNews": {
-      "testsPassed": 82,
-      "testsFailed": 0,
-      "assertions": 321,
-      "files": 7,
-      "boundary": "Fresh independent review verified three corrected reverse-vector-identity, writer-root and canonical-source-name findings using real local HTTP probes and related suites."
+      "boundary": "This is a source-bound peer GO, not an independently rerun browser suite, native Linux acceptance, full release gate, universal startup guarantee, production root-cause proof or publication acceptance. The implementation agent owns focused real coverage and complete-file controls; the root owns exact full local and hosted release gates. The original failed coverage and first shell failure remain retained separately. No repository files were edited by this review."
     }
+  },
+  "changes": [
+    "Accurate optional-model Methods and FAQ with matching JSON-LD",
+    "Job-private SHA-bound official yt-dlp and Deno with exact bounded version admission",
+    "Current versioned root/GitHub guides, setup and actual transcript timeout documentation"
+  ],
+  "transcriptDependencies": {
+    "ytDlp": {
+      "version": "2026.08.19",
+      "artifact": "yt-dlp_linux",
+      "sha256": "58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a"
+    },
+    "deno": {
+      "version": "2.9.7",
+      "artifact": "deno-x86_64-unknown-linux-gnu.zip",
+      "sha256": "c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"
+    },
+    "nativeHostedAvailability": "pending separate publication acceptance",
+    "boundary": "Bun remains the application/check runtime. External extraction tools and source access/extraction outcomes have separate admission."
   },
   "retainedFailures": [
     {
-      "phase": "initial full gate type preflight",
-      "status": "failed",
-      "exitCode": 1,
-      "reaped": true,
-      "disposition": "Imports inserted before two Bun shebangs caused TypeScript parsing failures. Shebangs restored; the final full gate is independently retained."
-    },
-    {
-      "phase": "focused six-file shared suite",
-      "testsPassed": 54,
+      "phase": "initial patch full plain suite",
+      "testsPassed": 2062,
+      "testsSkipped": 2,
       "testsFailed": 3,
-      "errors": 1,
-      "logSha256": "2a8fccb787d8102997e4e39bcb90c4cda3cf9c05bfed4fe7a9c9aedbb8ab356e",
-      "disposition": "Canonical Redwood endpoint fixture corrected through explicit loopback transport scope. Retained transcript case exceeded its unchanged five-second test bound and affected the next fixture; its isolated rerun passed 5/0,32 assertions. The final full gate is required separately; no established cause is claimed for that intermittent timeout."
-    }
-  ],
-  "additionalRetainedGateEvidence": [
-    {
-      "phase": "first full plain suite before final repairs",
-      "status": "failed",
-      "testsPassed": 2054,
-      "testsFailed": 8,
-      "errors": 1,
-      "logSha256": "f083c7154834ac94fc50b465bac653b476fc30889aad0bec1e820cd02edb1916",
-      "disposition": "Corrected incomplete geographic/insight fixtures and stale README version. Browser/process deadlines also failed; separate focused reruns passed. No definitive cause is attributed to those earlier intermittent failures."
+      "assertions": 17776,
+      "files": 198,
+      "logSha256": "4f7499aa5c19dc53a5ecce15adeffa89c5b68be1edbcff448e80635094d8b5ab",
+      "disposition": "Stale Methods-copy and documentation spec-version expectations corrected. The unchanged isolated vector case and full-file controls passed; the original 404 method/path/server identity was not captured and its cause remains unestablished. No production vector fix or successful semantic acceptance is inferred from those scoped executions."
     },
     {
-      "phase": "pre-final TOC and FIFO repairs",
-      "status": "superseded-pass",
+      "phase": "final-workflow pre-fixture coverage lane",
       "testsPassed": 2064,
-      "testsFailed": 0,
-      "assertions": 17773,
-      "lineCoveragePercent": 86.01,
-      "functionCoveragePercent": 88.24,
-      "logSha256": "9e61395d98a4d66358bc7d18235ddbc4252abab23bf79909684294b22f4085e5",
-      "disposition": "Both fenced suites passed, but its source snapshot predates final direct-reader and regular-file admission fixes; it does not certify this release."
-    },
-    {
-      "phase": "current-source gate on a suspended host",
-      "status": "failed",
-      "testsPassed": 2065,
-      "testsFailed": 2,
-      "errors": 1,
-      "logSha256": "8971fdee5f9edbc34db7fc01a6f82a20e18ef98c935d8f08853f76c06f70079f",
-      "hostEvidence": {
-        "timeZone": "America/Los_Angeles",
-        "date": "2026-10-02",
-        "sleepIntervals": [
-          {
-            "start": "07:11:16",
-            "seconds": 36,
-            "failedPagesCaseMs": 41390.2
-          },
-          {
-            "start": "07:12:00",
-            "seconds": 83,
-            "failedAlertCaseMs": 83116.16
-          }
-        ]
-      },
-      "disposition": "Local power-state log records sleep intervals matching the wall-deadline failures. Final validation ran with a process-scoped idle-sleep inhibitor; application/test deadlines remain unchanged."
-    },
-    {
-      "phase": "idle-only inhibitor in maintenance wake",
-      "status": "failed",
-      "testsPassed": 2066,
+      "testsSkipped": 2,
       "testsFailed": 1,
-      "assertions": 17796,
-      "logSha256": "90879d4d7a3de382bcc6bb273bbab568348d63bd8180363723b9cd3b1e10cd12",
-      "hostEvidence": {
-        "timeZone": "America/Los_Angeles",
-        "date": "2026-10-02",
-        "sleepStart": "07:16:36",
-        "wake": "07:18:21",
-        "seconds": 105,
-        "failedCorpusFenceCaseMs": 104310.94
-      },
-      "disposition": "The idle-only assertion did not keep the Mac out of maintenance sleep. Final gate used verified task-owned display, idle and activity assertions; no application/test timeout changed."
+      "assertions": 17781,
+      "files": 198,
+      "logSha256": "870dfe45f71a516c12e87ab559ad7b8aea126ab698fef138a74ea4cfd489db52",
+      "disposition": "The 400 ms setup-deadline launch rejected at 426.01 ms within the test's 1000 ms cleanup limit, but the original fixture had no target startup PID receipt. A subsequent shell-only simplification also failed startup evidence in focused coverage. Actual initial-launch readiness and post-readiness stalled-protocol cancellation are now separate real controls with finite bounds; production deadlines and ownership logic are unchanged."
+    },
+    {
+      "phase": "shell-only focused covered protocol fixture",
+      "testsPassed": 0,
+      "testsFailed": 1,
+      "filteredTests": 7,
+      "assertions": 2,
+      "logSha256": "2ad523e2e16ce5d048db2241cb1cd0f4fd88b054ef8757d7f38221614fa973b8",
+      "disposition": "The first corrected-shell focused invocation still lacked mandatory target startup at 419.02 ms. No twenty-pass claim or retry was made. A bounded phase probe observed durable ownership at 174 ms, wrapper ownership at 501 ms and rejection at 516 ms, after the 400 ms initial deadline. This establishes the observed phase mismatch, not an unobserved universal host cause."
     }
   ],
   "reusableCivicMethods": {
@@ -230,19 +278,19 @@
   },
   "documentation": {
     "generatedProjection": "pass",
-    "rootSha256": "90671fdc75b5037129ac53c40069ba500f74038173fd774aad1146afe071b562",
-    "githubSelectedGuideSha256": "790267fc1b368e61165850416ff5cac9391b143e15fb3bd33690839907d6b26b",
-    "boundary": "Final generated guides and version references are captured in the independent gate copy, with separate fresh read-only review. The exact selected GitHub file is checked after publication."
+    "rootSha256": "7daa2f08c8e007c40d1e6284db0f91222fc66d4704631edf01ebadefb21cdb2c",
+    "githubSelectedGuideSha256": "65fc0e1fdffb69bb22fb06635229d7096934fea70dbfc4edaaf9cf706907f5c0",
+    "boundary": "Full generated GitHub guide captured by the final source-parity gate; actual GitHub selection and repository targets are verified after publication."
   },
   "candidatePages": {
     "status": "pass",
     "sourceParity": {
       "allEqual": true,
-      "treeSha256": "2f24ee973d00aa9ac3f6b06e542a09c289cebad899c54f5a696f7aab008a5ce8",
+      "treeSha256": "d86175fa46d97a06ef28a13d47254d290236531f19dd7c142cb8cebdc5d8710b",
       "files": 590
     },
-    "checkedAt": "2026-10-02T14:28:02.809Z",
-    "generatedAt": "2026-10-02T14:27:15.401Z",
+    "checkedAt": "2026-10-02T16:54:12.759Z",
+    "generatedAt": "2026-10-02T16:53:27.816Z",
     "fileCount": 55,
     "publicationSelection": "verified-output",
     "steps": [
@@ -251,21 +299,21 @@
         "status": "ok",
         "exitCode": 0,
         "reaped": true,
-        "elapsedSeconds": 2.503
+        "elapsedSeconds": 2.485
       },
       {
         "name": "validation",
         "status": "ok",
         "exitCode": 0,
         "reaped": true,
-        "elapsedSeconds": 0.957
+        "elapsedSeconds": 1.145
       },
       {
         "name": "browser",
         "status": "ok",
         "exitCode": 0,
         "reaped": true,
-        "elapsedSeconds": 44.095
+        "elapsedSeconds": 41.722
       }
     ],
     "realBrowser": {
@@ -297,5 +345,413 @@
     ],
     "authority": "TODO.md",
     "boundary": "Actual recipients, private consumers, persistent hosts, independent human interpretation, representative source coverage, a reviewed alternate deployment and separately owned reproduction remain open."
+  },
+  "browserFixtureAcceptance": {
+    "status": "pass",
+    "receiptSha256": "03cb5b8a48fb471da60fd3aa748c409ddb6fb5e9bdf6454828310ca1772534a2",
+    "source": {
+      "file": "tests/browser-ownership.test.ts",
+      "sha256": "f4909b8704fda94f87f5a2e81594beab6edb2cb366873bab9840a71ad9068cdc"
+    },
+    "deadlines": {
+      "totalSetupMs": 400,
+      "protocolParentCancellationMs": 400,
+      "protocolLaunchBudgetMs": 2500,
+      "mandatoryReadinessMs": 1500,
+      "setupMinimumElapsedMs": 400,
+      "cleanupUpperElapsedMs": 1000,
+      "eachTestMs": 5000,
+      "productionChanged": false
+    },
+    "acceptance": {
+      "focusedCoveredInvocations": 20,
+      "distinctFocusedCases": 2,
+      "fullFilePlainInvocations": 1,
+      "fullFileCoveredInvocations": 1,
+      "boundary": "Repeated focused runs are repeated acceptance of two real subprocess cases, not distinct new tests. Each run preserves strict startup/custody/cancellation evidence; full file controls remain separate. This is local Darwin evidence; exact final full gates and hosted Linux execution are separate acceptance."
+    },
+    "invocations": [
+      {
+        "invocation": 1,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1840,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.83s",
+        "logSha256": "1ba3ab9ecbc23cb74099996806b3590c60cc9a6eb4eaca39c64b13a39c547141"
+      },
+      {
+        "invocation": 2,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1494,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1488.00ms",
+        "logSha256": "98f697b7819b8088916154a2c60f6edbf8fbe7cd0a02a5b016c5db96b54243e7"
+      },
+      {
+        "invocation": 3,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1398,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1391.00ms",
+        "logSha256": "aea6e965da9258fd5ad7bf078fe265ecb7fd3b945ce54537dd2d188d7783c2ef"
+      },
+      {
+        "invocation": 4,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1337,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1330.00ms",
+        "logSha256": "98fb0e77c613599a679d1296ef177803eb35467c7efb7a4091b80ab8e2ec287f"
+      },
+      {
+        "invocation": 5,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1441,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1433.00ms",
+        "logSha256": "e73f6c8cee7aba6c4ae5348ca850467cd251ec48af11292e9cd4da940f4c2922"
+      },
+      {
+        "invocation": 6,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1490,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1482.00ms",
+        "logSha256": "cff86ed78c083a328df58bd430c21c897490c02fb378ac4ac5f7c986e94810f7"
+      },
+      {
+        "invocation": 7,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1587,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.58s",
+        "logSha256": "7f1ac41e22035d4dbd3aa025bfddbdb14091e99093ed8f59c155d92fa55336c3"
+      },
+      {
+        "invocation": 8,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1543,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.53s",
+        "logSha256": "9460114ba610c812035c8760a1a0c3e0cf46406a1a7f4670a1f55be2647c46d5"
+      },
+      {
+        "invocation": 9,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1534,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.53s",
+        "logSha256": "3ecd1f54312323d7403ce58d92aa5055b1048cf98125c5618877cb00265d7ca7"
+      },
+      {
+        "invocation": 10,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1639,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.63s",
+        "logSha256": "97c6037e20e845622c49e4e2daee47ba694d3ca437414bf140a961ee8ed753d5"
+      },
+      {
+        "invocation": 11,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1618,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.61s",
+        "logSha256": "02439731868dcc361616f7ed3cdd67e30fab63550fba866cb19409d27560a95a"
+      },
+      {
+        "invocation": 12,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1526,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.52s",
+        "logSha256": "7c4f30e8839adccba1bc19d0dad9cf39c7d8b80fc2aefa993035c4336b66e657"
+      },
+      {
+        "invocation": 13,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1543,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.53s",
+        "logSha256": "5fc77c62c63664b26a11c78feafb4266a35729b539fb4ea94fcb715e66e2ef34"
+      },
+      {
+        "invocation": 14,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1577,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.57s",
+        "logSha256": "8a584b83d367d366c49919c548f401683666d1e8b05cc082397697230f4a09d3"
+      },
+      {
+        "invocation": 15,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1578,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1.57s",
+        "logSha256": "4152b94018c771f88c1baf957ba9df48cfd247bbe09186d34bc41817efae3dae"
+      },
+      {
+        "invocation": 16,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1480,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1473.00ms",
+        "logSha256": "678cfc65eec7d299f7d582b93755c9e76a2a1cd02ae699d9952e7d0026601133"
+      },
+      {
+        "invocation": 17,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1455,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1448.00ms",
+        "logSha256": "734da18bfdee8c5e5788153fa8b93e8e20a877ec8e237e102f5d7a20d32e1817"
+      },
+      {
+        "invocation": 18,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1418,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1412.00ms",
+        "logSha256": "762ca2e6a9d02c7682f08a1d675f03bf2ce48a2e0e86d44255bdb828a34ced84"
+      },
+      {
+        "invocation": 19,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1437,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1431.00ms",
+        "logSha256": "a4a3492118cce4523fde60c1885c0fe3797ff1bded7b28909c3e6e664b7b92c7"
+      },
+      {
+        "invocation": 20,
+        "mode": "focused-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 1503,
+        "testsPassed": 2,
+        "testsFailed": 0,
+        "assertions": 16,
+        "testsTotal": 2,
+        "files": 1,
+        "reportedSuiteElapsed": "1496.00ms",
+        "logSha256": "5a35022b1b9c37e7091d447a71f9d61ecf71c5b2ad794244ea476247ea6a69d6"
+      },
+      {
+        "invocation": 21,
+        "mode": "full-file-plain",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 7849,
+        "testsPassed": 9,
+        "testsFailed": 0,
+        "assertions": 62,
+        "testsTotal": 9,
+        "files": 1,
+        "reportedSuiteElapsed": "7.84s",
+        "logSha256": "6103178dabf5da94995b6f6e977c4dfaadf2b939ae29318073a6c91cc5dfa25b"
+      },
+      {
+        "invocation": 22,
+        "mode": "full-file-covered",
+        "status": "ok",
+        "exitCode": 0,
+        "reaped": true,
+        "elapsedMs": 6477,
+        "testsPassed": 9,
+        "testsFailed": 0,
+        "assertions": 62,
+        "testsTotal": 9,
+        "files": 1,
+        "reportedSuiteElapsed": "6.47s",
+        "logSha256": "2236adf440a68f7d3f36ab240579fda17d951a38a28296a3e8bbd0f48af4aa7d"
+      }
+    ],
+    "retainedFailures": [
+      {
+        "logSha256": "870dfe45f71a516c12e87ab559ad7b8aea126ab698fef138a74ea4cfd489db52",
+        "case": "real launch protocol stall obeys the owned setup watchdog and leaves no child",
+        "elapsedMs": 426.01,
+        "fact": "The total launch call rejected, then the mandatory target startup PID receipt was absent."
+      },
+      {
+        "logSha256": "2ad523e2e16ce5d048db2241cb1cd0f4fd88b054ef8757d7f38221614fa973b8",
+        "testsPassed": 0,
+        "testsFailed": 1,
+        "filteredTests": 7,
+        "assertions": 2,
+        "elapsedMs": 419.02,
+        "fact": "The first shell-only focused covered invocation also lacked mandatory target startup; no twenty-pass claim or retry was made."
+      }
+    ],
+    "observedPhaseProbe": {
+      "applicationModules": "actual uninstrumented source",
+      "observationResolutionMs": 5,
+      "observedElapsedMs": {
+        "durablePending": 174,
+        "wrapperOwnerRecorded": 501,
+        "rejected": 516
+      },
+      "targetStartupObserved": false,
+      "rejection": "Protocol error (Browser.getVersion): Internal server error, session closed",
+      "afterRejectionOwnedBrowserPid": null,
+      "boundary": "One actual local diagnostic invocation observed the first owned wrapper's startup after the 400ms budget. Polling observations are not exact phase-entry timestamps; broad host scheduling causes and universal startup guarantees are not established."
+    }
+  },
+  "scopedVectorFollowup": {
+    "status": "scoped-followup-passed",
+    "receiptSha256": "038d2d5c8f481f235295aa71e11c4ded68df02729c5afc82530998ad9866b40e",
+    "rootCauseStatus": "not-established",
+    "productionFixApplied": false,
+    "diagnosticRepeatedInvocations": 20,
+    "diagnosticLogSha256": "74a23ef02c31972f59a88e0b674dd28e5954152bf7276649d894f82648213c7a",
+    "boundary": "Isolated unchanged case and full-file executions plus bounded diagnostic-copy repetitions passed. The original 404 method/path/server identity was not captured; no production cause or fix is inferred. These scoped executions do not replace the final full gate."
+  },
+  "retainedSupersededLocalPass": {
+    "testsPassed": 2065,
+    "testsSkipped": 2,
+    "testsFailed": 0,
+    "assertions": 17785,
+    "files": 198,
+    "lineCoveragePercent": 86.04,
+    "functionCoveragePercent": 88.04,
+    "logSha256": "1c7728a5209e63916dfa4a7cb01526bc0721c7a74f7fb78e35f04d75ac4d9e8e",
+    "sourceParityReceiptSha256": "edfa881c1a43a3614d2590875d5b9642da20e05e6988110d0d6878ba3fced2ff",
+    "boundary": "The exact shell-only candidate full plain/covered gate passed, but its separately run focused fixture still failed startup evidence. This prior pass does not certify the final split-control source or replace final acceptance."
   }
 }

@@ -6,7 +6,8 @@
  * council video, id 5FCYI7rt0_4, on 2026-07-23), channel-listing line
  * parsing, and the no-captions-vs-extraction-failure distinction. No live
  * yt-dlp subprocess calls are made in this suite — extractTranscript's
- * yt-dlp dependency is exercised manually via `bun run youtube`, not CI.
+ * yt-dlp dependency is exercised by separate manual and hosted source
+ * collection; actual source access remains outside this offline suite.
  */
 import { describe, expect, test } from "bun:test";
 import { parseVtt, listChannelVideos, listChannelVideosDetailed, type YouTubeVideoListing } from "../src/youtube_monitor";

@@ -193,7 +193,7 @@ describe("pages Methods & Provenance and FAQ structured data", () => {
     const indexHtml = await readFile(join(import.meta.dir, "../src/pages/static/index.html"), "utf8");
     expect(indexHtml).toContain('id="methods"');
     expect(indexHtml).toContain("Methods &amp; Provenance");
-    expect(indexHtml).toContain("What the models do not do");
+    expect(indexHtml).toContain("Automated checks do not certify factual accuracy");
     expect(indexHtml).toContain(PAGES_METHODS_COUNTS_PLACEHOLDER);
     expect(indexHtml).toContain('href="./#methods"');
   });

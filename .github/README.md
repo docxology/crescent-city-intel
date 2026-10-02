@@ -14,7 +14,7 @@
     <a href="../docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="../LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.3.0-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.3.1-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -503,6 +503,13 @@ while `unavailable` and `stale` are named coverage gaps. A source gap does
 not make an otherwise complete snapshot `degraded`, and it is never rendered
 as an unexplained calm state.
 
+For transcript collection, the runner installs checksum-verified standalone
+yt-dlp 2026.08.19 and Deno 2.9.7 in private job storage and checks their exact
+versions. Bun remains the application and check runtime. Tool availability does
+not establish YouTube access; missing captions, extraction errors, unavailable
+models and reports retain explicit states. Optional model summaries can contain
+errors even with citations; readers should verify the original linked records.
+
 The public artifact includes the municipal-code export when present, an
 API-shaped `data/geo-intel.json` contract with its tiles-free geo view, a
 schema-checked local-establishments directory (`data/directory.json`, rendered on
@@ -671,7 +678,7 @@ docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts 
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v3.3.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v3.3.1)
 ```
 
 ---
@@ -844,7 +851,7 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](../openapi.yaml) (OpenAPI 3.0.3, v3.3.0)
+> 📋 **Full API spec**: [openapi.yaml](../openapi.yaml) (OpenAPI 3.0.3, v3.3.1)
 
 ---
 

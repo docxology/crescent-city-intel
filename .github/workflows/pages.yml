@@ -27,6 +27,10 @@ jobs:
       HEADLESS_BROWSER: "1"
       SCRAPE_TIMEOUT_MS: "180000"
       SOURCE_FETCH_TIMEOUT_MS: "60000"
+      YT_DLP_VERSION: "2026.08.19"
+      YT_DLP_LINUX_SHA256: "58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a"
+      DENO_VERSION: "2.9.7"
+      DENO_LINUX_ZIP_SHA256: "c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -39,6 +43,34 @@ jobs:
         run: bun run source-discovery
       - name: Run deterministic release gate
         run: bun run validate
+      - name: Install pinned transcript dependencies
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = x86_64
+          tool_dir="$(mktemp -d "$RUNNER_TEMP/civic-source-tools.XXXXXX")"
+          bin_dir="$tool_dir/bin"
+          mkdir "$bin_dir"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 15 --max-time 90 --retry 2 --retry-max-time 120 --max-filesize 52428800 --output "$bin_dir/yt-dlp" "https://github.com/yt-dlp/yt-dlp/releases/download/$YT_DLP_VERSION/yt-dlp_linux"
+          printf '%s  %s\n' "$YT_DLP_LINUX_SHA256" "$bin_dir/yt-dlp" | sha256sum --check --strict
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 15 --max-time 90 --retry 2 --retry-max-time 120 --max-filesize 52428800 --output "$tool_dir/deno.zip" "https://github.com/denoland/deno/releases/download/v$DENO_VERSION/deno-x86_64-unknown-linux-gnu.zip"
+          printf '%s  %s\n' "$DENO_LINUX_ZIP_SHA256" "$tool_dir/deno.zip" | sha256sum --check --strict
+          test "$(unzip -Z1 "$tool_dir/deno.zip")" = deno
+          unzip -p "$tool_dir/deno.zip" deno > "$bin_dir/deno"
+          chmod 0755 "$bin_dir/yt-dlp" "$bin_dir/deno"
+          printf '%s\n' "$bin_dir" >> "$GITHUB_PATH"
+      - name: Verify transcript dependency availability
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          yt_dlp_version="$(timeout --signal=TERM --kill-after=5s 15s yt-dlp --ignore-config --version)"
+          test "$yt_dlp_version" = "$YT_DLP_VERSION"
+          deno_short_version="$(timeout --signal=TERM --kill-after=5s 15s deno -V)"
+          test "$deno_short_version" = "deno $DENO_VERSION"
+          deno_version="$(timeout --signal=TERM --kill-after=5s 15s deno --version)"
+          printf 'yt-dlp %s\n%s\n' "$yt_dlp_version" "$deno_version"
       - name: Collect municipal code candidate
         id: scrape
         env:

@@ -11,6 +11,7 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 20 alert moni
 | [Ollama](https://github.com/ollama/ollama/releases/tag/v0.34.2) | Compose pin 0.34.2 | Local installation or the optional `llm` Compose profile |
 | [ChromaDB](https://github.com/chroma-core/chroma/releases/tag/1.5.9) | Container pin 1.5.9 | `chromadb/chroma:1.5.9`; published locally on port 8001 |
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) | Optional external executable | Follow upstream installation instructions for transcript collection |
+| [Deno](https://github.com/yt-dlp/yt-dlp/wiki/EJS) | Optional yt-dlp JavaScript runtime | Follow the upstream EJS guide for YouTube extraction |
 
 > **Note**: Ollama + ChromaDB are only needed for LLM/RAG features. `yt-dlp` is only
 > needed for `bun run youtube`. The scraper, web viewer, and all alert monitors
@@ -19,9 +20,20 @@ Complete setup guide to get the scraper, web viewer, RAG chat, and 20 alert moni
 > For OpenRouter (optional, paid, alternative to local Ollama for chat/curation),
 > set `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY` — see Environment Variables below.
 
-Project logic and tests run in Bun/TypeScript. Optional ChromaDB and yt-dlp are
+Project logic and tests run in Bun/TypeScript. Optional ChromaDB, yt-dlp and its
+recommended Deno challenge runtime are
 external tools; a thin Python adapter delegates to Bun when the shared manuscript
 renderer is used. See [the manuscript workflow](manuscript.md) for that integration.
+
+The Pages runner installs the official Linux x86_64 standalone
+[yt-dlp 2026.08.19](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.08.19)
+and [Deno 2.9.7](https://github.com/denoland/deno/releases/tag/v2.9.7) in private
+job storage, verifies their pinned SHA-256 digests before execution and checks
+their exact versions. The standalone yt-dlp binary includes its EJS scripts;
+the workflow does not enable remote EJS component downloads. Bun 1.4.2 remains
+the application runtime and is not used as yt-dlp's challenge runtime. Tool
+availability, usable YouTube responses and actual transcript extraction have
+separate receipts; successful installation does not establish source access.
 
 ---
 

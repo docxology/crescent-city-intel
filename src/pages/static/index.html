@@ -81,12 +81,12 @@
       {
         "@type": "Question",
         "name": "Where do the facts come from?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Every fact is taken from a cited public source such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Items are collected from public sources such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record." }
       },
       {
         "@type": "Question",
         "name": "Does AI write the content?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Local language models only summarize and tag material that was already collected from sources. They do not invent facts; anything unverifiable from a cited source is dropped rather than published." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Optional language models summarize and tag collected material. Their outputs can contain errors, even when a source is cited. Check the linked original records before relying on a summary or tag." }
       },
       {
         "@type": "Question",
@@ -230,10 +230,10 @@
       <div class="methods-pipeline">
         <div class="methods-stage"><strong>1 &middot; Collect</strong>Scheduled scrapers and agency feeds gather public records from crescentcity.org, Del Norte County, the Harbor, alert APIs, and meeting video channels. Every fetch is recorded with its source URL, check time, and operational state.</div>
         <div class="methods-stage"><strong>2 &middot; Verify</strong>Source health checks classify each feed as healthy, empty, unavailable, or stale. Unavailable sources are never converted into calm results; an empty feed means the check succeeded but found nothing.</div>
-        <div class="methods-stage"><strong>3 &middot; Summarize &amp; tag</strong>Local language models write short summaries and tags over collected material only. They are labeled with their provider and model, and you are always told to verify against the linked source.</div>
+        <div class="methods-stage"><strong>3 &middot; Summarize &amp; tag</strong>Optional language models write short summaries and tags over collected material. Generated outputs carry their provider and model. Check the linked source before relying on them.</div>
         <div class="methods-stage"><strong>4 &middot; Export</strong>The atomic exporter builds this static artifact from one immutable snapshot envelope. Counts below are injected at export time from that exact manifest, so this page cannot drift from data/snapshot.json.</div>
       </div>
-      <p class="subtle">What the models do not do: they do not invent events, quotes, numbers, or dates. Facts always come from sources; anything unverifiable is dropped, never guessed. Chat history, request logs, vector indexes, credentials, and Triplicate article content are excluded from every public export.</p>
+      <p class="subtle">Model summaries and tags can contain errors or unsupported details. Automated checks do not certify factual accuracy; verify claims against the linked original sources. Chat history, request logs, vector indexes, credentials, and Triplicate article content are excluded from every public export.</p>
       <!--PAGES_METHODS_COUNTS-->
       <p class="paper-rule-note">Schema versioning: the snapshot envelope carries schemaVersion 1.0.0; geo artifacts carry crescent-city-geo-intel/v1 plus view crescent-city-geo-view/v1; events carry crescent-city-events/v1. Additive changes keep older consumers working.</p>
       <div class="action-bar"><a class="button" href="data/snapshot.json" download>Download snapshot JSON</a><a class="button secondary" href="https://github.com/docxology/crescent-city-intel" rel="noopener noreferrer" target="_blank">Read the source code</a></div>
@@ -242,8 +242,8 @@
       <div class="section-head"><span class="newspaper-label">Reader FAQ</span><h2 id="faq-heading">Frequently asked questions</h2><span class="meta">Civic info &amp; project</span></div>
       <div class="faq-list">
       <div class="faq-item"><h3>What is The Quadruplicate?</h3><p>The Quadruplicate is a provenance-preserving public snapshot of Crescent City, California civic information: local news items, government meetings, community events, safety alerts, municipal code exports, and source health records.</p></div>
-      <div class="faq-item"><h3>Where do the facts come from?</h3><p>Every fact is taken from a cited public source such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record.</p></div>
-      <div class="faq-item"><h3>Does AI write the content?</h3><p>Local language models only summarize and tag material that was already collected from sources. They do not invent facts; anything unverifiable from a cited source is dropped rather than published.</p></div>
+      <div class="faq-item"><h3>Where do the facts come from?</h3><p>Items are collected from public sources such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record.</p></div>
+      <div class="faq-item"><h3>Does AI write the content?</h3><p>Optional language models summarize and tag collected material. Their outputs can contain errors, even when a source is cited. Check the linked original records before relying on a summary or tag.</p></div>
       <div class="faq-item"><h3>How current is this snapshot?</h3><p>The snapshot is regenerated on schedule and carries its generation timestamp at the top of the page. Source health states show when each feed was last checked successfully.</p></div>
       <div class="faq-item"><h3>How can I subscribe to community events?</h3><p>Use the Subscribe button in the Community Calendar section to add the events calendar to any calendar app that supports the iCalendar format. A downloadable events JSON file is also provided.</p></div>
       <div class="faq-item"><h3>Is the municipal code official?</h3><p>The code export is derived from the published eCode360 edition of the Crescent City Municipal Code and links back to the source. For legal decisions always consult the official published code directly.</p></div>

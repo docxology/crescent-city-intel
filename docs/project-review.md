@@ -1,7 +1,7 @@
 # Current project state
 
 The Quadruplicate is a Bun/TypeScript municipal-code and civic-intelligence
-platform with a bounded static public edition. The v3.3.0 operating contract
+platform with a bounded static public edition. The v3.3.1 operating contract
 covers source custody, explicit gaps, finite acquisition, shared family/API
 validation, private diagnostics, staged indexes and recoverable publication.
 It retains the v3.1 implementation and browser ownership repairs, adds bounded
@@ -17,6 +17,32 @@ and snapshot identity: read its version, date and scope before attributing a
 result to the current tree. A receipt for an older release does not certify a
 later source change. [TODO.md](../TODO.md) is the only open item-level backlog;
 [CHANGELOG.md](../CHANGELOG.md) is the only version history.
+
+Final live review identified two presentation/acquisition gaps: the public FAQ
+claimed models never invent facts, and the hosted collector lacked its optional
+transcript executable. Public Methods, FAQ and structured metadata now state the
+actual model error and reader-verification boundary. The Pages runner installs
+pinned, checksum-verified external transcript tools in its private job storage;
+application logic and checks remain Bun/TypeScript. Availability of those tools
+is checked separately from actual YouTube responses and transcript extraction.
+
+Separate real-process regressions check the 400 ms initial setup deadline and
+400 ms protocol-stall cancellation after mandatory process readiness. Both have
+finite startup and cleanup bounds; a missing startup receipt cannot establish a
+protocol stall. A local probe observed the owned launcher's startup receipt after
+the setup deadline, demonstrating that the deadline can expire before the target
+starts. Earlier local failures and scoped follow-up executions remain separate
+from the final release gate, without inferring an unobserved host scheduling or
+vector failure cause. Production deadlines and ownership logic are unchanged.
+
+The prior v3.3.0 deployment passed its exact unmodified gate and public/browser
+checks on a second attempt; the original two native failures and successful
+instrumented diagnostics remain retained without a claimed root cause. Its
+municipal candidate exited 124 at the 18-minute bound, so publication selected
+the complete reviewed seed. The verification and export times remain their
+actual October 1 and September 30 values. Missing upstream records, transcripts,
+model generation and the monthly report were not presented as refreshed
+acceptance. This patch requires its own local, hosted and live evidence.
 
 ## Evidence and acquisition
 

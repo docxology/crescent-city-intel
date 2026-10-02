@@ -1,6 +1,6 @@
 {
   "name": "crescent-city-intel",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "The Quadruplicate \u2014 comprehensive local intelligence platform for Crescent City, CA \u2014 municipal code, real-time alerts, RAG chat, YouTube meeting transcripts, multi-source news, LLM curation, and civic intelligence domains",
   "type": "module",
   "scripts": {

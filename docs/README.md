@@ -54,7 +54,7 @@ the generated copies and repository links before publication.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.3.0)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.3.1)
 
 ## Updating Docs
 

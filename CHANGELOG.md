@@ -8,6 +8,23 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.3.1] — 2026-10-02
+
+- Correct public Methods and FAQ wording, including structured search metadata:
+  optional model summaries can contain errors even with citations, and automated
+  checks do not certify factual accuracy. Preserve source links, provider details
+  and public privacy exclusions.
+- Supply pinned, checksum-verified transcript extraction tools in the owned
+  Pages runner. Keep the application and release checks on Bun; a successful
+  tool installation does not establish YouTube access or transcript availability.
+- Separate the real browser fixture's 400 ms setup deadline from 400 ms
+  protocol-stall cancellation after mandatory process readiness. Keep finite
+  startup and cleanup bounds and unchanged production deadlines; a fixture
+  that never started cannot establish stalled-protocol cleanup.
+- Retain the verified v3.3.0 release, its failed first hosted attempt and later
+  successful acceptance, including the actual municipal acquisition timeout and
+  reviewed-seed selection. Record this patch's checks and publication separately.
+
 ## [3.3.0] — 2026-10-02
 
 - Add a strict immutable public civic profile with canonical fingerprint, captured

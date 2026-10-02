@@ -54,7 +54,7 @@ the generated copies and repository links before publication.
 - **Scripts**: [`scripts/`](../scripts/) — thin TypeScript orchestrators
 - **Tests**: [`tests/`](../tests/) — run `bun run validate` for the authoritative gate
 - **Output**: `output/` (gitignored)
-- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.2.0)
+- **OpenAPI**: `openapi.yaml` — OpenAPI 3.0.3 spec (v3.3.0)
 
 ## Updating Docs
 
@@ -64,3 +64,6 @@ When modifying source code:
 2. Update `docs/api-reference.md` if adding new exports.
 3. Update `docs/configuration.md` if adding new env vars or constants.
 4. Update `docs/architecture.md` if changing module relationships or data flow.
+
+- [Civic profiles and reusable methods](civic-profiles.md) — public configuration,
+  isolation, explicit regional policy and synthetic second-profile acceptance.

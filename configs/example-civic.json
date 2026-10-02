@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "civic-profile/v1",
+  "id": "example-civic",
+  "name": "Example Municipality",
+  "municipality": "Example Municipality (synthetic)",
+  "county": "Example County",
+  "state": "Example State",
+  "countryCode": "US",
+  "timeZone": "America/New_York",
+  "anchor": {
+    "latitude": 42,
+    "longitude": -73,
+    "bounds": {
+      "west": -74,
+      "south": 41,
+      "east": -72,
+      "north": 43
+    }
+  },
+  "code": null,
+  "corpusSlug": "example-civic-code",
+  "vectorNamespace": "example-civic-vectors",
+  "calendar": {
+    "uidDomain": "example-civic.invalid",
+    "productId": "-//Example Civic//Offline Calendar//EN"
+  },
+  "publication": {
+    "title": "Example Civic Platform",
+    "description": "Synthetic offline configuration; no live sources configured",
+    "siteUrl": "https://example.invalid",
+    "repositoryUrl": "https://example.invalid/repository"
+  },
+  "capabilities": [
+    "analytics",
+    "events",
+    "geo",
+    "news"
+  ]
+}

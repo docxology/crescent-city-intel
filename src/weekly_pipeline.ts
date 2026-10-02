@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { assertCivicProducerSupported } from "./civic_profile.js";
 /**
  * Weekly automated health check, invoked by the thin scripts/weekly-check.ts CLI.
  *
@@ -63,6 +64,7 @@ export function classifyCalendarRefresh(result: CalendarRefreshResult): "ok" | "
 }
 
 export async function runWeeklyCheck(options: { signal?: AbortSignal; deadlineMs?: number; outputDir?: string } = {}): Promise<number> {
+  assertCivicProducerSupported("runweeklycheck");
   const deadlineMs = options.deadlineMs ?? Number(process.env.WEEKLY_DEADLINE_MS ?? 3_600_000);
   if (!Number.isFinite(deadlineMs) || deadlineMs < 100 || deadlineMs > 86_400_000) throw new Error("Weekly deadline must be 100ms to 24h");
   const deadlineAt = Date.now() + deadlineMs;

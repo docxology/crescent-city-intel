@@ -15,7 +15,8 @@ history.
 | 1 | Establish real destination and host operation | M07, M27, M29 | Opted-in notification delivery, actual committed-digest consumer, persistent host restart/scheduler and backup/restore receipts |
 | 2 | Independently interpret source-backed products | L03, L06, L07 | Named human review of answer support, adopted ordinance spans, directory field currency and representative calendar/sampling evidence |
 | 3 | Acquire useful additional local evidence | L05 | Source-specific access/terms/budget ownership plus captured primary local records with declared geographic and temporal units |
-| 4 | Reproduce the precise release externally | L08 | Independent clean-environment deterministic replay, named actual consumer integration, research metrics and separate hosted/live publication receipts |
+| 4 | Accept a configured second civic locality | M30 | Reviewed provider/local policy and presentation, independent namespaces/host/scheduler, native and public acceptance |
+| 5 | Reproduce the precise release externally | L08 | Independent clean-environment deterministic replay, named actual consumer integration, research metrics and separate hosted/live publication receipts |
 
 These stages can overlap when their prerequisites exist. Source access does not
 have to wait for production deployment, and local software tests do not have to

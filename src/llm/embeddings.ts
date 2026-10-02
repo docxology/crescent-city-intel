@@ -5,19 +5,21 @@ import { addDocuments, getDocuments, getDocumentIds, discardCollection, servingC
 import { withFileLease } from "../shared/storage.js";
 import { join } from "path";
 import { boundedSignal } from "./runtime.js";
-import { llmConfig } from "./config.js";
+import { llmConfig, currentIndexProfileIdentity, isDefaultIndexProfile } from "./config.js";
 import { EMBED_BATCH_SIZE } from "../constants.js";
 import { createLogger } from "../logger.js";
 import type { FlatSection } from "../types.js";
 import { paths } from "../shared/paths.js";
 import { readFile } from "fs/promises";
 import { writeJsonAtomic } from "../shared/source_health.js";
+import { currentCivicProfile, bindCivicOutputRoot } from "../civic_profile.js";
 import {
   buildIndexManifest,
   chunksForArticle,
   fingerprintChunks,
   indexConfigSignature,
   planIncrementalIndex,
+  validateIndexProfileIdentity,
   type ArticleChunkSet,
   type IndexManifest,
 } from "./index_plan.js";
@@ -49,11 +51,13 @@ export async function isIndexed(options: { signal?: AbortSignal } = {}): Promise
     options.signal?.throwIfAborted();
     const manifest = JSON.parse(await readFile(paths.indexManifest, "utf8")) as IndexManifest;
     options.signal?.throwIfAborted();
+    if (validateIndexProfileIdentity(manifest, currentIndexProfileIdentity(), isDefaultIndexProfile()).length) return false;
     if (manifest.schemaVersion !== 2 || manifest.configSignature !== indexConfigSignature(llmConfig) || !manifest.articles) return false;
     const corpusManifest = await readFile(paths.manifest, "utf8").catch(error => { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; });
     options.signal?.throwIfAborted();
     if (corpusManifest !== null && manifest.corpusManifestSha256 !== sourceHash(corpusManifest)) return false;
-    const ids = new Set(await getDocumentIds({ signal: options.signal, collection: manifest.servingCollection }));
+    const collection = await servingCollectionName();
+    const ids = new Set(await getDocumentIds({ signal: options.signal, collection }));
     options.signal?.throwIfAborted();
     const owned = Object.values(manifest.articles).flatMap(article => article.chunkIds);
     return owned.length > 0 && owned.length === manifest.chunkCount && owned.every(id => ids.has(id));
@@ -70,6 +74,8 @@ export async function isIndexed(options: { signal?: AbortSignal } = {}): Promise
  */
 export async function indexAllSections(options: { signal?: AbortSignal; deadlineMs?: number } = {}): Promise<void> {
   const manifest = await readFile(paths.manifest, "utf8"), corpusManifestSha256 = sourceHash(manifest);
+  const source = JSON.parse(manifest), profile = currentCivicProfile();
+  if (!profile.code || source.municipalityGuid !== profile.code.municipalityCode || source.sourceUrl !== `https://ecode360.com/${profile.code.municipalityCode}`) throw new Error("Source corpus does not match the selected civic profile municipal-code adapter");
   const articles = await loadAllArticles();
   const sections: FlatSection[] = articles.flatMap(article => article.sections.map(section => ({ guid: section.guid, number: section.number, title: section.title, text: section.text, history: section.history, articleGuid: article.guid, articleTitle: article.title, articleNumber: article.number })));
   if (sourceHash(await readFile(paths.manifest, "utf8")) !== corpusManifestSha256) throw new Error("Source corpus changed during indexing; retry the complete edition");
@@ -84,24 +90,30 @@ export async function indexSections(sections: FlatSection[], options: { signal?:
   const deadlineMs = options.deadlineMs ?? 300_000;
   if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 3_600_000) throw new Error("Index deadline must be an integer from 1 to 3600000 ms");
   const signal = boundedSignal(options.signal, deadlineMs);
+  const profileIdentity = currentIndexProfileIdentity();
+  await bindCivicOutputRoot(paths.output);
   await withFileLease(join(paths.state, "index-writer.lock"), async () => {
     signal.throwIfAborted();
     const byArticle = new Map<string, ArticleChunkSet>();
     for (const section of sections) {
       const entry = byArticle.get(section.articleGuid) ?? { articleGuid: section.articleGuid, chunks: [], fingerprint: "" };
-      entry.chunks.push(...chunksForArticle(section, chunkText)); byArticle.set(section.articleGuid, entry);
+      entry.chunks.push(...chunksForArticle(section, chunkText).map(chunk => ({ ...chunk, metadata: { ...chunk.metadata, ...profileIdentity } }))); byArticle.set(section.articleGuid, entry);
     }
     const articles = [...byArticle.values()];
     for (const article of articles) article.fingerprint = await fingerprintChunks(article.chunks);
     const configSignature = indexConfigSignature(llmConfig);
     let previous: IndexManifest | null = null;
     try { previous = JSON.parse(await readFile(paths.indexManifest, "utf8")); } catch { /* first index or unreadable receipt */ }
+    if (previous) {
+      const errors = validateIndexProfileIdentity(previous, profileIdentity, isDefaultIndexProfile());
+      if (errors.length) throw new Error(errors.join("; "));
+    }
     const priorCollection = await servingCollectionName();
     const existingIds = new Set(await getDocumentIds({ signal, collection: priorCollection }));
     const plan = planIncrementalIndex(articles, previous, configSignature, existingIds);
     const desiredIds = new Set(articles.flatMap(article => article.chunks.map(chunk => chunk.id)));
     const canKeepTranscripts = previous?.configSignature === configSignature;
-    if (plan.noop && previous?.corpusManifestSha256 === options.corpusManifestSha256 && [...existingIds].every(id => desiredIds.has(id) || canKeepTranscripts && id.startsWith("youtube_"))) return;
+    if (plan.noop && validateIndexProfileIdentity(previous, profileIdentity).length === 0 && previous?.corpusManifestSha256 === options.corpusManifestSha256 && [...existingIds].every(id => desiredIds.has(id) || canKeepTranscripts && id.startsWith("youtube_"))) return;
     const staged = `${llmConfig.collectionName}-stage-${crypto.randomUUID()}`;
     try {
       // Copy only known unchanged code IDs and same-geometry transcript records.
@@ -121,7 +133,7 @@ export async function indexSections(sections: FlatSection[], options: { signal?:
       const expected = new Set([...articles.flatMap(article => article.chunks.map(chunk => chunk.id)), ...copyIds.filter(id => !unchanged.has(id))]);
       const actual = new Set(await getDocumentIds({ signal, collection: staged }));
       if (actual.size !== expected.size || [...expected].some(id => !actual.has(id))) throw new Error("Staged index is incomplete; serving edition retained");
-      const manifest = await buildIndexManifest({ articles, configSignature, embeddingModel: llmConfig.embeddingModel, source: "municipal-code" });
+      const manifest = await buildIndexManifest({ articles, configSignature, embeddingModel: llmConfig.embeddingModel, source: "municipal-code", profileIdentity });
       signal.throwIfAborted();
       if (options.corpusManifestSha256 && sourceHash(await readFile(paths.manifest, "utf8")) !== options.corpusManifestSha256) throw new Error("Source corpus changed before activation; serving edition retained");
       // One atomic receipt activates both collection identity and corpus identity.

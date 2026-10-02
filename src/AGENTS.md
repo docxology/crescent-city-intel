@@ -8,7 +8,8 @@ This directory contains all TypeScript source modules. Every file is a standalon
 
 - **No build step** — all files run directly via `bun run src/<file>.ts`.
 - **Types**: All shared interfaces live in `types.ts`. Import from there.
-- **Constants**: `constants.ts` holds `BASE_URL`, `MUNICIPALITY_CODE`, `OUTPUT_DIR`, `ARTICLES_DIR`, `RATE_LIMIT_MS`, and all tunable constants (env-overridable).
+- **Civic profiles**: `civic_profile.ts` owns validated jurisdiction identity, timezone, geography, calendar/vector namespaces and capabilities. `CIVIC_PROFILE` selects a bounded public JSON configuration once per process. Alternate profiles require isolated roots and explicit source policies; Crescent-only adapters and authored GUI/Pages/scheduler fail closed. Never infer provider coverage by relabelling local output.
+- **Constants**: `constants.ts` holds `BASE_URL`, the legacy default `MUNICIPALITY_CODE`, `OUTPUT_DIR`, `ARTICLES_DIR`, `RATE_LIMIT_MS`, and all tunable constants (env-overridable).
 - **Paths**: Use `shared/paths.ts` for all file I/O paths (never hardcode paths).
 - **Data loading**: Use `shared/data.ts` for loading TOC, manifest, articles, and sections.
 - **Pure utilities**: `utils.ts` exports `computeSha256`, `flattenToc`, `shuffle`, `htmlToText`, `csvEscape`, `sanitizeFilename`.

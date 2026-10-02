@@ -25,16 +25,19 @@ import { sourceIdForMonitor } from './source_registry.js';
 import type { SourceHealth } from './types.js';
 import { replaceArtifacts, recoverArtifactTransactions, type ArtifactReplacement } from './shared/artifact_transaction.js';
 import { withProducerScope, currentRunSignal, type ProducerOptions } from './shared/run_scope.js';
+import { currentCivicProfile, isCrescentCityProfile } from './civic_profile.js';
 
 const logger = createLogger('news_monitor');
 
 function newsSourceHealth(...args: Parameters<typeof sourceHealth>): SourceHealth {
   const [name, status, checkedAt, details] = args;
-  return sourceHealth(name, status, checkedAt, { ...details, sourceId: sourceIdForMonitor(name === 'Del Norte Triplicate' ? 'triplicate' : `news:${name}`) });
+  const canonicalId = isCrescentCityProfile() && Object.hasOwn(NEWS_FEEDS, name) ? sourceIdForMonitor(name === "Del Norte Triplicate" ? "triplicate" : `news:${name}`) : undefined;
+  const customId = `${currentCivicProfile().id}-news-${new Bun.CryptoHasher("sha256").update(JSON.stringify([name, details?.url ?? null])).digest("hex").slice(0, 20)}`;
+  return sourceHealth(name, status, checkedAt, { ...details, sourceId: canonicalId ?? customId });
 }
 
 /** RSS feed URLs for local news sources covering the NorCal coast */
-export const NEWS_FEEDS: Record<string, string> = {
+export const NEWS_FEEDS: Readonly<Record<string, string>> = Object.freeze({
   // Del Norte Triplicate: the 2025 Cloudflare block is gone and the site now
   // publishes a full RSS feed (verified live 2026-08-30: 20 items with titles,
   // links, pubDates, descriptions at https://www.triplicate.com/rss.xml).
@@ -48,17 +51,27 @@ export const NEWS_FEEDS: Record<string, string> = {
   'KIEM-TV NBC Eureka': 'https://www.redwoodnews.tv/search/?f=rss&t=article&c=news&l=50&s=start_time&sd=desc',
   'Redwood Voice': 'https://www.redwoodvoice.org/feed/',
   'North Coast Journal': 'https://www.northcoastjournal.com/feed/',
-};
+});
 
 /** True only for sources currently configured for automated news collection. */
-export function isActiveNewsSource(source: unknown): source is string {
-  return typeof source === 'string' && Object.hasOwn(NEWS_FEEDS, source);
+export function configuredNewsFeeds(): Record<string, string> { return isCrescentCityProfile() ? { ...NEWS_FEEDS } : {}; }
+export function isActiveNewsSource(source: unknown, feeds: Readonly<Record<string, string>> = configuredNewsFeeds()): source is string {
+  return typeof source === 'string' && Object.hasOwn(feeds, source);
 }
 
 /** Explicit operator-controlled suppression for feeds known to be retired or blocked. */
-export const NEWS_HTML_FALLBACKS: Record<string, string> = {
+export const NEWS_HTML_FALLBACKS: Readonly<Record<string, string>> = Object.freeze({
   'KIEM-TV NBC Eureka': 'https://www.redwoodnews.tv/news/',
-};
+});
+/** Canonical publisher names retain exact reviewed endpoints; custom feeds own independent IDs. */
+function assertNewsEndpointIdentity(url: string, name: string, fallback = false): void {
+  const parsed = new URL(url);
+  if (!/^https?:$/.test(parsed.protocol) || parsed.username || parsed.password || /[\x00-\x20\x7f]/.test(url)) throw new Error("Invalid news endpoint");
+  if (Object.hasOwn(NEWS_FEEDS, name)) {
+    const expected = fallback ? NEWS_HTML_FALLBACKS[name] : NEWS_FEEDS[name];
+    if (!expected || parsed.toString() !== new URL(expected).toString()) throw new Error("Canonical news source name requires its reviewed endpoint; give a custom feed an independent name");
+  }
+}
 export const NEWS_DISABLED_SOURCES = (process.env.NEWS_DISABLED_SOURCES ?? "")
   .split(",")
   .map(source => source.trim())
@@ -134,6 +147,37 @@ const CRESCENT_CITY_KEYWORDS = [
   'usgs',
 ];
 
+export interface NewsHtmlFallback { url: string; articlePathIncludes?: string }
+export interface NewsFeedPolicy { keywords?: readonly string[]; htmlFallback?: NewsHtmlFallback | null }
+export interface NewsMonitorOptions extends ProducerOptions {
+  noDedup?: boolean;
+  feeds?: Readonly<Record<string, string>>;
+  keywords?: readonly string[];
+  htmlFallbacks?: Readonly<Record<string, string | NewsHtmlFallback>>;
+  disabledSources?: readonly string[];
+  transport?: TransportOptions;
+}
+function defaultNewsKeywords(): string[] { return isCrescentCityProfile() ? [...CRESCENT_CITY_KEYWORDS] : [currentCivicProfile().name.toLowerCase(), currentCivicProfile().county.toLowerCase()]; }
+function checkedKeywords(values: readonly string[]): string[] {
+  if (!Array.isArray(values) || values.length > 100 || values.some(value => typeof value !== 'string' || !value.trim() || value.length > 200 || /[\0\r\n]/.test(value))) throw new Error('Invalid news keyword policy');
+  return [...new Set(values.map(value => value.trim().toLowerCase()))];
+}
+function relevantNews(title: string, content: string, keywords: readonly string[]): boolean {
+  const haystack = `${title} ${content}`.toLowerCase();
+  return keywords.length === 0 || keywords.some(keyword => haystack.includes(keyword));
+}
+function defaultHtmlFallback(sourceName: string): NewsHtmlFallback | null {
+  const url = isCrescentCityProfile() ? NEWS_HTML_FALLBACKS[sourceName] : undefined;
+  return url ? { url, articlePathIncludes: '/article_' } : null;
+}
+function checkedHtmlFallback(value: NewsHtmlFallback | null): NewsHtmlFallback | null {
+  if (value === null) return null;
+  if (!value || typeof value.url !== 'string' || value.url.length > 4096 || value.articlePathIncludes !== undefined && (typeof value.articlePathIncludes !== 'string' || !value.articlePathIncludes || value.articlePathIncludes.length > 200)) throw new Error('Invalid news HTML fallback policy');
+  const url = new URL(value.url);
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid news HTML fallback URL');
+  return { url: url.toString(), ...(value.articlePathIncludes === undefined ? {} : { articlePathIncludes: value.articlePathIncludes }) };
+}
+
 export interface NewsFeedResult {
   source: string;
   items: Array<Omit<NewsItem, 'source' | 'fetchedAt'>>;
@@ -155,16 +199,20 @@ export interface NewsItem {
  * Read a configured HTML news fallback and return relevant items with source health.
  */
 async function fetchHtmlNewsFallback(
-  url: string,
+  fallback: NewsHtmlFallback,
   sourceName: string,
   checkedAt: string,
+  keywords: readonly string[],
+  transport: TransportOptions,
 ): Promise<NewsFeedResult> {
+  const url = fallback.url;
   const response = await fetch(url, {
+    ...transport,
     headers: {
       Accept: 'text/html,application/xhtml+xml',
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36',
     },
-    signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
+    signal: transport.signal ?? currentRunSignal(),
   });
   if (!response.ok) throw new Error(`HTML fallback returned ${response.status}: ${response.statusText}`);
   const document = new DOMParser().parseFromString(await response.text(), 'text/html');
@@ -175,11 +223,10 @@ async function fetchHtmlNewsFallback(
     const anchor = anchors[index];
     const href = anchor.getAttribute('href')?.trim() ?? '';
     const title = anchor.getAttribute('aria-label')?.trim() || htmlToText(anchor.textContent ?? '').trim();
-    if (!href.includes('/article_') || !title || seenLinks.has(href)) continue;
+    if (!href || fallback.articlePathIncludes !== undefined && !href.includes(fallback.articlePathIncludes) || !title || seenLinks.has(href)) continue;
     seenLinks.add(href);
     const link = new URL(href, url).toString();
-    const haystack = title.toLowerCase();
-    if (!CRESCENT_CITY_KEYWORDS.some(keyword => haystack.includes(keyword))) continue;
+    if (!/^https?:\/\//i.test(link) || !relevantNews(title, '', keywords)) continue;
     items.push({ title, link, pubDate: '', content: '' });
   }
   return {
@@ -189,7 +236,7 @@ async function fetchHtmlNewsFallback(
       url,
       fetchedAt: checkedAt,
       itemCount: items.length,
-      provenance: 'Redwood News HTML listing fallback after RSS rate limit',
+      provenance: 'Configured HTML listing fallback after primary feed failure',
     }),
   };
 }
@@ -197,26 +244,30 @@ async function fetchHtmlNewsFallback(
 export async function fetchRSSFeedDetailed(
   url: string,
   sourceName: string,
-  transport: TransportOptions = {}
+  transport: TransportOptions = {},
+  policy: NewsFeedPolicy = {},
 ): Promise<NewsFeedResult> {
+  assertNewsEndpointIdentity(url, sourceName);
   const checkedAt = new Date().toISOString();
+  const keywords = checkedKeywords(policy.keywords ?? defaultNewsKeywords());
+  const htmlFallback = checkedHtmlFallback(policy.htmlFallback === undefined ? defaultHtmlFallback(sourceName) : policy.htmlFallback);
+  if (htmlFallback) assertNewsEndpointIdentity(htmlFallback.url, sourceName, true);
+  const boundedTransport: TransportOptions = { ...transport, signal: transport.signal ?? currentRunSignal(), timeoutMs: transport.timeoutMs ?? Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS) };
   try {
     logger.info(`Fetching RSS feed from ${sourceName}`, { url });
 
     const response = await fetchFeedWithRetry(url, {
-      ...transport,
+      ...boundedTransport,
       headers: {
-        'User-Agent': 'CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)',
+        'User-Agent': `CivicIntelligenceSystem/1.0 (${currentCivicProfile().publication.repositoryUrl})`,
         'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1',
       },
-      signal: AbortSignal.timeout(Number(process.env.NEWS_FETCH_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS)),
     });
     if (!response.ok) {
-      const htmlFallbackUrl = NEWS_HTML_FALLBACKS[sourceName];
-      if (htmlFallbackUrl) {
+      if (htmlFallback) {
         try {
-          logger.warn(`Primary feed unavailable for ${sourceName}; trying HTML listing fallback`, { primaryUrl: url, htmlFallbackUrl, httpStatus: response.status });
-          return await fetchHtmlNewsFallback(htmlFallbackUrl, sourceName, checkedAt);
+          logger.warn(`Primary feed unavailable for ${sourceName}; trying HTML listing fallback`, { primaryUrl: url, htmlFallbackUrl: htmlFallback.url, httpStatus: response.status });
+          return await fetchHtmlNewsFallback(htmlFallback, sourceName, checkedAt, keywords, boundedTransport);
         } catch (fallbackError) {
           logger.warn(`HTML listing fallback failed for ${sourceName}`, { error: errorMessage(fallbackError) });
         }
@@ -272,9 +323,7 @@ export async function fetchRSSFeedDetailed(
         ? htmlToText(descEl.textContent ?? '').substring(0, 500)
         : '';
 
-      // Filter for Crescent City relevance
-      const haystack = `${title} ${content}`.toLowerCase();
-      const isRelevant = CRESCENT_CITY_KEYWORDS.some((kw) => haystack.includes(kw));
+      const isRelevant = relevantNews(title, content, keywords);
 
       if (isRelevant) {
         // Preserve the publisher URL for citations; use normalizedLink only
@@ -297,11 +346,10 @@ export async function fetchRSSFeedDetailed(
       }),
     };
   } catch (error: unknown) {
-    const htmlFallbackUrl = NEWS_HTML_FALLBACKS[sourceName];
-    if (htmlFallbackUrl) {
+    if (htmlFallback && !boundedTransport.signal?.aborted) {
       try {
-        logger.warn(`Primary feed failed for ${sourceName}; trying HTML listing fallback`, { primaryUrl: url, htmlFallbackUrl, error: errorMessage(error) });
-        return await fetchHtmlNewsFallback(htmlFallbackUrl, sourceName, checkedAt);
+        logger.warn(`Primary feed failed for ${sourceName}; trying HTML listing fallback`, { primaryUrl: url, htmlFallbackUrl: htmlFallback.url, error: errorMessage(error) });
+        return await fetchHtmlNewsFallback(htmlFallback, sourceName, checkedAt, keywords, boundedTransport);
       } catch (fallbackError) {
         logger.warn(`HTML listing fallback failed for ${sourceName}`, { error: errorMessage(fallbackError) });
       }
@@ -362,17 +410,21 @@ export async function saveNewsHealth(health: SourceHealth[]): Promise<void> {
  */
 export async function monitorNews(
   filterKeywords?: string[],
-  options: ProducerOptions & { noDedup?: boolean } = {},
+  options: NewsMonitorOptions = {},
 ): Promise<NewsItem[]> {
+  for (const [name, url] of Object.entries(options.feeds ?? configuredNewsFeeds())) assertNewsEndpointIdentity(url, name);
+  for (const [name, fallback] of Object.entries(options.htmlFallbacks ?? {})) assertNewsEndpointIdentity(typeof fallback === "string" ? fallback : fallback.url, name, true);
   return withProducerScope('news', options, () => monitorNewsOwned(filterKeywords, options));
 }
-async function monitorNewsOwned(filterKeywords: string[] | undefined, options: ProducerOptions & { noDedup?: boolean }): Promise<NewsItem[]> {
-  logger.info('=== Starting Crescent City News Monitoring ===');
+async function monitorNewsOwned(filterKeywords: string[] | undefined, options: NewsMonitorOptions): Promise<NewsItem[]> {
+  logger.info(`=== Starting ${currentCivicProfile().name} News Monitoring ===`);
   await recoverArtifactTransactions(outputRoot());
 
-  const effectiveKeywords = filterKeywords?.length
-    ? filterKeywords.map(k => k.toLowerCase())
-    : CRESCENT_CITY_KEYWORDS;
+  const effectiveKeywords = checkedKeywords(options.keywords ?? [...defaultNewsKeywords(), ...(filterKeywords ?? [])]);
+  const feeds = { ...(options.feeds ?? configuredNewsFeeds()) };
+  if (Object.keys(feeds).length > 64 || Object.entries(feeds).some(([name, url]) => !name.trim() || name.length > 200 || /[\0\r\n]/.test(name) || typeof url !== 'string' || url.length > 4096)) throw new Error('Invalid configured news feed roster');
+  const disabledSources = [...(options.disabledSources ?? NEWS_DISABLED_SOURCES)];
+  const htmlFallbacks = { ...(options.htmlFallbacks ?? {}) };
 
   // Load persistent dedup index (shared store — survives restarts, same file
   // path as the legacy seen-ids.json, transparently migrated on first load)
@@ -382,8 +434,8 @@ async function monitorNewsOwned(filterKeywords: string[] | undefined, options: P
   let newCount = 0;
 
   // Fetch all feeds concurrently
-  const disabledResults: MonitoredFeedResult[] = Object.entries(NEWS_FEEDS)
-    .filter(([sourceName]) => NEWS_DISABLED_SOURCES.includes(sourceName))
+  const disabledResults: MonitoredFeedResult[] = Object.entries(feeds)
+    .filter(([sourceName]) => disabledSources.includes(sourceName))
     .map(([sourceName, url]) => ({
       sourceName,
       source: sourceName,
@@ -396,9 +448,10 @@ async function monitorNewsOwned(filterKeywords: string[] | undefined, options: P
       }),
     }));
   const fetchResults: MonitoredFeedResult[] = disabledResults.concat(await Promise.all(
-    Object.entries(NEWS_FEEDS).filter(([sourceName]) => !NEWS_DISABLED_SOURCES.includes(sourceName)).map(async ([sourceName, url]) => {
+    Object.entries(feeds).filter(([sourceName]) => !disabledSources.includes(sourceName)).map(async ([sourceName, url]) => {
       try {
-        const result = await fetchRSSFeedDetailed(url, sourceName);
+        const configuredFallback = htmlFallbacks[sourceName];
+        const result = await fetchRSSFeedDetailed(url, sourceName, options.transport, { keywords: effectiveKeywords, ...(configuredFallback === undefined ? {} : { htmlFallback: typeof configuredFallback === 'string' ? { url: configuredFallback } : configuredFallback }) });
         return { sourceName, ...result };
       } catch (error: unknown) {
         logger.error(`Error processing ${sourceName}`, { error: errorMessage(error) });
@@ -422,12 +475,6 @@ async function monitorNewsOwned(filterKeywords: string[] | undefined, options: P
   for (const { sourceName, items } of fetchResults) {
     currentRunSignal()?.throwIfAborted();
     for (const item of items) {
-      // Apply keyword filter if custom keywords provided
-      if (filterKeywords) {
-        const haystack = `${item.title} ${item.content}`.toLowerCase();
-        if (!effectiveKeywords.some(kw => haystack.includes(kw))) continue;
-      }
-
       // Dedup key = normalized URL + normalized title. A bare URL key (the prior
       // behavior) collapsed distinct paginated items that share a path; including
       // the title keeps genuinely different articles while still de-duplicating the

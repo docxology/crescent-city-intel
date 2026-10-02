@@ -1,3 +1,4 @@
+import { isCrescentCityProfile } from "./civic_profile.js";
 /**
  * LifeOS / Pulse bridge — business logic for the LocalIntelligence digest
  * consumed by the Pulse LOCAL tab, built from THIS platform's real outputs
@@ -115,6 +116,7 @@ export async function buildDigest(options: {
   outputDir: string;
   generatedAt?: string;
 }): Promise<LifeosDigest> {
+  if (!isCrescentCityProfile()) throw new Error("The Crescent City private digest requires configured consumer identity for an alternate profile");
   const { outputDir, generatedAt = new Date().toISOString() } = options;
   if (!Number.isFinite(Date.parse(generatedAt)) || !isCivilDate(generatedAt.slice(0, 10))) throw new Error("Invalid digest generatedAt");
 
@@ -208,6 +210,7 @@ export async function buildDigest(options: {
 
 /** Write the digest to both latest.json paths the Pulse module reads, plus the dated file. */
 export async function writeDigest(digest: LifeosDigest, customizationsDir: string, dataDir: string): Promise<{ datedPath: string; customLatest: string; dataLatest: string; receiptPath: string; sha256: string }> {
+  if (!isCrescentCityProfile()) throw new Error("Alternate civic digest consumer identity is not configured");
   if (!Number.isFinite(Date.parse(digest.meta.generated_at)) || !isCivilDate(digest.meta.generated_at.slice(0, 10))) throw new Error("Invalid digest generated_at");
   const dateStr = digest.meta.generated_at.slice(0, 10); const json = JSON.stringify(digest, null, 2); const sha256 = custodyHash(json);
   const releases: Array<() => Promise<void>> = [];

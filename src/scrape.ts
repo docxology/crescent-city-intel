@@ -13,12 +13,13 @@
  *   output/manifest.json      - Scrape manifest with hashes
  *   output/articles/{guid}.json - Per-article content files
  */
+import { municipalCodeId, bindCivicOutputRoot, assertCivicCorpusIdentity, currentCivicProfile } from "./civic_profile.js";
 import { mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { newPage, closeBrowser, closePageBounded } from "./browser.js";
 import { fetchToc, getArticlePages, getSections, tocSummary } from "./toc.js";
 import { getSectionGuids, scrapeArticlePage, articleDeadlineMs } from "./content.js";
-import { RATE_LIMIT_MS, BASE_URL, MUNICIPALITY_CODE, MAX_RETRIES } from "./constants.js";
+import { RATE_LIMIT_MS, BASE_URL, MAX_RETRIES } from "./constants.js";
 import { computeSha256, flattenToc } from "./utils.js";
 import { isArticleArtifactShapeValid, isTocShapeValid, withRetry } from "./scraper_utils.js";
 import { paths, outputRoot } from "./shared/paths.js";
@@ -93,9 +94,17 @@ async function scrapeWithRetries(article: TocNode, currentPage: Page | null, res
 
 async function main() {
   const root = outputRoot();
+  const municipalityCode = municipalCodeId();
+  for (const file of [paths.toc, paths.manifest]) {
+    if (existsSync(file)) {
+      const value = JSON.parse(await readFile(file, "utf8"));
+      assertCivicCorpusIdentity(file === paths.toc ? value : { guid: municipalityCode }, file === paths.manifest ? value : undefined);
+    }
+  }
+  await bindCivicOutputRoot(root);
   const release = await acquireFileLease(`${root}/state/corpus.lock`, { waitMs: 1000 });
   try {
-  log.info("=== Crescent City Municipal Code Scraper ===");
+  log.info(`=== ${currentCivicProfile().name} Municipal Code Scraper ===`);
   await captureCorpusEdition(root, "Before scrape replacement");
 
   await mkdir(paths.articles, { recursive: true });
@@ -126,6 +135,7 @@ async function main() {
     try {
       log.info("Fetching current table of contents...");
       toc = await fetchToc(page);
+      assertCivicCorpusIdentity(toc);
       await writeJsonAtomic(paths.toc, toc);
       log.info("TOC saved to output/toc.json");
     } catch (error) {
@@ -136,6 +146,7 @@ async function main() {
     }
   }
 
+  assertCivicCorpusIdentity(toc);
   log.info(tocSummary(toc));
 
   const articles = getArticlePages(toc);
@@ -167,7 +178,7 @@ async function main() {
     manifest = {
       municipality: toc.tocName,
       municipalityGuid: toc.guid,
-      sourceUrl: `${BASE_URL}/${MUNICIPALITY_CODE}`,
+      sourceUrl: `${BASE_URL}/${municipalityCode}`,
       version: "",
       scrapedAt: new Date().toISOString(),
       completedAt: "",
@@ -186,7 +197,7 @@ async function main() {
   }
   manifest.municipality = toc.tocName;
   manifest.municipalityGuid = toc.guid;
-  manifest.sourceUrl = `${BASE_URL}/${MUNICIPALITY_CODE}`;
+  manifest.sourceUrl = `${BASE_URL}/${municipalityCode}`;
   manifest.tocFingerprint = await computeSha256(JSON.stringify(toc));
   manifest.tocFetchedAt = tocSource === "live" ? runStartedAt : manifest.tocFetchedAt;
   manifest.tocSource = tocSource;

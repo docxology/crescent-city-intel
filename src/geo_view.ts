@@ -20,7 +20,7 @@
  * the city center) so they render as distinct markers without fabricating
  * surveyed locations — each feature carries `nominal: true` to make that visible.
  */
-import { CRESCENT_CITY_ANCHOR } from "./geo.js";
+import { assertMunicipalityAnchor, isCrescentCityAnchor } from "./geo.js";
 
 // ─── Feature view output types ──────────────────────────────────────────
 export interface GeoBoundsFeature {
@@ -60,6 +60,7 @@ export interface GeoSectionRef {
 }
 export interface GeoIntelView {
   schema: string;
+  profileId?: string;
   crs: { type: string; properties: { name: string } };
   anchor: {
     name: string;
@@ -98,6 +99,8 @@ interface ContractDomain {
 }
 interface ContractInput {
   schema: string;
+  profileId?: string;
+  crescent: boolean;
   anchor: {
     name: string;
     municipality: string;
@@ -130,13 +133,14 @@ const HAZARD_OFFSETS: Array<[number, number]> = [
 
 /** Normalize an unknown contract payload into a typed, defensively-populated input. */
 function normalizeContractInput(raw: Record<string, unknown>): ContractInput {
-  const anchor = (raw.anchor ?? {}) as Record<string, unknown>;
-  const bounds = (anchor.bounds ?? {}) as Record<string, unknown>;
+  assertMunicipalityAnchor(raw.anchor);
+  if (raw.profileId !== undefined && (typeof raw.profileId !== "string" || raw.profileId.length > 63 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(raw.profileId))) throw new Error("Invalid geo profile identity");
+  const anchor = raw.anchor;
+  const crescent = raw.schema === "crescent-city-geo-intel/v1" && isCrescentCityAnchor(anchor) && raw.profileId === undefined;
+  if (raw.schema === "crescent-city-geo-intel/v1" && !crescent) throw new Error("Crescent City geo schema differs from its geographic identity");
   const hazard = (raw.hazard ?? {}) as Record<string, unknown>;
   const asString = (v: unknown, fallback: string): string =>
     typeof v === "string" ? v : fallback;
-  const asNumber = (v: unknown, fallback: number): number =>
-    typeof v === "number" && Number.isFinite(v) ? v : fallback;
   const asRecordArray = (v: unknown): Array<Record<string, unknown>> =>
     Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [];
   const asStringArray = (v: unknown): string[] =>
@@ -161,20 +165,12 @@ function normalizeContractInput(raw: Record<string, unknown>): ContractInput {
   });
 
   return {
-    schema: asString(raw.schema, "crescent-city-geo-intel/v1"),
+    schema: asString(raw.schema, "civic-geo-intel/v1"),
+    ...(typeof raw.profileId === "string" ? { profileId: raw.profileId } : {}),
+    crescent,
     anchor: {
-      name: asString(anchor.name, CRESCENT_CITY_ANCHOR.name),
-      municipality: asString(anchor.municipality, CRESCENT_CITY_ANCHOR.municipality),
-      county: asString(anchor.county, CRESCENT_CITY_ANCHOR.county),
-      state: asString(anchor.state, CRESCENT_CITY_ANCHOR.state),
-      latitude: asNumber(anchor.latitude, CRESCENT_CITY_ANCHOR.latitude),
-      longitude: asNumber(anchor.longitude, CRESCENT_CITY_ANCHOR.longitude),
-      bounds: {
-        west: asNumber(bounds.west, CRESCENT_CITY_ANCHOR.bounds.west),
-        south: asNumber(bounds.south, CRESCENT_CITY_ANCHOR.bounds.south),
-        east: asNumber(bounds.east, CRESCENT_CITY_ANCHOR.bounds.east),
-        north: asNumber(bounds.north, CRESCENT_CITY_ANCHOR.bounds.north),
-      },
+      name: anchor.name, municipality: anchor.municipality, county: anchor.county, state: anchor.state,
+      latitude: anchor.latitude, longitude: anchor.longitude, bounds: { ...anchor.bounds },
     },
     generatedAt: typeof raw.generatedAt === "string" ? raw.generatedAt : undefined,
     // Derive the domain count from the array so the view is self-consistent
@@ -194,10 +190,10 @@ function domainSectionCount(topics: ContractTopic[]): number {
 }
 
 /**
- * Build the map-ready Crescent City geo view from a geo-intel contract.
+ * Build a municipality's map-ready geo view from a complete geo-intel contract.
  *
  * @param raw The output of `buildGeoIntel()` (or any schema-compatible object).
- * @returns A JSON-safe feature view: Del Norte bounds polygon + city anchor
+ * @returns A JSON-safe feature view: supplied bounds polygon + city anchor
  *   point + one point per hazard-relevant civic domain, plus aggregated
  *   municipal-code section references.
  */
@@ -205,10 +201,10 @@ export function buildGeoView(raw: Record<string, unknown>): GeoIntelView {
   const input = normalizeContractInput(raw);
   const a = input.anchor;
 
-  // 1. Del Norte County bounds → a closed 4-vertex Polygon ring (GeoJSON rectangle).
+  // 1. Supplied extent → a closed 4-vertex Polygon ring (GeoJSON rectangle).
   const boundsFeature: GeoBoundsFeature = {
     type: "Feature",
-    id: "del-norte-bounds",
+    id: input.crescent ? "del-norte-bounds" : "municipality-bounds",
     geometry: {
       type: "Polygon",
       coordinates: [[
@@ -221,7 +217,7 @@ export function buildGeoView(raw: Record<string, unknown>): GeoIntelView {
     },
     properties: {
       kind: "bounds",
-      label: "Del Norte County extent",
+      label: `${a.county} extent`,
       west: a.bounds.west,
       south: a.bounds.south,
       east: a.bounds.east,
@@ -255,7 +251,7 @@ export function buildGeoView(raw: Record<string, unknown>): GeoIntelView {
       id: `hazard-domain:${domain.name}`,
       geometry: {
         type: "Point",
-        coordinates: [round6(a.longitude + dlon), round6(a.latitude + dlat)],
+        coordinates: [round6(Math.max(a.bounds.west, Math.min(a.bounds.east, a.longitude + dlon))), round6(Math.max(a.bounds.south, Math.min(a.bounds.north, a.latitude + dlat)))],
       },
       properties: {
         kind: "hazard-domain",
@@ -306,7 +302,8 @@ export function buildGeoView(raw: Record<string, unknown>): GeoIntelView {
     .map(([tag]) => tag);
 
   return {
-    schema: "crescent-city-geo-view/v1",
+    schema: input.crescent ? "crescent-city-geo-view/v1" : "civic-geo-view/v1",
+    ...(input.profileId ? { profileId: input.profileId } : {}),
     crs: { type: "name", properties: { name: "EPSG:4326" } },
     anchor: {
       name: a.name,
@@ -382,11 +379,8 @@ export function buildGeoViewSvg(view: GeoIntelView): string {
   const height = 410;
   const map = { x: 24, y: 48, width: 448, height: 322 };
   const legend = { x: 492, y: 48, width: 204, height: 322 };
-  const fallbackBounds = CRESCENT_CITY_ANCHOR.bounds;
-  const rawBounds = view.anchor?.bounds ?? fallbackBounds;
-  const bounds = rawBounds.east > rawBounds.west && rawBounds.north > rawBounds.south
-    ? rawBounds
-    : fallbackBounds;
+  assertMunicipalityAnchor({ ...view.anchor, guid: view.profileId ?? "geo-view" });
+  const bounds = view.anchor.bounds;
   const projectX = (longitude: number): number =>
     map.x + 14 + ((longitude - bounds.west) / (bounds.east - bounds.west)) * (map.width - 28);
   const projectY = (latitude: number): number =>
@@ -429,25 +423,27 @@ export function buildGeoViewSvg(view: GeoIntelView): string {
   const insetY = (latitude: number): number =>
     inset.y + 20 + (((latitudeCenter + latitudeSpan / 2) - latitude) / latitudeSpan) * (inset.height - 30);
 
-  const titleId = "crescent-city-geo-view-title";
-  const descriptionId = "crescent-city-geo-view-description";
+  const crescent = view.schema === "crescent-city-geo-view/v1";
+  const titleId = crescent ? "crescent-city-geo-view-title" : "civic-geo-view-title";
+  const descriptionId = crescent ? "crescent-city-geo-view-description" : "civic-geo-view-description";
+  const boundsLabel = `${view.anchor.county} extent`;
   const svg: string[] = [
     `<svg class="geo-view-svg" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="${titleId} ${descriptionId}" data-geo-view-schema="${escapeSvg(view.schema)}" xmlns="http://www.w3.org/2000/svg">`,
-    `<title id="${titleId}">Crescent City civic and hazard geo view</title>`,
-    `<desc id="${descriptionId}">Tiles-free WGS84 map of the Del Norte County extent, Crescent City anchor, and ${hazardPoints.length} nominal hazard-domain markers. The legend reports municipal-code section counts.</desc>`,
+    `<title id="${titleId}">${escapeSvg(view.anchor.name)} civic and hazard geo view</title>`,
+    `<desc id="${descriptionId}">Tiles-free WGS84 map of the ${escapeSvg(boundsLabel)}, ${escapeSvg(view.anchor.name)} anchor, and ${hazardPoints.length} nominal hazard-domain markers. The legend reports municipal-code section counts.</desc>`,
     "<defs><linearGradient id=\"geo-view-land\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#f2efe9\"/><stop offset=\"1\" stop-color=\"#e7e2d8\"/></linearGradient></defs>",
     `<rect width="${width}" height="${height}" rx="12" fill="#faf6ef"/>`,
-    `<text x="${map.x}" y="27" fill="#0a0a0a" font-size="15" font-weight="700">Del Norte County extent · WGS84</text>`,
+    `<text x="${map.x}" y="27" fill="#0a0a0a" font-size="15" font-weight="700">${escapeSvg(boundsLabel)} · WGS84</text>`,
     `<text x="${map.x + map.width}" y="27" text-anchor="end" fill="#6a6a6a" font-size="11">tiles-free · not a surveyed boundary</text>`,
     `<rect x="${map.x}" y="${map.y}" width="${map.width}" height="${map.height}" rx="9" fill="url(#geo-view-land)" stroke="#d0cac4"/>`,
   ];
 
   const ringPoints = ring.map((position) => `${format(projectX(position[0]))},${format(projectY(position[1]))}`).join(" ");
   svg.push(
-    `<polygon data-feature-id="${escapeSvg(boundsFeature?.id ?? "del-norte-bounds")}" data-feature-kind="bounds" points="${ringPoints}" fill="rgba(196,30,30,0.05)" stroke="#c41e1e" stroke-width="2" stroke-dasharray="8 5"/>`,
-    `<text x="${map.x + 12}" y="${map.y + 19}" fill="#6a6a6a" font-size="10">${escapeSvg(boundsFeature?.properties.label ?? "Del Norte County extent")}</text>`,
-    `<text x="${map.x + 12}" y="${map.y + map.height - 9}" fill="#6a6a6a" font-size="9">${bounds.west.toFixed(3)}° W</text>`,
-    `<text x="${map.x + map.width - 12}" y="${map.y + map.height - 9}" text-anchor="end" fill="#6a6a6a" font-size="9">${bounds.east.toFixed(3)}° W</text>`,
+    `<polygon data-feature-id="${escapeSvg(boundsFeature?.id ?? (crescent ? "del-norte-bounds" : "municipality-bounds"))}" data-feature-kind="bounds" points="${ringPoints}" fill="rgba(196,30,30,0.05)" stroke="#c41e1e" stroke-width="2" stroke-dasharray="8 5"/>`,
+    `<text x="${map.x + 12}" y="${map.y + 19}" fill="#6a6a6a" font-size="10">${escapeSvg(boundsFeature?.properties.label ?? boundsLabel)}</text>`,
+    `<text x="${map.x + 12}" y="${map.y + map.height - 9}" fill="#6a6a6a" font-size="9">${Math.abs(bounds.west).toFixed(3)}° ${bounds.west < 0 ? "W" : "E"}</text>`,
+    `<text x="${map.x + map.width - 12}" y="${map.y + map.height - 9}" text-anchor="end" fill="#6a6a6a" font-size="9">${Math.abs(bounds.east).toFixed(3)}° ${bounds.east < 0 ? "W" : "E"}</text>`,
     `<path d="M ${map.x + map.width - 24} ${map.y + 42} V ${map.y + 18} M ${map.x + map.width - 30} ${map.y + 26} L ${map.x + map.width - 24} ${map.y + 18} L ${map.x + map.width - 18} ${map.y + 26}" fill="none" stroke="#0a0a0a" stroke-width="1.5"/>`,
     `<text x="${map.x + map.width - 24}" y="${map.y + 54}" text-anchor="middle" fill="#0a0a0a" font-size="10">N</text>`,
   );

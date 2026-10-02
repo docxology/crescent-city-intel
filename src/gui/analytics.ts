@@ -1,3 +1,4 @@
+import { isCrescentCityProfile } from "../civic_profile.js";
 /**
  * Analytics module — computes municipal code statistics and PCA embedding projections.
  * All computations are done server-side with no external charting/math dependencies.
@@ -59,7 +60,7 @@ async function loadAnalyticsArticles(seedPath?: string | null): Promise<StatsArt
     const liveArticles = await loadAllArticles();
     if (liveArticles.length > 0) return liveArticles;
     try {
-        if (seedPath === null) return [];
+        if (seedPath === null || !isCrescentCityProfile()) return [];
         const parsed = JSON.parse(await readFile(seedPath ?? process.env.CODE_SEED_PATH ?? "pages-data/crescent-city-code.json", "utf8")) as { articles?: unknown };
         if (!Array.isArray(parsed.articles)) return [];
         return parsed.articles.flatMap(item => {

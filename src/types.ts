@@ -347,7 +347,7 @@ export interface SourceDefinition {
   name: string;
   kind: SourceKind;
   authority: SourceAuthority;
-  region: "Crescent City" | "Del Norte County" | "North Coast" | "California" | "Federal";
+  region: string;
   canonicalUrl: string;
   endpointUrl?: string;
   discoveredFrom: string[];

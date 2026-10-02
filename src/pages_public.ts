@@ -56,7 +56,7 @@ export function publicAlerts(value: unknown): { composite: Record<string, unknow
   return dto;
 }
 export function publicEvents(value: unknown): unknown {
-  const dto = project(value, { ...scalars("schemaVersion generatedAt count"), llm: scalars("attempted status provider model summarizedCount"), provenance: scalars("deterministicFrom summarizer boundaries"), events: [{ ...scalars("id title kind dateStart dateAllDay timeNote publicationAt location organizer status description sourceLinks sourceName fetchedAt extractionMethod confidence"), calendarEvidence: scalars("uid recurrenceId timezone timeBasis") }] }) as Record<string, unknown>;
+  const dto = project(value, { ...scalars("schemaVersion profileId profileSha256 generatedAt count"), llm: scalars("attempted status provider model summarizedCount"), provenance: scalars("deterministicFrom summarizer boundaries"), events: [{ ...scalars("id title kind dateStart dateAllDay timeNote publicationAt location organizer status description sourceLinks sourceName fetchedAt extractionMethod confidence"), calendarEvidence: scalars("uid recurrenceId timezone timeBasis") }] }) as Record<string, unknown>;
   if (value && typeof value === "object" && Object.hasOwn(value, "summaries")) dto.summaries = publicMap((value as Record<string, unknown>).summaries, scalars("text status provider model generatedAt"));
   return dto;
 }

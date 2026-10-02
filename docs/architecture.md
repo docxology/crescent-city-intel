@@ -264,3 +264,14 @@ output/                 # Scraped data (gitignored)
 | Full RAG | `bun run gui` + `bun run index` | Ollama + ChromaDB + scraped data |
 | Monitoring | `bun run weekly-check` | Declared source access and selected artifact root; scheduler activation is separate |
 | Alerts | `bun run alerts` | Internet access |
+
+## Civic profile boundary
+
+Validated public jurisdiction data flows through captured producer contexts,
+profile-bound output roots, source/corpus admission, geometry/calendar methods
+and lexical/vector index identities. Shared algorithms stay separate from the
+reviewed Crescent source roster, domain content and regional/provider policy.
+[The civic profile guide](civic-profiles.md) names reusable methods, explicit
+regional adapters and the limits of offline second-profile acceptance. Public
+Pages replay captures the exact profile; synthetic configuration cannot relabel
+the authored Quadruplicate or its reviewed municipal seed.

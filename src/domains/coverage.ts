@@ -1,3 +1,4 @@
+import { isCrescentCityProfile } from "../civic_profile.js";
 /**
  * Domain coverage metrics — computes the percentage of municipal code sections
  * cross-referenced by each intelligence domain.
@@ -42,10 +43,10 @@ export interface CoverageReport {
  * Compute how many scraped sections each domain's topics reference.
  * Matches by section number prefix (§ stripped, normalized).
  */
-export async function computeDomainCoverage(options: { outPath?: string | null } = {}): Promise<CoverageReport> {
+export async function computeDomainCoverage(options: { outPath?: string | null; sections?: Awaited<ReturnType<typeof loadAllSections>>; domains?: typeof domains } = {}): Promise<CoverageReport> {
   logger.info("Computing domain coverage metrics...");
 
-  const sections = await loadAllSections();
+  const sections = options.sections ?? await loadAllSections();
   const totalSections = sections.length;
 
   // Build a fast lookup: normalized section numbers
@@ -70,7 +71,7 @@ export async function computeDomainCoverage(options: { outPath?: string | null }
     return out;
   }
 
-  for (const domain of domains) {
+  for (const domain of options.domains ?? (isCrescentCityProfile() ? domains : [])) {
     const refs = new Set<string>();
 
     for (const topic of domain.topics) {

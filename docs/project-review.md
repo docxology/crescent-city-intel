@@ -1,13 +1,17 @@
 # Current project state
 
 The Quadruplicate is a Bun/TypeScript municipal-code and civic-intelligence
-platform with a bounded static public edition. The v3.2.0 operating contract
+platform with a bounded static public edition. The v3.3.0 operating contract
 covers source custody, explicit gaps, finite acquisition, shared family/API
 validation, private diagnostics, staged indexes and recoverable publication.
 It retains the v3.1 implementation and browser ownership repairs, adds bounded
 County CivicClerk document acquisition, and makes the full GitHub-displayed
-README a checked projection of the root guide. The eight external and human
-acceptance scopes remain open.
+README a checked projection of the root guide. The existing eight external and human
+acceptance scopes remain open, alongside explicit acceptance for another civic
+deployment. Shared methods now have validated profile identity, isolated roots,
+configurable geography/calendar/news policies and profile-bound lexical/vector
+indexes; see [civic profiles](civic-profiles.md) for exercised reuse and regional
+limits. Authored GUI/Pages and scheduler cannot be relabelled as another city.
 The [release acceptance receipt](release-acceptance.json) names measured checks
 and snapshot identity: read its version, date and scope before attributing a
 result to the current tree. A receipt for an older release does not certify a

@@ -1,3 +1,4 @@
+import { currentCivicProfile, civicProfileFingerprint, isCrescentCityProfile } from "./civic_profile.js";
 /** Versioned persisted-family authority, reused by loaders, HTTP and public DTO boundaries. */
 import { validateSchema, type ValueSchema } from "./schema_validation.js";
 
@@ -31,7 +32,7 @@ const documentDrift = object({ url, changed: bool, isNew: bool, previousHash: nu
 const healthReport = object({ schemaVersion: enumeration(SOURCE_HEALTH_SCHEMA), runId: { type: "string", pattern: "^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$" }, checkedAt: time, sources: array(SOURCE_HEALTH_ROW_SCHEMA, 1000), attempts: array(object({ key: text, requested: bool }), 1000), documentDrift: array(documentDrift, 10_000) }, ["schemaVersion", "checkedAt", "sources"]);
 export const CALENDAR_EVIDENCE_SCHEMA = object({ uid: nullable(str()), recurrenceId: nullable(str()), timezone: nullable(str()), timeBasis: enumeration("utc", "tzid", "floating", "date-only") });
 const eventRow = object({ id: text, title: text, kind: enumeration("government-meeting", "community-listing", "civic-news", "youtube", "holiday-closure"), dateStart: nullable(day), publicationAt: nullable({ anyOf: [day, time] }), calendarEvidence: CALENDAR_EVIDENCE_SCHEMA, dateAllDay: bool, timeNote: nullable(str()), location: nullable(str()), organizer: nullable(str()), status: enumeration("scheduled", "completed", "unknown", "cancelled"), description: str(), sourceLinks: { ...array(url, 8), minItems: 1, uniqueItems: true }, sourceName: text, fetchedAt: nullable(time), extractionMethod: nullable(enumeration("markup", "llm")), confidence: nullable({ type: "number", minimum: 0, maximum: 1 }) }, ["id", "title", "kind", "dateStart", "dateAllDay", "timeNote", "location", "organizer", "status", "description", "sourceLinks", "sourceName", "fetchedAt", "extractionMethod", "confidence"]);
-const events = object({ schemaVersion: enumeration("crescent-city-events/v1"), generatedAt: time, count: integer,
+const events = object({ schemaVersion: enumeration("crescent-city-events/v1", "civic-events/v1"), profileId: { type: "string", pattern: "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$", maxLength: 63 }, profileSha256: hash, generatedAt: time, count: integer,
   llm: object({ attempted: bool, status: enumeration("ok", "unavailable", "skipped"), provider: enumeration("ollama", "openrouter", "none"), model: nullable(str()), summarizedCount: integer, error: str() }, ["attempted", "status", "provider", "model", "summarizedCount"]),
   provenance: object({ deterministicFrom: strings, summarizer: nullable(str()), boundaries: strings }), events: array(eventRow, 200),
   summaries: map(object({ text: str(), status: enumeration("ok", "source_only"), provider: str(), model: nullable(str()), generatedAt: time }), 200),
@@ -95,6 +96,8 @@ export function validateArtifact(family: ArtifactFamily, value: unknown, options
   const fail = (message: string) => errors.push(`${family}: ${message}`);
   const duplicate = (rows: any[], identity: (row: any) => string) => new Set(rows.map(identity)).size !== rows.length;
   if (family === "events") {
+    if (v.schemaVersion === "civic-events/v1" && (v.profileId !== currentCivicProfile().id || v.profileSha256 !== civicProfileFingerprint() || isCrescentCityProfile())) fail("generic events require the selected alternate civic profile identity");
+    if (v.schemaVersion === "crescent-city-events/v1" && (!isCrescentCityProfile() || v.profileId !== undefined || v.profileSha256 !== undefined)) fail("Crescent events require the default civic profile");
     if (v.count !== v.events.length) fail("count does not match rows");
     if (duplicate(v.events, row => row.id)) fail("duplicate event identities");
     if (v.events.some((row: any) => row.status !== "unknown" && row.dateStart === null && row.status !== "cancelled")) fail("known occurrence status requires an occurrence date");

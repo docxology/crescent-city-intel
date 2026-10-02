@@ -4,6 +4,19 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { buildDirectoryArtifact } from "../src/directory.ts";
 import { createArtifactCustody, validateArtifactCustody, replayArtifactCustody, captureArtifactBytes, canonicalArtifactJson } from "../src/artifact_custody.ts";
+import { runBoundedChild } from "../src/shared/subprocess.ts";
+
+test("regular-file custody rejects a real FIFO before its opening can block", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cci-custody-fifo-")), fifo = join(root, "input.json");
+  try {
+    const made = await runBoundedChild(["/usr/bin/mkfifo", fifo], { timeoutMs: 2000 }); expect(made.status).toBe("ok");
+    const module = new URL("../src/artifact_custody.ts", import.meta.url).href;
+    const code = `const{captureArtifactBytes}=await import(${JSON.stringify(module)});try{await captureArtifactBytes(${JSON.stringify(fifo)},4096);process.exitCode=1;}catch(error){console.log(JSON.stringify({message:String(error.message)}));}`;
+    const result = await runBoundedChild([process.execPath, "-e", code], { timeoutMs: 2000, maxBytes: 16 * 1024 });
+    expect(result.status).toBe("ok"); expect(result.reaped).toBe(true);
+    expect(JSON.parse(result.stdout).message).toContain("bounded regular file");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 import { exportPagesSnapshot } from "../src/pages_snapshot.ts";
 import { validatePagesArtifact } from "../src/pages_validation.ts";
 import { hashPublicationTree, publicationHash } from "../src/publication_bundle.ts";

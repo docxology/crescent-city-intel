@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 /** GUI server — lightweight HTML viewer served by Bun.serve() */
+import { isCrescentCityProfile } from "../civic_profile.js";
 import { handleApiRoute } from "./routes.js";
 import { initSearch } from "./search.js";
 import { randomBytes } from "node:crypto";
@@ -99,6 +100,7 @@ if (import.meta.main) {
 // Pre-load search index
 await initSearch();
 
+if (!isCrescentCityProfile()) throw new Error("The authored Quadruplicate GUI requires reviewed municipality-specific presentation and regional adapters");
 const server = Bun.serve({
   port: PORT,
   // Bun's default idleTimeout is 10s. The non-streaming RAG endpoints

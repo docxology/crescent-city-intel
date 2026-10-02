@@ -57,7 +57,9 @@ const bindingHash = (receipt: Omit<ArtifactCustodyReceipt, "bindingSha256"> | Ar
 export async function captureArtifactBytes(path: string, maxBytes = 64 * 1024 * 1024): Promise<Uint8Array> {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024 * 1024) throw new Error("Custody byte bound must be an integer from 1 through 64 MiB");
   const { constants } = await import("node:fs");
-  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  // Opening a FIFO read-only can block before fstat; nonblocking admission lets
+  // the regular-file check reject it without waiting for another process.
+  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const before = await handle.stat();
     if (!before.isFile() || before.size > maxBytes) throw new Error("Custody input is not a bounded regular file");

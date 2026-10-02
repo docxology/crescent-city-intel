@@ -1,7 +1,7 @@
 {
   "name": "crescent-city-intel",
-  "version": "3.2.0",
-  "description": "The Quadruplicate — comprehensive local intelligence platform for Crescent City, CA — municipal code, real-time alerts, RAG chat, YouTube meeting transcripts, multi-source news, LLM curation, and civic intelligence domains",
+  "version": "3.3.0",
+  "description": "The Quadruplicate \u2014 comprehensive local intelligence platform for Crescent City, CA \u2014 municipal code, real-time alerts, RAG chat, YouTube meeting transcripts, multi-source news, LLM curation, and civic intelligence domains",
   "type": "module",
   "scripts": {
     "scrape": "bun run src/scrape.ts",
@@ -69,7 +69,8 @@
     "docs:generate": "bun run scripts/generate-docs.ts --write",
     "docs:check": "bun run scripts/generate-docs.ts --check",
     "source:coverage": "bun run scripts/source-coverage.ts",
-    "test:gui-readers": "bun run tests/gui-readers.browser.ts"
+    "test:gui-readers": "bun run tests/gui-readers.browser.ts",
+    "civic:profile": "bun run src/civic_profile.ts"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.8.11",

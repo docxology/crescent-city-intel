@@ -6,6 +6,7 @@ import { createLogger } from "../logger.js";
 import { estimateTokens, recordLlmUsage } from "./usage.js";
 import type { ChatRequestOptions } from "./provider.js";
 import { boundedSignal, readBoundedText, streamLines } from "./runtime.js";
+import { currentCivicProfile } from "../civic_profile.js";
 
 const log = createLogger("ollama");
 
@@ -63,7 +64,7 @@ export async function chat(
 ): Promise<string> {
   const model = modelOverride ?? llmConfig.chatModel;
   const systemPrompt = options?.systemPrompt ??
-    "You are a helpful assistant that answers questions about the Crescent City Municipal Code. " +
+    `You are a helpful assistant that answers questions about the municipal code for ${currentCivicProfile().municipality}. ` +
     "Use only the provided context to answer. Cite section numbers when possible. " +
     "If the context doesn't contain enough information, say so.";
 

@@ -324,7 +324,7 @@ describe("buildInsightReport end to end", () => {
 });
 describe("attachGeoDomainInsights", () => {
   const contract = {
-    anchor: { name: "Crescent City", municipality: "Crescent City", county: "Del Norte", state: "CA", latitude: 41.7558, longitude: -124.2026, bounds: { west: -124.4, south: 41.7, east: -123.9, north: 42.0 } },
+    anchor: { name: "Crescent City", guid: "CR4919", municipality: "Crescent City", county: "Del Norte", state: "CA", latitude: 41.7558, longitude: -124.2026, bounds: { west: -124.4, south: 41.7, east: -123.9, north: 42.0 } },
     hazard: { relevantDomains: [
       { id: "harbor-marine-operations", name: "Harbor & Marine Operations", icon: "⚓", hazardTags: ["marine"], topics: [{ name: "Dredging", tags: ["harbor"], sections: [] }] },
       { id: "public-safety", name: "Public Safety", icon: "🛡️", hazardTags: ["wildfire"], topics: [] },

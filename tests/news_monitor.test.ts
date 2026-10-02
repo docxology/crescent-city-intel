@@ -11,6 +11,7 @@
  */
 import { describe, expect, test, afterAll, beforeAll } from "bun:test";
 import { fetchRSSFeedDetailed, isActiveNewsSource, NEWS_FEEDS, type NewsItem } from "../src/news_monitor";
+import { withTransportScope } from "../src/shared/transport";
 
 describe("fetchRSSFeedDetailed", () => {
   test("reports an unavailable source when URL is unreachable", async () => {
@@ -136,7 +137,7 @@ describe("Redwood Voice integration", () => {
         return new Response("Not found", { status: 404 });
       },
     });
-    feedUrl = `http://localhost:${server.port}/feed/`;
+    feedUrl = `http://127.0.0.1:${server.port}/feed/`;
   });
 
   afterAll(() => {
@@ -144,7 +145,7 @@ describe("Redwood Voice integration", () => {
   });
 
   test("fetchRSSFeedDetailed parses a real Redwood Voice item through the shared feed pipeline", async () => {
-    const result = await fetchRSSFeedDetailed(feedUrl, "Redwood Voice", { allowPrivateHosts: ["localhost"] });
+    const result = await withTransportScope({ fixture: { origin: new URL(feedUrl).origin, allowedOrigins: ["https://www.redwoodvoice.org"] } }, () => fetchRSSFeedDetailed(NEWS_FEEDS["Redwood Voice"]!, "Redwood Voice"));
     const items = result.items;
     expect(result.health.status).toBe("ok");
     expect(result.health.itemCount).toBe(1);

@@ -47,6 +47,7 @@ ecode360.com/CR4919
 ```
 src/                            # Municipal-code pipeline + intelligence layer
 types.ts                        # All TypeScript interfaces
+civic_profile.ts                # Validated jurisdiction configuration, fingerprints and output ownership
 constants.ts                    # Centralized constants (env-overridable)
 utils.ts                        # Shared utilities (SHA-256, flatten, chunk, etc.)
 logger.ts                       # Structured logger

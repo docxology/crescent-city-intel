@@ -1,3 +1,4 @@
+import { currentCivicProfile, civicProfileFingerprint, isCrescentCityProfile, validateCivicProfile, withCivicProfile, type CivicProfile } from "./civic_profile.js";
 /**
  * Public GitHub Pages snapshot builder.
  *
@@ -230,6 +231,7 @@ export interface PagesSitemapProvenance {
 
 export interface PagesSnapshot {
   schemaVersion: "1.0.0";
+  civicProfile?: { id: string; sha256: string };
   generatedAt: string;
   repository: string;
   commit: string | null;
@@ -1593,6 +1595,7 @@ export async function buildPagesSnapshot(
   selectedArtifacts?: { geoIntel: GeoIntelSurface; geoObservations: GeoObservationsEnvelope | null; directory: DirectoryArtifact | null },
   context?: { commit: string | null; fallbackRegistry: SourceDefinition[] },
 ): Promise<PagesSnapshot> {
+  if (!isCrescentCityProfile()) throw new Error("The authored Quadruplicate Pages templates require the Crescent City profile; supply reviewed municipality-specific templates before alternate publication");
   const resolvedOutput = resolve(outputDir);
   const resolvedSeed = resolve(seedDir);
   async function readFirstJson<T>(filename: string): Promise<T | null> {
@@ -1663,6 +1666,7 @@ export async function buildPagesSnapshot(
     schemaVersion: "1.0.0",
     generatedAt,
     repository: REPOSITORY_URL,
+    civicProfile: { id: currentCivicProfile().id, sha256: civicProfileFingerprint() },
     commit,
     status: snapshotStatus(codeAvailable, pipelineRun),
     healthSummary,
@@ -1764,10 +1768,12 @@ interface PagesCapturedConfiguration {
   schemaVersion: "crescent-city-pages-replay/v1";
   generatedAt: string; commit: string | null; fallbackRegistry: SourceDefinition[];
   sitemapProvenance: PagesSitemapProvenance;
+  civicProfile: CivicProfile;
 }
 interface PagesExportInputContext { capture: PagesInputCapture; configuration: PagesCapturedConfiguration; archiveRoot?: string }
 /** Capture before any build. No producer reads in the exporter escape these private roots. */
 export async function exportPagesSnapshot(options: { outputDir?: string; municipalDir?: string; destination?: string; generatedAt?: string; seedDir?: string } = {}): Promise<PagesExportResult> {
+  if (!isCrescentCityProfile()) throw new Error("Alternate civic publication requires reviewed municipality-specific Pages templates");
   const output = resolve(options.outputDir ?? "output"), seed = resolve(options.seedDir ?? "pages-data");
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   if (!isStrictTimestamp(generatedAt)) throw new Error("Pages export requires a valid assessment timestamp");
@@ -1777,7 +1783,7 @@ export async function exportPagesSnapshot(options: { outputDir?: string; municip
     const bytes = capture.transforms[`src/pages/static/${file}`];
     if (!bytes || publicationHash(bytes) !== row.sourceSha256 || bytes.byteLength !== row.bytes) throw new Error("Pages template changed between input and date capture");
   }
-  const configuration: PagesCapturedConfiguration = { schemaVersion: "crescent-city-pages-replay/v1", generatedAt, commit: runtimeMetadata().commit, fallbackRegistry: JSON.parse(JSON.stringify(getSourceRegistry())), sitemapProvenance: templates.provenance };
+  const configuration: PagesCapturedConfiguration = { schemaVersion: "crescent-city-pages-replay/v1", generatedAt, commit: runtimeMetadata().commit, civicProfile: currentCivicProfile(), fallbackRegistry: JSON.parse(JSON.stringify(getSourceRegistry())), sitemapProvenance: templates.provenance };
   return withCapturedPagesInputs(capture, roots => exportCapturedPagesSnapshot({ ...options, outputDir: roots.output, seedDir: roots.seed, municipalDir: roots.municipal, generatedAt }, { capture, configuration, archiveRoot: output }));
 }
 
@@ -1790,7 +1796,7 @@ export async function replayPagesPublicationArchive(archive: string): Promise<st
   if (configuration?.schemaVersion !== "crescent-city-pages-replay/v1" || !isStrictTimestamp(configuration.generatedAt) || !Array.isArray(configuration.fallbackRegistry) || configuration.fallbackRegistry.length > 1000 || configuration.commit !== retained.receipt.commit || configuration.generatedAt !== retained.receipt.generatedAt || configuration.sitemapProvenance?.schemaVersion !== "crescent-city-sitemap-provenance/v1") throw new Error("Invalid Pages archive replay configuration");
   const scratch = await mkdtemp(join((await import("node:os")).tmpdir(), "cci-pages-replay-"));
   try {
-    const result = await withCapturedPagesInputs(retained.capture, roots => exportCapturedPagesSnapshot({ outputDir: roots.output, seedDir: roots.seed, municipalDir: roots.municipal, generatedAt: configuration.generatedAt, destination: join(scratch, "public") }, { capture: retained.capture, configuration }));
+    const result = await withCivicProfile(validateCivicProfile(configuration.civicProfile), () => withCapturedPagesInputs(retained.capture, roots => exportCapturedPagesSnapshot({ outputDir: roots.output, seedDir: roots.seed, municipalDir: roots.municipal, generatedAt: configuration.generatedAt, destination: join(scratch, "public") }, { capture: retained.capture, configuration })));
     const replay = await captureArtifactBytes(join(result.destination, "data/snapshot.json"));
     if (replay.byteLength === retained.snapshot.byteLength && publicationHash(replay) === retained.receipt.snapshot.sha256) return [];
     const expected = JSON.parse(new TextDecoder().decode(retained.snapshot)), actual = JSON.parse(new TextDecoder().decode(replay));
@@ -1800,6 +1806,7 @@ export async function replayPagesPublicationArchive(archive: string): Promise<st
 }
 
 async function exportCapturedPagesSnapshot(options: { outputDir?: string; municipalDir?: string; destination?: string; generatedAt?: string; seedDir?: string }, inputContext: PagesExportInputContext): Promise<PagesExportResult> {
+  if (!isCrescentCityProfile(inputContext.configuration.civicProfile) || civicProfileFingerprint(inputContext.configuration.civicProfile) !== civicProfileFingerprint()) throw new Error("Pages captured civic profile differs from selected renderer identity");
   const destination = resolve(options.destination ?? ".pages");
   const generatedAt = options.generatedAt ?? new Date().toISOString();
   const seedDir = options.seedDir ?? "pages-data";

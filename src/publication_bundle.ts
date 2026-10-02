@@ -1,3 +1,4 @@
+import { currentCivicProfile, assertCivicCorpusIdentity, isCrescentCityProfile } from "./civic_profile.js";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, lstat, writeFile, cp } from "node:fs/promises";
 import { articleSetSha256 } from "./corpus_editions.js";
 import type { ArticlePage, TocNode } from "./types.js";
@@ -8,6 +9,7 @@ import { assertPublicMunicipalFile } from "./pages_public.js";
 import { basename, dirname, join, resolve } from "node:path";
 
 export const PUBLICATION_CORE_FILES = ["crescent-city-code.json", "toc.json", "manifest.json", "verification-report.json"] as const;
+export function publicationCoreFiles(): string[] { return [`${currentCivicProfile().corpusSlug}.json`, "toc.json", "manifest.json", "verification-report.json"]; }
 export const PUBLICATION_OPTIONAL_FILES = ["domain-coverage.json", "readability.json"] as const;
 export interface PublicationReceipt {
   schemaVersion: "crescent-city-publication-input/v1"; editionId: string;
@@ -22,16 +24,17 @@ export function publicationHash(bytes: string | Uint8Array): string { return new
 /** Validate one directory as one edition; never fill its gaps from another. */
 export async function readPublicationBundle(directory: string, reviewedSeed = false): Promise<PublicationBundle> {
   const bytes: Record<string, string> = {};
-  for (const file of PUBLICATION_CORE_FILES) bytes[file] = await readFile(join(directory, file), "utf8");
+  for (const file of publicationCoreFiles()) bytes[file] = await readFile(join(directory, file), "utf8");
   for (const file of PUBLICATION_OPTIONAL_FILES) {
     try { bytes[file] = await readFile(join(directory, file), "utf8"); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   }
   const values = Object.fromEntries(Object.entries(bytes).map(([file, text]) => [file, JSON.parse(text)])) as Record<string, Record<string, unknown>>;
-  for (const [file, value] of Object.entries(values)) assertPublicMunicipalFile(file, value);
-  const code = values["crescent-city-code.json"]!;
+  for (const [file, value] of Object.entries(values)) assertPublicMunicipalFile(file === `${currentCivicProfile().corpusSlug}.json` ? "crescent-city-code.json" : file, value);
+  const code = values[`${currentCivicProfile().corpusSlug}.json`]!;
   const manifest = values["manifest.json"]!;
   const verification = values["verification-report.json"]!;
   if (!Array.isArray(code.articles) || !code.articles.length || !manifest.articles || typeof manifest.articles !== "object" || Array.isArray(manifest.articles) || !values["toc.json"]?.guid) throw new Error("Publication core shape is incomplete");
+  assertCivicCorpusIdentity(values["toc.json"], manifest, code);
   if (verification.overallStatus !== "pass") throw new Error("Publication verification did not pass");
   const entries = manifest.articles as Record<string, Record<string, unknown>>;
   const articles = code.articles as Array<Record<string, unknown>>;
@@ -74,7 +77,7 @@ export async function readPublicationBundle(directory: string, reviewedSeed = fa
 
 export async function selectPublicationBundle(output: string, seed: string): Promise<PublicationBundle> {
   const failures: string[] = [];
-  for (const [directory, reviewed] of [[output, false], [seed, true]] as const) {
+  for (const [directory, reviewed] of (isCrescentCityProfile() ? [[output, false], [seed, true]] : [[output, false]]) as Array<[string, boolean]>) {
     try { const bundle = await readPublicationBundle(directory, reviewed); if (reviewed && failures.length) bundle.receipt.reason += "; current output rejected as incomplete or unbound"; return bundle; }
     catch (error) { failures.push(error instanceof Error ? error.message : String(error)); }
   }

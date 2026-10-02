@@ -1,3 +1,4 @@
+import { civicProfileFingerprint } from "../civic_profile.js";
 /** API route handlers for the GUI server */
 import { join, basename } from "path";
 import { withProviderBudget } from "../llm/openrouter.js";
@@ -75,7 +76,7 @@ const HEALTH_TRENDS_TTL_MS = 60_000;
  */
 const INSIGHTS_TTL_MS = 60_000;
 
-let insightsCache: { computedAt: number; value: import("../insights.js").InsightReport } | null = null;
+let insightsCache: { key: string; computedAt: number; value: import("../insights.js").InsightReport } | null = null;
 
 /** Test hook: drop the cached insight report so the next call rebuilds. */
 export function _resetInsightsCache(): void {
@@ -91,15 +92,16 @@ export function _resetInsightsCache(): void {
  */
 const MODEL_LIST_LIMIT = 200;
 
-let healthTrendsCache: { computedAt: number; value: import("../alert_analytics.js").AlertTypeTrendSummary[] } | null = null;
+let healthTrendsCache: { key: string; computedAt: number; value: import("../alert_analytics.js").AlertTypeTrendSummary[] } | null = null;
 
 /**
  * Trend summary for /api/health, recomputed at most once per TTL.
  * Returns null when analytics are unavailable — diagnostics never break liveness.
  */
 export async function getHealthAlertTrends(): Promise<import("../alert_analytics.js").AlertTypeTrendSummary[] | null> {
+  const key = `${outputRoot()}:${civicProfileFingerprint()}`;
   const now = Date.now();
-  if (healthTrendsCache && now - healthTrendsCache.computedAt < HEALTH_TRENDS_TTL_MS) {
+  if (healthTrendsCache?.key === key && now - healthTrendsCache.computedAt < HEALTH_TRENDS_TTL_MS) {
     return healthTrendsCache.value;
   }
   try {
@@ -108,10 +110,10 @@ export async function getHealthAlertTrends(): Promise<import("../alert_analytics
     const value = summarizeAlertTypeTrends(
       computeAlertTypeTrends(analytics.timeline, new Date(), { retainedFrom: analytics.timelineRetainedFrom }),
     );
-    healthTrendsCache = { computedAt: now, value };
+    healthTrendsCache = { key, computedAt: now, value };
     return value;
   } catch {
-    return healthTrendsCache?.value ?? null;
+    return healthTrendsCache?.key === key ? healthTrendsCache.value : null;
   }
 }
 
@@ -1882,11 +1884,12 @@ async function routeRequest(path: string, url: URL, req?: Request): Promise<Resp
         // deployment should share one build rather than each pay for it. A
         // `?rebuild=1` or a `?window=` override always bypasses the cache.
         const now = Date.now();
-        if (insightsCache && now - insightsCache.computedAt < INSIGHTS_TTL_MS) {
+        const key = `${outputRoot()}:${civicProfileFingerprint()}:${windowDays}`;
+        if (insightsCache?.key === key && now - insightsCache.computedAt < INSIGHTS_TTL_MS) {
           return json({ ...insightsCache.value, source: "computed" });
         }
         const report = await buildInsightReport({ windowDays, polish: false });
-        insightsCache = { computedAt: now, value: report };
+        insightsCache = { key, computedAt: now, value: report };
         return json({ ...report, source: "computed" });
       }
       const report = await buildInsightReport({ windowDays, polish: false });

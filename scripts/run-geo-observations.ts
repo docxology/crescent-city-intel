@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { prepareCivicGeoExportRoots } from "../src/geo.js";
+import { isCrescentCityProfile, bindCivicOutputRoot } from "../src/civic_profile.js";
 /**
  * scripts/run-geo-observations.ts — Thin orchestrator for the GEO-INFER
  * hazard-observation interface (`crescent-city-geo-observations/v1`).
@@ -27,6 +29,7 @@ const log = createLogger("geo-observations");
 /** Committed Pages seed directory — a getter, so a test can scope an override
  * (PAGES_SEED_DIR, like `pages:seed`) to one block instead of the process. */
 function pagesSeedDir(): string {
+  if (!isCrescentCityProfile() && (!process.env.PAGES_SEED_DIR || process.env.PAGES_SEED_DIR === "pages-data")) throw new Error("Alternate profile requires its own PAGES_SEED_DIR");
   return process.env.PAGES_SEED_DIR ?? "pages-data";
 }
 
@@ -41,18 +44,16 @@ export const geoObservationPaths = {
  * into a non-zero exit). Missing inputs are valid empty states.
  */
 export async function runGeoObservations(): Promise<Array<string>> {
-  const { anchor, composite, monitors, hazardDomains, contractGeneratedAt } = await loadObservationInputs({
+  await prepareCivicGeoExportRoots(pagesSeedDir(), outputRoot());
+  await bindCivicOutputRoot(outputRoot());
+  const inputs = await loadObservationInputs({
     seedDir: pagesSeedDir(),
     onCorrupt: (path, error) => log.warn(`Could not parse ${path}, treating as absent: ${String(error)}`),
   });
 
   const envelope: GeoObservationsEnvelope = buildHazardObservations({
-    anchor,
+    ...inputs,
     generatedAt: new Date().toISOString(),
-    composite,
-    monitors,
-    hazardDomains,
-    contractGeneratedAt,
   });
 
   const written: Array<string> = [];

@@ -46,6 +46,10 @@ export interface IndexArticleEntry {
 }
 
 export interface IndexManifest {
+  /** Civic profile and vector namespace owning this complete serving edition. */
+  civicProfileId?: string;
+  civicProfileSha256?: string;
+  vectorNamespace?: string;
   /** Immutable complete collection activated by this receipt. */
   servingCollection?: string;
   /** Exact source manifest bytes used to assemble this serving edition. */
@@ -76,8 +80,25 @@ export function indexConfigSignature(config: {
   embeddingModel: string;
   chunkSize: number;
   chunkOverlap: number;
+  profileFingerprint?: string;
+  collectionName?: string;
 }): string {
-  return `v${INDEX_MANIFEST_SCHEMA}:model=${config.embeddingModel}:chunk=${config.chunkSize}:overlap=${config.chunkOverlap}`;
+  const geometry = `v${INDEX_MANIFEST_SCHEMA}:model=${config.embeddingModel}:chunk=${config.chunkSize}:overlap=${config.chunkOverlap}`;
+  return config.profileFingerprint === undefined ? geometry : `${geometry}:profile=${config.profileFingerprint}:namespace=${config.collectionName}`;
+}
+
+export interface IndexProfileIdentity { civicProfileId: string; civicProfileSha256: string; vectorNamespace: string }
+/** A legacy receipt can be admitted only by the explicit default-profile policy. */
+export function validateIndexProfileIdentity(value: unknown, identity: IndexProfileIdentity, allowLegacy = false): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return ["Index receipt is not an object"];
+  const receipt = value as Record<string, unknown>;
+  const keys = ["civicProfileId", "civicProfileSha256", "vectorNamespace"];
+  if (allowLegacy && keys.every(key => receipt[key] === undefined)) return [];
+  return keys.every(key => receipt[key] === identity[key as keyof IndexProfileIdentity]) ? [] : ["Index receipt belongs to another civic profile or vector namespace"];
+}
+
+export function indexCollectionBelongsToNamespace(name: unknown, namespace: string): name is string {
+  return typeof name === "string" && (name === namespace || name.startsWith(`${namespace}-stage-`) && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(name.slice(namespace.length + 7)));
 }
 
 /** Fingerprint of one article's chunks. Stable for identical id+text sequences. */
@@ -261,6 +282,7 @@ export async function buildIndexManifest(input: {
   embeddingModel: string;
   source: string;
   generatedAt?: string;
+  profileIdentity?: IndexProfileIdentity;
 }): Promise<IndexManifest> {
   const articles: Record<string, IndexArticleEntry> = {};
   for (const article of input.articles) {
@@ -271,6 +293,7 @@ export async function buildIndexManifest(input: {
   }
   const allChunks = input.articles.flatMap(article => article.chunks);
   return {
+    ...input.profileIdentity,
     schemaVersion: INDEX_MANIFEST_SCHEMA,
     generatedAt: input.generatedAt ?? new Date().toISOString(),
     fingerprint: await fingerprintChunks(allChunks),

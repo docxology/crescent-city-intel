@@ -1,3 +1,4 @@
+import { isCrescentCityProfile, currentCivicProfile, civicProfileFingerprint, validateCivicProfile, withCivicProfile } from "./civic_profile.js";
 /** Retain derived producer inputs before computing, refuse changed editions, then bind exact output. */
 import { readdir, mkdir, mkdtemp, rm, lstat } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
@@ -46,7 +47,7 @@ async function capture(root: string, profile: DerivedProfile): Promise<Record<st
   };
   for (const directory of directories[profile]) await walk(join(root, directory));
   for (const single of singles) { try { await add(join(root, single)); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; } }
-  if (profile === 'analytics') {
+  if (profile === 'analytics' && isCrescentCityProfile()) {
     const seedPath = resolve(process.env.CODE_SEED_PATH ?? join(import.meta.dir, '..', 'pages-data', 'crescent-city-code.json'));
     try {
       const bytes = await captureArtifactBytes(seedPath, 32 * 1024 * 1024); total += bytes.byteLength;
@@ -66,10 +67,12 @@ export async function captureDerivedInputs(root: string, profile: DerivedProfile
   await walk(join(sourceRoot, "src"));
   transforms["package.json"] = await captureArtifactBytes(join(sourceRoot, "package.json"));
   transforms["bun.lock"] = await captureArtifactBytes(join(sourceRoot, "bun.lock"));
-  return { inputs, transforms, configuration, profile, fingerprint: fingerprint(inputs) };
+  return { inputs, transforms, configuration: { civicProfile: currentCivicProfile(), civicProfileSha256: civicProfileFingerprint(), producerConfiguration: configuration }, profile, fingerprint: fingerprint(inputs) };
 }
 /** Immutable private evidence archive + public-safe hash receipt; activation remains the producer's responsibility. */
 export async function retainDerivedOutput(root: string, family: ArtifactFamily, destination: string, value: unknown, evidence: Awaited<ReturnType<typeof captureDerivedInputs>>, generatedAt: string, siblings: ArtifactReplacement[] = []): Promise<void> {
+  const configured = evidence.configuration as { civicProfile: unknown; civicProfileSha256: string };
+  if (civicProfileFingerprint(validateCivicProfile(configured.civicProfile)) !== configured.civicProfileSha256 || civicProfileFingerprint() !== configured.civicProfileSha256) throw new Error("Derived publication civic profile changed; refusing activation");
   if (fingerprint(await capture(root, evidence.profile)) !== evidence.fingerprint) throw new Error("Derived input edition changed during computation; refusing publication");
   currentRunSignal()?.throwIfAborted();
   const bytes = new TextEncoder().encode(`${JSON.stringify(value, null, 2)}\n`);
@@ -94,9 +97,12 @@ export async function retainDerivedOutput(root: string, family: ArtifactFamily, 
 }
 /** Producers read exactly the captured bytes; a later input race cannot alter their facts. */
 export async function withCapturedDerivedInputs<T>(evidence: Awaited<ReturnType<typeof captureDerivedInputs>>, task: (root: string) => Promise<T>): Promise<T> {
+  const configured = evidence.configuration as { civicProfile: unknown; civicProfileSha256: string };
+  const profile = validateCivicProfile(configured.civicProfile);
+  if (civicProfileFingerprint(profile) !== configured.civicProfileSha256) throw new Error("Captured derived civic profile identity mismatch");
   const stage = await mkdtemp(join(tmpdir(), "cci-derived-inputs-"));
   try {
     for (const [path, bytes] of Object.entries(evidence.inputs)) await writeTextAtomic(join(stage, path), new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-    return await withOutputRoot(stage, () => task(stage));
+    return await withCivicProfile(profile, () => withOutputRoot(stage, () => task(stage)));
   } finally { await rm(stage, { recursive: true, force: true }); }
 }

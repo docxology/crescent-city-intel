@@ -19,6 +19,8 @@ import { loadAllSections } from "../shared/data.js";
 import { createLogger } from "../logger.js";
 import { stem } from "../shared/porter_stem.js";
 import { paths, outputRoot } from "../shared/paths.js";
+import { civicProfileFingerprint } from "../civic_profile.js";
+import { resolve } from "node:path";
 import { fuzzyCorrect } from "../shared/fuzzy.js";
 import { normalizeSectionNumber } from "../utils.js";
 import { privateReceipt } from "../llm/privacy.js";
@@ -107,20 +109,24 @@ function expandSynonyms(token: string): string[] {
 }
 
 // ─── Index state ─────────────────────────────────────────────────
-let sections: FlatSection[] = [];
-let loaded = false;
-/** The artifact root the loaded index was built over (see initSearch). */
-let loadedRoot = "";
-
-/** Per-section term frequency index: sectionIdx → term → {tf, titleTf, numberMatch} */
-let tfIndex: Array<Map<string, { tf: number; titleTf: number }>> = [];
-/** Stemmed body-token counts cached with the term index; search must not
- * re-tokenize every section for every query. */
-let bodyLengths: number[] = [];
-/** Inverse document frequency map: term → idf */
-let idfIndex = new Map<string, number>();
-/** Average body length (in tokens) */
-let avgBodyLen = 1;
+interface SearchIndexState {
+  sections: FlatSection[];
+  tfIndex: Array<Map<string, { tf: number; titleTf: number }>>;
+  bodyLengths: number[];
+  idfIndex: Map<string, number>;
+  avgBodyLen: number;
+}
+const indexes = new Map<string, SearchIndexState>();
+const indexLoads = new Map<string, Promise<void>>();
+const MAX_INDEX_CONTEXTS = 8;
+const emptyIndex: SearchIndexState = { sections: [], tfIndex: [], bodyLengths: [], idfIndex: new Map(), avgBodyLen: 1 };
+function searchContextKey(): string { return JSON.stringify([resolve(outputRoot()), civicProfileFingerprint()]); }
+function selectedIndex(): SearchIndexState {
+  const key = searchContextKey(), state = indexes.get(key);
+  if (!state) return emptyIndex;
+  indexes.delete(key); indexes.set(key, state);
+  return state;
+}
 
 // ─── Tokenizer ────────────────────────────────────────────────────
 
@@ -185,11 +191,11 @@ function queryTerms(text: string): string[] {
 
 // ─── Index building ───────────────────────────────────────────────
 
-function buildIndex(allSections: FlatSection[]): void {
+function buildIndex(allSections: FlatSection[]): SearchIndexState {
   const N = allSections.length;
-  tfIndex = [];
-  bodyLengths = [];
-  idfIndex = new Map();
+  const tfIndex: SearchIndexState["tfIndex"] = [];
+  const bodyLengths: number[] = [];
+  const idfIndex = new Map<string, number>();
   let totalBodyLen = 0;
 
   // Build per-doc TF maps using stemmed tokens
@@ -223,7 +229,7 @@ function buildIndex(allSections: FlatSection[]): void {
     tfIndex.push(termMap);
   }
 
-  avgBodyLen = N > 0 ? totalBodyLen / N : 1;
+  const avgBodyLen = N > 0 ? totalBodyLen / N : 1;
 
   // Compute IDF: ln((N - df + 0.5) / (df + 0.5) + 1)
   for (const [term, df] of docFreq) {
@@ -231,37 +237,45 @@ function buildIndex(allSections: FlatSection[]): void {
   }
 
   logger.info(`Search index built: ${N} sections, ${idfIndex.size} unique terms`);
+  return { sections: allSections, tfIndex, bodyLengths, idfIndex, avgBodyLen };
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
 
 /** Load + index all sections. Idempotent. */
 export async function initSearch(): Promise<void> {
-  // The artifact root is part of the index's identity: tests redirect
-  // CC_OUTPUT_DIR to a minimal corpus copy mid-suite, and an index built over
-  // the wrong root must not be served as "loaded" for the real root (or the
-  // reverse). Rebuild whenever the root moved.
-  if (loaded && loadedRoot === outputRoot()) return;
-  sections = await loadAllSections();
-  buildIndex(sections);
-  loaded = true;
-  loadedRoot = outputRoot();
+  // Capture before awaiting: interleaved roots never overwrite one shared index.
+  const key = searchContextKey();
+  if (indexes.has(key)) { selectedIndex(); return; }
+  const pending = indexLoads.get(key); if (pending) return pending;
+  let loading!: Promise<void>;
+  loading = (async () => {
+    const state = buildIndex(await loadAllSections());
+    // A reload can supersede this load while filesystem reads are outstanding.
+    if (indexLoads.get(key) !== loading) return;
+    indexes.set(key, state);
+    while (indexes.size > MAX_INDEX_CONTEXTS) indexes.delete(indexes.keys().next().value!);
+  })();
+  indexLoads.set(key, loading);
+  try { await loading; } finally { if (indexLoads.get(key) === loading) indexLoads.delete(key); }
 }
 
 /** Force a reload of the search index (after a re-scrape). */
 export async function reloadSearch(): Promise<void> {
-  loaded = false;
+  const key = searchContextKey(); indexes.delete(key); indexLoads.delete(key);
   await initSearch();
 }
 
 // ─── Scoring ─────────────────────────────────────────────────────
 
 function bm25Score(
+  state: SearchIndexState,
   terms: string[],
   sectionIdx: number,
   bodyLen: number,
   bodyOnly = false,
 ): number {
+  const { tfIndex, idfIndex, avgBodyLen } = state;
   const termMap = tfIndex[sectionIdx];
   let score = 0;
 
@@ -350,6 +364,7 @@ export interface PagedSearchResult {
  * @param options - Pagination, filters, highlighting
  */
 export function search(query: string, options: SearchOptions = {}): PagedSearchResult {
+  const state = selectedIndex(), { sections, bodyLengths } = state;
   const { limit = 50, offset = 0, titleFilter, highlight = false, typeFilter, field } = options;
 
   if (!query.trim()) return { results: [], total: 0, offset, limit };
@@ -432,7 +447,7 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
     // Heavy boost for section number prefix match
     const numberClean = normalizeSectionNumber(section.number).toLowerCase();
-    let score = bm25Score(terms, i, bodyLengths[i] ?? 0, field === "text");
+    let score = bm25Score(state, terms, i, bodyLengths[i] ?? 0, field === "text");
 
     if (field !== "text" && numberClean.startsWith(rawQuery.toLowerCase())) score += 20;
 
@@ -480,5 +495,5 @@ export function search(query: string, options: SearchOptions = {}): PagedSearchR
 
 /** Total indexed sections */
 export function getIndexedCount(): number {
-  return sections.length;
+  return selectedIndex().sections.length;
 }

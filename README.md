@@ -12,7 +12,7 @@
     <a href="docs/modules/llm.md"><img src="https://img.shields.io/badge/Ollama-RAG_+_Streaming-blue" alt="Ollama"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey" alt="License"></a>
     <a href="#-test-suite"><img src="https://img.shields.io/badge/Tests-bun_run_validate-brightgreen" alt="Tests"></a>
-    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.2.0-orange" alt="Version"></a>
+    <a href="#-commands-reference"><img src="https://img.shields.io/badge/Version-3.3.0-orange" alt="Version"></a>
   </p>
 </p>
 
@@ -57,6 +57,7 @@ human acceptance is tracked in [TODO.md](TODO.md).
 - [🧪 Test Suite](#-test-suite)
 - [⚡ Commands Reference](#-commands-reference)
 - [🌐 API Reference](#-api-reference)
+- [Reusable civic methods](#reusable-civic-methods)
 - [⚙️ Configuration](#-configuration)
 - [📖 Documentation](#-documentation)
 - [🚦 Current Status](#-current-status)
@@ -560,6 +561,7 @@ An orientation map, not an inventory. The exhaustive tree — every module under
 ```text
   src/
   types.ts              # All TypeScript interfaces (TocNode, FlatSection, ScrapeManifest…)
+  civic_profile.ts      # Validated civic identity, captured configuration and output ownership
   constants.ts          # URLs, paths, rate limits (env-overridable)
   utils.ts              # Hash, flatten, chunk, truncate, sleep, retry, htmlToText…
   logger.ts             # Structured logger (LOG_LEVEL env variable)
@@ -667,7 +669,7 @@ docs/manuscript/             # Evidence-bound IMRAD paper with formal contracts 
 pages-data/             # Reviewed public seed artifacts for static Pages
 output/                 # Scraped data + reports (gitignored)
 .pages/                 # Generated static GitHub Pages snapshot (gitignored)
-openapi.yaml            # OpenAPI 3.0.3 spec (v3.2.0)
+openapi.yaml            # OpenAPI 3.0.3 spec (v3.3.0)
 ```
 
 ---
@@ -840,9 +842,29 @@ The GUI server (`bun run gui`) exposes a REST API at `http://localhost:3000`:
 | `/api/report/latest.json` | GET | Machine-readable latest report metadata |
 | `/api/health` | GET | Server health check |
 
-> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.2.0)
+> 📋 **Full API spec**: [openapi.yaml](openapi.yaml) (OpenAPI 3.0.3, v3.3.0)
 
 ---
+
+## Reusable civic methods
+
+Crescent City remains the deployed locality. A validated, immutable civic profile
+now selects jurisdiction identity, timezone, geography, the approved ecode360
+municipality, corpus/calendar/vector namespaces and supported capabilities.
+Alternate contexts require isolated output roots; cached corpora, vector receipts,
+retained seeds and regional producers cannot silently inherit Crescent data.
+
+Shared geography/calendar, explicit news policies, injected domain coverage,
+source-registry algorithms, BM25 and staged vector methods are exercised with
+synthetic non-Pacific profiles and interleaved corpora sharing IDs. The authored
+Quadruplicate GUI/Pages, regional weekly pipeline and scheduler remain scoped to
+Crescent City and reject unsupported alternate configurations. Another deployment
+needs reviewed providers, local content/presentation and real operational evidence.
+
+Run `bun run civic:profile` to inspect the public contract, or
+`CIVIC_PROFILE=configs/example-civic.json bun run civic:profile` for the deliberately
+synthetic example. See [civic profiles and reuse boundaries](docs/civic-profiles.md)
+for APIs, configuration, acceptance and explicit limits.
 
 ## ⚙️ Configuration
 
@@ -852,6 +874,8 @@ actual environment values; consumer validation and units remain authoritative:
 
 | Variable | Default | Description |
 | :------- | :------ | :---------- |
+| `CIVIC_PROFILE` | _(unset: Crescent default)_ | Bounded public jurisdiction JSON; read once per process |
+| `CC_OUTPUT_DIR` | `output` for default | Isolated output root; explicit for alternate producers |
 | `PORT` | `3000` | GUI server port |
 | `LOG_LEVEL` | `info` | Logger verbosity (`debug`, `info`, `warn`, `error`) |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API endpoint |

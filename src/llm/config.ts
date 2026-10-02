@@ -1,4 +1,14 @@
 /** Configuration for the LLM/RAG module */
+import { currentCivicProfile, civicProfileFingerprint, defaultCivicProfile } from "../civic_profile.js";
+
+let defaultCollectionOverride: string | undefined;
+/** Exact public profile identity and effective vector namespace for serving receipts. */
+export function currentIndexProfileIdentity(): { civicProfileId: string; civicProfileSha256: string; vectorNamespace: string } {
+  return { civicProfileId: currentCivicProfile().id, civicProfileSha256: civicProfileFingerprint(), vectorNamespace: llmConfig.collectionName };
+}
+export function isDefaultIndexProfile(): boolean {
+  return civicProfileFingerprint() === civicProfileFingerprint(defaultCivicProfile);
+}
 
 const requestedProvider = (process.env.LLM_PROVIDER ?? "ollama").toLowerCase();
 const provider = requestedProvider === "openrouter" ? "openrouter" : "ollama";
@@ -51,8 +61,19 @@ export const llmConfig = {
   /** ChromaDB server URL */
   chromaUrl: process.env.CHROMA_URL ?? "http://localhost:8001",
 
-  /** ChromaDB collection name */
-  collectionName: "crescent-city-code",
+  /** ChromaDB collection namespace follows the captured civic profile. */
+  get collectionName(): string { return isDefaultIndexProfile() ? defaultCollectionOverride ?? currentCivicProfile().vectorNamespace : currentCivicProfile().vectorNamespace; },
+  /** Retains the isolated native-acceptance/operator seam for the default profile. */
+  set collectionName(value: string) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{1,74}[a-zA-Z0-9]$/.test(value)) throw new Error("Invalid vector namespace");
+    if (!isDefaultIndexProfile()) {
+      if (value !== currentCivicProfile().vectorNamespace) throw new Error("Alternate civic profiles require their declared vector namespace");
+      return;
+    }
+    defaultCollectionOverride = value === currentCivicProfile().vectorNamespace ? undefined : value;
+  },
+  get profileFingerprint(): string { return civicProfileFingerprint(); },
+  set profileFingerprint(value: string) { if (value !== civicProfileFingerprint()) throw new Error("Vector profile identity cannot be overridden"); },
 
   /** Chunk size in characters for text splitting */
   chunkSize: 1500,

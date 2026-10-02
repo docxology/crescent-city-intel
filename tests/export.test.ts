@@ -31,15 +31,15 @@ function tocFixture(chapterGuid = "chap-8", appendixGuid = "appx-A"): TocNode {
     title: "General Provisions", number: "04", indexNum: "8.04", type: "article", label: "Chapter", hideNumber: false, children: [],
   };
   const title: TocNode = {
-    prefix: "", tocName: "Code", guid: "title-8", parent: "code", href: "",
+    prefix: "", tocName: "Code", guid: "title-8", parent: "CR4919", href: "",
     title: "General Provisions", number: "8", indexNum: "8", type: "chapter", label: "Title", hideNumber: false, children: [chapter],
   };
   const appendix: TocNode = {
-    prefix: "", tocName: "Code", guid: appendixGuid, parent: "code", href: "",
+    prefix: "", tocName: "Code", guid: appendixGuid, parent: "CR4919", href: "",
     title: "Appendix A", number: "A", indexNum: "Appendix A", type: "article", label: "Appendix", hideNumber: false, children: [],
   };
   return {
-    prefix: "", tocName: "Crescent City Municipal Code", guid: "code", parent: null, href: "",
+    prefix: "", tocName: "Crescent City Municipal Code", guid: "CR4919", parent: null, href: "",
     title: "Code", number: "", indexNum: "", type: "code", label: "Code", hideNumber: false, children: [title, appendix],
   };
 }

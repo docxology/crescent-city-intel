@@ -1,29 +1,30 @@
 {
   "schemaVersion": "crescent-city-release-acceptance/v1",
-  "version": "3.2.0",
-  "date": "2026-10-01",
+  "version": "3.3.0",
+  "date": "2026-10-02",
+  "recordedAt": "2026-10-02T14:29:02.161Z",
   "status": "local-verified",
-  "baselineCommit": "edf5a1680de65775cdfb9ecc099bceb9550b6afe",
+  "baselineCommit": "335aec90e83232094dad6fd8f5024c240743b7bb",
   "publication": {
-    "evidenceLocation": "GitHub v3.2.0 release assets and exact main Pages run",
+    "evidenceLocation": "GitHub v3.3.0 release assets and exact main Pages run",
     "boundary": "Local acceptance recorded here; exact published commit, hosted artifact and live hashes are external to avoid self-reference."
   },
   "priorEvidence": {
-    "version": "3.1.1",
-    "receiptSha256": "325a0d19394a144029aa0a3e658abce634964ecf57bed1b6b039b6bedb9f88be",
-    "release": "https://github.com/docxology/crescent-city-intel/releases/tag/v3.1.1",
-    "boundary": "Dated prior evidence remains scoped to its named release; native LLM/container and independent human acceptance are not re-established by this update."
+    "version": "3.2.0",
+    "receiptSha256": "41b2579b3755d96971ef6ab8f864c2fc32b16261c93a4eb77e58139dc8181b69",
+    "release": "https://github.com/docxology/crescent-city-intel/releases/tag/v3.2.0",
+    "boundary": "Prior live source refresh, County documents, research rendering and native-model evidence retain their original dates and versions; this local gate does not re-establish them."
   },
   "releaseGate": {
     "status": "pass",
-    "testsPassed": 2019,
-    "testsSkipped": 2,
+    "testsPassed": 2067,
+    "testsSkipped": 0,
     "testsFailed": 0,
-    "assertions": 17513,
-    "testsTotal": 2021,
-    "files": 195,
-    "lineCoveragePercent": 85.86,
-    "functionCoveragePercent": 87.71,
+    "assertions": 17798,
+    "testsTotal": 2067,
+    "files": 198,
+    "lineCoveragePercent": 86.02,
+    "functionCoveragePercent": 88.19,
     "lineCoverageFloorPercent": 60,
     "strictProductionTypes": "pass",
     "strictTestTypes": "pass",
@@ -32,445 +33,216 @@
       "plain pass",
       "coverage pass"
     ],
+    "logSha256": "a3f9306d01a7ef9a818b98e6ae8a26f603df4bfa3ef6d50676746bba51fcd0aa",
     "sourceParity": {
-      "files": 504,
+      "files": 590,
       "allEqual": true,
-      "treeSha256": "b8feb38355a63fa7f9f5ea2b8d26a709d5bd02dfe0e6bd92db7860920ad729f7"
+      "treeSha256": "2f24ee973d00aa9ac3f6b06e542a09c289cebad899c54f5a696f7aab008a5ce8"
     },
-    "boundary": "Isolated local Git/source copy with no private corpus, canonical registry generation, shared locked dependency installation and task-owned Chromium. Hosted Ubuntu installs the lockfile independently. Current populated-corpus collection and Pages validation are separate acceptance."
+    "boundary": "Exact tracked and new public source, test, configuration, workflow, documentation and seed equality with the independently gated copy; the acceptance receipt is excluded to avoid self-reference. Final guides were captured in this copy and checked by the gate. Shared dependency installation; hosted CI independently installs the lockfile on Ubuntu."
   },
   "independentReview": {
-    "checkedAt": "2026-10-01T22:29:39.126Z",
     "status": "GO",
     "hashes": {
-      "src/doc_inventory.ts": "90f02efe1132b89db1ded7448fb323d41ca4e09ffc291eeed80bd89ff74fdf3b",
-      "tests/doc-authority.test.ts": "c18750c0aa663203df49895989b8e93cf54522c30cb6eb0d7f4247f047a0a0b3",
-      "src/official_meetings.ts": "392eecbfd6637b04a77253d3b136ab6dcf4132bdf5f995c1377834a2449db9fb",
-      "src/gov_meeting_monitor.ts": "82c8958f5e9c1aefd5078cc5b61ea32776b27fd24c67c4c44772d5a09627073d",
-      "src/meeting_documents.ts": "a1702ad3ebe6290e058d28e256ee78668dcc917e6de27eeb902c4ea06517b877",
-      "src/source_registry.ts": "fa46f33031b4603ea78deccea5b6d74027504bccffa1bd03cb296a28a4e5bfb5",
-      "src/shared/transport.ts": "801d9483d1e66d2885c0a17fb0d7d9b36925c1ab42edd15cd48affe9254590cc",
-      "src/alerts/connector.ts": "cd418848ffddd328d3d645c5f37b4495420c408a3e35cb3b244d3d79fd38da7a",
-      "tests/transport-boundaries.test.ts": "f0f89618236d61b5c71af8f2a106ed7fe3f64dc6c35169eb7c0ee605409fa770",
-      "tests/subprocess-lifetime.test.ts": "a8bfb918930da1754a60211a81bc6100ee21a746b08057a00f5a1b0b71d24685",
-      "tests/pages-publication-inputs.test.ts": "caccb4f709c38baf11e66ef90366c18f400827263b7fb5653feed871db0cb085",
-      "src/pages_snapshot.ts": "4529ef3dc095d4bf20a46cfb91b35317c65fcea2e46f4e413621d067534f14b7",
-      "src/pages_bundle_validation.ts": "3cc7dcfab3b84e90a9f02f57388a4ac8eaadb1a68e355eabe330dbeb9647ad3e",
-      "src/pages_validation.ts": "8d477bef4c7453c436c4df395cf17290ad00af814b12a234aa9966aabdd2fb03",
-      "tests/lane-cci-frontend.test.ts": "8c370520d52952b4b88fe4ff35e9ca37f73630d83597c7496e8093b9a3bfcd64",
-      "tests/laneA-operator-signals.test.ts": "a71aac6e67c98b140692f35ca82db7fef1a43bd5004870c3580f3fb9a68f62a7",
-      "tests/pages-bundle-validation.test.ts": "4e95370b1c2b6cc1aad3127bd8ab2d1b2519f63e45f69cd333b0dfee53a5ab74",
-      "tests/helpers/pages-validator.ts": "c3a78d52e87477fc81d5109db7a0f4eecef5589d371112fbb2db43f241907d2d"
+      "src/civic_profile.ts": "6ee2477d1d0692a84d0857be40a336bfd12c27db0113a12b88356917b3ae3d18",
+      "src/artifact_custody.ts": "f763d10191fed80118d28a7d33235b37e2a9571b98419a14e01c8cf665aa767e",
+      "src/shared/paths.ts": "1fe344b619a155b494b62673aa8912658a56125d41be0ef1cefab7e2f6e492e7",
+      "src/shared/run_scope.ts": "3403179170102b12e1ba5e7943596b1d537bd5227d261dd97f56696d852e4d81",
+      "src/shared/data.ts": "9157e184e513e208663f25c9ae39f9122992a49084dc22f67b68c6af8261a6b7",
+      "src/publication_bundle.ts": "4d2960d9b239aa2b769f63493a94e243610b4986e63635f263a25567edab975c",
+      "src/derived_publication.ts": "fd537ce1f2c77c42731c29f4e8baf599d45e38d8d13dda1c79e15cb4a0ec544a",
+      "src/pages_snapshot.ts": "dc47ed0e73d6c523ba726411ebbad1372cc2a3dcd8fd4a732a6f82735c63e5d9",
+      "src/geo.ts": "14f2e878f2e13c9d60e36ba44a9c77cac5d7b1720113c8b9d35908b2cb01eaf7",
+      "src/geo_view.ts": "c489d969c2be659757c2ac44ad935d3ee0bab46838aaeea1b562b1fd0fc8355a",
+      "src/geo_observations.ts": "d74727b32b4bb805bc3b7798eab18ac2bca1e3600f6c3d7929297315fe986e7f",
+      "src/events.ts": "0c4eeca46123a2ddc0aafbcd2316e0ca022c082b5a7e98d10e7bf16eb925be66",
+      "src/artifact_contracts.ts": "cf5061456099c8077221d73ad7bba4e182b12cbccb0ef06ccbd0e5e0d0fcacd7",
+      "scripts/run-geo-observations.ts": "9f7cca02592c820859cd613f1d4dc568e6e9e20e8d3d415e084ec576145b6eed",
+      "src/gui/search.ts": "8f5b9636d85dfe877ea6a55fca80b67c46879b93fab85285f5a3b5a7d664f984",
+      "src/llm/config.ts": "7802c526a2e05e835587b956d8efa0d3890399cc383cd6f092e278af073da940",
+      "src/llm/index_plan.ts": "1ca7d87f678ad35fa887ed52a00cb2ff50e1b0cdcd6b23151bbbb025c706a556",
+      "src/llm/chroma.ts": "7e101e21be454047c17893fa492e154809fd20c376514cfd58b5903d1990226f",
+      "src/llm/embeddings.ts": "25124fdbf36d35e7497468d30ca62a3eebd5f9b25e3b810334f80199fd0f0c23",
+      "src/llm/ollama.ts": "d17589b2c90beb0b3debf6df1af9c20c77b32adb3525ee3c8a56a3e0a5fcee99",
+      "src/news_monitor.ts": "13424454ce8c28f846a90ce070408395d66ad517cdbaee36a939980e7b4b4e00"
     },
-    "readme": {
+    "finalSharedBoundary": {
+      "status": "GO",
+      "inspectedFiles": 36,
+      "reviewedHashesSha256": "fb7eb75fedf3f9d856342b9ccadd029678991f78b38addd6d5808bf03d42ca6a",
+      "focusedRuns": [
+        {
+          "testsPassed": 23,
+          "testsFailed": 0,
+          "assertions": 91,
+          "files": 2,
+          "boundary": "Direct-reader foreign-TOC admission and legacy default compatibility"
+        },
+        {
+          "testsPassed": 5,
+          "testsFailed": 0,
+          "assertions": 38,
+          "files": 3,
+          "boundary": "Real FIFO regular-file custody, bounded receipts, reverse default identity and producer contention"
+        }
+      ],
+      "awakeAlertProducer": {
+        "testsPassed": 1,
+        "testsFailed": 0,
+        "assertions": 4,
+        "caseElapsedMs": 157.77,
+        "boundary": "Independent actual same-root mixed producer rerun after verifying the exact host-sleep interval; no runtime or deadline changes."
+      },
+      "originalFifoReproduction": {
+        "inheritedDeadlineMs": 100,
+        "settledMs": 18,
+        "disposition": "bounded regular-file rejection"
+      },
+      "boundary": "Fresh independent read-only review after root fixes; focused runs overlap and are separate from aggregate release-gate counts."
+    },
+    "pagesBehavior": {
+      "status": "GO",
       "testsPassed": 16,
       "testsFailed": 0,
-      "assertions": 83,
-      "adversarialAccepted": 13,
-      "adversarialRejected": 5,
-      "strictProductionTypes": "pass",
-      "strictTestTypes": "pass",
-      "boundary": "Fresh independent read-only review and focused deterministic fixtures; not a full suite or live service acceptance."
+      "assertions": 319,
+      "mutationControls": 42,
+      "boundary": "Real isolated Pages CLI mutation controls passed unchanged deadlines; full suite and final committed export/browser are separate evidence."
     },
-    "county": {
-      "testsPassed": 29,
+    "profileAndPublication": {
+      "testsPassed": 20,
       "testsFailed": 0,
-      "assertions": 261,
-      "boundary": "Fresh independent provider/origin/file-route, custody and uncertain-date review; source owner additionally ran 30 tests/282 assertions. Native public source acquisition is separate."
+      "assertions": 128,
+      "actualAlternateProducerAndReplay": "pass",
+      "boundary": "Fresh independent read-only review of profile validation, loaders, protected roots and captured identity. Focused offline tests are separate from the full gate."
     },
-    "transport": {
-      "status": "GO",
-      "checkedAt": "2026-10-01T21:42:46.191Z",
-      "testsPassed": 46,
+    "geographyAndEvents": {
+      "testsPassed": 106,
       "testsFailed": 0,
-      "assertions": 265,
-      "independentReceiver": {
-        "originalExpiredReservationGapsMs": [
-          156,
-          0
-        ],
-        "originalDeferredPolicyGapMs": 0,
-        "finalGapsMs": [
-          59,
-          61
-        ],
-        "intervalMs": 60,
-        "childExitCode": 0,
-        "reaped": true
-      },
-      "callbackLifetime": {
-        "escapedStartRequests": 0,
-        "errorAfterStartRequests": 1,
-        "errorAfterStartStreamCancellations": 1,
-        "neverSettlingCallbackDeadlineAndBodyCancellation": "pass"
-      },
-      "docsCheck": "pass",
-      "diffCheck": "pass",
-      "boundary": "Fresh independent code and complementary callback-lifetime review, real local HTTP and owned independent receiver, focused offline modules. Full gate and hosted Linux/publication acceptance are separate parent-owned receipts."
+      "assertions": 586,
+      "files": 7,
+      "actualAlternateRunnerAndDerivedReplay": "pass",
+      "boundary": "Fresh independent review verified four corrected foreign-profile/root/event-contract/UTC offset findings through real owned filesystem and producer flows."
     },
-    "documentation": {
-      "status": "GO",
-      "relativeTargetsPerGuide": 72,
-      "missingTargets": 0,
-      "exactProjection": true,
-      "priorReceiptHashVerified": true,
-      "addedDiffPrivacyScan": "pass",
-      "boundaries": "All eight external/human scopes remain open; prior native RAG attribution is explicit. The completed acceptance receipt requires its own follow-up review."
-    },
-    "pagesEvaluator": {
-      "status": "GO",
-      "independentReviews": 2,
-      "focusedCovered": {
-        "testsPassed": 34,
-        "testsFailed": 0,
-        "assertions": 372,
-        "elapsedSeconds": 28.84
-      },
-      "independentRuntime": {
-        "testsPassed": 16,
-        "assertions": 49,
-        "mutatedCli": {
-          "testsPassed": 1,
-          "assertions": 209
-        }
-      },
-      "strictProductionTypes": "pass",
-      "strictTestTypes": "pass",
-      "sourceHashesStable": true,
-      "boundary": "Fresh independent read-only review of input/output caps, timed child, cancellation, protected diagnostics and owned cleanup. Exact-source focused tests and real validator CLI controls passed. A separate interrupted review remains incomplete. The VM is not a security sandbox or universal semantic proof."
+    "searchVectorsNews": {
+      "testsPassed": 82,
+      "testsFailed": 0,
+      "assertions": 321,
+      "files": 7,
+      "boundary": "Fresh independent review verified three corrected reverse-vector-identity, writer-root and canonical-source-name findings using real local HTTP probes and related suites."
     }
   },
   "retainedFailures": [
     {
-      "attempt": 1,
+      "phase": "initial full gate type preflight",
       "status": "failed",
       "exitCode": 1,
       "reaped": true,
-      "suiteRuns": [
-        {
-          "kind": "plain",
-          "testsPassed": 1998,
-          "testsSkipped": 2,
-          "testsFailed": 1,
-          "assertions": 17351,
-          "testsTotal": 2001,
-          "files": 194
-        }
-      ],
-      "failure": "Publication source-race fixture exceeded its unchanged 15-second test bound; elapsed 48.66 seconds. Contention was an inference, not an established cause."
+      "disposition": "Imports inserted before two Bun shebangs caused TypeScript parsing failures. Shebangs restored; the final full gate is independently retained."
     },
     {
-      "attempt": 2,
-      "status": "failed",
-      "exitCode": 1,
-      "reaped": true,
-      "suiteRuns": [
-        {
-          "kind": "plain",
-          "testsPassed": 1997,
-          "testsSkipped": 2,
-          "testsFailed": 2,
-          "assertions": 17347,
-          "testsTotal": 2001,
-          "files": 194
-        }
-      ],
-      "failure": "Parallel same-host requests arrived one millisecond apart; successful-exit subprocess fixture read a heartbeat before descendant readiness."
-    },
-    {
-      "attempt": 3,
-      "status": "failed",
-      "exitCode": 1,
-      "reaped": true,
-      "suiteRuns": [
-        {
-          "kind": "plain",
-          "testsPassed": 2002,
-          "testsSkipped": 2,
-          "testsFailed": 1,
-          "assertions": 17367,
-          "testsTotal": 2005,
-          "files": 194
-        }
-      ],
-      "failure": "Publication source-race fixture resolved before its filesystem watcher mutation occurred; 594.25 millisecond elapsed test."
-    },
-    {
-      "attempt": 4,
-      "status": "failed",
-      "exitCode": 1,
-      "reaped": true,
-      "suiteRuns": [
-        {
-          "kind": "plain",
-          "testsPassed": 2005,
-          "testsSkipped": 2,
-          "testsFailed": 0,
-          "assertions": 17383,
-          "testsTotal": 2007,
-          "files": 194
-        },
-        {
-          "kind": "covered",
-          "testsPassed": 2004,
-          "testsSkipped": 2,
-          "testsFailed": 1,
-          "assertions": 17369,
-          "testsTotal": 2007,
-          "files": 194
-        }
-      ],
-      "failure": "Full plain suite passed; covered frontend negative-controls fixture exceeded its 300,000 millisecond bound while invoking unbounded synchronous validator children (568,103.66 milliseconds observed)."
+      "phase": "focused six-file shared suite",
+      "testsPassed": 54,
+      "testsFailed": 3,
+      "errors": 1,
+      "logSha256": "2a8fccb787d8102997e4e39bcb90c4cda3cf9c05bfed4fe7a9c9aedbb8ab356e",
+      "disposition": "Canonical Redwood endpoint fixture corrected through explicit loopback transport scope. Retained transcript case exceeded its unchanged five-second test bound and affected the next fixture; its isolated rerun passed 5/0,32 assertions. The final full gate is required separately; no established cause is claimed for that intermittent timeout."
     }
   ],
-  "reliabilityRepairs": {
-    "transport": {
-      "boundary": "Actual pinned dispatch occurs synchronously inside FIFO host admission after DNS, robots and caller policy. Per-hop cancellation, callback revocation, single dispatch and abort-on-admission-failure prevent escaped or retained network work.",
-      "independentReview": {
-        "status": "GO",
-        "checkedAt": "2026-10-01T21:42:46.191Z",
-        "testsPassed": 46,
-        "testsFailed": 0,
-        "assertions": 265,
-        "independentReceiver": {
-          "originalExpiredReservationGapsMs": [
-            156,
-            0
-          ],
-          "originalDeferredPolicyGapMs": 0,
-          "finalGapsMs": [
-            59,
-            61
-          ],
-          "intervalMs": 60,
-          "childExitCode": 0,
-          "reaped": true
-        },
-        "callbackLifetime": {
-          "escapedStartRequests": 0,
-          "errorAfterStartRequests": 1,
-          "errorAfterStartStreamCancellations": 1,
-          "neverSettlingCallbackDeadlineAndBodyCancellation": "pass"
-        },
-        "docsCheck": "pass",
-        "diffCheck": "pass",
-        "boundary": "Fresh independent code and complementary callback-lifetime review, real local HTTP and owned independent receiver, focused offline modules. Full gate and hosted Linux/publication acceptance are separate parent-owned receipts."
-      }
+  "additionalRetainedGateEvidence": [
+    {
+      "phase": "first full plain suite before final repairs",
+      "status": "failed",
+      "testsPassed": 2054,
+      "testsFailed": 8,
+      "errors": 1,
+      "logSha256": "f083c7154834ac94fc50b465bac653b476fc30889aad0bec1e820cd02edb1916",
+      "disposition": "Corrected incomplete geographic/insight fixtures and stale README version. Browser/process deadlines also failed; separate focused reruns passed. No definitive cause is attributed to those earlier intermittent failures."
     },
-    "subprocessFixture": {
-      "boundary": "Real descendant writes PID and first heartbeat before signaling readiness over a pipe; successful parent exit and split UTF-8 are tested under the unchanged 1,000 millisecond child bound.",
-      "repeatedTestsPassed": 60,
-      "assertions": 320
+    {
+      "phase": "pre-final TOC and FIFO repairs",
+      "status": "superseded-pass",
+      "testsPassed": 2064,
+      "testsFailed": 0,
+      "assertions": 17773,
+      "lineCoveragePercent": 86.01,
+      "functionCoveragePercent": 88.24,
+      "logSha256": "9e61395d98a4d66358bc7d18235ddbc4252abab23bf79909684294b22f4085e5",
+      "disposition": "Both fenced suites passed, but its source snapshot predates final direct-reader and regular-file admission fixes; it does not certify this release."
     },
-    "publicationFixture": {
-      "boundary": "Actual synchronous producer file mutation after captured-input reconstruction replaces an unacknowledged filesystem notification. Integrated export guard rejects the update and preserves active exact bytes under the unchanged 15-second test bound.",
-      "focusedTestsPassed": 7,
-      "assertions": 57,
-      "changedCaseRepetitions": 20,
-      "repeatedAssertions": 100
+    {
+      "phase": "current-source gate on a suspended host",
+      "status": "failed",
+      "testsPassed": 2065,
+      "testsFailed": 2,
+      "errors": 1,
+      "logSha256": "8971fdee5f9edbc34db7fc01a6f82a20e18ef98c935d8f08853f76c06f70079f",
+      "hostEvidence": {
+        "timeZone": "America/Los_Angeles",
+        "date": "2026-10-02",
+        "sleepIntervals": [
+          {
+            "start": "07:11:16",
+            "seconds": 36,
+            "failedPagesCaseMs": 41390.2
+          },
+          {
+            "start": "07:12:00",
+            "seconds": 83,
+            "failedAlertCaseMs": 83116.16
+          }
+        ]
+      },
+      "disposition": "Local power-state log records sleep intervals matching the wall-deadline failures. Final validation ran with a process-scoped idle-sleep inhibitor; application/test deadlines remain unchanged."
     },
-    "pagesEvaluator": {
-      "status": "GO",
-      "independentReviews": 2,
-      "focusedCovered": {
-        "testsPassed": 34,
-        "testsFailed": 0,
-        "assertions": 372,
-        "elapsedSeconds": 28.84
+    {
+      "phase": "idle-only inhibitor in maintenance wake",
+      "status": "failed",
+      "testsPassed": 2066,
+      "testsFailed": 1,
+      "assertions": 17796,
+      "logSha256": "90879d4d7a3de382bcc6bb273bbab568348d63bd8180363723b9cd3b1e10cd12",
+      "hostEvidence": {
+        "timeZone": "America/Los_Angeles",
+        "date": "2026-10-02",
+        "sleepStart": "07:16:36",
+        "wake": "07:18:21",
+        "seconds": 105,
+        "failedCorpusFenceCaseMs": 104310.94
       },
-      "independentRuntime": {
-        "testsPassed": 16,
-        "assertions": 49,
-        "mutatedCli": {
-          "testsPassed": 1,
-          "assertions": 209
-        }
-      },
-      "strictProductionTypes": "pass",
-      "strictTestTypes": "pass",
-      "sourceHashesStable": true,
-      "boundary": "Fresh independent read-only review of input/output caps, timed child, cancellation, protected diagnostics and owned cleanup. Exact-source focused tests and real validator CLI controls passed. A separate interrupted review remains incomplete. The VM is not a security sandbox or universal semantic proof."
-    },
-    "disposition": "Failed complete gates remain retained evidence. Final plain and covered gates passed after the root-cause dispatch repair, explicit fixture synchronization and bounded production/CLI bundle evaluation, with no additional skips or increased existing deadlines."
-  },
-  "refresh": {
-    "status": "ok",
-    "exitCode": 0,
-    "reaped": true,
-    "startedAt": "2026-10-01T21:09:58.743Z",
-    "completedAt": "2026-10-01T21:11:05.310Z",
-    "runId": "weekly-check-20261001210958-97286-2fba8202",
-    "steps": [
-      {
-        "name": "municipal-code-monitor",
-        "status": "ok",
-        "itemCount": null
-      },
-      {
-        "name": "alert-monitors",
-        "status": "ok",
-        "itemCount": 20
-      },
-      {
-        "name": "news-and-meeting-monitors",
-        "status": "ok",
-        "itemCount": null
-      },
-      {
-        "name": "alert-analytics",
-        "status": "ok",
-        "itemCount": null
-      },
-      {
-        "name": "transcript-and-reference-monitors",
-        "status": "ok",
-        "itemCount": 0
-      },
-      {
-        "name": "llm-curation",
-        "status": "ok",
-        "itemCount": 18
-      },
-      {
-        "name": "source-discovery",
-        "status": "ok",
-        "itemCount": 48
-      },
-      {
-        "name": "community-calendar-events",
-        "status": "ok",
-        "itemCount": 200
-      },
-      {
-        "name": "monthly-report",
-        "status": "ok",
-        "itemCount": null
-      },
-      {
-        "name": "analytics-overview",
-        "status": "ok",
-        "itemCount": null
-      }
-    ],
-    "boundary": "Actual current-cycle public acquisition. Configured notification delivery was disabled and chat provider forced to local Ollama; no paid provider or private consumer activation."
-  },
-  "registry": {
-    "sourceCount": 48,
-    "monitoredCount": 34,
-    "discoveryOnlyCount": 14,
-    "referenceOnlyCount": 0,
-    "fingerprint": "127621adc8c6becf16119ae5989a424153e64281a90b6704be54ff8dfc894019",
-    "probe": {
-      "checked": 48,
-      "unavailable": 5
+      "disposition": "The idle-only assertion did not keep the Mac out of maintenance sleep. Final gate used verified task-owned display, idle and activity assertions; no application/test timeout changed."
     }
-  },
-  "sourceHealth": {
-    "checkedAt": "2026-10-01T21:10:58.007Z",
-    "total": 33,
-    "present": 27,
-    "missing": 6,
-    "missingSources": [
-      "AIS Vessel Traffic",
-      "Crescent City Permits Portal",
-      "DUSD Schools",
-      "Del Norte County and City government media hub",
-      "EIA California Fuel",
-      "PacFIN Reports Dashboard"
+  ],
+  "reusableCivicMethods": {
+    "contract": "civic-profile/v1",
+    "defaultDeployment": "crescent-city",
+    "syntheticAcceptanceOnly": true,
+    "methods": [
+      "immutable validated public identity",
+      "captured asynchronous profile/root ownership",
+      "ecode360 identity and corpus admission",
+      "geographic contracts with explicit domain inputs",
+      "configured civil-day timezone and calendar namespace",
+      "explicit news relevance/endpoints and independent source IDs",
+      "profile-owned lexical indexes and staged vector metadata",
+      "captured derived/publication configuration"
     ],
-    "coverageStatus": "partial",
-    "boundary": "Recorded source-family availability, not comprehensive local coverage, hazard absence or continuing source currency."
-  },
-  "county": {
-    "completedAt": "2026-10-01T21:06:50.338Z",
-    "documentNoticeCount": 6,
-    "acquisition": {
-      "sha256": "8a4be4ec49d2a8bfa1b29ed96ea3be1af6e04f7aaedf55438c6cccbd34cd959f",
-      "fetchedAt": "2026-10-01T21:06:47.988Z",
-      "landingSha256": "5e60e46a8a971bf816959fd7ff63e359354fcd56e1000a63079f2398ed57cfcc",
-      "providerSha256": "bf326b53bce56ac39433e6e0a2847cbabb54c26ca48693d8aa6612eb1fa6739b",
-      "endpointUrl": "https://delnortecoca.api.civicclerk.com/v1/Events?%24filter=startDateTime+ge+2026-09-01T00%3A00%3A00Z+and+startDateTime+lt+2026-10-31T00%3A00%3A00Z&%24orderby=startDateTime+desc%2C+eventName+desc&%24top=200",
-      "windowStart": "2026-09-01",
-      "windowEndExclusive": "2026-10-31",
-      "returnedEventCount": 4,
-      "selectedEventCount": 4,
-      "scheduledNoticeCount": 2,
-      "publishedDocumentCount": 6,
-      "retainedDocumentCount": 6,
-      "nextPagePresent": false,
-      "documentLimitReached": false
-    },
-    "document": {
-      "sourceUrl": "https://delnortecoca.api.civicclerk.com/v1/Meetings/GetMeetingFileStream(fileId=768,plainText=false)",
-      "meetingDate": "2026-09-22",
-      "rawSha256": "252370d63e704645bc90bffe52393e6cc91eec03a9afaaa2ce3c16d3b6272674",
-      "rawBytes": 231955,
-      "textSha256": "b814e89642778ce9838a3f80fbdccea3b720d9b52ac25844904cc8ab178e6120",
-      "pageCount": 7,
-      "emptyPageCount": 0,
-      "extractor": {
-        "name": "pdftotext",
-        "version": "pdftotext version 26.09.0",
-        "layout": true,
-        "ocrAttempted": false
-      },
-      "extractedSpanHashesValid": true
-    },
-    "boundaries": [
-      "One bounded approved County Board of Supervisors public provider window; archive completeness is not established",
-      "Civil notice dates preserve unknown timezone semantics and do not establish completed meetings",
-      "Native PDF extraction/byte identity does not establish independent legal interpretation, adoption or effectivity",
-      "Raw provider and PDF custody remains local and is not copied wholesale into public artifacts"
-    ]
+    "boundary": "No second live city, authenticated request multitenancy, non-ecode360 provider or generic authored deployment claim. Regional adapters, weekly/alert batches, private digest, scheduler and authored GUI/Pages refuse unsupported alternate profiles."
   },
   "documentation": {
-    "checkedAt": "2026-10-01T22:23:31.892Z",
-    "rows": [
-      {
-        "file": "README.md",
-        "bytes": 56565,
-        "lines": 983,
-        "relativeTargets": 72,
-        "missing": [],
-        "sha256": "9e77fe24c3cf36dd2d85fed3b769039694ae7b4b8615c9cff62568cf18a1bbb5"
-      },
-      {
-        "file": ".github/README.md",
-        "bytes": 56873,
-        "lines": 985,
-        "relativeTargets": 72,
-        "missing": [],
-        "sha256": "c2c998f2c6c7c676197aeab61ce656324cbdd8a8a5ba9eb71d2ddc47d0d5ee2d"
-      }
-    ]
-  },
-  "manuscript": {
-    "version": "3.2.0",
-    "checkedAt": "2026-10-01T21:22:05.840Z",
-    "status": "pass",
-    "reaped": true,
-    "templateCommit": "f1914383a08f0f4195134ed33a359b7aacc4f978",
-    "command": "uv run --no-sync --offline python scripts/pipeline/stage_03_render.py --project <owned-project-slot>",
-    "applicationRuntime": "Bun 1.4.2",
-    "pages": 18,
-    "inputFingerprint": "39338354724543139826012dea698971c0da493acfacf38fbf4aac22823c982b",
-    "assets": [
-      {
-        "name": "quadruplicate-v3.2.0.pdf",
-        "bytes": 117922,
-        "sha256": "fc5c533b4c78a5a2f90123e7088cb797cefc25fafc33b2ef64cc7205d83647b7"
-      },
-      {
-        "name": "quadruplicate-v3.2.0.html",
-        "bytes": 89139,
-        "sha256": "7f22a6a00a251a6af50655cc1be8630155dfbc96adfb20ce67330e71db31d574"
-      }
-    ],
-    "boundary": "Actual local template compile and native PDF inspection of the new paper edition; prior native RAG results remain explicitly dated v3.1.0 evidence."
+    "generatedProjection": "pass",
+    "rootSha256": "90671fdc75b5037129ac53c40069ba500f74038173fd774aad1146afe071b562",
+    "githubSelectedGuideSha256": "790267fc1b368e61165850416ff5cac9391b143e15fb3bd33690839907d6b26b",
+    "boundary": "Final generated guides and version references are captured in the independent gate copy, with separate fresh read-only review. The exact selected GitHub file is checked after publication."
   },
   "candidatePages": {
-    "checkedAt": "2026-10-01T22:31:31.582Z",
-    "generatedAt": "2026-10-01T22:30:51.719Z",
+    "status": "pass",
+    "sourceParity": {
+      "allEqual": true,
+      "treeSha256": "2f24ee973d00aa9ac3f6b06e542a09c289cebad899c54f5a696f7aab008a5ce8",
+      "files": 590
+    },
+    "checkedAt": "2026-10-02T14:28:02.809Z",
+    "generatedAt": "2026-10-02T14:27:15.401Z",
     "fileCount": 55,
     "publicationSelection": "verified-output",
     "steps": [
@@ -479,25 +251,23 @@
         "status": "ok",
         "exitCode": 0,
         "reaped": true,
-        "elapsedSeconds": 0.954
+        "elapsedSeconds": 2.503
       },
       {
         "name": "validation",
         "status": "ok",
         "exitCode": 0,
         "reaped": true,
-        "elapsedSeconds": 0.411
+        "elapsedSeconds": 0.957
       },
       {
         "name": "browser",
         "status": "ok",
         "exitCode": 0,
         "reaped": true,
-        "elapsedSeconds": 38.676
+        "elapsedSeconds": 44.095
       }
     ],
-    "status": "pass",
-    "validation": "bun run pages:validate -- .pages",
     "realBrowser": {
       "pages": 9,
       "widths": [
@@ -508,15 +278,17 @@
       ],
       "testsPassed": 9,
       "testsFailed": 0,
-      "assertions": 45
+      "assertions": 45,
+      "runtime": "Locked owned Chromium 145.0.7632.6 build1208, Bun1.4.2"
     },
-    "boundary": "Working-tree candidate validated before commit. The exact committed local and hosted publications are verified separately in external release assets."
+    "boundary": "Actual working-tree candidate export, validator and browser execution; the baseline commit is not a source identity for pending changes. Hosted collection/artifact and live service acceptance are separate."
   },
   "deferredAcceptance": {
     "openScopes": [
       "M07",
       "M27",
       "M29",
+      "M30",
       "L03",
       "L05",
       "L06",
@@ -524,6 +296,6 @@
       "L08"
     ],
     "authority": "TODO.md",
-    "boundary": "Actual recipients, private consumers, permanent hosts, independent human interpretation and separately owned reproduction remain distinct uncompleted acceptance."
+    "boundary": "Actual recipients, private consumers, persistent hosts, independent human interpretation, representative source coverage, a reviewed alternate deployment and separately owned reproduction remain open."
   }
 }

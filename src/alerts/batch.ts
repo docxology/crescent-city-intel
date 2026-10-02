@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { assertCivicProducerSupported } from "../civic_profile.js";
 /**
  * scripts/run-alerts.ts — Thin orchestrator: run all 20 alert monitors (15 base
  * monitors + the 2026-09-28 permits/dredging/fuel/pacfin/ais expansion).
@@ -66,6 +67,7 @@ const logger = createLogger("alerts");
 
 export interface AlertRunOptions { only?: MonitorKey[]; notifications?: boolean; outputDir?: string; signal?: AbortSignal; deadlineMs?: number; fixture?: TransportScope["fixture"] }
 export async function runAllAlertMonitors(options: AlertRunOptions = {}): Promise<SourceHealth[]> {
+  assertCivicProducerSupported("runallalertmonitors");
   const scope = createRunScope({ signal: options.signal ?? currentRunSignal(), deadlineMs: Math.min(options.deadlineMs ?? 120_000, remainingRunMs() ?? 120_000) });
   try { return await withOutputRoot(options.outputDir ?? outputRoot(), () => withRunSignal(scope.signal, () => withTransportScope({ signal: scope.signal, fixture: options.fixture }, () => runAlertMonitorsInScope(options)), scope.deadlineAt)); }
   finally { scope.dispose(); }

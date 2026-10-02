@@ -5,7 +5,8 @@
 import type { Page } from "playwright";
 import type { TocNode } from "./types.js";
 import { navigateWithCloudflare } from "./browser.js";
-import { BASE_URL, MUNICIPALITY_CODE } from "./constants.js";
+import { BASE_URL } from "./constants.js";
+import { municipalCodeId, assertCivicCorpusIdentity } from "./civic_profile.js";
 import { flattenToc } from "./utils.js";
 import { isTocShapeValid } from "./scraper_utils.js";
 
@@ -14,11 +15,12 @@ import { isTocShapeValid } from "./scraper_utils.js";
  * and intercepting the /toc/CR4919 API response.
  */
 export async function fetchToc(page: Page): Promise<TocNode> {
+  const municipalityCode = municipalCodeId();
   let tocData: TocNode | null = null;
 
   // Intercept the TOC API call that the page makes
   const tocPromise = page.waitForResponse(
-    (resp) => resp.url().includes(`/toc/${MUNICIPALITY_CODE}`) && resp.status() === 200,
+    (resp) => resp.url() === `${BASE_URL}/toc/${municipalityCode}` && resp.status() === 200,
     { timeout: 60_000 }
   );
   // Mark the response promise handled immediately so a navigation failure
@@ -26,13 +28,14 @@ export async function fetchToc(page: Page): Promise<TocNode> {
   void tocPromise.catch(() => undefined);
 
   try {
-    await navigateWithCloudflare(page, `${BASE_URL}/${MUNICIPALITY_CODE}`);
+    await navigateWithCloudflare(page, `${BASE_URL}/${municipalityCode}`);
 
     const tocResponse = await tocPromise;
     tocData = (await tocResponse.json()) as TocNode;
     if (!isTocShapeValid(tocData)) {
       throw new Error("ecode360 returned a malformed or empty TOC payload");
     }
+    assertCivicCorpusIdentity(tocData);
     return tocData;
   } catch (error) {
     throw error instanceof Error ? error : new Error(String(error));

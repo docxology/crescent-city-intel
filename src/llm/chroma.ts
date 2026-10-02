@@ -1,6 +1,7 @@
 /** Deadline-bound Chroma operations and manifest-selected serving collections. */
 import { ChromaClient, ChromaClientError, ChromaUnauthorizedError, ChromaForbiddenError, ChromaNotFoundError, ChromaUniqueError, ChromaRateLimitError, ChromaServerError, type Collection } from "chromadb";
-import { llmConfig } from "./config.js";
+import { llmConfig, currentIndexProfileIdentity, isDefaultIndexProfile } from "./config.js";
+import { indexCollectionBelongsToNamespace, validateIndexProfileIdentity } from "./index_plan.js";
 import { paths } from "../shared/paths.js";
 import { readFile } from "fs/promises";
 import { boundedSignal, vectorGate } from "./runtime.js";
@@ -50,11 +51,17 @@ function vectorFetch(signal: AbortSignal, maximumBytes: number): typeof fetch {
 }
 
 export async function servingCollectionName(): Promise<string> {
+  const identity = currentIndexProfileIdentity();
+  let text: string;
   try {
-    const manifest = JSON.parse(await readFile(paths.indexManifest, "utf8"));
-    if (typeof manifest.servingCollection === "string" && /^[a-zA-Z0-9_-]{3,128}$/.test(manifest.servingCollection)) return manifest.servingCollection;
-  } catch { /* prior non-staged index or no index yet */ }
-  return llmConfig.collectionName;
+    text = await readFile(paths.indexManifest, "utf8");
+  } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return identity.vectorNamespace; throw error; }
+  const manifest = JSON.parse(text);
+  const errors = validateIndexProfileIdentity(manifest, identity, isDefaultIndexProfile());
+  if (errors.length) throw new Error(errors.join("; "));
+  if (manifest.servingCollection === undefined) return identity.vectorNamespace;
+  if (!indexCollectionBelongsToNamespace(manifest.servingCollection, identity.vectorNamespace)) throw new Error("Serving collection does not belong to the selected civic profile namespace");
+  return manifest.servingCollection;
 }
 function client(signal: AbortSignal, maximumBytes: number): ChromaClient {
   const endpoint = new URL(llmConfig.chromaUrl);
@@ -68,6 +75,7 @@ function client(signal: AbortSignal, maximumBytes: number): ChromaClient {
   return result;
 }
 async function operation<T>(options: VectorOptions, task: (c: ChromaClient, name: string, signal: AbortSignal) => Promise<T>): Promise<T> {
+  if (options.collection !== undefined && !isDefaultIndexProfile() && !indexCollectionBelongsToNamespace(options.collection, llmConfig.collectionName)) throw new Error("Vector collection does not belong to the selected civic profile namespace");
   const maximumBytes = options.maximumResponseBytes ?? VECTOR_RESPONSE_BYTES;
   if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || maximumBytes > 64 * 1024 * 1024) throw new Error("Invalid vector response byte limit");
   if (options.timeoutMs !== undefined && (!Number.isSafeInteger(options.timeoutMs) || options.timeoutMs < 1 || options.timeoutMs > 3_600_000)) throw new Error("Invalid vector deadline");
@@ -85,7 +93,12 @@ export async function withVectorCollection<T>(task: (collection: Collection, sig
 }
 export async function addDocuments(docs: VectorDocuments, options: VectorOptions = {}): Promise<void> {
   if (docs.ids.length > 1000 || docs.ids.length !== docs.embeddings.length || docs.ids.length !== docs.documents.length || docs.ids.length !== docs.metadatas.length) throw new Error("Invalid vector batch");
-  const write = () => operation(options, async (c, name) => { await (await collection(c, name)).upsert(docs); });
+  const identity = currentIndexProfileIdentity();
+  const metadatas = docs.metadatas.map(metadata => {
+    if (["civicProfileId", "civicProfileSha256", "vectorNamespace"].some(key => metadata[key] !== undefined && metadata[key] !== identity[key as keyof typeof identity])) throw new Error("Vector metadata belongs to another civic profile");
+    return { ...metadata, ...identity };
+  });
+  const write = () => operation(options, async (c, name) => { await (await collection(c, name)).upsert({ ...docs, metadatas }); });
   if (options.collection) await write();
   else await withFileLease(join(paths.state, "index-writer.lock"), write, { waitMs: 1000 });
 }
@@ -94,7 +107,11 @@ export async function getDocumentIds(options: VectorOptions = {}): Promise<strin
     const coll = await collection(c, name), count = await coll.count();
     if (count > 100_000) throw new Error("Vector collection exceeds the bounded index size");
     const ids: string[] = [];
-    for (let offset = 0; offset < count; offset += 1000) ids.push(...(await coll.get({ limit: 1000, offset, include: [] })).ids);
+    for (let offset = 0; offset < count; offset += 1000) {
+      const records = await coll.get({ limit: 1000, offset, include: ["metadatas"] });
+      if (records.metadatas.length !== records.ids.length || records.metadatas.some(metadata => validateIndexProfileIdentity(metadata, currentIndexProfileIdentity(), isDefaultIndexProfile()).length)) throw new Error("Stored vectors belong to another civic profile or lack metadata identity");
+      ids.push(...records.ids);
+    }
     return ids;
   });
 }
@@ -102,6 +119,7 @@ export async function getDocuments(ids: string[], options: VectorOptions = {}): 
   if (ids.length > 1000) throw new Error("Vector read batch exceeds its limit");
   return operation(options, async (c, name) => {
     const records = await (await collection(c, name)).get({ ids, include: ["documents", "metadatas", "embeddings"] });
+    if (records.metadatas.length !== records.ids.length || records.metadatas.some(metadata => validateIndexProfileIdentity(metadata, currentIndexProfileIdentity(), isDefaultIndexProfile()).length)) throw new Error("Stored vectors belong to another civic profile");
     return { ids: records.ids, documents: records.documents as string[], metadatas: records.metadatas as Record<string, string>[], embeddings: records.embeddings as number[][] };
   });
 }
@@ -115,6 +133,7 @@ export async function query(embedding: number[], topK = llmConfig.topK, options:
   if (!Number.isSafeInteger(topK) || topK < 1 || topK > 1000) throw new Error("Invalid vector result limit");
   return operation(options, async (c, name) => {
     const results = await (await collection(c, name)).query({ queryEmbeddings: [embedding], nResults: topK });
+    if ((results.metadatas?.[0] ?? []).length !== (results.ids[0] ?? []).length || (results.metadatas?.[0] ?? []).some(metadata => validateIndexProfileIdentity(metadata, currentIndexProfileIdentity(), isDefaultIndexProfile()).length)) throw new Error("Retrieved vectors belong to another civic profile");
     return { ids: results.ids[0] ?? [], documents: (results.documents?.[0] ?? []) as string[], metadatas: (results.metadatas?.[0] ?? []) as Record<string, string>[], distances: (results.distances?.[0] ?? []) as number[] };
   });
 }

@@ -6,11 +6,41 @@ import { monitorNews, NEWS_FEEDS } from "../src/news_monitor.ts";
 import { withTransportScope, boundedHttpFetch } from "../src/shared/transport.ts";
 import { executePipelineStep } from "../src/shared/orchestration.ts";
 import { acquireFileLease } from "../src/shared/storage.ts";
+import { withProducerScope } from "../src/shared/run_scope.ts";
+import { bindCivicOutputRoot } from "../src/civic_profile.ts";
 import { monitorGovMeetings } from "../src/gov_meeting_monitor.ts";
 import { OFFICIAL_MEETING_SOURCES } from "../src/official_meetings.ts";
 import { buildDigest } from "../src/lifeos_bridge.ts";
 const origins = [...new Set(Object.values(NEWS_FEEDS).map(value => new URL(value).origin))];
 const rss = (label: string) => `<?xml version="1.0"?><rss version="2.0"><channel><title>Captured local fixture</title><item><title>Crescent City ${label} announcement</title><link>https://example.test/crescent-city-${label}</link><pubDate>${new Date().toUTCString()}</pubDate><description>Del Norte civic fixture.</description></item></channel></rss>`;
+test("producer contention admits a released real lease beyond one second within its configured bound", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cci-producer-wait-"));
+  const release = await acquireFileLease(join(root, "state", "producers", "events.lock"));
+  let entered = false;
+  const timer = setTimeout(() => { void release(); }, 1100);
+  try {
+    await withProducerScope("events", { outputDir: root, leaseWaitMs: 3000, deadlineMs: 4000 }, async () => { entered = true; });
+    expect(entered).toBe(true);
+    const receipt = JSON.parse(await readFile(join(root, "state", "civic-profile.json"), "utf8"));
+    expect(receipt.profileId).toBe("crescent-city");
+  } finally { clearTimeout(timer); await release(); await rm(root, { recursive: true, force: true }); }
+});
+test("producer contention honors explicit busy, parent deadline and cancellation without entering work", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cci-producer-wait-bound-"));
+  const release = await acquireFileLease(join(root, "state", "producers", "events.lock"));
+  let entered = 0; const work = async () => { entered++; };
+  try {
+    await expect(withProducerScope("events", { outputDir: root, leaseWaitMs: 0 }, work)).rejects.toThrow("Writer lease unavailable");
+    const started = Date.now();
+    await expect(withProducerScope("events", { outputDir: root, leaseWaitMs: 10_000, deadlineMs: 80 }, work)).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(700);
+    const controller = new AbortController(); controller.abort(new Error("Owned caller cancelled"));
+    await expect(withProducerScope("events", { outputDir: root, signal: controller.signal }, work)).rejects.toThrow("cancelled");
+    for (const leaseWaitMs of [-1, 1.5, NaN, Infinity, 60_001]) await expect(withProducerScope("events", { outputDir: root, leaseWaitMs }, work)).rejects.toThrow("Invalid producer lease wait");
+    expect(entered).toBe(0);
+    expect(await readdir(join(root, "state"))).toEqual(["producers"]);
+  } finally { await release(); await rm(root, { recursive: true, force: true }); }
+});
 async function waitFor(task: () => boolean): Promise<void> { const deadline = Date.now() + 2000; while (!task()) { if (Date.now() >= deadline) throw new Error("Fixture did not enter real HTTP request"); await new Promise(resolve => setTimeout(resolve, 5)); } }
 test("transactional meeting producer preserves the canonical batch prefix consumed by the digest", async () => {
   const root = await mkdtemp(join(tmpdir(), "cci-meetings-reader-")); const server = Bun.serve({ port: 0, fetch(request) { if (new URL(request.url).pathname === "/meetings/get_list") return Response.json([{ id: 112, title: "City Council regular meeting", start_date_short: "2026-09-30", description: "Public civic fixture" }]); return new Response("unavailable fixture subfeed", { status: 404 }); } });
@@ -37,6 +67,7 @@ test("overlapping real HTTP news producers retain captured roots across environm
 });
 test("a stage deadline cancels inherited HTTP work, preserves prior news artifacts and releases the producer lease", async () => {
   const root = await mkdtemp(join(tmpdir(), "cci-producer-abort-")); await mkdir(join(root, "news")); await mkdir(join(root, "state")); const original = '{"retained":"prior-health"}'; await writeFile(join(root, "news", "source-health.json"), original); await writeFile(join(root, "state", "news-seen-ids.json"), "{}"); let entered = 0;
+  await bindCivicOutputRoot(root);
   const server = Bun.serve({ port: 0, fetch() { entered++; return new Promise<Response>(() => {}); } });
   try {
     const started = Date.now(); const result = await withTransportScope({ fixture: { origin: `http://127.0.0.1:${server.port}`, allowedOrigins: origins } }, () => executePipelineStep("captured-news", () => monitorNews(undefined, { outputDir: root }), { timeoutMs: 100, receiptPath: join(root, "state", "step.json") }));

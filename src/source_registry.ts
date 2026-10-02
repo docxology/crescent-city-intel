@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { currentCivicProfile, isCrescentCityProfile } from "./civic_profile.js";
 /**
  * Canonical source inventory for Crescent City and Del Norte County.
  *
@@ -358,11 +359,12 @@ function stableRegistry(): SourceDefinition[] {
 }
 
 export function getSourceRegistry(): SourceDefinition[] {
+  if (!isCrescentCityProfile()) return [];
   return stableRegistry().map(item => ({ ...item, discoveredFrom: [...item.discoveredFrom] }));
 }
 
 /** Exact monitor-to-registry adapter; callers choose their declared source family. */
-export function sourceIdForMonitor(monitor: string): string | undefined { return SOURCE_REGISTRY.find(item => item.configuredMonitor === monitor)?.id; }
+export function sourceIdForMonitor(monitor: string): string | undefined { return getSourceRegistry().find(item => item.configuredMonitor === monitor)?.id; }
 
 export function validateSourceRegistry(registry = getSourceRegistry()): string[] {
   const errors: string[] = [];
@@ -380,6 +382,7 @@ export function validateSourceRegistry(registry = getSourceRegistry()): string[]
     const prior = urls.get(canonical);
     if (prior) errors.push(`duplicate canonical source URL: ${canonical} (${prior}, ${item.id})`);
     urls.set(canonical, item.id);
+    if (typeof item.region !== "string" || !item.region.trim() || item.region.length > 200 || /[\x00-\x1f\x7f]/.test(item.region)) errors.push(`invalid source region: ${item.id}`);
     if (!item.name || !item.provenance || item.discoveredFrom.length === 0) errors.push(`incomplete provenance: ${item.id}`);
     if (item.referenceOnly && (item.automation !== "reference-only" || !item.notes?.includes("Excluded from"))) {
       errors.push(`reference-only policy is incomplete: ${item.id}`);
@@ -549,7 +552,7 @@ export async function buildSourceDiscoveryReport(options: {
   const report: SourceDiscoveryEvidenceReport = {
     schemaVersion: "1.0.0",
     generatedAt: checkedAt,
-    scope: SOURCE_REGISTRY_SCOPE,
+    scope: isCrescentCityProfile() ? SOURCE_REGISTRY_SCOPE : `${currentCivicProfile().municipality}; explicitly supplied source registry`,
     registryFingerprint: fingerprint,
     previousFingerprint,
     changed: previousFingerprint !== fingerprint,
@@ -560,12 +563,12 @@ export async function buildSourceDiscoveryReport(options: {
     enabledCount: registry.filter(item => item.enabled).length,
     countsByKind,
     countsByAuthority,
-    coverageGaps: [
+    coverageGaps: isCrescentCityProfile() ? [
       "City and county child pages are inventoried but not yet collected by a dedicated monitor.",
       "Harbor/County document links are bounded acquisitions; archive pagination, PDF text, recordings and calendar completeness are not established.",
       "County Board of Supervisors published-file notices use a bounded CivicClerk window; completed meetings, full archive coverage and recording acquisition remain unestablished. Solid Waste Management Authority and Redwood Coast Transit Authority meeting streams need dedicated connectors.",
       "Probe availability does not replace parser-level validation or source-health emitted by a configured monitor.",
-    ],
+    ] : ["Only explicitly supplied sources belong to this jurisdiction; an empty roster establishes no source coverage.", "Reachability and catalog metadata do not establish local observations, parser validity, legal authority or temporal completeness."],
     sources,
     probe: { checked: probeHealth.length, unavailable: probeHealth.filter(item => item.status === "unavailable").length },
   };

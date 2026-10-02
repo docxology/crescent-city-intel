@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { bindCivicOutputRoot, assertCivicCorpusIdentity } from "./civic_profile.js";
 /** Independent local custody, current TOC, and deterministic live sample verification. */
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -100,6 +101,10 @@ export async function verifyCorpus(options: VerifyCorpusOptions = {}): Promise<B
     totalExpectedSections: getSections(toc).length, totalFoundSections: results.reduce((sum, result) => sum + result.checks.foundSections, 0), missingSections: results.flatMap(result => result.checks.missingSections), results, sample, localErrors };
 }
 async function main(): Promise<void> {
+  const savedToc = JSON.parse(await readFile(paths.toc, "utf8"));
+  const savedManifest = JSON.parse(await readFile(paths.manifest, "utf8"));
+  assertCivicCorpusIdentity(savedToc, savedManifest);
+  await bindCivicOutputRoot(paths.output);
   const offline = Bun.argv.includes("--offline"); let currentToc: TocNode | null | undefined; let currentTocError: string | undefined;
   try {
     const page = offline ? null : await newPage();

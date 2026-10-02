@@ -1,6 +1,7 @@
 /** Centralized path resolution for output files */
-import { OUTPUT_DIR, ARTICLES_DIR } from "../constants.js";
+import { OUTPUT_DIR } from "../constants.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { currentCivicProfile, isCrescentCityProfile } from "../civic_profile.js";
 import { resolve } from "node:path";
 
 const rootContext = new AsyncLocalStorage<string>();
@@ -21,17 +22,18 @@ export function withOutputRoot<T>(root: string, task: () => T): T {
  * which the site published) plus a clobbered manifest. `scripts/validate.ts`
  * fences the corpus around the suite, so a new offender is now caught.
  *
- * These are getters, not computed literals: the env is re-read on every access,
- * so a test can scope the redirection to one block instead of the whole process.
+ * Owned producers capture roots across awaits. Alternate civic profiles require
+ * an explicit root; CC_OUTPUT_DIR also supports isolated offline acceptance.
  */
 export function outputRoot(): string {
-  return rootContext.getStore() ?? process.env.CC_OUTPUT_DIR ?? OUTPUT_DIR;
+  const explicit = rootContext.getStore() ?? process.env.CC_OUTPUT_DIR;
+  if (!explicit && !isCrescentCityProfile()) throw new Error("An alternate civic profile requires an explicit isolated output root (CC_OUTPUT_DIR or withOutputRoot)");
+  return explicit ?? OUTPUT_DIR;
 }
 
 /** The articles directory, following outputRoot() when the seam is set. */
 export function articlesRoot(): string {
-  const root = rootContext.getStore() ?? process.env.CC_OUTPUT_DIR;
-  return root ? `${root}/articles` : ARTICLES_DIR;
+  return `${outputRoot()}/articles`;
 }
 
 export const paths = {
@@ -41,8 +43,8 @@ export const paths = {
   get manifest() { return `${outputRoot()}/manifest.json`; },
   get verificationReport() { return `${outputRoot()}/verification-report.json`; },
   get monitorReport() { return `${outputRoot()}/monitor-report.json`; },
-  get consolidatedJson() { return `${outputRoot()}/crescent-city-code.json`; },
-  get plainText() { return `${outputRoot()}/crescent-city-code.txt`; },
+  get consolidatedJson() { return `${outputRoot()}/${currentCivicProfile().corpusSlug}.json`; },
+  get plainText() { return `${outputRoot()}/${currentCivicProfile().corpusSlug}.txt`; },
   get sectionIndex() { return `${outputRoot()}/section-index.csv`; },
   get markdown() { return `${outputRoot()}/markdown`; },
   get state() { return `${outputRoot()}/state`; },

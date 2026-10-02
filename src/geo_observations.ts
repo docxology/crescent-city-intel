@@ -23,7 +23,8 @@
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { CRESCENT_CITY_ANCHOR } from "./geo.js";
+import { CRESCENT_CITY_ANCHOR, assertMunicipalityAnchor, getCivicMunicipalitySpec, isCrescentCityAnchor } from "./geo.js";
+import { currentCivicProfile, isCrescentCityProfile } from "./civic_profile.js";
 import { outputRoot } from "./shared/paths.js";
 import type { SourceHealth, SourceHealthStatus } from "./types.js";
 
@@ -116,11 +117,15 @@ export interface GeoObservationInput {
   hazardDomains: HazardDomainInput[];
   /** Upstream contract's generatedAt, or null when the contract is absent. */
   contractGeneratedAt: string | null;
+  /** Explicit generic deployment identity and its upstream contract schema. */
+  profileId?: string;
+  contractSchema?: string;
 }
 
 /** The `crescent-city-geo-observations/v1` envelope. */
 export interface GeoObservationsEnvelope {
-  schema: typeof GEO_OBSERVATIONS_SCHEMA;
+  schema: typeof GEO_OBSERVATIONS_SCHEMA | "civic-geo-observations/v1";
+  profileId?: string;
   anchor: ObservationAnchor;
   generatedAt: string;
   /** Composite snapshot, or null when no composite artifact exists. */
@@ -131,7 +136,7 @@ export interface GeoObservationsEnvelope {
   hazardSummary: HazardTagSummary[];
   /** Freshness of the upstream `crescent-city-geo-intel/v1` contract. */
   freshness: {
-    contractSchema: typeof GEO_INTEL_CONTRACT_SCHEMA;
+    contractSchema: string;
     contractGeneratedAt: string | null;
   };
 }
@@ -241,15 +246,20 @@ export function hazardTagSummary(domains: HazardDomainInput[]): HazardTagSummary
  * The wave-2 route agent imports this for `GET /api/geo-observations`.
  */
 export function buildHazardObservations(input: GeoObservationInput): GeoObservationsEnvelope {
+  const anchor = observationAnchor(input.anchor);
+  if (input.profileId !== undefined && (input.profileId.length > 63 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(input.profileId))) throw new Error("Invalid observation profile identity");
+  const crescent = isCrescentCityAnchor(anchor) && input.profileId === undefined && (input.contractSchema === undefined || input.contractSchema === GEO_INTEL_CONTRACT_SCHEMA);
+  if (input.contractSchema === GEO_INTEL_CONTRACT_SCHEMA && !crescent) throw new Error("Crescent City observation schema differs from its geographic identity");
   return {
-    schema: GEO_OBSERVATIONS_SCHEMA,
-    anchor: input.anchor,
+    schema: crescent ? GEO_OBSERVATIONS_SCHEMA : "civic-geo-observations/v1",
+    ...(input.profileId ? { profileId: input.profileId } : {}),
+    anchor,
     generatedAt: input.generatedAt,
     composite: input.composite,
     monitors: input.monitors,
     hazardSummary: hazardTagSummary(input.hazardDomains),
     freshness: {
-      contractSchema: GEO_INTEL_CONTRACT_SCHEMA,
+      contractSchema: input.contractSchema ?? (crescent ? GEO_INTEL_CONTRACT_SCHEMA : "civic-geo-intel/v1"),
       contractGeneratedAt: input.contractGeneratedAt,
     },
   };
@@ -301,25 +311,20 @@ async function readJsonArtifact(
 }
 
 /**
- * Project the contract anchor (or the built-in default) to the observation
- * shape. Malformed or missing fields degrade to the Crescent City defaults —
- * byte-identical to what the runner and the route each projected inline
- * before this helper absorbed them.
+ * Project one complete geographic identity. Missing or malformed fields cannot
+ * borrow another municipality's names or coordinates.
  */
 function observationAnchor(raw: unknown): ObservationAnchor {
-  const anchor = (raw != null && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const stringField = (key: string, fallback: string): string =>
-    typeof anchor[key] === "string" ? (anchor[key] as string) : fallback;
-  const numberField = (key: string, fallback: number): number =>
-    typeof anchor[key] === "number" ? (anchor[key] as number) : fallback;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid observation anchor");
+  const anchor = raw as Record<string, unknown>;
+  for (const key of ["name", "guid", "municipality", "county", "state"]) {
+    if (typeof anchor[key] !== "string" || !anchor[key].trim() || anchor[key].length > 300 || /[\u0000-\u001f\u007f]/.test(anchor[key])) throw new Error(`Invalid observation anchor ${key}`);
+  }
+  if (typeof anchor.latitude !== "number" || !Number.isFinite(anchor.latitude) || anchor.latitude < -90 || anchor.latitude > 90 || typeof anchor.longitude !== "number" || !Number.isFinite(anchor.longitude) || anchor.longitude < -180 || anchor.longitude > 180) throw new Error("Invalid observation anchor coordinates");
   return {
-    name: stringField("name", DEFAULT_OBSERVATION_ANCHOR.name),
-    guid: stringField("guid", DEFAULT_OBSERVATION_ANCHOR.guid),
-    municipality: stringField("municipality", DEFAULT_OBSERVATION_ANCHOR.municipality),
-    county: stringField("county", DEFAULT_OBSERVATION_ANCHOR.county),
-    state: stringField("state", DEFAULT_OBSERVATION_ANCHOR.state),
-    latitude: numberField("latitude", DEFAULT_OBSERVATION_ANCHOR.latitude),
-    longitude: numberField("longitude", DEFAULT_OBSERVATION_ANCHOR.longitude),
+    name: anchor.name as string, guid: anchor.guid as string, municipality: anchor.municipality as string,
+    county: anchor.county as string, state: anchor.state as string,
+    latitude: anchor.latitude, longitude: anchor.longitude,
   };
 }
 
@@ -337,17 +342,30 @@ function observationAnchor(raw: unknown): ObservationAnchor {
  *   in-repo `buildGeoIntel(domains)` surface when the seed is absent, so the
  *   endpoint is never dead merely because a pipeline has not run.
  *
- * Absent, corrupt, and malformed artifacts degrade to the honest empty
- * states (`composite: null`, `monitors: []`, default anchor) — never
- * invented values, never a throw. Artifact paths follow `outputRoot()` at
+ * Absent and corrupt artifacts degrade to honest empty states
+ * (`composite: null`, `monitors: []`, selected-profile anchor). A retained
+ * contract with malformed or foreign identity is rejected rather than blended
+ * with defaults. Artifact paths follow `outputRoot()` at
  * call time, so the `CC_OUTPUT_DIR` seam applies as everywhere else.
  */
 export async function loadObservationInputs(options: ObservationInputOptions): Promise<ObservationInputs> {
+  const profile = currentCivicProfile();
+  const spec = getCivicMunicipalitySpec(profile);
+  const crescent = isCrescentCityProfile(profile);
   const seeded = await readJsonArtifact(join(options.seedDir, "geo-intel.json"), options.onCorrupt);
   const contract: Record<string, unknown> | null =
-    seeded !== null && typeof seeded === "object"
+    seeded !== null && typeof seeded === "object" && !Array.isArray(seeded)
       ? (seeded as Record<string, unknown>)
       : (options.fallbackContract?.() ?? null);
+
+  if (contract) {
+    const contractAnchor = contract.anchor;
+    assertMunicipalityAnchor(contractAnchor);
+    const selectedAnchor = spec.anchor;
+    if (contract.schema !== spec.id || (crescent ? contract.profileId !== undefined : contract.profileId !== profile.id) ||
+      ["name", "guid", "municipality", "county", "state", "latitude", "longitude"].some(key => contractAnchor[key as keyof typeof contractAnchor] !== selectedAnchor[key as keyof typeof selectedAnchor]) ||
+      ["west", "south", "east", "north"].some(key => contractAnchor.bounds[key as keyof typeof selectedAnchor.bounds] !== selectedAnchor.bounds[key as keyof typeof selectedAnchor.bounds])) throw new Error("Geo observation seed differs from the selected civic profile");
+  }
 
   const hazard = (contract?.hazard != null && typeof contract.hazard === "object" ? contract.hazard : {}) as Record<string, unknown>;
   const hazardDomains: HazardDomainInput[] = Array.isArray(hazard.relevantDomains)
@@ -357,14 +375,15 @@ export async function loadObservationInputs(options: ObservationInputOptions): P
   const compositeRaw = await readJsonArtifact(join(outputRoot(), "alerts", "composite", "current.json"), options.onCorrupt);
   const healthRaw = await readJsonArtifact(join(outputRoot(), "alerts", "source-health.json"), options.onCorrupt);
   const health = (healthRaw != null && typeof healthRaw === "object" ? healthRaw : {}) as Record<string, unknown>;
-  const monitors: MonitorObservation[] = (Array.isArray(health.sources) ? health.sources : []).map((entry) =>
+  const monitors: MonitorObservation[] = (Array.isArray(health.sources) && (crescent || health.profileId === profile.id) ? health.sources : []).map((entry) =>
     normalizeMonitorObservation(entry as Parameters<typeof normalizeMonitorObservation>[0]));
 
   return {
-    anchor: observationAnchor(contract?.anchor),
-    composite: normalizeCompositeSnapshot(compositeRaw),
+    anchor: observationAnchor(contract?.anchor ?? spec.anchor),
+    composite: crescent || compositeRaw != null && typeof compositeRaw === "object" && (compositeRaw as Record<string, unknown>).profileId === profile.id ? normalizeCompositeSnapshot(compositeRaw) : null,
     monitors,
     hazardDomains,
     contractGeneratedAt: typeof contract?.generatedAt === "string" ? contract.generatedAt : null,
+    ...(crescent ? {} : { profileId: profile.id, contractSchema: spec.id }),
   };
 }

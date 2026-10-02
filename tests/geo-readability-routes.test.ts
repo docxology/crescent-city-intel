@@ -18,6 +18,7 @@ import {
   type ReadabilityHistoryEntry,
 } from "../src/readability_history.ts";
 import { paths } from "../src/shared/paths.ts";
+import { CRESCENT_CITY_ANCHOR } from "../src/geo.ts";
 
 const BASE = "http://localhost:3000";
 const fencedDir = join(process.cwd(), "output", "state", "geo-readability-routes-test");
@@ -84,6 +85,7 @@ describe("GET /api/geo-observations", () => {
       anchor: {
         name: "Crescent City", guid: "CR4919", municipality: "Crescent City, CA",
         county: "Del Norte County", state: "California", latitude: 41.76, longitude: -124.2,
+        bounds: { ...CRESCENT_CITY_ANCHOR.bounds },
       },
       hazard: {
         relevantDomains: [

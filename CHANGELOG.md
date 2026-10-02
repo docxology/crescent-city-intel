@@ -8,6 +8,33 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.3.0] — 2026-10-02
+
+- Add a strict immutable public civic profile with canonical fingerprint, captured
+  asynchronous contexts, explicit output ownership and independent corpus,
+  calendar and vector namespaces. Preserve the deployed Crescent defaults.
+- Remove cross-jurisdiction empty-domain and geographic fallback contamination;
+  support validated generic geometry/observation contracts, selected timezone
+  civil-day conversion and distinct calendar product/UID identity.
+- Make news relevance and feed/fallback policies explicit at extraction, inject
+  coverage surfaces and keep alternate source rosters and seed fallback empty.
+  Bind cached/exported municipal code to the selected approved ecode360 identity.
+- Isolate lexical indexes by profile/root and staged vector receipts/metadata by
+  profile fingerprint and namespace. Capture profile configuration for derived
+  and Pages replay, refusing changed identity at activation.
+- Exercise synthetic non-Pacific profiles with real offline files, local HTTP
+  services and bounded processes. Authored Quadruplicate GUI/Pages, regional
+  producers and scheduler reject unsupported alternate configurations; no second
+  live civic deployment, legal correctness or operational multitenancy claim.
+- Document reuse and remaining provider/presentation/host acceptance in the full
+  root guide and its generated GitHub-displayed README.
+- Make producer contention admission configurable and parent-budget bounded,
+  replacing a fixed one-second wait that refused legitimate overlapping event
+  refreshes while the first captured and committed its edition.
+- Reject foreign table-of-contents identities in default and alternate readers;
+  bound output identity receipts and open custody inputs without blocking on
+  nonregular files before their regular-file admission check.
+
 ## [3.2.0] — 2026-10-01
 
 - Replace GitHub's five-line landing README with the complete root project

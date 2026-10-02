@@ -15,6 +15,7 @@
  * `import.meta.main`) wires them to disk using the shared atomic writers, so
  * importing this module from a test never triggers an export as a side effect.
  */
+import { assertCivicCorpusIdentity, bindCivicOutputRoot, currentCivicProfile } from "./civic_profile.js";
 import { mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
@@ -33,7 +34,7 @@ export function buildConsolidatedJson(toc: TocNode, articles: ArticlePage[]): Re
   return {
     municipality: toc.tocName,
     guid: toc.guid,
-    source: "https://ecode360.com/CR4919",
+    source: `https://ecode360.com/${toc.guid}`,
     exportedAt: new Date().toISOString(),
     articles: articles.map((a) => ({
       guid: a.guid,
@@ -167,7 +168,7 @@ export function buildSectionIndexCsv(articles: ArticlePage[]): string {
 }
 
 async function main() {
-  log.info("=== Crescent City Municipal Code Exporter ===");
+  log.info(`=== ${currentCivicProfile().name} Municipal Code Exporter ===`);
 
   if (!existsSync(paths.toc) || !existsSync(paths.manifest)) {
     log.error("Run the scraper first (bun run scrape)");
@@ -176,6 +177,8 @@ async function main() {
 
   const toc = await loadToc();
   const manifest = await loadManifest();
+  assertCivicCorpusIdentity(toc, manifest);
+  await bindCivicOutputRoot(paths.output);
   const articles = await loadAllArticles();
 
   log.info(`Loaded ${articles.length} article files`);

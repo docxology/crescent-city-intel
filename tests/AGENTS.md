@@ -92,3 +92,11 @@ and `bun run validate` is authoritative.
 2. Import functions directly: `import { fn } from "../src/<module>.ts"`
 3. Use `describe` + `test` + `expect`
 4. Document in this AGENTS.md and in the table above
+
+## Civic profile acceptance
+
+| File | Scope |
+| --- | --- |
+| `civic-profile.test.ts` | Strict public configuration, captured contexts, root ownership, source/corpus rejection and regional admission |
+| `civic-geography-calendar.test.ts` | Non-Pacific geography, empty domains, timezone and calendar identity |
+| `civic-profile-news-index.test.ts` | Profile-bound vector receipts, configurable relevance and interleaved search isolation |

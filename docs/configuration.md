@@ -9,9 +9,22 @@ explains operational choices; the generated inventory is the exhaustive literal
 source reference. `bun run scripts/generate-docs.ts --check` rejects drift with
 the affected filename; `--write` regenerates current inventories.
 
+## Civic jurisdiction configuration
+
+`CIVIC_PROFILE` selects a strictly validated public JSON profile once per process.
+The default preserves Crescent City identity and namespaces. Alternate profiles
+require an explicit isolated `CC_OUTPUT_DIR`, independently named calendar/vector
+identities and explicit source policies. Credentials and private paths stay in
+runtime settings. Inspect with `bun run civic:profile`; see
+[civic profiles](civic-profiles.md) and the synthetic
+[example](../configs/example-civic.json). Authored GUI/Pages, regional adapters and
+weekly scheduler remain Crescent-specific and refuse alternate activation.
+
 ## Core Constants (`src/constants.ts`)
 
-Hard-coded project constants. Change these to target a different municipality.
+Default Crescent City identity and approved-provider constants. Select another
+jurisdiction through the validated [civic profile](civic-profiles.md) and explicit
+adapter configuration; regional integrations retain their reviewed locality.
 
 | Constant | Value | Description |
 | :--- | :--- | :--- |

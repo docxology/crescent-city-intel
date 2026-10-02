@@ -24,12 +24,13 @@
  * they take a spec / domain surface and return plain JSON-safe objects without
  * filesystem or network side effects. Tests exercise them in isolation.
  */
-import { mkdir } from "fs/promises";
-import { join } from "path";
+import { mkdir, realpath } from "fs/promises";
+import { basename, dirname, join, resolve } from "path";
 import { outputRoot } from "./shared/paths.js";
 import { domains } from "./domains.js";
 import { writeJsonAtomic } from "./shared/source_health.js";
 import { createLogger } from "./logger.js";
+import { bindCivicOutputRoot, currentCivicProfile, isCrescentCityProfile, type CivicProfile } from "./civic_profile.js";
 
 const log = createLogger("geo-intel");
 
@@ -71,6 +72,8 @@ export interface MunicipalitySpec {
   anchor: MunicipalityAnchor;
   /** Curated civic-intelligence domain surface for this municipality. */
   domains: typeof domains;
+  /** Explicit deployment identity when a runtime civic profile supplied this spec. */
+  profileId?: string;
 }
 
 /** Authoritative Crescent City / Del Norte County anchor — the default. */
@@ -97,6 +100,45 @@ export function getDefaultCrescentSpec(): MunicipalitySpec {
     anchor: CRESCENT_CITY_ANCHOR,
     domains,
   };
+}
+
+/** Project a validated deployment profile without supplying another locality's policy. */
+export function getCivicMunicipalitySpec(profile: CivicProfile = currentCivicProfile()): MunicipalitySpec {
+  const crescent = isCrescentCityProfile(profile);
+  return {
+    id: crescent ? "crescent-city-geo-intel/v1" : "civic-geo-intel/v1",
+    anchor: {
+      name: profile.name, guid: profile.code?.municipalityCode ?? profile.id,
+      municipality: profile.municipality, county: profile.county, state: profile.state,
+      latitude: profile.anchor.latitude, longitude: profile.anchor.longitude,
+      bounds: { ...profile.anchor.bounds },
+    },
+    domains: crescent ? domains : [],
+    ...(crescent ? {} : { profileId: profile.id }),
+  };
+}
+
+/** Validate complete geographic identity; foreign contracts never borrow default coordinates. */
+export function assertMunicipalityAnchor(value: unknown): asserts value is MunicipalityAnchor {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid municipality anchor");
+  const a = value as Record<string, unknown>;
+  for (const key of ["name", "guid", "municipality", "county", "state"]) {
+    if (typeof a[key] !== "string" || !a[key].trim() || a[key].length > 300 || /[\u0000-\u001f\u007f]/.test(a[key])) throw new Error(`Invalid municipality anchor ${key}`);
+  }
+  const b = a.bounds as Record<string, unknown> | undefined;
+  const inRange = (n: unknown, min: number, max: number): n is number => typeof n === "number" && Number.isFinite(n) && n >= min && n <= max;
+  if (!inRange(a.latitude, -90, 90) || !inRange(a.longitude, -180, 180) || !b ||
+    !inRange(b.west, -180, 180) || !inRange(b.east, -180, 180) || !inRange(b.south, -90, 90) || !inRange(b.north, -90, 90) ||
+    b.west >= b.east || b.south >= b.north || a.longitude < b.west || a.longitude > b.east || a.latitude < b.south || a.latitude > b.north) throw new Error("Invalid municipality anchor coordinates or bounds");
+}
+
+/** Compatibility identity check, independent of the selected runtime profile. */
+export function isCrescentCityAnchor(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const a = value as Record<string, unknown>;
+  const bounds = a.bounds as Record<string, unknown> | undefined;
+  return ["name", "guid", "municipality", "county", "state", "latitude", "longitude"].every(key => a[key] === CRESCENT_CITY_ANCHOR[key as keyof MunicipalityAnchor]) &&
+    (bounds === undefined || ["west", "south", "east", "north"].every(key => bounds[key] === CRESCENT_CITY_ANCHOR.bounds[key as keyof GeoBounds]));
 }
 
 /** Tags whose presence marks a domain topic as hazard-relevant. */
@@ -203,10 +245,14 @@ export function hazardRelevantDomains(
  * get a plain JSON-safe contract keyed by that spec's `id`.
  */
 export function buildMunicipalityContract(spec: MunicipalitySpec): Record<string, unknown> {
-  const surface = spec.domains.length > 0 ? spec.domains : domains;
+  assertMunicipalityAnchor(spec.anchor);
+  if (spec.profileId !== undefined && (spec.profileId.length > 63 || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(spec.profileId))) throw new Error("Invalid geo profile identity");
+  if (spec.id === "crescent-city-geo-intel/v1" && (!isCrescentCityAnchor(spec.anchor) || spec.profileId !== undefined)) throw new Error("Crescent City geo schema differs from its geographic identity");
+  const surface = spec.domains;
   const relevant = hazardRelevantDomains(spec.domains);
   return {
     schema: spec.id,
+    ...(spec.profileId ? { profileId: spec.profileId } : {}),
     anchor: spec.anchor,
     generatedAt: new Date().toISOString(),
     domainCount: surface.length,
@@ -230,20 +276,20 @@ export function buildMunicipalityContract(spec: MunicipalitySpec): Record<string
 }
 
 /**
- * Build the full machine-readable Crescent City geo-intel contract (backward
- * compatible with v2.5). Internally resolves the default Crescent City spec and
- * delegates to the transferable pure builder.
+ * Build the selected civic profile's geo-intel contract. The exact default
+ * retains its Crescent City contract and policy surface; other profiles start
+ * with no curated domains until the caller supplies their own.
  *
  * @param domainList Optional ordered domain concern for pure testing; defaults
- *   to the built-in 12-domain surface.
+ *   to the built-in 12-domain surface for the exact Crescent default only.
  */
 export function buildGeoIntel(
-  domainList: typeof domains = domains,
+  domainList?: typeof domains,
 ): Record<string, unknown> {
-  const spec = getDefaultCrescentSpec();
+  const spec = getCivicMunicipalitySpec();
   return buildMunicipalityContract({
     ...spec,
-    domains: domainList.length > 0 ? domainList : spec.domains,
+    domains: domainList === undefined || isCrescentCityProfile() && domainList.length === 0 ? spec.domains : domainList,
   });
 }
 
@@ -260,28 +306,59 @@ export const geoPaths = {
  * pipeline is ready. Never an import side effect. Defaults to the Crescent City
  * contract so existing pages-data/geo-intel.json consumers stay valid.
  */
-export async function writeGeoIntelExports(): Promise<Array<string>> {
+/** One admission boundary for all geo seed/output writers, including physical aliases. */
+export async function prepareCivicGeoExportRoots(seedDir: string, outputDir: string): Promise<void> {
+  if (isCrescentCityProfile()) return;
+  if (!currentCivicProfile().capabilities.includes("geo")) throw new Error("Selected civic profile has no configured geo capability");
+    const physicalPath = async (path: string): Promise<string> => {
+      let candidate = resolve(path); const suffix: string[] = [];
+      for (;;) {
+        try { return join(await realpath(candidate), ...suffix); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT" || candidate === dirname(candidate)) throw error; suffix.unshift(basename(candidate)); candidate = dirname(candidate); }
+      }
+    };
+    const [seedPath, outputPath, trackedSeed, defaultOutput] = await Promise.all([physicalPath(seedDir), physicalPath(outputDir), physicalPath("pages-data"), physicalPath("output")]);
+    const overlaps = (left: string, right: string) => left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+    if (overlaps(seedPath, trackedSeed) || overlaps(outputPath, trackedSeed) || overlaps(seedPath, defaultOutput) || overlaps(outputPath, defaultOutput) || overlaps(seedPath, outputPath)) throw new Error("Alternate geo exports require independent roots outside the Crescent City seed and output");
+    await mkdir(seedDir, { recursive: true }); await mkdir(outputDir, { recursive: true });
+    await bindCivicOutputRoot(seedDir); await bindCivicOutputRoot(outputDir);
+}
+
+export async function writeGeoIntelExports(options: { seedDir?: string; outputDir?: string } = {}): Promise<Array<string>> {
+  const profile = currentCivicProfile();
+  if (!isCrescentCityProfile(profile) && (!profile.capabilities.includes("geo") || !options.seedDir || !options.outputDir)) throw new Error("Alternate geo exports require configured geo capability and explicit seed/output roots");
+  const seedDir = options.seedDir ?? "pages-data";
+  const outputDir = options.outputDir ?? outputRoot();
+  if (!isCrescentCityProfile(profile)) {
+    await prepareCivicGeoExportRoots(seedDir, outputDir);
+  }
   const payload = buildGeoIntel();
   const written: Array<string> = [];
   try {
-    await mkdir(join("pages-data"), { recursive: true });
-    await writeJsonAtomic(geoPaths.pagesSeed, payload);
-    written.push(geoPaths.pagesSeed);
+    await mkdir(seedDir, { recursive: true });
+    const seedPath = join(seedDir, "geo-intel.json");
+    await writeJsonAtomic(seedPath, payload);
+    written.push(seedPath);
   } catch (error) {
+    if (!isCrescentCityProfile(profile)) throw error;
     log.warn(`Could not write committed geo-intel seed: ${String(error)}`);
   }
   try {
-    await writeJsonAtomic(geoPaths.liveExport, payload);
-    written.push(geoPaths.liveExport);
+    const livePath = join(outputDir, "geo-intel.json");
+    await writeJsonAtomic(livePath, payload);
+    written.push(livePath);
   } catch (error) {
+    if (!isCrescentCityProfile(profile)) throw error;
     log.warn(`Skipping live export (output/ may be absent): ${String(error)}`);
   }
-  log.info(`wrote Crescent City geo-intel contract → ${written.join(", ")}`);
+  log.info(`wrote ${currentCivicProfile().name} geo-intel contract → ${written.join(", ")}`);
   return written;
 }
 
 // CLI entry: `bun run src/geo.ts` — emit the contract index.
 if (import.meta.main) {
-  const written = await writeGeoIntelExports().catch(() => []);
-  console.log(`Crescent City geo-intel written: ${written.length} file(s).`);
+  try {
+    const written = await writeGeoIntelExports();
+    console.log(`${currentCivicProfile().name} geo-intel written: ${written.length} file(s).`);
+  } catch (error) { log.error(String(error)); process.exitCode = 1; }
 }

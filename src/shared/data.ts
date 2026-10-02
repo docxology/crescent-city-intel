@@ -13,6 +13,7 @@ import { validateArticleCustody } from "../corpus_editions.js";
 import { createLogger } from "../logger.js";
 import { assertSafeFilesystemPath } from "./storage.js";
 import { captureArtifactBytes } from "../artifact_custody.js";
+import { currentCivicProfile, civicProfileFingerprint, isCrescentCityProfile, assertCivicCorpusIdentity } from "../civic_profile.js";
 
 const logger = createLogger("data");
 
@@ -42,7 +43,9 @@ export function invalidateSectionsCache(): void {
 export async function loadToc(): Promise<TocNode> {
   try {
     const raw = await readFile(paths.toc, "utf-8");
-    return JSON.parse(raw) as TocNode;
+    const toc = JSON.parse(raw) as TocNode;
+    assertCivicCorpusIdentity(toc);
+    return toc;
   } catch (err: any) {
     throw new Error(`Failed to load TOC from ${paths.toc}: ${err.message}. Run 'bun run scrape' first.`);
   }
@@ -50,9 +53,12 @@ export async function loadToc(): Promise<TocNode> {
 
 /** Load the scrape manifest from output/manifest.json */
 export async function loadManifest(): Promise<ScrapeManifest> {
+  const root = outputRoot();
   try {
-    const raw = await readFile(paths.manifest, "utf-8");
-    return JSON.parse(raw) as ScrapeManifest;
+    const raw = await readFile(`${root}/manifest.json`, "utf-8");
+    const manifest = JSON.parse(raw) as ScrapeManifest;
+    await assertLoadedCorpusIdentity(root, manifest);
+    return manifest;
   } catch (err: any) {
     throw new Error(`Failed to load manifest from ${paths.manifest}: ${err.message}. Run 'bun run scrape' first.`);
   }
@@ -62,7 +68,7 @@ export async function loadManifest(): Promise<ScrapeManifest> {
 export async function loadArticle(guid: string): Promise<ArticlePage> {
   if (!/^[A-Za-z0-9_-]+$/.test(guid)) throw new Error("Invalid article GUID");
   const root = outputRoot();
-  const manifest = JSON.parse(await readFile(`${root}/manifest.json`, "utf8")) as ScrapeManifest;
+  const manifest = await loadManifest();
   const entry = manifest.articles?.[guid];
   if (!entry) throw new Error(`Article '${guid}' is absent from current manifest`);
   const value: unknown = JSON.parse(await readFile(`${root}/articles/${guid}.json`, "utf8"));
@@ -71,6 +77,23 @@ export async function loadArticle(guid: string): Promise<ArticlePage> {
   const article = value as ArticlePage;
   if (article.guid !== guid || article.sha256 !== entry.sha256 || article.sections.length !== entry.sectionCount) throw new Error(`Article '${guid}' differs from manifest`);
   return article;
+}
+
+function assertLoadedManifestIdentity(manifest: ScrapeManifest): void {
+  const profile = currentCivicProfile();
+  if (!isCrescentCityProfile() || manifest.municipalityGuid !== undefined || manifest.sourceUrl !== undefined) {
+    assertCivicCorpusIdentity({ guid: profile.code?.municipalityCode }, manifest);
+    if (!isCrescentCityProfile() && (manifest.municipalityGuid !== profile.code?.municipalityCode || manifest.sourceUrl !== `https://ecode360.com/${profile.code?.municipalityCode}`)) throw new Error("Alternate corpus has no explicit jurisdiction binding");
+  }
+}
+
+/** Legacy default manifests may omit identity; a present TOC must still agree. */
+async function assertLoadedCorpusIdentity(root: string, manifest: ScrapeManifest): Promise<void> {
+  assertLoadedManifestIdentity(manifest);
+  let bytes: Uint8Array;
+  try { bytes = await captureArtifactBytes(`${root}/toc.json`, 8 * 1024 * 1024); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT" && isCrescentCityProfile()) return; throw error; }
+  assertCivicCorpusIdentity(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), manifest);
 }
 
 /** Load all article files from the articles directory (in parallel) */
@@ -87,7 +110,7 @@ export async function loadAllArticles(root = outputRoot()): Promise<ArticlePage[
     const entries: string[] = await readdir(dir).catch(error => { if (error.code === "ENOENT") return []; throw error; });
     // An unused volume may contain an empty articles directory. Any article or
     // core corpus artifact without its manifest is an incomplete edition.
-    const coreFiles = ["toc.json", "crescent-city-code.json", "verification-report.json"];
+    const coreFiles = ["toc.json", `${currentCivicProfile().corpusSlug}.json`, "crescent-city-code.json", "verification-report.json"];
     const rootEntries: string[] = await readdir(root).catch(error => { if (error.code === "ENOENT") return []; throw error; });
     if (entries.length || coreFiles.some(file => rootEntries.includes(file))) throw new Error("Corpus artifacts exist without a manifest; corpus is incomplete");
     return [];
@@ -97,6 +120,7 @@ export async function loadAllArticles(root = outputRoot()): Promise<ArticlePage[
   // queries, index fingerprints) would otherwise inherit run-to-run
   // nondeterminism (see embeddings.ts index-fingerprint determinism claim).
   if (!manifest || typeof manifest !== "object" || !manifest.articles || typeof manifest.articles !== "object" || Array.isArray(manifest.articles)) throw new Error("Invalid corpus manifest membership");
+  await assertLoadedCorpusIdentity(root, manifest);
   const jsonFiles = Object.keys(manifest.articles).sort().map(guid => {
     if (!/^[A-Za-z0-9_-]+$/.test(guid)) throw new Error("Unsafe article GUID in manifest");
     return `${guid}.json`;
@@ -137,13 +161,14 @@ export async function loadAllArticles(root = outputRoot()): Promise<ArticlePage[
 export async function loadAllSections(): Promise<FlatSection[]> {
   const now = Date.now();
   const root = outputRoot();
+  const cacheKey = `${root}:${civicProfileFingerprint()}`;
   // A cached read is only valid for the artifact root it came from: tests
   // redirect CC_OUTPUT_DIR to a corpus copy mid-process, and serving the other
   // root's sections here would quietly score queries against the wrong corpus.
-  if (_sectionsCache && _sectionsCacheRoot === root && now - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
+  if (_sectionsCache && _sectionsCacheRoot === cacheKey && now - _sectionsCacheTs < SECTIONS_CACHE_TTL_MS) {
     return _sectionsCache;
   }
-  const pending = _sectionsLoads.get(root);
+  const pending = _sectionsLoads.get(cacheKey);
   if (pending) return pending;
   const load = (async () => {
     try {
@@ -165,13 +190,13 @@ export async function loadAllSections(): Promise<FlatSection[]> {
       }
       _sectionsCache = sections;
       _sectionsCacheTs = Date.now();
-      _sectionsCacheRoot = root;
+      _sectionsCacheRoot = cacheKey;
       return sections;
     } finally {
-      _sectionsLoads.delete(root);
+      _sectionsLoads.delete(cacheKey);
     }
   })();
-  _sectionsLoads.set(root, load);
+  _sectionsLoads.set(cacheKey, load);
   return load;
 }
 

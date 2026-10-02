@@ -1,3 +1,4 @@
+import { isCrescentCityProfile } from "./civic_profile.js";
 /** Reviewed scheduling plans and explicit, ownership-checked installation targets. */
 import { mkdir, readFile, writeFile, lstat, unlink, realpath } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
@@ -10,6 +11,7 @@ const schedulerHash = (value: string | Buffer) => createHash("sha256").update(va
 export function shellArgument(value: string): string { if (/[\0\r\n]/.test(value)) throw new Error("Scheduled arguments cannot contain NUL/newlines"); return `'${value.replace(/'/g, `'"'"'`)}'`; }
 function xml(value: string): string { return value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[char]!)); }
 export function renderSchedulerPlan(options: { project: string; bun: string; platform: "darwin" | "linux"; timezone?: string }): { content: string; timezone: string; instruction: string } {
+  if (!isCrescentCityProfile()) throw new Error("The weekly scheduler requires a configured regional pipeline and distinct ownership plan for this civic profile");
   shellArgument(options.project); shellArgument(options.bun);
   const timezone = options.timezone ?? "America/Los_Angeles";
   if (timezone !== "America/Los_Angeles") throw new Error("This plan requires America/Los_Angeles calendar policy");
@@ -78,6 +80,7 @@ async function applyNativeCron(path: string, expectedBefore: string, expectedAft
 }
 function launchdDomain(): string { const uid = process.getuid?.(); if (!Number.isSafeInteger(uid) || uid! < 0) throw new Error("Native launchd requires a known user identity"); return `gui/${uid}`; }
 export async function installScheduler(options: SchedulerInstallOptions): Promise<SchedulerReceipt> {
+  if (!isCrescentCityProfile()) throw new Error("Alternate civic scheduler ownership is not configured");
   options.signal?.throwIfAborted(); const path = await safeTarget(options.targetPath), state = await schedulerState(options.stateDirectory), plan = renderSchedulerPlan(options.job);
   return withFileLease(join(state, "scheduler.lock"), async () => {
     options.signal?.throwIfAborted(); await recoverScheduler(state, path); await safeTarget(path);
@@ -110,6 +113,7 @@ export async function installScheduler(options: SchedulerInstallOptions): Promis
   }, { signal: options.signal, staleMs: 0 });
 }
 export async function removeScheduler(options: { targetPath: string; stateDirectory: string; deactivate?: boolean; signal?: AbortSignal }): Promise<SchedulerReceipt> {
+  if (!isCrescentCityProfile()) throw new Error("Alternate civic scheduler ownership is not configured");
   options.signal?.throwIfAborted(); const path = await safeTarget(options.targetPath), state = await schedulerState(options.stateDirectory);
   return withFileLease(join(state, "scheduler.lock"), async () => {
     await recoverScheduler(state, path); const receiptPath = join(state, "scheduler-receipt.json"); await safeTarget(receiptPath); const receipt = JSON.parse((await maybeText(receiptPath))!) as SchedulerReceipt;

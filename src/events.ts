@@ -27,6 +27,7 @@ import { writeJsonAtomic } from './shared/source_health.js';
 import { redactUrl } from './shared/transport.js';
 import { withProducerScope, type ProducerOptions } from './shared/run_scope.js';
 import { captureDerivedInputs, withCapturedDerivedInputs, retainDerivedOutput } from './derived_publication.js';
+import { currentCivicProfile, isCrescentCityProfile, civicProfileFingerprint } from './civic_profile.js';
 
 const logger = createLogger('events');
 
@@ -76,7 +77,9 @@ export interface StructuredEvent {
 }
 
 export interface EventsArtifact {
-  schemaVersion: typeof EVENTS_SCHEMA;
+  schemaVersion: typeof EVENTS_SCHEMA | 'civic-events/v1';
+  profileId?: string;
+  profileSha256?: string;
   generatedAt: string;
   count: number;
   llm: {
@@ -123,11 +126,15 @@ export function isCivilDate(value: string): boolean {
   const date = new Date(`${value}T12:00:00.000Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
-export function pacificDay(instant: Date = new Date()): string {
-  const parts = new Map(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(instant).map(part => [part.type, part.value]));
+/** The selected municipality's civil day, with an explicit timezone seam for pure callers. */
+export function civicDay(instant: Date = new Date(), timeZone = currentCivicProfile().timeZone): string {
+  if (!Number.isFinite(instant.getTime())) throw new Error("Invalid event assessment clock");
+  const parts = new Map(new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(instant).map(part => [part.type, part.value]));
   return `${parts.get("year")}-${parts.get("month")}-${parts.get("day")}`;
 }
-export function parseEventDate(raw: unknown): string | null {
+/** Legacy explicitly Pacific helper; generic consumers should call civicDay. */
+export function pacificDay(instant: Date = new Date()): string { return civicDay(instant, "America/Los_Angeles"); }
+export function parseEventDate(raw: unknown, timeZone = currentCivicProfile().timeZone): string | null {
   if (typeof raw !== "string") return null;
   const value = raw.trim(); if (!value || NO_DATE_VALUES.test(value)) return null;
   if (/^\d{8}$/.test(value)) { const date = `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`; return isCivilDate(date) ? date : null; }
@@ -137,8 +144,8 @@ export function parseEventDate(raw: unknown): string | null {
     if (value === iso[1]) return iso[1]!;
     const clock = value.match(/^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?$/i);
     if (!clock || Number(clock[1]) > 23 || Number(clock[2]) > 59 || Number(clock[3] ?? 0) > 59) return null;
-    if (/T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) {
-      const instant = new Date(value); return Number.isFinite(instant.getTime()) ? pacificDay(instant) : null;
+    if (/[T ].*(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)) {
+      const instant = new Date(value); return Number.isFinite(instant.getTime()) ? civicDay(instant, timeZone) : null;
     }
     return iso[1]!;
   }
@@ -157,14 +164,14 @@ export function parseEventDate(raw: unknown): string | null {
     const month = MONTH_NAMES.findIndex(name => name.startsWith(rfc[2]!.toLowerCase()));
     const day = `${rfc[3]}-${String(month + 1).padStart(2, "0")}-${rfc[1]!.padStart(2, "0")}`;
     if (month < 0 || !isCivilDate(day)) return null;
-    const instant = new Date(value); return Number.isFinite(instant.getTime()) ? pacificDay(instant) : null;
+    const instant = new Date(value); return Number.isFinite(instant.getTime()) ? civicDay(instant, timeZone) : null;
   }
   return null;
 }
-/** Compare civil dates in Crescent City's timezone; no UTC-day guess at midnight. */
-export function classify(dateStart: string | null, now: Date = new Date()): EventStatus {
+/** Compare civil dates in the selected locality's timezone; no UTC-day guess at midnight. */
+export function classify(dateStart: string | null, now: Date = new Date(), timeZone = currentCivicProfile().timeZone): EventStatus {
   if (dateStart === null || !isCivilDate(dateStart)) return "unknown";
-  return dateStart >= pacificDay(now) ? "scheduled" : "completed";
+  return dateStart >= civicDay(now, timeZone) ? "scheduled" : "completed";
 }
 
 // ---------------------------------------------------------------------------
@@ -624,7 +631,7 @@ export async function collectEvents(outputDir = outputRoot(), asOf: Date = new D
   // take the remainder. Sorting everything ascending and slicing at 200 —
   // what this used to do — spent the budget on months-old completed meetings
   // and dropped genuinely upcoming ones off the end.
-  const today = pacificDay(asOf);
+  const today = civicDay(asOf);
   const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
   const upcoming = withStatus
     .filter(event => event.dateStart !== null && event.dateStart >= today)
@@ -743,8 +750,11 @@ export async function summarizeEvents(
 
 /** Deterministic wrapper around collected events. */
 export function buildEventsArtifact(generatedAt: string, events: StructuredEvent[]): EventsArtifact {
+  const profile = currentCivicProfile();
+  const crescent = isCrescentCityProfile(profile);
   return {
-    schemaVersion: EVENTS_SCHEMA,
+    schemaVersion: crescent ? EVENTS_SCHEMA : 'civic-events/v1',
+    ...(crescent ? {} : { profileId: profile.id, profileSha256: civicProfileFingerprint(profile) }),
     generatedAt,
     count: events.length,
     llm: {
@@ -787,7 +797,7 @@ export function escapeIcsText(value: string): string {
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n");
+    .replace(/\r\n|\r|\n/g, "\\n");
 }
 
 /** Convert an ISO yyyy-mm-dd date to the ICS yyyymmdd form. */
@@ -821,13 +831,17 @@ export function nextIsoDay(date: string): string | null {
  */
 export function buildEventsIcs(
   events: ReadonlyArray<Pick<StructuredEvent, "id" | "title" | "dateStart" | "location" | "description" | "sourceLinks" | "status">>,
-  options: { stamp?: string } = {},
+  options: { stamp?: string; uidDomain?: string; productId?: string } = {},
 ): string {
   const dtStamp = options.stamp ? formatIcsStamp(options.stamp) : ICS_DEFAULT_STAMP;
+  const calendar = currentCivicProfile().calendar;
+  const uidDomain = options.uidDomain ?? calendar.uidDomain;
+  const productId = options.productId ?? calendar.productId;
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/.test(uidDomain) || !productId || productId.length > 300 || /[\u0000-\u001f\u007f]/.test(productId)) throw new Error('Invalid calendar identity');
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Crescent City Intel//Events Calendar//EN",
+    `PRODID:${escapeIcsText(productId)}`,
     "CALSCALE:GREGORIAN",
   ];
   for (const event of events) {
@@ -835,14 +849,14 @@ export function buildEventsIcs(
     const dtEnd = nextIsoDay(event.dateStart);
     if (!dtEnd) continue;
     const links = (Array.isArray(event.sourceLinks) ? event.sourceLinks : []).filter(link =>
-      /^https?:\/\//i.test(String(link)),
+      typeof link === "string" && !/[\x00-\x20\x7f]/.test(link) && (() => { try { const url = new URL(link); return /^https?:$/.test(url.protocol) && !url.username && !url.password; } catch { return false; } })(),
     );
     // Extendable mapping: extend here when EventStatus gains new values.
     const statusMap: Record<string, string> = { scheduled: "CONFIRMED", completed: "CONFIRMED", unknown: "TENTATIVE", cancelled: "CANCELLED" };
     const status = statusMap[event.status] ?? "TENTATIVE";
     const eventLines = [
       "BEGIN:VEVENT",
-      `UID:${event.id || "event"}@${ICS_UID_DOMAIN}`,
+      `UID:${escapeIcsText(event.id || "event")}@${uidDomain}`,
       `DTSTAMP:${dtStamp}`,
       `DTSTART;VALUE=DATE:${formatIcsDate(event.dateStart)}`,
       `DTEND;VALUE=DATE:${formatIcsDate(dtEnd)}`,

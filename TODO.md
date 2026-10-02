@@ -1,7 +1,7 @@
 # Open acceptance scopes
 
-Updated 2026-10-01 for the v3.2.0 operating contracts: the v3.1 implementation
-with checked GitHub guidance and bounded County meeting/document acquisition.
+Updated 2026-10-02 for the v3.3.0 operating contracts, including checked GitHub
+guidance, bounded County acquisition and tested shared civic-profile methods.
 This is the only item-level backlog. It contains acceptance that requires real
 source access, external consumers, independent interpretation or production
 operation.
@@ -41,6 +41,12 @@ a paid-provider budget or permanent service operation.
 - **Remaining evidence:** The selected host's actual scheduler activation, service restart, model/volume persistence, resource limits and backup/restore procedure over repeated scheduled runs.
 - **Acceptance:** Record host/runtime/image identities, declared timezone, installed job identity, restart and killed-run recovery, retained artifact hashes and observed degraded dependencies. Confirm unrelated jobs/processes survive and no missed or duplicate run is silently hidden.
 - **Ownership/dependencies:** Host/operator owner; isolated container and scheduler fixtures certify their tested boundaries, not permanent deployment or every provider.
+
+### M30 · P2 · Accept another explicitly configured civic deployment
+
+- **Existing contract:** Validated immutable public profiles, isolated roots and namespaces, municipal source identity admission, generic geography/calendar/news/coverage methods and profile-bound lexical/vector receipts. Synthetic non-Pacific tests exercise contamination and invalid-configuration failures.
+- **Remaining evidence:** A named real municipality with reviewed source/provider descriptors, local domain/legal content, authored public presentation and independently owned scheduler/host plan. Regional hazard/utility/road/fisheries adapters need their actual geographic policy and coverage; they are not enabled by changing labels.
+- **Acceptance:** Capture source/seed/configuration fingerprints; verify native indexes, calendar timezone evidence, no cross-jurisdiction records, public artifact/browser/replay identity and distinct scheduler ownership. Validate real provider availability and source rights, and record unsupported capabilities. Synthetic fixtures do not establish deployment or request-level multitenancy.
 
 ## Major
 

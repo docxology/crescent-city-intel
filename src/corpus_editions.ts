@@ -1,3 +1,4 @@
+import { currentCivicProfile } from "./civic_profile.js";
 /** Municipal-code custody: source fragments, parsed text, and immutable edition receipts. */
 import { load } from "cheerio";
 import { readFile, mkdir, readdir, rename, writeFile, rm } from "node:fs/promises";
@@ -100,7 +101,7 @@ export async function captureCorpusEdition(root: string, reason: string): Promis
   try { for (const name of ["manifest.json", "toc.json"]) bytes.set(name, await readFile(join(root, name))); } catch { return null; }
   const manifest = JSON.parse(bytes.get("manifest.json")!.toString()) as { articles?: Record<string, unknown> };
   if (!manifest.articles || typeof manifest.articles !== "object") return null;
-  for (const name of ["verification-report.json", "crescent-city-code.json"]) {
+  for (const name of ["verification-report.json", `${currentCivicProfile().corpusSlug}.json`]) {
     try { bytes.set(name, await readFile(join(root, name))); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   }
   for (const guid of Object.keys(manifest.articles).sort()) {

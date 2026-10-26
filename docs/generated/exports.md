@@ -512,7 +512,7 @@ Qualified source exports, independent of similarly named symbols in other module
 | [src/doc_inventory.ts:340](../../src/doc_inventory.ts#L340) | `validateCurrentGuidanceCommands` | function | `7d01fa25bcc0add05837747efca377f20db4edf5580484e87efa3e69b2084b9d` |
 | [src/doc_inventory.ts:329](../../src/doc_inventory.ts#L329) | `validateDocumentationInventory` | function | `39b477f408756ad15be423e0f88a3cb08787a4a9fe821df2729c9f86c505a8dd` |
 | [src/doc_inventory.ts:335](../../src/doc_inventory.ts#L335) | `writeDocumentationInventory` | function | `b0153085e73475e9b8ba8db0516502a56069d15d33f6eade35d62aeaf5b5f902` |
-| [src/domains.ts:13](../../src/domains.ts#L13) | `domains` | value | `b18c9ea68fe9ca8049a601f7df91c088ae9ebbb1ab51c05a70932cf160d28bf7` |
+| [src/domains.ts:13](../../src/domains.ts#L13) | `domains` | value | `2c07b337b73f5e548a8f159703a1fbde6a7120cc8fc1fec7ed3e146141bc3f2c` |
 | [src/domains.ts:714](../../src/domains.ts#L714) | `getDomainById` | function | `8c33faa7e3db30373607405b48846dd3a4b8d6255de746db0ada2b2f4a2946aa` |
 | [src/domains.ts:719](../../src/domains.ts#L719) | `getDomainSummaries` | function | `ed0c38ed5c1b4c1df8e21db2494782ed215fffe6c495e8e107c5216ece1b4bfb` |
 | [src/domains.ts:738](../../src/domains.ts#L738) | `searchDomains` | function | `d787998b191ae66961a69280d925b1866b76fbff026bdeef0efafc8b3384fdc2` |

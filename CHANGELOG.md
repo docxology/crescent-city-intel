@@ -2116,6 +2116,3 @@ None. All existing CLI commands and API endpoints remain compatible.
 - 208 tests · 0 failures · 19 test files
 
 ---
-
-[0.2.0]: https://github.com/docxology/crescent-city-intel/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/docxology/crescent-city-intel/releases/tag/v0.1.0

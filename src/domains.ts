@@ -346,7 +346,7 @@ export const domains: IntelligenceDomain[] = [
         externalRefs: [
           "https://www.delnortecounty.gov/departments/health-human-services",
           "https://www.cdss.ca.gov/",
-          "https://carecourt.ca.gov/",
+          "https://selfhelp.courts.ca.gov/care-act",
         ],
         tags: ["social services", "mental health", "care court", "poverty", "county coordination"],
       },
@@ -686,7 +686,7 @@ export const domains: IntelligenceDomain[] = [
           { sectionNumber: "§ 9.04", relevance: "Public Peace — crisis intervention protocols" },
         ],
         externalRefs: [
-          "https://carecourt.ca.gov/",
+          "https://selfhelp.courts.ca.gov/care-act",
           "https://www.delnortecounty.gov/departments/health-human-services",
         ],
         tags: ["mental health", "crisis intervention", "care court", "behavioral health"],

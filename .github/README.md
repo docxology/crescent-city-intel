@@ -455,9 +455,9 @@ The project maps the municipal code to **12 civic intelligence domains**, each c
 **External cross-references per domain:**
 
 - 🌊 Emergency: [CalOES Tsunami](https://www.caloes.ca.gov/hazard-mitigation/tsunami/) · [NOAA PTWC](https://www.tsunami.gov) · [Del Norte OES](https://www.co.del-norte.ca.us/)
-- 🦀 Business: [Crescent City Harbor](https://crescentcityharbor.com) · [CDFW North Coast](https://wildlife.ca.gov/regions/1)
+- 🦀 Business: [Crescent City Harbor](https://www.ccharbor.com/) · [CDFW North Coast](https://wildlife.ca.gov/regions/1)
 - 🌲 Environment: [Redwood NPS](https://www.nps.gov/redw/) · [California Coastal Commission](https://www.coastal.ca.gov/)
-- 🏠 Housing: [CalHFA](https://www.calhfa.ca.gov/) · [HUD California](https://www.hud.gov/states/california) · [CARE Court](https://carecourt.ca.gov/)
+- 🏠 Housing: [CalHFA](https://www.calhfa.ca.gov/) · [HUD California](https://www.hud.gov/states/california) · [CARE Court](https://selfhelp.courts.ca.gov/care-act)
 
 ### Tiles-free civic and hazard geo view
 

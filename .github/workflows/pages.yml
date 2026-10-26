@@ -32,7 +32,7 @@ jobs:
       DENO_VERSION: "2.9.7"
       DENO_LINUX_ZIP_SHA256: "c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -100,9 +100,9 @@ jobs:
           PAGES_SMOKE_DIR: ${{ github.workspace }}/.pages
         run: |
           bun test tests/lane5-render-smoke.test.ts -t 'lane 5: exported pages render cleanly' --timeout 120000
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - name: Upload the validated unchanged publication
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: .pages
   deploy:
@@ -118,4 +118,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

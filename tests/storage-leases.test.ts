@@ -25,6 +25,9 @@ test("a parent abort ends a real child-owned lease wait and leaves owner/data in
     const deadline = Date.now() + 1000; while (!existsSync(path) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
     expect(existsSync(path)).toBe(true);
     const ownerBytes = await readFile(path, "utf8"); const store = new IdempotencyStore(storePath); await store.load(); store.record("new", "new-hash");
+    expect(() => withFileLeaseSync(path, () => "must not run", 20)).toThrow("Sync writer lease unavailable");
+    expect(await readFile(path, "utf8")).toBe(ownerBytes);
+    expect(await readFile(storePath, "utf8")).toBe(initial);
     const controller = new AbortController(); const started = Date.now(); const save = store.save({ signal: controller.signal }); setTimeout(() => controller.abort(new Error("Parent cancelled")), 30);
     await expect(save).rejects.toThrow(); expect(Date.now() - started).toBeLessThan(300); expect(await readFile(path, "utf8")).toBe(ownerBytes); expect(await readFile(storePath, "utf8")).toBe(initial);
     const preAborted = new AbortController(); preAborted.abort();
@@ -53,9 +56,12 @@ test("killed recovery and sync owners are reclaimable with token receipts", asyn
   try {
     for (const name of [path, `${path}.recovery`]) { await writeFile(name, JSON.stringify({ pid: child.pid, token: "killed", startedAt: "2020-01-01T00:00:00Z" })); await utimes(name, new Date(0), new Date(0)); }
     child.kill("SIGKILL"); await child.exited;
-    const release = await acquireFileLease(path, { staleMs: 1, waitMs: 100 }); await release();
+    // Qualify recovery using the API's production budgets. Nested recovery
+    // includes real fsyncs; a 100 ms fixture budget is not a portability claim.
+    // Tight waits are checked against live owners separately above.
+    const release = await acquireFileLease(path, { staleMs: 1 }); await release();
     for (const name of [path, `${path}.recovery`]) { await writeFile(name, JSON.stringify({ pid: child.pid, token: "killed-sync", startedAt: "2020-01-01T00:00:00Z" })); await utimes(name, new Date(0), new Date(0)); }
-    expect(withFileLeaseSync(path, () => "recovered", 100)).toBe("recovered");
+    expect(withFileLeaseSync(path, () => "recovered")).toBe("recovered");
   } finally { child.kill(); await child.exited; await rm(root, { recursive: true, force: true }); }
 });
 test("invalid zero and negative PIDs recover within the declared wait", async () => {

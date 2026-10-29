@@ -143,6 +143,21 @@ bundled copy was explicitly skipped. Source/test/workflow hashes and retained
 failure/control log hashes identify the measured scope; hosted CI and deployment
 must be read from checks attached to the subsequently pushed commit.
 
+Final visual inspection of that committed artifact found that the front page
+omitted an optional `</head>` expected by the edition-clock insertion. Its first
+age notice rendered, but the absent metadata prevented subsequent age updates.
+The template now closes its head explicitly; parsed export checks require exactly
+one correct clock on every reader page, and native journeys verify visibility
+updates. The original artifact and failing regression remain retained.
+
+The first hosted reader/contract gate passed. Its weekly suite failed in nested
+sync recovery at the explicit 100 ms fixture budget (2,077 pass, 2 optional live
+model skips, one failure). The positive recovery case now uses the APIs' declared
+production defaults; a separate 20 ms live-child-owner refusal verifies that
+neither its lease nor data changes. Production lease code and budgets are
+unchanged. The prior Pages run was cancelled for this correction, not relabelled
+as a pass. These deltas require their own qualification and hosted runs.
+
 ## Evidence and acquisition
 
 Municipal article/section counts come from the selected edition manifest.

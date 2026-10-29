@@ -24,6 +24,9 @@ Versioned by [Semantic Versioning](https://semver.org/).
   actual recorded publication/recovery readiness.
 - Add real desktop/mobile Pages reader journeys alongside strict contracts,
   retained regression failures and source-refresh receipts.
+- Make front-page edition-clock insertion explicit and check the parsed metadata
+  and visibility-triggered age update. Qualify nested lease recovery under the
+  production API budgets while keeping tight live-owner refusal controls.
 
 ## [3.3.1] — 2026-10-02
 

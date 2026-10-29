@@ -6,7 +6,7 @@ Bun GUI: GitHub Pages cannot reach the local API, Ollama, or ChromaDB.
 
 ## Build locally
 
-Public pages distinguish edition generation from observation time. Each exported
+Public pages distinguish edition generation from observation time. Each reader
 page carries the exact edition timestamp and shows an age notice, refreshed on
 visibility changes and each minute. An edition older than 24 hours warns readers
 to check official agencies; missing, invalid and future clocks remain unknown.

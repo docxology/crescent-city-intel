@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { load as parseHtml } from "cheerio";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "fs/promises";
 import { dirname, join } from "path";
 import { tmpdir } from "node:os";
@@ -129,6 +130,11 @@ describe("public Pages snapshot", () => {
       const pagesHtmlMap: Record<string, string> = { "index.html": indexHtml };
       for (const page of PAGES_STATIC_PAGES.map(candidate => candidate.file).concat("404.html")) {
         pagesHtmlMap[page] = await readFile(join(destination, page), "utf8");
+      }
+      for (const [page, html] of Object.entries(pagesHtmlMap).filter(([page]) => page !== "404.html")) {
+        const metadata = parseHtml(html)('head meta[name="cc-edition-generated-at"]');
+        expect(metadata.length, `${page}: parsed head must contain one edition clock`).toBe(1);
+        expect(metadata.attr("content"), page).toBe("2026-07-24T01:00:00Z");
       }
       expect(validatePagesHtml(pagesHtmlMap)).toEqual([]);
     });

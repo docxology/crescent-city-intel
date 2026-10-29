@@ -62,6 +62,7 @@ export async function runPagesReaderJourneys(): Promise<void> {
         assertions.push("shared query restores, updates, reloads, handles history and clears");
 
         await page.goto(`${base}/`, { waitUntil: "domcontentloaded" });
+        assert.equal(await page.locator('head meta[name="cc-edition-generated-at"]').getAttribute("content"), generatedAt);
         await page.waitForFunction(() => document.querySelectorAll("#news-items article").length === 30);
         await page.locator('[data-more-list="news-items"]').click();
         assert.equal(await page.locator("#news-items article").count(), 60);
@@ -74,6 +75,10 @@ export async function runPagesReaderJourneys(): Promise<void> {
         await page.waitForFunction(() => document.querySelectorAll("#news-items article").length === 30);
         assert.equal(await page.locator('#edition-age [data-edition-age="older"]').count(), 1);
         assert.equal((await page.locator("#edition-age").textContent())!.includes("3 days old"), true);
+        await page.locator("#edition-age").evaluate(element => { element.textContent = "Awaiting edition-age update"; });
+        await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await page.waitForFunction(() => document.getElementById("edition-age")?.textContent?.includes("3 days old"));
+        assertions.push("edition metadata is present and visibility changes refresh the age notice");
         assertions.push("all 65 records reachable, keyboard focus retained, filter resets pagination, aged edition disclosed");
         await page.locator("#observations-refresh-state").waitFor();
         const retainedBoard = await page.locator(".observation-board").evaluate(element => element.outerHTML);

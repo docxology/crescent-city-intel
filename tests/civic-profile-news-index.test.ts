@@ -207,7 +207,8 @@ describe("civic profile vector custody", () => {
   })));
 
   test("the direct local chat default names the selected municipality", () => localVectors(async http => {
-    await withCivicProfile(second, () => chat([{ role: "user", content: "Synthetic fixture question" }], "Synthetic fixture context"));
+    try { await withCivicProfile(second, () => chat([{ role: "user", content: "Synthetic fixture question" }], "Synthetic fixture context")); }
+    catch (error) { throw new Error("Owned chat fixture failed: " + JSON.stringify({ expectedUrl: http.url, actualUrl: llmConfig.ollamaUrl, requests: http.requests }), { cause: error }); }
     const messages = http.requests.at(-1)!.body.messages as Array<{ role: string; content: string }>;
     expect(messages[0].content).toContain(second.municipality); expect(messages[0].content).not.toContain("Crescent City");
     expect(messages[0].content).toContain("Use only the provided context");

@@ -35,10 +35,8 @@ jobs:
         timeout-minutes: 1
         run: |
           bun -e 'import {newPage, closeBrowser} from "./src/browser.ts"; try { const page = await newPage({timeoutMs:15000}); if (await page.evaluate(() => 2 + 2) !== 4) throw new Error("Monitor browser protocol unavailable"); console.log("Real monitor browser protocol ready"); } finally { await closeBrowser(); }'
-      - name: Typecheck tests
-        run: bun run test:typecheck
-      - name: Run full test suite
-        run: bun test tests/ --timeout 30000
+      - name: Run authoritative release gate
+        run: bun run validate
       - name: Smoke-test every alert monitor
         run: bun run scripts/ci-monitor-smoke.ts
         env:

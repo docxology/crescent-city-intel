@@ -34,6 +34,11 @@ Versioned by [Semantic Versioning](https://semver.org/).
 - Keep the default claim-validation tests offline through real local provider
   fixtures; require explicit opt-in for ambient Ollama integration checks.
 
+- Exercise model catalogue limits, chat model selection and optional monthly
+  digest success/failure with actual local HTTP instead of ambient services.
+- Run the authoritative contracts/types/plain/coverage release gate in weekly
+  CI as well as Pages, preserving output-corpus fences and the line floor.
+
 ## [3.3.1] — 2026-10-02
 
 - Correct public Methods and FAQ wording, including structured search metadata:

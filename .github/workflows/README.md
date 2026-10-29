@@ -11,7 +11,8 @@
   and verify exact versions before source collection. Bun remains the app and
   check runtime. Source failures and unavailable transcripts remain explicit.
 - `weekly.yml`: explicit headless Linux browser mode and real protocol
-  preflight, full current-cycle monitor evidence, with exact artifact handoff
+  preflight, the authoritative contracts/types/plain/coverage gate, full
+  current-cycle monitor evidence, with exact artifact handoff
   from optional manual scraping to downstream verification/analysis.
 
 See [AGENTS.md](AGENTS.md). Offline configuration checks, hosted runs, live source

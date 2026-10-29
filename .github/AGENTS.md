@@ -18,7 +18,9 @@ hosted execution and deployment require their own receipts.
   a job-private municipal candidate with an 18 minute total budget, fresh live feeds, whole-edition code/seed
   selection, full public-tree validation, then unchanged artifact upload/deploy.
 - `weekly.yml`: headless Linux browser protocol preflight, current-cycle
-  whole-roster monitoring, full tests, and explicit scraper→artifact upload→downstream verification/analysis handoff on manual
+  whole-roster monitoring, the full authoritative contracts/types/plain/coverage
+  gate, and explicit scraper→artifact upload→downstream verification/analysis
+  handoff on manual
   scrape runs. Failed children or missing current evidence fail the job.
 
 Keep environment names, trigger/job topology, and the guide synchronized with

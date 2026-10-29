@@ -32,11 +32,11 @@ function publicErrorNote(value) {
   return "the last check did not succeed";
 }
 const FETCH_TIMEOUT_MS = 15000;
-async function load(path) {
+async function load(path, cache = "default") {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(path, { cache:"default", signal: controller.signal });
+    const response = await fetch(path, { cache, signal: controller.signal });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     return await response.json();
   } catch (error) {
@@ -92,19 +92,78 @@ function civicDayStamp(value) {
   return year * 10000 + month * 100 + day;
 }
 
-function daysUntilHint(dateStart, eventStatus) {
-  if (!dateStart || eventStatus === "completed") return "";
+function daysUntilHint(dateStart, eventStatus, now = new Date()) {
+  if (!dateStart || ["completed", "cancelled"].includes(eventStatus)) return "";
   const dateText = String(dateStart).trim().replace(/Z$/, "");
   const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateText) ? dateText : dateText.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return "";
-  const target = civicDayStamp(`${dateOnly}T12:00:00Z`);
-  const today = civicDayStamp(new Date().toISOString());
+  const parsed = new Date(`${dateOnly}T12:00:00Z`);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== dateOnly) return "";
+  const target = civicDayStamp(parsed.toISOString());
+  const today = civicDayStamp(now.toISOString());
   if (target === null || today === null) return "";
-  const days = target - today;
+  const ordinal = stamp => Date.UTC(Math.floor(stamp / 10000), Math.floor(stamp / 100) % 100 - 1, stamp % 100) / 86400000;
+  const days = ordinal(target) - ordinal(today);
   if (days === 0) return " · today";
   if (days === 1) return " · tomorrow";
   if (days > 1 && days <= 30) return ` · in ${days} days`;
   return "";
+}
+
+/** Edition age is a presentation warning, never a new observation timestamp. */
+function editionAgeEvidence(generatedAt, now = Date.now()) {
+  const valid = typeof generatedAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(generatedAt);
+  const day = valid ? new Date(`${generatedAt.slice(0, 10)}T12:00:00Z`) : null;
+  const stamp = day && Number.isFinite(day.getTime()) && day.toISOString().slice(0, 10) === generatedAt.slice(0, 10) ? Date.parse(generatedAt) : NaN;
+  const age = now - stamp;
+  if (!Number.isFinite(age) || age < 0) return { state: "unknown", text: "Edition time is missing, invalid or ahead of this device’s clock. Current safety conditions cannot be established from this page." };
+  const hours = Math.floor(age / 3600000);
+  if (age > 86400000) return { state: "older", text: `This edition is ${hours < 48 ? `${hours} hours` : `${Math.floor(hours / 24)} days`} old. Safety states describe collection time. Check official agency sources for current conditions.` };
+  return { state: "recent", text: "Safety states were captured for this edition; individual observations may be older. Check official agency sources for current conditions." };
+}
+
+function editionAgeNoticeHtml(generatedAt, now) {
+  const evidence = editionAgeEvidence(generatedAt, now);
+  return `<p class="edition-age ${evidence.state === "recent" ? "subtle" : "banner degraded"}" data-edition-age="${esc(evidence.state)}" role="status">${esc(evidence.text)}</p>`;
+}
+
+function updateEditionAgeNotice(generatedAt) {
+  const main = document.getElementById("main");
+  if (!main) return;
+  let holder = document.getElementById("edition-age");
+  if (!holder) { holder = document.createElement("div"); holder.id = "edition-age"; main.insertBefore(holder, main.firstChild); }
+  holder.dataset.generatedAt = String(generatedAt || "");
+  const html = editionAgeNoticeHtml(generatedAt);
+  if (holder.innerHTML !== html) holder.innerHTML = editionAgeNoticeHtml(generatedAt);
+}
+
+/** Restore a shared query and keep URL changes local to this same page. */
+function wireCodeSearchUrl(input, controller) {
+  const run = value => controller.search(String(value || "").trim().toLowerCase());
+  input.maxLength = 256;
+  const restore = () => { input.value = (new URL(location.href).searchParams.get("q") || "").slice(0, 256); run(input.value); };
+  const changed = debounce(() => {
+    const url = new URL(location.href);
+    const query = input.value.trim();
+    if (query) url.searchParams.set("q", query); else url.searchParams.delete("q");
+    history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    run(query);
+  });
+  input.addEventListener("input", changed);
+  window.addEventListener("popstate", restore);
+  restore();
+}
+
+/** Known recorded dates sort chronologically; unknown dates stay last. */
+function sortRecordedItems(items, direction = "newest") {
+  const keys = ["pubDate", "date", "publishedAt", "uploadDate", "uploadedAt", "curatedAt", "fetchedAt"];
+  const stamp = item => { for (const key of keys) { const value = item[key]; if (typeof value === "string" && Number.isFinite(Date.parse(value))) return Date.parse(value); } return null; };
+  return items.slice().sort((a, b) => {
+    const left = stamp(a), right = stamp(b);
+    if (left === null) return right === null ? 0 : 1;
+    if (right === null) return -1;
+    return direction === "oldest" ? left - right : right - left;
+  });
 }
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -361,6 +420,12 @@ function initThemeToggle() {
   const button = document.getElementById("theme-toggle");
   const root = document.documentElement;
   if (!button || !root) return;
+  const edition = document.querySelector('meta[name="cc-edition-generated-at"]');
+  if (edition) {
+    const updateAge = () => { if (!document.hidden) updateEditionAgeNotice(document.getElementById("edition-age")?.dataset.generatedAt || edition.content); };
+    updateAge(); setInterval(updateAge, 60000);
+    document.addEventListener("visibilitychange", updateAge);
+  }
   const apply = theme => {
     root.dataset.theme = theme === "dark" ? "dark" : "light";
     const dark = root.dataset.theme === "dark";

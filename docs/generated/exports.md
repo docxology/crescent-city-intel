@@ -1139,9 +1139,9 @@ Qualified source exports, independent of similarly named symbols in other module
 | [src/pages_snapshot.ts:1118](../../src/pages_snapshot.ts#L1118) | `summarizePagesGeoIntel` | function | `2d53b2efb392e6bac0c033c2599e89001a28a9225081e677c3d1cc698a38edaf` |
 | [src/pages_snapshot.ts:1137](../../src/pages_snapshot.ts#L1137) | `validatePagesGeoIntel` | function | `c2c477c464d2fc6d55eee41e7379b620a249ba07359a748e1d7982eb8ccd5c70` |
 | [src/pages_snapshot.ts:1041](../../src/pages_snapshot.ts#L1041) | `validatePagesGeoObservations` | function | `547a87db4fc2f484f837417ccf8217e4a61431ee00d993b275531afbc6ca9209` |
-| [src/pages_snapshot.ts:2167](../../src/pages_snapshot.ts#L2167) | `validatePagesHtml` | function | `e66f8b93d28fec9dc2b6306f9d43cee22c38e877c02135cd4f850018870111cf` |
-| [src/pages_snapshot.ts:2157](../../src/pages_snapshot.ts#L2157) | `validatePagesSource` | function | `36ca1231b276c7dadc6e44479575a5b5f3b619887a5df803e3b0bdedee52c931` |
-| [src/pages_snapshot.ts:2245](../../src/pages_snapshot.ts#L2245) | `writePagesSnapshotManifest` | function | `80566fb492d383fa6cfd855772cd00fcd3789372eb87a4eee3e7c2c1008fb89b` |
+| [src/pages_snapshot.ts:2168](../../src/pages_snapshot.ts#L2168) | `validatePagesHtml` | function | `e66f8b93d28fec9dc2b6306f9d43cee22c38e877c02135cd4f850018870111cf` |
+| [src/pages_snapshot.ts:2158](../../src/pages_snapshot.ts#L2158) | `validatePagesSource` | function | `36ca1231b276c7dadc6e44479575a5b5f3b619887a5df803e3b0bdedee52c931` |
+| [src/pages_snapshot.ts:2246](../../src/pages_snapshot.ts#L2246) | `writePagesSnapshotManifest` | function | `80566fb492d383fa6cfd855772cd00fcd3789372eb87a4eee3e7c2c1008fb89b` |
 | [src/pages_validation.ts:96](../../src/pages_validation.ts#L96) | `validatePagesArtifact` | function | `decfbc0abb00f33d2b9b56aee076af586e862777849acdb40ccaf03f2469bdac` |
 | [src/publication_bundle.ts:167](../../src/publication_bundle.ts#L167) | `hashPublicationTree` | function | `54d9db9294b68a8d5b47976c1f39d638ef3589eecf753b5cabd61a92ea098b7f` |
 | [src/publication_bundle.ts:117](../../src/publication_bundle.ts#L117) | `promotePublicationDirectory` | function | `14179ae07a0b75f1ac464f3331613ac2693b86e47f6602d06c2900292c2343e6` |

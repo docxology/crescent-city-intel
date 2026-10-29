@@ -803,6 +803,7 @@ bun test tests/search.test.ts   # single file
 | `bun run docs:check` | Check configuration/export/HTTP inventories, the complete GitHub README projection and current command drift |
 | `bun run docs:generate` | Regenerate inventories and GitHub README after deliberate source or root-guide edits |
 | `bun run test:gui-readers` | Real primary-API desktop/mobile reader journeys in isolated roots |
+| `bun run test:pages-readers` | Real exported Pages desktop/mobile search, pagination, chronology and edition-age journeys |
 | `bun run test:gui-journeys` | Real browser storage/rendering/request-security journeys |
 | `bun test` | Run the deterministic test suite |
 | `bun run test:coverage` | Run the deterministic suite with coverage |

@@ -6,6 +6,29 @@ Bun GUI: GitHub Pages cannot reach the local API, Ollama, or ChromaDB.
 
 ## Build locally
 
+Public pages distinguish edition generation from observation time. Each exported
+page carries the exact edition timestamp and shows an age notice, refreshed on
+visibility changes and each minute. An edition older than 24 hours warns readers
+to check official agencies; missing, invalid and future clocks remain unknown.
+Re-fetching the published observations artifact records success or failure
+without claiming that a browser polled an agency or freshened its observations.
+
+Municipal search restores `?q=...`, updates the same-page URL, supports history
+navigation and caps queries at 256 characters. Search stays in the static reader;
+it does not call a model or the private query logger. Front-page collections have
+bounded, keyboard-accessible “show more” controls; filtering resets the visible
+window without excluding later matching records. News ordering follows the
+selected chronological direction, with undated records last. Calendar day hints
+use civil-day arithmetic across month/year/leap-day/DST boundaries and suppress
+completed or cancelled occurrences.
+
+Run `bun run test:pages-readers` for real 1280 px and 390 px browser journeys over
+reviewed code text plus explicitly synthetic news. Fixture outputs, screenshots
+and the receipt stay under `TMPDIR`, or `PAGES_READER_QA_DIR` when supplied. This
+tests reader behavior rather than current upstream acquisition.
+It also exercises a real HTTP refresh failure and verifies that the retained
+observation board stays unchanged while the failure is disclosed.
+
 ```bash
 bun run pages:export -- --source output --seed pages-data --output .pages
 bun run pages:validate -- .pages

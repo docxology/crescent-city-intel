@@ -70,6 +70,7 @@
     "docs:check": "bun run scripts/generate-docs.ts --check",
     "source:coverage": "bun run scripts/source-coverage.ts",
     "test:gui-readers": "bun run tests/gui-readers.browser.ts",
+    "test:pages-readers": "bun run tests/pages-readers.browser.ts",
     "civic:profile": "bun run src/civic_profile.ts"
   },
   "dependencies": {

@@ -16,6 +16,34 @@ import { runPagesValidator } from "./helpers/pages-validator.ts";
 
 const STATIC_DIR = join(process.cwd(), "src", "pages", "static");
 
+test("calendar relative-day hints cross month, year, leap-day and DST boundaries", async () => {
+  const { daysUntilHint } = await loadSiteJs();
+  for (const [now, target] of [["2026-10-31T19:00:00Z", "2026-11-01"], ["2026-12-31T20:00:00Z", "2027-01-01"], ["2028-02-28T20:00:00Z", "2028-02-29"], ["2026-03-07T20:00:00Z", "2026-03-08"]]) {
+    expect(daysUntilHint(target!, "scheduled", new Date(now!))).toBe(" · tomorrow");
+  }
+  expect(daysUntilHint("2026-11-02", "scheduled", new Date("2026-10-31T19:00:00Z"))).toBe(" · in 2 days");
+  expect(daysUntilHint("2026-02-30", "scheduled", new Date("2026-02-28T20:00:00Z"))).toBe("");
+  expect(daysUntilHint("2026-11-01", "cancelled", new Date("2026-10-31T19:00:00Z"))).toBe("");
+});
+
+test("edition age never turns unknown, future or old timestamps into current safety evidence", async () => {
+  const { editionAgeEvidence } = await loadSiteJs();
+  const now = Date.parse("2026-10-28T12:00:00Z");
+  for (const stamp of [null, "", "invalid", "2026-02-30T12:00:00Z", "2026-10-29T12:00:00Z"]) expect(editionAgeEvidence(stamp, now).state).toBe("unknown");
+  expect(editionAgeEvidence("2026-10-28T11:00:00Z", now).state).toBe("recent");
+  expect(editionAgeEvidence("2026-10-26T12:00:00Z", now)).toMatchObject({ state: "older" });
+  expect(editionAgeEvidence("2026-10-26T12:00:00Z", now).text).toContain("2 days old");
+  expect(editionAgeEvidence("2026-10-28T11:00:00Z", now).text).toContain("individual observations may be older");
+});
+
+test("news sorting follows the selected chronology, leaves unknown dates last and preserves input order", async () => {
+  const { sortRecordedItems } = await loadSiteJs();
+  const items = [{ id: "old", pubDate: "2026-10-01T12:00:00Z" }, { id: "unknown" }, { id: "new", pubDate: "2026-10-28T12:00:00Z" }];
+  expect(sortRecordedItems(items).map(item => item.id)).toEqual(["new", "old", "unknown"]);
+  expect(sortRecordedItems(items, "oldest").map(item => item.id)).toEqual(["old", "new", "unknown"]);
+  expect(items.map(item => item.id)).toEqual(["old", "unknown", "new"]);
+});
+
 async function withFixture(run: (root: string) => Promise<void>): Promise<void> {
   // R3 P2: fixtures live in os.tmpdir(). They used to be mkdtemp'd inside the
   // repo, so an interrupted run left .ccife-* directories in the working tree.

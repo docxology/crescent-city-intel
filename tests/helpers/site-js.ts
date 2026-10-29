@@ -18,6 +18,9 @@ export const SITE_JS_PATH = join(process.cwd(), "src", "pages", "static", "asset
 
 /** The site.js exports this repo's tests drive. */
 export interface SiteJsApi {
+  daysUntilHint: (dateStart: string, eventStatus: string, now?: Date) => string;
+  editionAgeEvidence: (generatedAt: unknown, now?: number) => { state: string; text: string };
+  sortRecordedItems: <T>(items: T[], direction?: string) => T[];
   esc: (value: unknown) => string;
   empty: (message: string) => string;
   emptyListItem: (message: string) => string;
@@ -142,6 +145,8 @@ export async function loadSiteJs(documentStub?: unknown): Promise<SiteJsApi> {
   const source = await readFile(SITE_JS_PATH, "utf8");
   const inert = { getElementById: () => null, querySelectorAll: () => [], addEventListener: () => {} };
   const exportNames = [
+    "daysUntilHint",
+    "editionAgeEvidence", "sortRecordedItems",
     "esc", "empty", "emptyListItem", "publicErrorNote", "itemCard", "calendarWindowFilter",
     "calendarFreshnessText", "calendarEventKindChip", "calendarEventCard", "eventKindFilterValue",
     "wireCalendarWindowButtons", "wireCalendarKindChips", "createDeferredIndexSearch", "searchIndexMatches",

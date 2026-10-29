@@ -123,7 +123,9 @@ describe("lane1: payload split (Phase 1)", () => {
     // but through the shared debounce() and the deferred-index controller that
     // re-runs the pending query when the index arrives — the page no longer
     // owns its own setTimeout, so this asserts the behaviour, not the literal.
-    expect(code).toContain("debounce(value => controller.search(");
+    // The shared URL controller owns input debounce and query restoration;
+    // native Pages reader journeys assert that the index stays lazy.
+    expect(code).toContain("wireCodeSearchUrl(");
     expect(code).toContain("createDeferredIndexSearch(");
   });
 });

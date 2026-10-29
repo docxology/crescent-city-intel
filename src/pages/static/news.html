@@ -62,20 +62,21 @@
     const moreButton = document.getElementById("news-more");
     function render() {
       const needle = document.getElementById("content-filter").value.trim().toLowerCase();
-      const DATE_KEYS = ["pubDate", "date", "publishedAt", "uploadedAt", "curatedAt", "fetchedAt"];
-      const itemTime = item => { for (const key of DATE_KEYS) { const value = item[key]; if (typeof value === "string" && Number.isFinite(Date.parse(value))) return Date.parse(value); } return 0; };
       const fields = ["title", "source", "description", "content", "summary", "pubDate", "date"];
       const filtered = needle ? allItems.filter(item => fields.some(field => String(item[field] ?? "").toLowerCase().includes(needle))) : allItems;
-      const direction = document.getElementById("news-sort")?.value === "oldest" ? 1 : -1;
-      const sorted = filtered.slice().sort((a, b) => direction * (itemTime(b) - itemTime(a)));
+      const sorted = sortRecordedItems(filtered, document.getElementById("news-sort").value);
       const shown = sorted.slice(0, limit);
       document.getElementById("news-items").innerHTML = (filtered.length ? shown.map(item => itemCard(item, "news")).join("") : empty(needle ? "No news items matched the filter." : "No news items were available in this snapshot.")) + `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} news items.</div>`;
       if (moreButton) { moreButton.hidden = filtered.length <= limit; moreButton.textContent = "Show " + Math.min(PAGE_SIZE, filtered.length - limit) + " more"; }
     }
     const debouncedRender = (() => { let timer = null; return () => { clearTimeout(timer); timer = setTimeout(render, 200); }; })();
-    document.getElementById("content-filter").addEventListener("input", debouncedRender);
-    document.getElementById("news-sort").addEventListener("change", render);
-    if (moreButton) moreButton.addEventListener("click", () => { limit += PAGE_SIZE; render(); });
+    document.getElementById("content-filter").addEventListener("input", () => { limit = PAGE_SIZE; debouncedRender(); });
+    document.getElementById("news-sort").addEventListener("change", () => { limit = PAGE_SIZE; render(); });
+    if (moreButton) moreButton.addEventListener("click", () => {
+      const previous = limit; limit += PAGE_SIZE; render();
+      const heading = document.querySelectorAll("#news-items article h3")[previous];
+      if (heading) { heading.tabIndex = -1; heading.focus(); }
+    });
     document.getElementById("news-items").innerHTML = empty("Loading this edition\u2019s news records\u2026");
     load("data/news.json").then(items => { allItems = Array.isArray(items) ? items : []; render(); }).catch(error => { document.getElementById("news-items").innerHTML = empty(`News artifact unavailable — ${publicErrorNote(error && error.message || error)}.`); });
     };

@@ -100,8 +100,7 @@
           ? empty("Loading the municipal-code search index\u2026")
           : empty("The municipal-code search index could not be loaded, so this query was not run. Download code.json above to search the full export.");
       });
-      const debouncedSearch = debounce(value => controller.search(String(value || "").trim().toLowerCase()));
-      document.getElementById("code-search").addEventListener("input", event => { debouncedSearch(event.target.value); });
+      wireCodeSearchUrl(document.getElementById("code-search"), controller);
     }).catch(error => { document.getElementById("code-results").innerHTML = empty(`Code export unavailable — ${publicErrorNote(error && error.message || error)}.`); });
     };
     if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }

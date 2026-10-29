@@ -39,7 +39,7 @@
       "@type": "SearchAction",
       "target": {
         "@type": "EntryPoint",
-        "urlTemplate": "https://quadruplicate.org/index.html#code-search"
+        "urlTemplate": "https://quadruplicate.org/code.html?q={search_term_string}"
       },
       "query-input": "required name=search_term_string"
     },
@@ -91,7 +91,7 @@
       {
         "@type": "Question",
         "name": "How current is this snapshot?",
-        "acceptedAnswer": { "@type": "Answer", "text": "The snapshot is regenerated on schedule and carries its generation timestamp at the top of the page. Source health states show when each feed was last checked successfully." }
+        "acceptedAnswer": { "@type": "Answer", "text": "This static edition records its generation time and each source check. Reopening or refreshing the page does not poll agency feeds or freshen observations. Check the linked official sources for current conditions." }
       },
       {
         "@type": "Question",
@@ -178,7 +178,7 @@
         <div class="welcome-hero">
           <div class="welcome-kicker">Today&rsquo;s intelligence</div>
           <h2>Find the local signal, then follow the evidence.</h2>
-          <p style="font:.88rem/1.5">Choose a section to explore curated briefs with sourced citations, public meeting records, the municipal code, live safety monitors, and downloadable structured data.</p>
+          <p style="font:.88rem/1.5">Choose a section to explore curated briefs with sourced citations, public meeting records, the municipal code, captured safety monitors, and downloadable structured data.</p>
           <div id="welcome-status" class="meta" style="margin-top:10px" role="status">Loading snapshot status&hellip;</div>
           <div id="welcome-summary" class="banner" style="margin-top:12px">Loading the current analytical signal&hellip;</div>
         </div>
@@ -187,7 +187,7 @@
           <a class="welcome-link" href="#news"><span class="icon">📰</span><strong>Local news &amp; summaries</strong><span>News feeds, cited LLM briefs, public meetings, and YouTube records.</span></a>
           <a class="welcome-link" href="#registry"><span class="icon">🧭</span><strong>Source registry &amp; freshness</strong><span>Canonical sources, automation boundaries, health states, and coverage gaps.</span></a>
           <a class="welcome-link" href="#code"><span class="icon">📖</span><strong>Municipal code</strong><span>Search the public code export and follow its ecode360 provenance.</span></a>
-          <a class="welcome-link" href="#alerts"><span class="icon">🚨</span><strong>Safety &amp; live alerts</strong><span>Tsunami, earthquake, weather, tides, fishing, air, wildfire, and marine status.</span></a>
+          <a class="welcome-link" href="#alerts"><span class="icon">🚨</span><strong>Safety &amp; captured alerts</strong><span>Tsunami, earthquake, weather, tides, fishing, air, wildfire, and marine status.</span></a>
           <a class="welcome-link" href="#geo"><span class="icon">🗺️</span><strong>Civic &amp; hazard geo view</strong><span>Tiles-free Del Norte extent, Crescent City anchor, hazard domains, and linked code sections.</span></a>
           <a class="welcome-link" href="#report"><span class="icon">📊</span><strong>Analysis &amp; civic report</strong><span>Period metrics, pipeline state, source highlights, warnings, and freshness metadata.</span></a>
           <a class="welcome-link" href="data/snapshot.json" download><span class="icon">🧾</span><strong>Structured public data</strong><span>Download the snapshot envelope, geo-intel, health, registry, discovery, and report artifacts.</span></a>
@@ -244,7 +244,7 @@
       <div class="faq-item"><h3>What is The Quadruplicate?</h3><p>The Quadruplicate is a provenance-preserving public snapshot of Crescent City, California civic information: local news items, government meetings, community events, safety alerts, municipal code exports, and source health records.</p></div>
       <div class="faq-item"><h3>Where do the facts come from?</h3><p>Items are collected from public sources such as crescentcity.org, Del Norte County, the Crescent City Harbor, agency alert feeds, and official meeting videos. Each item keeps its source URL so you can read the original record.</p></div>
       <div class="faq-item"><h3>Does AI write the content?</h3><p>Optional language models summarize and tag collected material. Their outputs can contain errors, even when a source is cited. Check the linked original records before relying on a summary or tag.</p></div>
-      <div class="faq-item"><h3>How current is this snapshot?</h3><p>The snapshot is regenerated on schedule and carries its generation timestamp at the top of the page. Source health states show when each feed was last checked successfully.</p></div>
+      <div class="faq-item"><h3>How current is this snapshot?</h3><p>This static edition records its generation time and each source check. Reopening or refreshing the page does not poll agency feeds or freshen observations. Check the linked official sources for current conditions.</p></div>
       <div class="faq-item"><h3>How can I subscribe to community events?</h3><p>Use the Subscribe button in the Community Calendar section to add the events calendar to any calendar app that supports the iCalendar format. A downloadable events JSON file is also provided.</p></div>
       <div class="faq-item"><h3>Is the municipal code official?</h3><p>The code export is derived from the published eCode360 edition of the Crescent City Municipal Code and links back to the source. For legal decisions always consult the official published code directly.</p></div>
     </div>
@@ -264,7 +264,7 @@
       </div>
     </section>
     <section id="observations" class="section">
-      <div class="section-head"><span class="newspaper-label">Hazard Desk</span><h2>Live hazard observations</h2><span class="meta"><a href="data/geo-observations.json">Download observations JSON</a></span></div>
+      <div class="section-head"><span class="newspaper-label">Hazard Desk</span><h2>Published hazard observations</h2><span class="meta"><a href="data/geo-observations.json">Download observations JSON</a></span></div>
       <p class="subtle">The same <code>crescent-city-geo-observations/v1</code> envelope served by the local GUI, rendered backend-free from the exact artifact published with this edition: composite severity, per-monitor operational states, and contract freshness.</p>
       <template data-pages-observations></template>
     </section>
@@ -353,7 +353,7 @@
   </main>
   <script>
   const __bootPage = () => {
-    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all", eventWindow: "all" };
+    const state = { snapshot: null, code: null, healthFilter: "all", contentFilter: "", registryFilter: "", automationFilter: "all", registrySort: "name", registryDirection: "asc", selectedSourceId: null, eventFilter: "all", eventWindow: "all", listLimits: {} };
     // load() and FETCH_TIMEOUT_MS come from the shared assets/site.js prelude.
     function downloadText(filename, text, type) { const blob = new Blob([text], { type }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); }
     function downloadJson(filename, value) { downloadText(filename, `${JSON.stringify(value, null, 2)}\n`, "application/json"); }
@@ -365,7 +365,24 @@
       const filtered = filteredHealth(sources);
       $("health").innerHTML = filtered.length ? filtered.map(source => healthCardHtml(source)).join("") : empty(state.healthFilter === "all" ? "No source-health artifact was available for this snapshot." : `No sources are ${state.healthFilter}.`);
     }
-    function renderList(id, items, kind, fields, limit = SEARCH_CAP) { const needle = state.contentFilter.trim().toLowerCase(); const filtered = needle ? items.filter(item => matchesFields(item, fields, needle)) : items; const shown = filtered.slice(0, limit); $(id).innerHTML = (filtered.length ? shown.map(item => itemCard(item, kind)).join("") + (filtered.length > shown.length ? `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} matching ${esc(kind.toLowerCase())} items — refine the filter to see more.</div>` : "") : empty(needle ? `No ${kind.toLowerCase()} items matched the filter.` : `No ${kind.toLowerCase()} items were available in this snapshot.`)) + (needle ? `<div class="meta">Showing ${esc(shown.length)} of ${esc(filtered.length)} matching ${esc(kind.toLowerCase())} items.</div>` : ""); }
+    function renderList(id, items, kind, fields) {
+      const needle = state.contentFilter.trim().toLowerCase();
+      const filtered = needle ? items.filter(item => matchesFields(item, fields, needle)) : items;
+      const limit = state.listLimits[id] || SEARCH_CAP;
+      const shown = filtered.slice(0, limit);
+      $(id).innerHTML = (shown.length ? shown.map(item => itemCard(item, kind)).join("") : empty(needle ? `No ${kind.toLowerCase()} items matched the filter.` : `No ${kind.toLowerCase()} items were available in this snapshot.`))
+        + `<div class="meta" role="status">Showing ${esc(shown.length)} of ${esc(filtered.length)} ${esc(kind.toLowerCase())} items.</div>`
+        + (shown.length < filtered.length ? `<div class="show-more-row"><button type="button" class="button secondary" data-more-list="${esc(id)}">Show ${Math.min(SEARCH_CAP, filtered.length - shown.length)} more ${esc(kind.toLowerCase())} items</button></div>` : "");
+    }
+    const lists = { "news-items": ["news", "News", ["title", "source", "description", "content", "summary", "pubDate", "date"]], "meeting-items": ["meetings", "Meetings", ["title", "source", "description", "summary", "date", "pubDate"]], "curated-items": ["curated", "Curation", ["title", "source", "summary", "curatedAt"]] };
+    for (const [id, [key, kind, fields]] of Object.entries(lists)) $(id).addEventListener("click", event => {
+      if (!event.target.closest(`[data-more-list="${id}"]`) || !state.snapshot) return;
+      const previous = state.listLimits[id] || SEARCH_CAP;
+      state.listLimits[id] = previous + SEARCH_CAP;
+      renderList(id, state.snapshot[key] || [], kind, fields);
+      const heading = $(id).querySelectorAll("article h3")[previous];
+      if (heading) { heading.tabIndex = -1; heading.focus(); }
+    });
     function renderMetadata(snapshot) {
       const summary = snapshot.healthSummary || {};
       const curation = snapshot.report && snapshot.report.curation;
@@ -532,9 +549,7 @@
         const matches = sections.filter(section => [section.number, section.title, section.text].join(" ").toLowerCase().includes(needle));
         renderCodeMatches(matches, needle);
       });
-      const debouncedSearch = debounce(value => controller.search(String(value || "").trim().toLowerCase()));
-      $("code-search").addEventListener("input", event => { debouncedSearch(event.target.value); });
-      controller.search("");
+      wireCodeSearchUrl($("code-search"), controller);
     }
     async function start() {
       try {
@@ -542,6 +557,7 @@
         state.snapshot = snapshot;
         $("banner").className = `banner ${esc(snapshot.status)}`;
         $("banner").innerHTML = `<strong>Snapshot ${esc(String(snapshot.status || "unknown").toUpperCase())}</strong> — generated ${esc(date(snapshot.generatedAt))}. ${snapshot.status === "degraded" ? "The export pipeline reported a failure; inspect pipeline metadata and Source health before interpreting the dashboard." : snapshot.status === "unavailable" ? "Required data was unavailable for this export." : "Source states are shown below; empty is a successful check with no matching records."}`;
+        updateEditionAgeNotice(snapshot.generatedAt);
         renderAnalytics(snapshot); renderWelcome(snapshot); renderCards(snapshot); renderMetadata(snapshot); renderHealth(snapshot.sourceHealth || []); renderRegistry(snapshot); renderList("news-items", snapshot.news || [], "News", ["title", "source", "description", "content", "summary", "pubDate", "date"]); renderList("meeting-items", snapshot.meetings || [], "Meetings", ["title", "source", "description", "summary", "date", "pubDate"]); renderEvents(snapshot); renderList("curated-items", snapshot.curated || [], "Curation", ["title", "source", "summary", "curatedAt"]); renderAlerts(snapshot);
         try { renderGeoIntel(await load(snapshot.files?.geoIntel || "data/geo-intel.json")); } catch (error) { $("geo-tags").innerHTML = `<span class="error">Contract details unavailable: ${esc(publicErrorNote(error && error.message || error))}.</span>`; $("geo-sections").innerHTML = empty("Download the geo-intel JSON to inspect the map-ready view."); }
         if (snapshot.files && snapshot.files.code) { try { renderCode({ articles: [] }); } catch { $("code-results").innerHTML = empty("The code export could not be loaded."); } } else { $("code-results").innerHTML = empty("No municipal code export was present."); }
@@ -565,7 +581,7 @@
     $("source-detail").addEventListener("click", async event => { if (!event.target.closest("#copy-source-json") || !state.snapshot) return; const record = registryRecords(state.snapshot).find(source => source.id === state.selectedSourceId); if (!record) return; await copyValue(JSON.stringify(record, null, 2)); const copyButton = event.target; copyButton.textContent = "Copied"; setTimeout(() => { copyButton.textContent = "Copy record JSON"; }, 2000); });
     $("download-registry-json").addEventListener("click", () => { if (!state.snapshot) return; const records = registryRecords(state.snapshot).filter(source => { const needle = state.registryFilter.trim().toLowerCase(); return (!needle || matchesFields(source, ["name", "id", "kind", "region", "authority", "automation", "canonicalUrl", "operationalStatus"], needle)) && (state.automationFilter === "all" || source.automation === state.automationFilter); }); downloadJson("crescent-city-source-registry-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, registryFingerprint: state.snapshot.sourceRegistryFingerprint, filter: state.registryFilter, automation: state.automationFilter, sources: records }); });
     $("download-registry-csv").addEventListener("click", () => { if (!state.snapshot) return; const records = registryRecords(state.snapshot).filter(source => { const needle = state.registryFilter.trim().toLowerCase(); return (!needle || matchesFields(source, ["name", "id", "kind", "region", "authority", "automation", "canonicalUrl", "operationalStatus"], needle)) && (state.automationFilter === "all" || source.automation === state.automationFilter); }); downloadText("crescent-city-source-registry.csv", sourceCsv(records), "text/csv"); });
-    $("content-filter").addEventListener("input", debounce(event => { state.contentFilter = event.target.value; if (state.snapshot) { renderList("news-items", state.snapshot.news || [], "News", ["title", "source", "description", "content", "summary", "pubDate", "date"]); renderList("meeting-items", state.snapshot.meetings || [], "Meetings", ["title", "source", "description", "summary", "date", "pubDate"]); renderList("curated-items", state.snapshot.curated || [], "Curation", ["title", "source", "summary", "curatedAt"]); } }));
+    $("content-filter").addEventListener("input", debounce(event => { state.contentFilter = event.target.value; state.listLimits = {}; if (state.snapshot) { for (const [id, [key, kind, fields]] of Object.entries(lists)) renderList(id, state.snapshot[key] || [], kind, fields); } }));
     $("download-content").addEventListener("click", () => { if (!state.snapshot) return; const needle = state.contentFilter.trim().toLowerCase(); const filter = items => items.filter(item => !needle || matchesFields(item, ["title", "source", "description", "content", "summary", "pubDate", "date", "curatedAt"], needle)); downloadJson("crescent-city-content-filtered.json", { schemaVersion: "1.0.0", generatedAt: state.snapshot.generatedAt, query: state.contentFilter, news: filter(state.snapshot.news || []), meetings: filter(state.snapshot.meetings || []), curated: filter(state.snapshot.curated || []), events: filter(state.snapshot.events?.events || []) }); });
     $("download-snapshot").addEventListener("click", () => { if (state.snapshot) downloadJson("crescent-city-snapshot.json", state.snapshot); });
     $("copy-fingerprint").addEventListener("click", async event => { if (!state.snapshot?.sourceRegistryFingerprint) return; await copyValue(state.snapshot.sourceRegistryFingerprint); const fingerprintButton = event.currentTarget; fingerprintButton.textContent = "Fingerprint copied"; $("structured-state").textContent = "The registry fingerprint is now in your clipboard."; setTimeout(() => { fingerprintButton.textContent = "Copy registry fingerprint"; }, 2000); });
@@ -575,17 +591,18 @@
   if (document.readyState === "loading") { window.addEventListener("DOMContentLoaded", __bootPage); } else { __bootPage(); }
   </script>
   <script>
-/* Live observations refresher (night-edition pass). The board above is
+/* Published observations refresher. The board above is
    rendered at export time from the exact published envelope; this module
    re-checks the artifact in the background and re-renders it when the
    producer has published a newer envelope. On any failure the export-time
-   render stays put — it remains the honest edition truth — so failures are
-   silent. The exporter's data-observations-state contract is preserved. */
+   render stays put and an explicit refresh status records the failure.
+   Re-fetching a static artifact does not poll an agency or freshen observations. */
 (() => {
   const REFRESH_MS = 600000;
   const relative = iso => {
     const then = Date.parse(String(iso || ""));
     if (!Number.isFinite(then)) return String(iso || "not recorded");
+    if (then > Date.now()) return "timestamp ahead of this device’s clock";
     const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
     if (seconds < 90) return seconds + "s ago";
     const minutes = Math.round(seconds / 60);
@@ -604,19 +621,26 @@
       ? '<div class="observation-monitors" aria-label="Per-monitor operational states">' + monitors.map(monitor => '<span class="observation-chip"><span class="status ' + esc(monitor.status) + '">' + esc(String(monitor.status).toUpperCase()) + "</span> " + esc(monitor.label) + "</span>").join("") + "</div>"
       : '<div class="meta">No monitor observations were recorded.</div>';
     const freshness = envelope.freshness || {};
-    return '<div class="observation-board" data-observations-state="published">' + compositeHtml + chipsHtml + '<p class="meta observation-freshness">Contract generated ' + esc(freshness.contractGeneratedAt ?? "not recorded") + " · observations generated " + esc(envelope.generatedAt) + '</p><p class="observation-live"><span class="live-dot" aria-hidden="true"></span>Live check · updated ' + esc(relative(envelope.generatedAt)) + " · re-checks every 10 min</p></div>";
+    return '<div class="observation-board" data-observations-state="published">' + compositeHtml + chipsHtml + '<p class="meta observation-freshness">Contract generated ' + esc(freshness.contractGeneratedAt ?? "not recorded") + " · observations generated " + esc(envelope.generatedAt) + '</p><p class="observation-live">Published observations · produced ' + esc(relative(envelope.generatedAt)) + " · artifact re-checks every 10 min; agency feeds are not polled by this page.</p>" + editionAgeNoticeHtml(envelope.generatedAt) + "</div>";
   };
   let lastGeneratedAt = null;
+  const refreshStatus = text => {
+    let line = $("observations-refresh-state");
+    if (!line) { line = document.createElement("p"); line.id = "observations-refresh-state"; line.className = "meta"; line.setAttribute("role", "status"); $("observations").appendChild(line); }
+    line.textContent = text;
+  };
   const check = async () => {
     if (document.hidden) return;
     try {
-      const envelope = await load("data/geo-observations.json");
-      if (!envelope || !envelope.generatedAt || envelope.generatedAt === lastGeneratedAt) return;
+      const envelope = await load("data/geo-observations.json", "no-cache");
+      if (!envelope || !Number.isFinite(Date.parse(envelope.generatedAt)) || !Array.isArray(envelope.monitors)) throw new Error("Unusable observation artifact");
+      refreshStatus("Published artifact checked " + new Date().toLocaleTimeString() + ". Agency observation times remain unchanged by this check.");
+      if (envelope.generatedAt === lastGeneratedAt) return;
       const board = document.querySelector(".observation-board");
       if (!board) return;
       lastGeneratedAt = envelope.generatedAt;
       board.outerHTML = renderBoard(envelope);
-    } catch (error) { /* silent: the export-time board remains authoritative */ }
+    } catch (error) { refreshStatus("Could not refresh the published observations. The retained collection remains visible; consult official sources for current conditions."); }
   };
   const startLive = () => {
     setInterval(check, REFRESH_MS);

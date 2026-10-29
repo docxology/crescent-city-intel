@@ -45,3 +45,5 @@ jobs:
           bun run scripts/ci-affected-tests.ts < /tmp/changed.txt
       - name: Real GUI browser smoke
         run: bun run test:browser
+      - name: Real public Pages reader journeys
+        run: bun run test:pages-readers

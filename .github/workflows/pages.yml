@@ -43,6 +43,8 @@ jobs:
         run: bun run source-discovery
       - name: Run deterministic release gate
         run: bun run validate
+      - name: Real public Pages reader journeys
+        run: bun run test:pages-readers
       - name: Install pinned transcript dependencies
         timeout-minutes: 5
         run: |

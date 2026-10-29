@@ -37,7 +37,7 @@ describe("lane B r2: definition-of-done regression gate", () => {
     expect(html).not.toContain("async function load(");
     const shared = await readFile("src/pages/static/assets/site.js", "utf8");
     expect(shared).toContain("const FETCH_TIMEOUT_MS");
-    expect(shared).toContain("async function load(path)");
+    expect(shared.match(/async function load\(/g)).toHaveLength(1);
   });
 
   test("scrollable regions are keyboard-focusable with region semantics (axe scrollable-region-focusable)", async () => {

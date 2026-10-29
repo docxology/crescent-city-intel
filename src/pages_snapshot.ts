@@ -1868,7 +1868,8 @@ async function exportCapturedPagesSnapshot(options: { outputDir?: string; munici
       return html;
     };
     const indexTemplate = templates.html["index.html"]!;
-    const faviconHead = buildPagesFaviconHeadHtml();
+    const editionHead = `<meta name="cc-edition-generated-at" content="${escapePagesHtml(generatedAt)}">`;
+    const faviconHead = `${buildPagesFaviconHeadHtml()}\n${editionHead}`;
     // index.html keeps its hand-authored canonical/OG/Twitter head block; the
     // generated head-meta path covers the six standalone pages from the manifest.
     const indexChromed = embedPagesFooter(
@@ -1886,7 +1887,7 @@ async function exportCapturedPagesSnapshot(options: { outputDir?: string; munici
     if (indexHtmlFinal.includes(PAGES_DATE_PUBLISHED_PLACEHOLDER) || indexHtmlFinal.includes(PAGES_DATE_MODIFIED_PLACEHOLDER)) {
       throw new Error("Pages index JSON-LD date placeholders were not replaced");
     }
-    const indexWithAssets = resolveAssetPlaceholders(indexHtmlFinal.replace("  <script>", `${PAGES_SHARED_JS_TAG}\n  <script>`));
+    const indexWithAssets = resolveAssetPlaceholders(indexHtmlFinal.replace("</head>", `${editionHead}\n</head>`).replace("  <script>", `${PAGES_SHARED_JS_TAG}\n  <script>`));
     await writeFile(join(temporary, "index.html"), assertNoAssetPlaceholders(indexWithAssets, "index.html"), "utf8");
     const page404Bytes = inputContext.capture.transforms["src/pages/static/404.html"];
     if (!page404Bytes) throw new Error("Pages captured 404 template is absent");

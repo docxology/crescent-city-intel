@@ -3,6 +3,7 @@ export interface StoredVector { id: string; document: string; embedding: number[
 export function llmHttpFixture() {
   const collections = new Map<string, Map<string, StoredVector>>();
   let embedRequests = 0, failEmbedAfter = Infinity, omitLastUpsert = false, stalledEmbedMatch = "";
+  let ollamaChat = "See § 8.04.010.", ollamaChatStatus = 200;
   let ollamaStream = '{"message":{"content":"See § 8.04.010."},"done":false}\n{"done":true}';
   const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
   const server = Bun.serve({ port: 0, async fetch(request) {
@@ -17,7 +18,10 @@ export function llmHttpFixture() {
       if (stalledEmbedMatch && input.some(value => String(value).includes(stalledEmbedMatch))) await new Promise(() => {});
       return Response.json({ embeddings: input.map(value => [String(value).length / 100, 1, body.model === "changed-model" ? 2 : 1]) });
     }
-    if (path === "/api/chat") return body.stream ? new Response(ollamaStream) : Response.json({ message: { content: "See § 8.04.010." } });
+    if (path === "/api/chat") {
+      if (ollamaChatStatus !== 200) return new Response("Recorded fixture unavailability", { status: ollamaChatStatus });
+      return body.stream ? new Response(ollamaStream) : Response.json({ message: { content: ollamaChat } });
+    }
     if (path === "/api/v2/auth/identity") return Response.json({ tenant: "default_tenant", databases: ["default_database"] });
     if (path === "/api/v2/heartbeat") return Response.json({ "nanosecond heartbeat": 1 });
     if (path === "/api/v2/pre-flight-checks") return Response.json({ max_batch_size: 1000, supports_base64_encoding: false });
@@ -51,5 +55,5 @@ export function llmHttpFixture() {
     }
     return new Response("Not found", { status: 404 });
   } });
-  return { server, url: `http://127.0.0.1:${server.port}`, collections, requests, get embedRequests() { return embedRequests; }, set failEmbedAfter(value: number) { failEmbedAfter = value; }, set omitLastUpsert(value: boolean) { omitLastUpsert = value; }, set ollamaStream(value: string) { ollamaStream = value; }, set stalledEmbedMatch(value: string) { stalledEmbedMatch = value; } };
+  return { server, url: `http://127.0.0.1:${server.port}`, collections, requests, get embedRequests() { return embedRequests; }, set failEmbedAfter(value: number) { failEmbedAfter = value; }, set omitLastUpsert(value: boolean) { omitLastUpsert = value; }, set ollamaChat(value: string) { ollamaChat = value; }, set ollamaChatStatus(value: number) { ollamaChatStatus = value; }, set ollamaStream(value: string) { ollamaStream = value; }, set stalledEmbedMatch(value: string) { stalledEmbedMatch = value; } };
 }

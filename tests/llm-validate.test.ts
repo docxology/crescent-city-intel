@@ -2,11 +2,12 @@
  * Tests for src/llm/validate.ts — cross-source claim validation.
  *
  * The pure builders run real substring/classification math (no provider, no
- * mocks). The provider-backed path is exercised through
- * validateClaims-degrades-to-unsupported when no provider is available in a
- * test environment.
+ * mocks). The real provider client uses a local HTTP protocol fixture for
+ * both proposed quotations and unavailability; no ambient model is consulted.
  */
 import { describe, expect, test } from "bun:test";
+import { llmConfig } from "../src/llm/config.ts";
+import { llmHttpFixture } from "./helpers/llm-http.ts";
 import {
   buildClaimValidation,
   classifySupportFromCounts,
@@ -125,32 +126,48 @@ describe("buildClaimValidation — pure assembly", () => {
 });
 
 describe("validateClaims — provider-backed wrapper honors the grounding invariant", () => {
-  test("every reported verified span passes the code-side substring check; every rejection failed it", async () => {
-    // Provider may be up (local Ollama) or down in a given environment. Either
-    // way the invariant is absolute: a span can only influence the verdict by
-    // passing verifiedBySubstring against a real snippet — never by model say-so.
-    const result = await validateClaims(
-      "The council adopted the harbor overlay ordinance.",
-      [SNIPPET_A, SNIPPET_B],
-    );
-    for (const v of result.verifiedSpans) {
-      const owner = [SNIPPET_A, SNIPPET_B].find(s => s.sourceUrl === v.sourceUrl);
-      expect(owner).toBeDefined();
-      expect(verifiedBySubstring(v.span, owner!.text)).toBe(true);
-      expect(v.verified).toBe(true);
-    }
-    for (const r of result.rejectedSpans) {
-      const foundSomewhere = [SNIPPET_A, SNIPPET_B].some(s => verifiedBySubstring(r.span, s.text));
-      expect(foundSomewhere).toBe(false);
-    }
-    if (result.verdict === "unsupported") expect(result.distinctSourcesCount).toBe(0);
-    expect(result.provenance).toHaveLength(2);
-  }, 60_000);
+  async function withProvider(run: (http: ReturnType<typeof llmHttpFixture>) => Promise<void>): Promise<void> {
+    const http = llmHttpFixture(), previous = { provider: llmConfig.provider, ollamaUrl: llmConfig.ollamaUrl };
+    Object.assign(llmConfig, { provider: "ollama", ollamaUrl: http.url });
+    try { await run(http); } finally { Object.assign(llmConfig, previous); http.server.stop(true); }
+  }
 
-  test("empty claim or no snippets short-circuits without a provider call", async () => {
+  test("every reported verified span passes the code-side substring check; fabricated proposals are rejected", () => withProvider(async http => {
+    http.ollamaChat = JSON.stringify({ supportingQuotes: ["voted 4-1 to adopt", "adopted the harbor overlay ordinance", "unanimously prohibited all harbor access"], contradictingQuotes: ["the council rejected the ordinance unanimously"] });
+    const result = await validateClaims("The council adopted the harbor overlay ordinance.", [SNIPPET_A, SNIPPET_B]);
+    expect(http.requests.map(request => request.path)).toEqual(["/api/chat"]);
+    expect(result.verifiedSpans).toHaveLength(2);
+    expect(result.rejectedSpans).toEqual([{ span: "unanimously prohibited all harbor access", reason: "not_found" }, { span: "the council rejected the ordinance unanimously", reason: "not_found" }]);
+    expect(result.distinctSourcesCount).toBe(2);
+    expect(result.proposedQuoteClassification).toBe("corroborated");
+    expect(result.verdict).toBe("unassessed");
+    expect(result.verifiedSupport).toBe(false);
+    for (const verified of result.verifiedSpans) {
+      const owner = [SNIPPET_A, SNIPPET_B].find(snippet => snippet.sourceUrl === verified.sourceUrl);
+      expect(owner).toBeDefined();
+      expect(verifiedBySubstring(verified.span, owner!.text)).toBe(true);
+      expect(verified.verified).toBe(true);
+    }
+    for (const rejected of result.rejectedSpans) expect([SNIPPET_A, SNIPPET_B].some(snippet => verifiedBySubstring(rejected.span, snippet.text))).toBe(false);
+    expect(result.provenance).toHaveLength(2);
+  }), 60_000);
+
+  test("actual provider failure cannot fabricate quoted support", () => withProvider(async http => {
+    http.ollamaChatStatus = 503;
+    const result = await validateClaims("The council adopted the harbor overlay ordinance.", [SNIPPET_A, SNIPPET_B]);
+    expect(http.requests.map(request => request.path)).toEqual(["/api/chat", "/api/chat"]);
+    expect(result.verifiedSpans).toEqual([]);
+    expect(result.distinctSourcesCount).toBe(0);
+    expect(result.proposedQuoteClassification).toBe("unsupported");
+    expect(result.verdict).toBe("unassessed");
+    expect(result.verifiedSupport).toBe(false);
+  }));
+
+  test("empty claim or no snippets short-circuits without a provider call", () => withProvider(async http => {
     const blank = await validateClaims("", [SNIPPET_A]);
     const none = await validateClaims("claim", []);
     expect(blank.verdict).toBe("unassessed");
     expect(none.verdict).toBe("unassessed");
-  });
+    expect(http.requests).toEqual([]);
+  }));
 });

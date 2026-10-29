@@ -31,6 +31,9 @@ Versioned by [Semantic Versioning](https://semver.org/).
   optional municipal acquisition, so missing display infrastructure cannot be
   mistaken for a source outage.
 
+- Keep the default claim-validation tests offline through real local provider
+  fixtures; require explicit opt-in for ambient Ollama integration checks.
+
 ## [3.3.1] — 2026-10-02
 
 - Correct public Methods and FAQ wording, including structured search metadata:

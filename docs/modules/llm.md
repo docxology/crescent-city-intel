@@ -198,8 +198,15 @@ Counters reset on process restart; batch scripts keep their own window per run.
 
 ## Verification commands
 
+The default suite uses real local HTTP fixtures for provider contracts, including
+accepted verbatim quotes, rejected invented spans and HTTP failure. It never
+probes the ambient Ollama service. The two existing live integration checks are
+explicit opt-in; requesting them with a missing service fails setup rather than
+silently skipping. These checks do not certify factual grounding or model quality.
+
 ```bash
 bun test tests/llm-usage-and-fallback.test.ts   # deterministic accounting/parse/fallback tests
+CC_LIVE_LLM_TESTS=1 bun test tests/llm-live-integration.test.ts # explicit live Ollama checks
 bun run test:llm-native                       # optional real Ollama/Chroma acceptance; requires both services
 bun run index                                # stage and activate a reconciled RAG index
 bun run query "tsunami hazard zone regulations" # end-to-end semantic search check

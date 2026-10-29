@@ -176,6 +176,17 @@ receipts. Final canonical verification and publication use the supported
 checks. Workflow guidance is synchronized with the reader journeys and native
 preflight. Earlier failures and the admission gap remain recorded separately.
 
+The first guarded gate retained 2,079 passes and a five-second validator-child
+negative-control timeout; isolation rejected the injected leak in 1.66 seconds,
+without establishing the full-run cause. An explicit unchanged-candidate rerun
+then retained 2,077 passes, two optional model skips and an unrelated 60-second
+claim-validation timeout. The latter test contacted the ambient provider despite
+the offline suite contract. Its replacement uses the real provider client over
+local HTTP, with accepted quotations, invented spans and HTTP 503 controls.
+Ambient Ollama checks now require explicit opt-in, and missing live services fail
+that opt-in setup. The validator timeout remains an unresolved historical
+observation; no deadline was widened or failure relabelled.
+
 ## Evidence and acquisition
 
 Municipal article/section counts come from the selected edition manifest.

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { newPage, navigateWithCloudflare, closeBrowser, ownedBrowserPid, launchBrowser, withPageDeadline } from "../src/browser.ts";
 import { mkdtemp, rm, writeFile, readFile, chmod, readdir, rename, mkdir, access } from "node:fs/promises";
 import { spawn } from "node:child_process";
@@ -127,14 +127,36 @@ test("real launch protocol stall after startup obeys the 400ms parent deadline",
     expect(alive(pid)).toBe(false); expect(ownedBrowserPid()).toBeUndefined();
   }); } finally { clearTimeout(timer); controller.abort(); await pending?.catch(() => undefined); if (prior === undefined) delete process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE; else process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE = prior; await withOutputRoot(root, () => closeBrowser()); await rm(root, { recursive: true, force: true }); }
 }, 5000);
-test("different captured roots own separate Chromium sessions", async () => {
-  const a = await mkdtemp(join(tmpdir(), "cci-browser-a-")), b = await mkdtemp(join(tmpdir(), "cci-browser-b-")); const prior = process.env.HEADLESS_BROWSER; process.env.HEADLESS_BROWSER = "1";
-  try {
-    const [left, right] = await Promise.all([withOutputRoot(a, () => newPage()), withOutputRoot(b, () => newPage())]);
-    const leftPid = withOutputRoot(a, () => ownedBrowserPid()), rightPid = withOutputRoot(b, () => ownedBrowserPid()); expect(leftPid).not.toBe(rightPid);
-    const receipt = await withOutputRoot(a, () => closeBrowser()); expect(receipt).toMatchObject({ directChildReaped: true, processGroupGone: true }); expect(left.isClosed()).toBe(true); expect(right.isClosed()).toBe(false);
-  } finally { await Promise.all([withOutputRoot(a, () => closeBrowser()), withOutputRoot(b, () => closeBrowser())]); if (prior === undefined) delete process.env.HEADLESS_BROWSER; else process.env.HEADLESS_BROWSER = prior; await rm(a, { recursive: true, force: true }); await rm(b, { recursive: true, force: true }); }
-}, 10_000);
+describe("captured-root browser isolation", () => {
+  let fixture: { root: string; a: string; b: string; prior: string | undefined; pages?: Awaited<ReturnType<typeof newPage>>[] };
+  // Browser startup is a bounded prerequisite, separate from the isolation
+  // operation. The old single 10s clock could expire before both pages existed.
+  beforeAll(async () => {
+    const root = await mkdtemp(join(tmpdir(), "cci-browser-isolation-"));
+    fixture = { root, a: join(root, "a"), b: join(root, "b"), prior: process.env.HEADLESS_BROWSER };
+    process.env.HEADLESS_BROWSER = "1";
+    fixture.pages = await Promise.all([withOutputRoot(fixture.a, () => newPage({ timeoutMs: 8000 })), withOutputRoot(fixture.b, () => newPage({ timeoutMs: 8000 }))]);
+  }, 20_000);
+  test("different captured roots own separate Chromium sessions", async () => {
+    const { a, b, pages } = fixture;
+    if (!pages || pages.length !== 2) throw new Error("Both real browser pages must be ready before the isolation check");
+    const [left, right] = pages;
+    const leftPid = withOutputRoot(a, () => ownedBrowserPid()), rightPid = withOutputRoot(b, () => ownedBrowserPid());
+    expect(leftPid).not.toBe(rightPid);
+    const receipt = await withOutputRoot(a, () => closeBrowser());
+    expect(receipt).toMatchObject({ directChildReaped: true, processGroupGone: true });
+    expect(left!.isClosed()).toBe(true); expect(right!.isClosed()).toBe(false);
+    expect(await right!.evaluate(() => 1 + 1)).toBe(2);
+    expect(alive(rightPid!)).toBe(true);
+  }, 10_000);
+  afterAll(async () => {
+    if (!fixture) return;
+    try {
+      await Promise.all([withOutputRoot(fixture.a, () => closeBrowser()), withOutputRoot(fixture.b, () => closeBrowser())]);
+      await rm(fixture.root, { recursive: true, force: true });
+    } finally { if (fixture.prior === undefined) delete process.env.HEADLESS_BROWSER; else process.env.HEADLESS_BROWSER = fixture.prior; }
+  }, 5000);
+});
 test("parent cancellation reaps an actually SIGSTOP-wedged Chromium group", async () => {
   const root = await mkdtemp(join(tmpdir(), "cci-chrome-wedged-")); const prior = process.env.HEADLESS_BROWSER; process.env.HEADLESS_BROWSER = "1"; const controller = new AbortController();
   const unrelated = Bun.spawn([process.execPath, "-e", "setInterval(()=>{},1000)"], { stdout: "ignore", stderr: "ignore" });

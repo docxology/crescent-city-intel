@@ -57,7 +57,7 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `HEALER_RETRY_BACKOFF_CAP_MS` | [src/alerts/healer.ts:138](../../src/alerts/healer.ts#L138) | `envInt("HEALER_RETRY_BACKOFF_CAP_MS", 4 * 60 * 60 * 1000)` | `4 * 60 * 60 * 1000` |
 | `HOME` | [src/browser_smoke.ts:30](../../src/browser_smoke.ts#L30) | `process.env.HOME` | `"~"` |
 | `HOME` | [src/browser_smoke.ts:31](../../src/browser_smoke.ts#L31) | `process.env.HOME` | `"~"` |
-| `HOME` | [src/browser.ts:53](../../src/browser.ts#L53) | `process.env.HOME` | `""` |
+| `HOME` | [src/browser.ts:55](../../src/browser.ts#L55) | `process.env.HOME` | `""` |
 | `LIFEOS_CUSTOMIZATIONS_DIR` | [scripts/lifeos-bridge.ts:19](../../scripts/lifeos-bridge.ts#L19) | `process.env.LIFEOS_CUSTOMIZATIONS_DIR` | `join(home, ".claude", "LIFEOS", "USER", "CUSTOMIZATIONS", "SKILLS", "LocalIntelligence")` |
 | `LIFEOS_DATA_DIR` | [scripts/lifeos-bridge.ts:21](../../scripts/lifeos-bridge.ts#L21) | `process.env.LIFEOS_DATA_DIR` | `join(home, ".claude", "LIFEOS", "MEMORY", "DATA", "LocalIntelligence")` |
 | `LLM_PREFLIGHT_TIMEOUT_MS` | [src/llm/config.ts:50](../../src/llm/config.ts#L50) | `process.env.LLM_PREFLIGHT_TIMEOUT_MS` | `"5000"` |
@@ -90,6 +90,7 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `PAGES_SEED_DIR` | [scripts/run-geo-observations.ts:33](../../scripts/run-geo-observations.ts#L33) | `process.env.PAGES_SEED_DIR` | `"pages-data"` |
 | `PAGES_SEED_DIR` | [src/gui/routes.ts:628](../../src/gui/routes.ts#L628) | `process.env.PAGES_SEED_DIR` | `"pages-data"` |
 | `PLAYWRIGHT_BROWSERS_PATH` | [src/browser_smoke.ts:29](../../src/browser_smoke.ts#L29) | `process.env.PLAYWRIGHT_BROWSERS_PATH` | not declared at this read |
+| `PLAYWRIGHT_BROWSERS_PATH` | [src/browser.ts:50](../../src/browser.ts#L50) | `process.env.PLAYWRIGHT_BROWSERS_PATH` | not declared at this read |
 | `PLAYWRIGHT_CHROMIUM_EXECUTABLE` | [src/browser.ts:47](../../src/browser.ts#L47) | `process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE` | `undefined` |
 | `PLAYWRIGHT_EXECUTABLE_PATH` | [src/browser_smoke.ts:25](../../src/browser_smoke.ts#L25) | `process.env.PLAYWRIGHT_EXECUTABLE_PATH` | not declared at this read |
 | `PORT` | [src/browser_smoke.ts:49](../../src/browser_smoke.ts#L49) | `process.env.PORT` | `"3999"` |

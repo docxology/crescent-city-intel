@@ -45,7 +45,9 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
   // `npx playwright install chromium --with-deps`); a hardcoded path is only
   // used when explicitly provided via env.
   let executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
-  if (!executablePath) {
+  const managedExecutable = chromium.executablePath();
+  if (!executablePath && existsSync(managedExecutable)) executablePath = managedExecutable;
+  if (!executablePath && process.platform === "darwin" && !process.env.PLAYWRIGHT_BROWSERS_PATH) {
     // Discover any installed Playwright-managed build (build numbers vary).
     try {
       const { readdirSync } = await import("fs");
@@ -56,7 +58,7 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
         const candidate = join(cacheRoot, entry, "chrome-mac-arm64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing");
         if (existsSync(candidate)) { executablePath = candidate; break; }
       }
-    } catch { /* best-effort discovery; default resolution remains the fallback */ }
+    } catch { /* Legacy macOS discovery is optional only when no managed root was explicitly selected. */ }
   }
 
   log.info(headless ? "Launching Chromium browser (headless)" : "Launching Chromium browser (non-headless)");

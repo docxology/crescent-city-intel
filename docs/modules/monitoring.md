@@ -336,6 +336,12 @@ other monitor. Real fixtures live in `tests/fixtures/uscg/`
 
 ## Curation and reporting
 
+Curation records retained-record recovery progress before waiting for its
+identity-store commit. Interruption controls wait for an actual running attempt
+receipt with the expected generated/reused count before cancelling a blocked
+publication. This distinguishes publication interruption from a setup timeout
+while preserving prior batch/report/seen bytes and retry provenance.
+
 `bun run curate` reads only news, government-meeting, and successful YouTube
 transcript batches. It records provider/model, source excerpts, citations,
 summary status, prompt version, input fingerprints, and retryable provider

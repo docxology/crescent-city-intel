@@ -4,6 +4,18 @@ The scraping pipeline consists of four modules that work together to extract mun
 
 ## `src/browser.ts` — Browser Management
 
+Browser resolution honors an explicit executable first, then the build managed
+by the installed Playwright package. Legacy macOS cache discovery applies only
+when no explicit managed-browser root was selected. `PLAYWRIGHT_BROWSERS_PATH`
+therefore keeps an isolated development/CI environment from silently using a
+different browser build from the user cache.
+
+Native isolation and weekly SIGTERM tests establish real browser readiness in a
+separately bounded fixture before starting the operation clock. Missing readiness
+fails setup; interruption, reaping, root isolation and preservation assertions
+retain their operation bounds. Readiness polls use fresh file handles because
+Bun 1.4.2 retains a negative existence result on an existing `BunFile` object.
+
 Manages the Playwright browser lifecycle with anti-detection measures for Cloudflare Turnstile bypass.
 
 ### Exports

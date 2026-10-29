@@ -579,7 +579,12 @@ async function runCurationWithinBudget(signal: AbortSignal): Promise<CuratedItem
       idempotency.seen(item.id, fingerprint, { source: item.source, promptVersion: CURATION_PROMPT_VERSION, provider, model, summaryStatus: item.contentKind ? 'source_only' : 'ok', ...(item.contentKind ? { contentKind: item.contentKind, retryable: false } : {}) });
       reusedCount++;
     }
-    if (reusedCount) await idempotency.save({ signal });
+    if (reusedCount) {
+      // Persist observed recovery progress before a contended identity commit.
+      // An interruption must not erase which retained records were reconciled.
+      await writeJsonAtomic(attemptPath, { schemaVersion: 'curation-attempt/v1', runId, startedAt, status: 'running', completedCount, reusedCount }, { signal });
+      await idempotency.save({ signal });
+    }
     await pruneCuratedArtifacts(new Set(uniqueInputs.map(item => item.id)), signal);
     const toCurate = uniqueInputs.filter((item) => {
       const record = idempotency.get(item.id);

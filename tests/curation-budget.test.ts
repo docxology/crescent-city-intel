@@ -9,6 +9,34 @@ import { rm } from "node:fs/promises";
 import { acquireFileLease } from "../src/shared/storage.ts";
 import { computeSha256 } from "../src/utils.ts";
 
+async function interruptAtRecordedProgress(expected: { completedCount: number; reusedCount: number }): Promise<void> {
+  const controller = new AbortController();
+  const pending = runCuration({ signal: controller.signal, deadlineMs: 5000 });
+  let settled = false;
+  void pending.then(() => { settled = true; }, () => { settled = true; });
+  try {
+    const started = Date.now();
+    let ready = false;
+    while (!settled && Date.now() - started < 4000) {
+      const file = Bun.file(join(paths.state, "latest-curation-attempt.json"));
+      if (await file.exists()) {
+        const attempt = await file.json();
+        ready = attempt.status === "running" && attempt.completedCount === expected.completedCount && attempt.reusedCount === expected.reusedCount;
+        if (ready) break;
+      }
+      await Bun.sleep(5);
+    }
+    expect(ready).toBe(true);
+    expect(settled).toBe(false);
+    controller.abort(new Error("Fixture interrupted the observed publication/recovery phase"));
+    await expect(pending).rejects.toThrow();
+  } finally {
+    controller.abort();
+    // Observe terminal ownership even if a readiness assertion failed.
+    await Promise.allSettled([pending]);
+  }
+}
+
 test("document listings replace old generation with source-only custody and make no provider requests", async () => {
   const requests: string[] = [];
   const server = Bun.serve({ port: 0, async fetch(request) {
@@ -130,7 +158,7 @@ test("interrupted publication preserves prior bytes; retry and retained-state re
     const inputPath = join(paths.govMeetings, "gov_meetings-2026-09-30.json"), batch = { fetchedAt: "2026-09-30T00:00:00Z", items: [{ title: "Fixture agenda", link: "https://agency.example/agenda", content: "The source records a fixture agenda." }] };
     await writeJsonAtomic(inputPath, batch);
     const release = await acquireFileLease(`${paths.curationSeen}.lock`);
-    try { await expect(runCuration({ deadlineMs: 250 })).rejects.toThrow(); } finally { await release(); }
+    try { await interruptAtRecordedProgress({ completedCount: 1, reusedCount: 0 }); } finally { await release(); }
     const artifactPath = join(paths.curated, `${new Date().toISOString().slice(0, 10)}.json`);
     // A blocked identity commit cannot expose a batch that was never committed.
     expect(requests).toBeGreaterThan(0);
@@ -151,7 +179,7 @@ test("interrupted publication preserves prior bytes; retry and retained-state re
     await rm(paths.curationSeen);
     const releaseRecovery = await acquireFileLease(`${paths.curationSeen}.lock`);
     const beforeInterruptedRecovery = requests;
-    try { await expect(runCuration({ deadlineMs: 250 })).rejects.toThrow(); } finally { await releaseRecovery(); }
+    try { await interruptAtRecordedProgress({ completedCount: 0, reusedCount: 1 }); } finally { await releaseRecovery(); }
     expect(requests).toBe(beforeInterruptedRecovery);
     expect(await Bun.file(artifactPath).text()).toBe(producedBytes);
     expect(await Bun.file(paths.curationReport).text()).toBe(reportBytes);

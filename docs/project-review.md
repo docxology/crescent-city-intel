@@ -158,6 +158,16 @@ neither its lease nor data changes. Production lease code and budgets are
 unchanged. The prior Pages run was cancelled for this correction, not relabelled
 as a pass. These deltas require their own qualification and hosted runs.
 
+The corrected source passed a second complete local gate: 2,080 tests, unchanged
+output fences and 86.35% line coverage (88.54% functions; branches not measured).
+Its hosted reader/contract and weekly cycles passed. Inspection of the actual
+weekly acquisition log then found PG&E launching a headed browser without an X
+server. The weekly workflow now declares `HEADLESS_BROWSER=1` for its Linux jobs,
+including optional municipal acquisition. Runtime source hashes remain unchanged;
+this runner-only correction needs its own contract and hosted acquisition checks.
+An actual monitor-browser protocol preflight now fails the weekly job before
+source acquisition if the runner cannot create and close its owned browser.
+
 ## Evidence and acquisition
 
 Municipal article/section counts come from the selected edition manifest.

@@ -27,6 +27,9 @@ Versioned by [Semantic Versioning](https://semver.org/).
 - Make front-page edition-clock insertion explicit and check the parsed metadata
   and visibility-triggered age update. Qualify nested lease recovery under the
   production API budgets while keeping tight live-owner refusal controls.
+- Set the weekly Linux runner's browser mode explicitly to headless, including
+  optional municipal acquisition, so missing display infrastructure cannot be
+  mistaken for a source outage.
 
 ## [3.3.1] — 2026-10-02
 

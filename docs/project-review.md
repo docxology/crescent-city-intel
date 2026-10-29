@@ -168,6 +168,14 @@ this runner-only correction needs its own contract and hosted acquisition checks
 An actual monitor-browser protocol preflight now fails the weekly job before
 source acquisition if the runner cannot create and close its owned browser.
 
+The inherited GitVault repository-lease requirement and workflow-guide parity
+were identified late. Earlier local gates and pushes were not wrapped in that
+lease; their results remain historical and cannot serve as guarded-publication
+receipts. Final canonical verification and publication use the supported
+`vault with-repo` repository/common-store lease, with frozen HEAD and content
+checks. Workflow guidance is synchronized with the reader journeys and native
+preflight. Earlier failures and the admission gap remain recorded separately.
+
 ## Evidence and acquisition
 
 Municipal article/section counts come from the selected edition manifest.

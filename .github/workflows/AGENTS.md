@@ -2,12 +2,14 @@
 
 | Workflow | Trigger | Scope |
 | --- | --- | --- |
-| `pr-gate.yml` | Pull request to main, manual | Strict source/tests types, canonical contract checks, conservative affected tests, real GUI browser smoke |
-| `pages.yml` | Main push, weekly, manual | Full gate, bounded isolated code candidate, fresh feeds, validated same-edition public tree, unchanged upload/deploy |
-| `weekly.yml` | Weekly, manual | Current monitor roster health; optional full scrape and hash-bound artifact handoff to downstream live verification |
+| `pr-gate.yml` | Pull request to main, manual | Strict source/tests types, canonical contract checks, conservative affected tests, real GUI browser smoke and public Pages reader journeys |
+| `pages.yml` | Main push, weekly, manual | Full gate and public Pages reader journeys, bounded isolated code candidate, fresh feeds, validated same-edition public tree, unchanged upload/deploy |
+| `weekly.yml` | Weekly, manual | Headless browser protocol preflight and current monitor roster health; optional full scrape and hash-bound artifact handoff to downstream live verification |
 
 Pin the same Bun version and frozen dependency install in every job. Chromium
-requires its own explicit installation. The fast path calls
+requires its own explicit installation. Weekly Linux jobs declare
+`HEADLESS_BROWSER=1`; a real owned-browser protocol preflight must pass before
+source acquisition. The fast path calls
 `bun run validate -- --only=contracts`; importing `src/release_gate.ts` alone is
 not a CLI invocation. Its output names all skipped checks.
 

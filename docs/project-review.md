@@ -358,3 +358,9 @@ semantic/legal review, source-specific local access and representative field/
 calendar/sampling coverage, and separately owned release/research reproduction.
 Completed implementation scopes are absent from TODO. Neither a software release
 nor aggregate test counts substitute for these external or interpretive facts.
+
+### Final guarded qualification: remaining positive lease budgets
+
+At candidate 23e7b23, the guarded full gate passed 2079 tests with two explicitly optional live-model skips in its plain lane, then failed five coverage checks involving bounded Pages children and HTTP-fixture readiness/recovery. All 33 tests in the four affected files subsequently passed together under coverage with the same bounds; the historical failures remain retained and their timing instability is unresolved. A single unchanged full rerun instead failed the invalid-PID positive recovery fixture at its custom 200 ms lease budget (401 ms observed). Coverage was not reached in that rerun.
+
+The remaining positive stale/invalid-owner fixtures now use the API production budgets (5 s asynchronous, 1 s synchronous), matching killed-owner qualification. They assert replacement owner PID/token and final lease removal rather than claiming sub-250 ms disk performance. Real live-owner 20 ms refusal and bounded parent cancellation remain negative controls; production lease code and all Pages child deadlines are unchanged. Raw attempts are retained under the dated external delivery packet. Final acceptance requires a new complete guarded gate and exact-head hosted/deployment evidence.

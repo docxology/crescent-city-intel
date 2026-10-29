@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { acquireFileLease, withFileLease, withFileLeaseSync } from "../src/shared/storage.ts";
 import { IdempotencyStore } from "../src/shared/idempotency.ts";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { recoverArtifactTransactions } from "../src/shared/artifact_transaction.ts";
 import { recoverOwnedBrowsers } from "../src/browser_launcher.ts";
 
@@ -46,7 +46,7 @@ test("live owner is retained, release is token-bound, dead stale owner is recove
     await child.exited;
     await writeFile(path, JSON.stringify({ pid: child.pid, token: "dead", startedAt: "2020-01-01T00:00:00Z" }));
     await utimes(path, new Date(0), new Date(0));
-    await withFileLease(path, async () => { expect(JSON.parse(await readFile(path, "utf-8")).pid).toBe(process.pid); }, { staleMs: 1, waitMs: 100 });
+    await withFileLease(path, async () => { expect(JSON.parse(await readFile(path, "utf-8")).pid).toBe(process.pid); }, { staleMs: 1 });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -64,13 +64,19 @@ test("killed recovery and sync owners are reclaimable with token receipts", asyn
     expect(withFileLeaseSync(path, () => "recovered")).toBe("recovered");
   } finally { child.kill(); await child.exited; await rm(root, { recursive: true, force: true }); }
 });
-test("invalid zero and negative PIDs recover within the declared wait", async () => {
+test("invalid zero and negative PIDs recover with production budgets and owned tokens", async () => {
   const root = await mkdtemp(join(tmpdir(), "cci-invalid-lease-")); const path = join(root, "writer.lock");
   try {
     for (const pid of [0, -1]) {
       await writeFile(path, JSON.stringify({ pid, token: "invalid", startedAt: "2020-01-01T00:00:00Z" })); await utimes(path, new Date(0), new Date(0));
-      const started = Date.now(); const release = await acquireFileLease(path, { waitMs: 200, staleMs: 0 }); await release(); expect(Date.now() - started).toBeLessThan(250);
-      await writeFile(path, JSON.stringify({ pid, token: "invalid-sync", startedAt: "2020-01-01T00:00:00Z" })); await utimes(path, new Date(0), new Date(0)); expect(withFileLeaseSync(path, () => true, 200)).toBe(true);
+      // Positive recovery qualifies correctness with the production budgets.
+      // Tight refusal and cancellation use a live owner in the controls above.
+      const release = await acquireFileLease(path, { staleMs: 0 });
+      const owner = JSON.parse(await readFile(path, "utf8")); expect(owner.pid).toBe(process.pid); expect(owner.token).not.toBe("invalid");
+      await release(); expect(existsSync(path)).toBe(false);
+      await writeFile(path, JSON.stringify({ pid, token: "invalid-sync", startedAt: "2020-01-01T00:00:00Z" })); await utimes(path, new Date(0), new Date(0));
+      const syncOwner = withFileLeaseSync(path, () => JSON.parse(readFileSync(path, "utf8")));
+      expect(syncOwner.pid).toBe(process.pid); expect(syncOwner.token).not.toBe("invalid-sync"); expect(existsSync(path)).toBe(false);
     }
   } finally { await rm(root, { recursive: true, force: true }); }
 });

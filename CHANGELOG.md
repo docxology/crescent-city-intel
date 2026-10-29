@@ -8,6 +8,23 @@ Versioned by [Semantic Versioning](https://semver.org/).
 
 ---
 
+## Unreleased
+
+- Correct USGS coverage to use the full past-hour earthquake feed with local
+  M4.0/200 km filtering; align source identities and refresh official Harbor links.
+- Make discovery probe totals, deadlines, ID binding and retained-health
+  corruption handling explicit; preserve committed evidence after failure.
+- Restore/share municipal-code search queries, disclose static-edition age,
+  distinguish artifact refresh from agency polling, and expose later list records
+  through keyboard-accessible pagination. Correct news chronology and calendar
+  hints across month/year/leap-day/DST boundaries.
+- Separate bounded browser startup from isolation assertions, honor managed
+  Playwright roots, isolate municipal-monitor test writes, and record curation
+  recovery progress before contended commits. Interruption controls wait for
+  actual recorded publication/recovery readiness.
+- Add real desktop/mobile Pages reader journeys alongside strict contracts,
+  retained regression failures and source-refresh receipts.
+
 ## [3.3.1] — 2026-10-02
 
 - Correct public Methods and FAQ wording, including structured search metadata:

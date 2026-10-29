@@ -40,7 +40,7 @@ bun test --watch      # Watch mode
 | `export.test.ts` | `src/export.ts` — CSV, Markdown, and filename safety |
 | `content*.test.ts` | `src/content.ts` — HTML extraction, readability, fixtures, and SHA-256 |
 | `domains*.test.ts` | `src/domains.ts` — domain data and search |
-| `monitor.test.ts` | `src/monitor.ts` — monitor report shape |
+| `monitor.test.ts` | `src/monitor.ts` — fully isolated producer roots, explicit missing-input errors, clean seed custody and corrupt-byte rejection preserving the accepted report |
 | `news_monitor.test.ts` | `src/news_monitor.ts` — RSS/Atom parsing, source roster, and typed local feed failures |
 | `gov_meeting_monitor.test.ts` | `src/gov_meeting_monitor.ts` — local endpoint failures and persistence |
 | `youtube_monitor.test.ts` | `src/youtube_monitor.ts` — VTT parsing and bounded listing failures |
@@ -72,6 +72,10 @@ bun test --watch      # Watch mode
 | `doc-authority.test.ts` | TypeScript AST configuration/exports, structural HTTP docs, GitHub README link equivalence and filename drift controls |
 | `county-meetings.test.ts` | Realistic County CivicClerk catalog parsing, bounded local HTTP acquisition, provider/file identity and uncertain civil-date evidence |
 | `source-coverage.test.ts` | Read-only registry-grounded catalog/geography/access gaps and corrupt observation rejection |
+| `source-registry.test.ts` | Source/producer identity, current endpoint parity, independent probe/collection evidence, bounded retained-health admission and timeout controls |
+| `alert-runner-matrix.test.ts` | Real singleton failure receipts, root isolation and local M4 earthquake inclusion with small/distant exclusion controls |
+| `pages-readers.browser.ts` | Native desktop/mobile Pages journeys: shared query restoration, pagination, focus, chronological news, edition age and overflow; explicit synthetic fixture retained outside the checkout |
+| `weekly-interruption.test.ts` | Separately bounded browser readiness, actual SIGTERM during HTTP work, process reaping and retained prior-completion/recovery evidence |
 | `middleware*.test.ts` | `src/api/middleware.ts` — authentication and sliding-window limits |
 | `idempotency.test.ts` | `src/shared/idempotency.ts` — atomic persistence and migration |
 | `verify.test.ts` | `src/verify.ts` + `src/shared/data.ts` + coverage |

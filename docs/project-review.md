@@ -18,6 +18,65 @@ result to the current tree. A receipt for an older release does not certify a
 later source change. [TODO.md](../TODO.md) is the only open item-level backlog;
 [CHANGELOG.md](../CHANGELOG.md) is the only version history.
 
+## Source-discovery review, 2026-10-28
+
+The [bounded refresh receipt](evidence/source-refresh-2026-10-28.json) records
+48 actual reachability probes in an isolated output root with a 3-second
+per-request deadline: 40 reachable, 8 unavailable. All three updated Harbor
+recording/update/procurement references returned HTTP 200 on the official host.
+The actual earthquake monitor also fetched and parsed the full past-hour feed.
+These are source-access observations, not collection completeness, legal review
+or a refreshed public municipal edition. The eight probe failures remain in the
+receipt with their actual status or transport error; collection without retained
+monitor evidence remains `not-checked`.
+
+The review reproduced source-name probe collisions, ignored explicit probe
+deadlines, caller-registry mutation, invalid report timestamps, hidden corrupt
+health and CLI probe totals derived from collection state. Discovery now uses
+stable IDs, preserves caller ordering, honors explicit deadlines, validates its
+report clock and admits retained health through a bounded regular-file reader.
+Corrupt/linked/oversized health fails without replacing committed discovery or
+seen-state bytes. A shared command implementation keeps the entry point thin and
+exercises probe totals in a real child using an explicit local HTTP fixture.
+
+USGS acquisition previously used the significant-event subset despite the
+documented M4.0 threshold. It now uses the all-earthquakes past-hour feed and
+shares its endpoint with batch health and the registry. A real local producer
+test includes a nonsignificant M4.0 event and excludes smaller/distant controls.
+The one-hour window still cannot recover polling gaps or older catalog changes.
+The official government media link resolved to the configured YouTube channel
+ID; its feed failure remains explicit rather than prompting an unverified
+channel substitution.
+
+The first gate attempt found missing `bun-types`; locked installation resolved
+that prerequisite. The next attempt overlapped implementation and retained
+missing-export failures plus output-fence drift (`added: state/civic-profile.json`).
+That run cannot certify a stable tree. The added identity file and original log
+were preserved in task storage before the final stable-tree gate. Local checks
+use installed Bun 1.4.4, distinct from the declared 1.4.2 CI pin. These repairs
+do not close the externally owned acceptance scopes in TODO.
+
+The output-fence addition reproduced independently in `tests/monitor.test.ts`:
+redirecting only the report still bound the default producer root. The test now
+owns its whole output root, explicitly rejects missing manifest/TOC inputs and
+checks both an intact retained seed and corrupt article bytes without swallowing
+assertion failures. A separately fenced execution passed all four monitor tests
+with no output drift; the final seven-file focused run passed 49 tests.
+
+That source-discovery candidate's final full gate remains **failed**, with 2,076 passing tests and one
+10-second timeout in `different captured roots own separate Chromium sessions`.
+Its output fence passed. Strict source/test types, manuscript source contracts,
+generated documentation and geography sync passed their applicable checks;
+the absent GEO-INFER bundled copy was explicitly skipped. Coverage did not run
+because the plain suite failed. Earlier Pages/replay/deadline failures and their
+narrower rechecks remain separate observations, not erased by later passes.
+For that candidate, no native deadline was widened, gate skipped or hosted/deployment pass claimed.
+The same browser test separately passed at the original revision in 5.4 seconds
+and at the current tree in 6.9 seconds, under its unchanged 10-second bound.
+Those executions do not establish the cause of the broader-run timeout or clear
+the failed full gate. The [validation receipt](evidence/source-review-validation-2026-10-28.json)
+binds measured results and retained logs to the changed source bytes.
+
 Final live review identified two presentation/acquisition gaps: the public FAQ
 claimed models never invent facts, and the hosted collector lacked its optional
 transcript executable. Public Methods, FAQ and structured metadata now state the
@@ -43,6 +102,46 @@ the complete reviewed seed. The verification and export times remain their
 actual October 1 and September 30 values. Missing upstream records, transcripts,
 model generation and the monthly report were not presented as refreshed
 acceptance. This patch requires its own local, hosted and live evidence.
+
+## Follow-on reader and lifecycle delivery, 2026-10-28
+
+The follow-on candidate uses the declared Bun 1.4.2 runtime and the Chromium
+build matching Playwright 1.58.2. Native browser isolation and weekly SIGTERM
+checks now establish real browser readiness within a separate setup bound before
+the operation clock starts. The interruption still requires actual HTTP work,
+SIGTERM, prior-completion preservation, interrupted receipts and owned reaping.
+A phase trace of the earlier timeout stopped during browser startup, before any
+HTTP request; it does not establish a signal-handling failure. A first readiness
+handshake exposed Bun's cached negative `BunFile.exists()` result; fresh handles
+observe the actual on-disk transition.
+
+The public reader restores shared search queries, exposes later records through
+pagination, corrects news chronology and civil-day hints, and discloses edition
+age. Observation artifact rechecks explicitly retain collection timestamps and
+show failures without replacing the retained board. Native journeys exercise
+desktop/mobile behavior and a real HTTP 503 refresh failure. Missing-browser
+failure closes the journey's server even when the caller catches the error.
+
+An intermediate gate retained 2,078 passes and two obsolete structural-text
+failures. The next retained 2,079 passes, a SIGTERM fixture timeout and an output
+fence failure caused by the operator running an export against the default root
+during qualification. Those operator-created publication inputs were moved intact
+to task evidence, and the failed log remains retained. Subsequent qualification
+must run separately from export work; narrower passes do not erase either run.
+The independent review approved its hash-bound source/reader candidate before
+the subsequent test-harness cleanup and readiness repairs. That approval does
+not itself certify local gates, hosted CI, deployment or external acceptance.
+
+The subsequent [local delivery receipt](evidence/delivery-validation-2026-10-28.json)
+records a complete passing `bun run validate`: 2,080 plain tests across 198 files,
+both output fences intact, and a separate passing coverage run with 86.33% line
+coverage against the unchanged 60% floor (88.55% functions; branches not measured).
+The exact staged nine-page export passed its four-width browser checks and
+artifact/custody validation. Desktop/mobile reader journeys and the isolated GUI
+smoke passed using matching managed Chromium. The absent external GEO-INFER
+bundled copy was explicitly skipped. Source/test/workflow hashes and retained
+failure/control log hashes identify the measured scope; hosted CI and deployment
+must be read from checks attached to the subsequently pushed commit.
 
 ## Evidence and acquisition
 

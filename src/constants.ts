@@ -27,6 +27,8 @@ export const ARTICLES_DIR = "output/articles";
 export const NWS_FORECAST_ZONE = "CAZ101";
 /** `zone` and `region` are mutually exclusive NWS active-alert filters. */
 export const NWS_ALERTS_URL = `https://api.weather.gov/alerts/active?zone=${NWS_FORECAST_ZONE}`;
+/** All past-hour events; the monitor applies its own M4.0 / 200 km filters. */
+export const USGS_EARTHQUAKE_URL = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson";
 
 // ─── Scraper configuration ───────────────────────────────────────
 /** Delay between page fetches (ms) — env: RATE_LIMIT_MS */

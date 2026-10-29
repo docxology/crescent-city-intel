@@ -32,6 +32,7 @@ adapter configuration; regional integrations retain their reviewed locality.
 | `MUNICIPALITY_CODE` | `CR4919` | Crescent City municipality identifier |
 | `OUTPUT_DIR` | `output` | Root output directory |
 | `ARTICLES_DIR` | `output/articles` | Per-article JSON storage |
+| `USGS_EARTHQUAKE_URL` | USGS `summary/all_hour.geojson` | Full past-hour earthquake feed; local M4.0 / 200 km filters |
 | `RATE_LIMIT_MS` | `2000` | Default ms between scrape requests (env-overridable) |
 | `SCRAPE_TIMEOUT_MS` | `60000` | Cloudflare wait timeout (env-overridable) |
 | `CLOUDFLARE_WAIT_MS` | `2000` | Extra wait after Cloudflare resolves |
@@ -71,7 +72,7 @@ adapter configuration; regional integrations retain their reviewed locality.
 | `SOURCE_FETCH_TIMEOUT_MS` | `10000` | Default external-source timeout |
 | `SOURCE_FRESHNESS_WINDOW_MS` | `86400000` | Default retrieval-age window for non-alert source health (news, meetings, YouTube, Triplicate). It does not replace a monitor's required observation or product clock. |
 | `ALERT_FRESHNESS_WINDOW_MS` | `3600000` | Generic unkeyed `isFreshReport(report, now)` compatibility window. Keyed production monitors use `SOURCE_CLOCK_POLICIES` in `src/source_clocks.ts`; this variable does not override those per-monitor policies. An unparseable or non-positive value falls back to the default. |
-| `SOURCE_DISCOVERY_TIMEOUT_MS` | `10000` | Bounded timeout for optional source-discovery probes |
+| `SOURCE_DISCOVERY_TIMEOUT_MS` | `10000` | Bounded timeout for optional source-discovery probes; explicit `probeSource` transport timeout takes precedence |
 | `SOURCE_DISCOVERY_LIVE_CHECK` | unset | Set to `1` in scheduled orchestration to probe discovery-only sources; offline runs keep them `not-checked` |
 | `NEWS_FETCH_TIMEOUT_MS` | `10000` | News feed timeout |
 | `NEWS_DISABLED_SOURCES` | empty | Comma-separated feed names to mark unavailable without fetching |

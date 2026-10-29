@@ -73,11 +73,21 @@ URL-encoded. The geographic query parameter is `area=CA`.
 
 ## `src/alerts/usgs_earthquake.ts` — USGS Earthquake Alerts
 
-Polls the USGS GeoJSON significant hour feed for earthquakes within 200 km of Crescent City with magnitude >= 4.0.
+Polls the USGS GeoJSON all-earthquakes past-hour feed for earthquakes within 200 km of Crescent City with magnitude >= 4.0.
 
 ### Data Source
 
-`GET https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson`
+`GET https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson`
+
+The [USGS feed inventory](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php)
+lists significance and magnitude feeds separately. The all-earthquakes feed
+allows the local M4.0 threshold to include events outside the significant subset;
+small and distant events are excluded by the monitor. `USGS_EARTHQUAKE_URL` in
+`src/constants.ts` is shared by acquisition, batch health and source discovery.
+This is a one-hour source window, not a historical catalog: polling gaps and
+late catalog additions outside that window are not reconstructed. Current
+response availability and comprehensive earthquake detection remain separate
+from the tested request/filter contract.
 
 ### Key Functions
 

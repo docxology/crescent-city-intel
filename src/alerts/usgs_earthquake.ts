@@ -14,11 +14,9 @@ import { appendFileSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic, appendBoundedJsonlSync } from '../shared/source_health.js';
+import { USGS_EARTHQUAKE_URL } from '../constants.js';
 
 const logger = createLogger('usgs_earthquake_alert');
-
-// USGS Earthquake API for significant earthquakes in the last hour
-const USGS_EARTHQUAKE_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson';
 
 // Crescent City approximate coordinates
 const CRESCENT_CITY_LAT = 41.7485;
@@ -342,7 +340,7 @@ async function monitorUSGSEarthquakeAlertsInScope(): Promise<void> {
   // tile reads `summary ?? level` — so the earthquake tile rendered "OK" /
   // "Data available" regardless of the composite, and an M6+ event was
   // indistinguishable from a quiet week. Derive both from the same inputs the
-  // composite uses (significance-filtered events inside 200 km), so the tile
+  // composite uses (magnitude-filtered events inside 200 km), so the tile
   // and the headline cannot disagree.
   const relevant = earthquakes.filter((e) => e.distanceKm <= 200);
   // Worst = greatest magnitude, then nearest. Matches `severity.ts`'s ranking,

@@ -394,7 +394,7 @@ bun run cron-setup -- --dry-run # print the escaped scheduler plan; installs not
 | Alert Type | Source | Threshold |
 | :--------- | :----- | :-------- |
 | Tsunami | NOAA `api.weather.gov/alerts` | California tsunami warnings, watches and advisories |
-| Earthquake | USGS `earthquake.usgs.gov` Feed | M4.0+ within 200 km, Cascadia Subduction Zone priority |
+| Earthquake | USGS all-earthquakes past-hour feed | M4.0+ within 200 km, Cascadia Subduction Zone priority; no historical backfill |
 | Weather | NWS Eureka office, zone CAZ101 | Coastal flood advisory · high wind · storm surge |
 | Tides | NOAA CO-OPS Station 9419750 | ≥7.0 ft MLLW current water level (storm surge / king tide) |
 

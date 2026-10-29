@@ -9,16 +9,15 @@ import { currentCivicProfile, isCrescentCityProfile } from "./civic_profile.js";
  * an unimplemented source was checked.  A source is only operationally
  * healthy when a monitor writes a matching SourceHealth record.
  */
-import { existsSync } from "fs";
-import { readFile } from "fs/promises";
+import { captureArtifactBytes } from "./artifact_custody.js";
 import { computeSha256 } from "./utils.js";
 import { paths } from "./shared/paths.js";
 import { IdempotencyStore } from "./shared/idempotency.js";
 import { boundedHttpFetch, redactUrl, type TransportOptions } from "./shared/transport.js";
-import { errorMessage, isSourceHealthReceipt, sourceHealth, SOURCE_FETCH_TIMEOUT_MS, writeJsonAtomic } from "./shared/source_health.js";
+import { errorMessage, isIsoTimestamp, isSourceHealthReceipt, sourceHealth, SOURCE_FETCH_TIMEOUT_MS } from "./shared/source_health.js";
 import { withProducerScope, type ProducerOptions } from "./shared/run_scope.js";
 import { MONITOR_KEYS, ALERT_MONITOR_SOURCE_NAMES } from "./alerts/composite.js";
-import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "./constants.js";
+import { NWS_ALERTS_URL, NWS_FORECAST_ZONE, USGS_EARTHQUAKE_URL } from "./constants.js";
 import { COUNTY_CIVICCLERK_API, COUNTY_CIVICCLERK_PORTAL } from "./official_meetings.js";
 import { coopsUrl } from "./alerts/noaa_tides.js";
 import type {
@@ -37,7 +36,7 @@ const DISCOVERY_CITATIONS = {
   county: "https://www.co.del-norte.ca.us/",
   mediaHub: "https://media.co.del-norte.ca.us/",
   harbor: "https://www.ccharbor.com/",
-  harborLegacy: "https://ccharbor2.specialdistrict.org/board-meeting-recordings",
+  harborRecordings: "https://www.ccharbor.com/board-meeting-recordings",
   transit: "https://redwoodcoasttransit.org/",
   airport: "https://www.flycrescentcity.com/airport-authority",
   parks: "https://www.nps.gov/redw/planyourvisit/visitorcenters.htm",
@@ -143,21 +142,21 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "harbor-recordings", name: "Crescent City Harbor board recordings", kind: "meeting", authority: "official",
-    region: "Crescent City", canonicalUrl: DISCOVERY_CITATIONS.harborLegacy, discoveredFrom: [DISCOVERY_CITATIONS.harbor],
+    region: "Crescent City", canonicalUrl: DISCOVERY_CITATIONS.harborRecordings, discoveredFrom: [DISCOVERY_CITATIONS.harbor],
     collectionMode: "html", automation: "discovery-only", enabled: true, expectedCadence: "per meeting",
-    provenance: "Harbor District special-district recording archive.",
+    provenance: "Official Harbor District navigation links this board recording archive; recording acquisition remains unestablished.",
   }),
   source({
     id: "harbor-updates", name: "Crescent City Harbor District updates", kind: "harbor", authority: "official",
-    region: "Crescent City", canonicalUrl: "https://ccharbor2.specialdistrict.org/updates", discoveredFrom: [DISCOVERY_CITATIONS.harbor],
+    region: "Crescent City", canonicalUrl: "https://www.ccharbor.com/updates", discoveredFrom: [DISCOVERY_CITATIONS.harbor],
     collectionMode: "html", automation: "discovery-only", enabled: true, expectedCadence: "as published",
-    provenance: "Harbor District special-district updates archive.",
+    provenance: "Official Harbor District navigation links this updates archive.",
   }),
   source({
     id: "harbor-rfps", name: "Crescent City Harbor District requests for proposals", kind: "harbor", authority: "official",
-    region: "Crescent City", canonicalUrl: "https://ccharbor2.specialdistrict.org/request-for-proposals", discoveredFrom: [DISCOVERY_CITATIONS.harbor],
+    region: "Crescent City", canonicalUrl: "https://www.ccharbor.com/request-for-proposals", discoveredFrom: [DISCOVERY_CITATIONS.harbor],
     collectionMode: "html", automation: "discovery-only", enabled: true, expectedCadence: "as published",
-    provenance: "Harbor District special-district procurement page.",
+    provenance: "Official Harbor District navigation links this procurement page.",
   }),
   source({
     id: "redwood-coast-transit", name: "Redwood Coast Transit Authority", kind: "transportation", authority: "official",
@@ -216,8 +215,8 @@ export const SOURCE_REGISTRY: readonly SourceDefinition[] = [
   }),
   source({
     id: "alert-usgs-earthquake", name: "USGS earthquake feed", kind: "alert", authority: "public_agency", region: "Federal",
-    canonicalUrl: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", discoveredFrom: [DISCOVERY_CITATIONS.county], collectionMode: "api", automation: "monitored", enabled: true,
-    configuredMonitor: "alert:earthquake", expectedCadence: "hourly", provenance: "USGS GeoJSON earthquake feed.",
+    canonicalUrl: USGS_EARTHQUAKE_URL, discoveredFrom: [DISCOVERY_CITATIONS.county, "https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php"], collectionMode: "api", automation: "monitored", enabled: true,
+    configuredMonitor: "alert:earthquake", expectedCadence: "updated every minute; past-hour window", provenance: "USGS all-earthquakes past-hour GeoJSON feed, locally filtered to M4.0+ within 200 km; significance is not a magnitude threshold. Polling gaps and events outside the one-hour source window are not reconstructed.",
   }),
   source({
     id: "alert-nws-weather", name: "NWS Northwest California weather alerts", kind: "alert", authority: "public_agency", region: "Federal",
@@ -402,12 +401,19 @@ export async function sourceRegistryFingerprint(registry = getSourceRegistry()):
 }
 
 async function readHealth(path: string): Promise<SourceHealth[]> {
+  let bytes: Uint8Array;
   try {
-    const parsed = JSON.parse(await readFile(path, "utf8")) as { sources?: SourceHealth[] };
-    return Array.isArray(parsed.sources) ? parsed.sources : [];
-  } catch {
-    return [];
+    bytes = await captureArtifactBytes(path, 2 * 1024 * 1024);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
   }
+  const parsed: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !("sources" in parsed)
+    || !Array.isArray(parsed.sources) || !parsed.sources.every(isSourceHealthReceipt)) {
+    throw new Error("Malformed retained source-health envelope");
+  }
+  return parsed.sources;
 }
 
 async function knownHealth(): Promise<SourceHealth[]> {
@@ -449,7 +455,7 @@ export async function probeSource(item: SourceDefinition, transport: TransportOp
     const response = await boundedHttpFetch(targetUrl, {
       ...transport, maxBytes: Math.min(4 * 1024 * 1024, transport.maxBytes ?? 4 * 1024 * 1024),
       headers: { "User-Agent": "CrescentCityIntelligenceSystem/1.0 (github.com/docxology/crescent-city-intel)" },
-      timeoutMs: Number(process.env.SOURCE_DISCOVERY_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS),
+      timeoutMs: transport.timeoutMs ?? Number(process.env.SOURCE_DISCOVERY_TIMEOUT_MS ?? SOURCE_FETCH_TIMEOUT_MS),
     });
     const durationMs = Math.round(performance.now() - started); const completedAt = new Date().toISOString();
     return {
@@ -507,12 +513,13 @@ export async function buildSourceDiscoveryReport(options: {
   health?: SourceHealth[];
   registry?: SourceDefinition[];
 } = {}): Promise<SourceDiscoveryEvidenceReport> {
-  const registry = (options.registry ?? getSourceRegistry()).sort((a, b) => a.id.localeCompare(b.id));
+  const checkedAt = options.checkedAt ?? new Date().toISOString();
+  if (!isIsoTimestamp(checkedAt)) throw new Error("Invalid source discovery report timestamp");
+  const registry = [...(options.registry ?? getSourceRegistry())].sort((a, b) => a.id.localeCompare(b.id));
   const fingerprint = await sourceRegistryFingerprint(registry);
   const seen = new IdempotencyStore(paths.sourceDiscoverySeen);
   await seen.load();
   const previousFingerprint = seen.get("registry")?.hash || null;
-  const checkedAt = options.checkedAt ?? new Date().toISOString();
   const health = options.health ?? await knownHealth();
   const probeHealth = options.probe ? await boundedProbes(registry.filter(item => item.enabled && item.automation !== "reference-only")) : [];
 
@@ -528,7 +535,7 @@ export async function buildSourceDiscoveryReport(options: {
     });
     const statuses = observations.map(observation => observation.status);
     const operationalStatus = statuses.includes("unavailable") ? "unavailable" : statuses.includes("stale") ? "stale" : statuses.includes("ok") ? "ok" : statuses.length ? "empty" : "not-checked";
-    const reachable = probeHealth.find(probe => probe.source === item.name);
+    const reachable = probeHealth.find(probe => probe.sourceId === item.id);
     const mixed = statuses.some(status => status === "ok" || status === "empty") && statuses.some(status => status === "unavailable" || status === "stale");
     return {
       ...item,
@@ -590,6 +597,15 @@ async function writeSourceDiscoveryArtifactsOwned(options: { probe?: boolean; ch
     { path: "source-discovery.json", text: `${JSON.stringify(report, null, 2)}\n` },
   ], { signal: (await import('./shared/run_scope.js')).currentRunSignal() });
   return report;
+}
+
+/** Shared CLI path; probe totals never derive from parser/collection health. */
+export async function runSourceDiscoveryCli(args: readonly string[] = Bun.argv.slice(2)): Promise<void> {
+  const probe = args.includes("--check");
+  const report = await writeSourceDiscoveryArtifacts({ probe });
+  console.log(`Source discovery wrote ${report.sourceCount} sources (${report.monitoredCount} monitored, ${report.discoveryOnlyCount} discovery-only, ${report.referenceOnlyCount} reference-only).`);
+  console.log(`Registry fingerprint: ${report.registryFingerprint} (${report.changed ? "changed" : "unchanged"})`);
+  if (probe) console.log(`Bounded probes: ${report.probe.checked} checked; ${report.probe.unavailable} unavailable.`);
 }
 
 if (import.meta.main) {

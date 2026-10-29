@@ -32,14 +32,14 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `CI` | [src/shared/orchestration.ts:114](../../src/shared/orchestration.ts#L114) | `process.env.CI` | `process.env.GITHUB_ACTIONS` |
 | `CI_COMMIT_SHA` | [src/shared/orchestration.ts:82](../../src/shared/orchestration.ts#L82) | `process.env.CI_COMMIT_SHA` | not declared at this read |
 | `CIVIC_PROFILE` | [src/civic_profile.ts:78](../../src/civic_profile.ts#L78) | `process.env.CIVIC_PROFILE` | not declared at this read |
-| `CLOUDFLARE_WAIT_MS` | [src/constants.ts:39](../../src/constants.ts#L39) | `envInt("CLOUDFLARE_WAIT_MS", 2000)` | `2000` |
+| `CLOUDFLARE_WAIT_MS` | [src/constants.ts:41](../../src/constants.ts#L41) | `envInt("CLOUDFLARE_WAIT_MS", 2000)` | `2000` |
 | `CODE_SEED_PATH` | [src/derived_publication.ts:51](../../src/derived_publication.ts#L51) | `process.env.CODE_SEED_PATH` | `join(import.meta.dir, '..', 'pages-data', 'crescent-city-code.json')` |
 | `CODE_SEED_PATH` | [src/gui/analytics.ts:64](../../src/gui/analytics.ts#L64) | `process.env.CODE_SEED_PATH` | not declared at this read |
 | `CRESCENT_CITY_API_KEY` | [src/api/middleware.ts:44](../../src/api/middleware.ts#L44) | `process.env.CRESCENT_CITY_API_KEY` | not declared at this read |
 | `CRESCENT_CITY_INTEL_BUNDLED_PATH` | [src/geo_sync.ts:90](../../src/geo_sync.ts#L90) | `process.env.CRESCENT_CITY_INTEL_BUNDLED_PATH` | `DEFAULT_BUNDLED_PATH` |
 | `CRESCENT_TRUSTED_PROXY_IPS` | [src/api/middleware.ts:181](../../src/api/middleware.ts#L181) | `process.env.CRESCENT_TRUSTED_PROXY_IPS` | `""` |
 | `CURATION_SUMMARY_TIMEOUT_MS` | [src/curation.ts:353](../../src/curation.ts#L353) | `process.env.CURATION_SUMMARY_TIMEOUT_MS` | `'15000'` |
-| `EMBED_BATCH_SIZE` | [src/constants.ts:53](../../src/constants.ts#L53) | `envInt("EMBED_BATCH_SIZE", 32)` | `32` |
+| `EMBED_BATCH_SIZE` | [src/constants.ts:55](../../src/constants.ts#L55) | `envInt("EMBED_BATCH_SIZE", 32)` | `32` |
 | `EMBEDDING_MODEL` | [scripts/stack-readiness.ts:3](../../scripts/stack-readiness.ts#L3) | `process.env.EMBEDDING_MODEL` | `"nomic-embed-text"` |
 | `EMBEDDING_MODEL` | [src/llm/config.ts:28](../../src/llm/config.ts#L28) | `process.env.EMBEDDING_MODEL` | `"nomic-embed-text"` |
 | `GIT_COMMIT` | [src/gui/routes.ts:1115](../../src/gui/routes.ts#L1115) | `process.env.GIT_COMMIT` | not declared at this read |
@@ -63,11 +63,11 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `LLM_PREFLIGHT_TIMEOUT_MS` | [src/llm/config.ts:50](../../src/llm/config.ts#L50) | `process.env.LLM_PREFLIGHT_TIMEOUT_MS` | `"5000"` |
 | `LLM_PROVIDER` | [src/llm/config.ts:13](../../src/llm/config.ts#L13) | `process.env.LLM_PROVIDER` | `"ollama"` |
 | `LOG_LEVEL` | [src/logger.ts:34](../../src/logger.ts#L34) | `process.env.LOG_LEVEL` | `"info"` |
-| `MAX_RETRIES` | [src/constants.ts:45](../../src/constants.ts#L45) | `envInt("MAX_RETRIES", 3)` | `3` |
+| `MAX_RETRIES` | [src/constants.ts:47](../../src/constants.ts#L47) | `envInt("MAX_RETRIES", 3)` | `3` |
 | `NEWS_DISABLED_SOURCES` | [src/news_monitor.ts:75](../../src/news_monitor.ts#L75) | `process.env.NEWS_DISABLED_SOURCES` | `""` |
 | `NEWS_FETCH_TIMEOUT_MS` | [src/news_monitor.ts:100](../../src/news_monitor.ts#L100) | `process.env.NEWS_FETCH_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
 | `NEWS_FETCH_TIMEOUT_MS` | [src/news_monitor.ts:255](../../src/news_monitor.ts#L255) | `process.env.NEWS_FETCH_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
-| `OLLAMA_TIMEOUT_MS` | [src/constants.ts:56](../../src/constants.ts#L56) | `envInt("OLLAMA_TIMEOUT_MS", 30_000)` | `30_000` |
+| `OLLAMA_TIMEOUT_MS` | [src/constants.ts:58](../../src/constants.ts#L58) | `envInt("OLLAMA_TIMEOUT_MS", 30_000)` | `30_000` |
 | `OLLAMA_URL` | [scripts/stack-readiness.ts:3](../../scripts/stack-readiness.ts#L3) | `process.env.OLLAMA_URL` | `"http://127.0.0.1:11434"` |
 | `OLLAMA_URL` | [src/llm/config.ts:25](../../src/llm/config.ts#L25) | `process.env.OLLAMA_URL` | `"http://localhost:11434"` |
 | `OPENROUTER_API_KEY` | [src/llm/index.ts:19](../../src/llm/index.ts#L19) | `process.env.OPENROUTER_API_KEY` | not declared at this read |
@@ -109,17 +109,17 @@ Parsed from TypeScript source without evaluating modules or reading environment 
 | `PUSH_SUBSCRIBER` | [src/notifications/push.ts:17](../../src/notifications/push.ts#L17) | `env("PUSH_SUBSCRIBER")` | not declared at this read |
 | `PUSH_SUBSCRIBER` | [src/notifications/push.ts:23](../../src/notifications/push.ts#L23) | `env("PUSH_SUBSCRIBER")` | not declared at this read |
 | `PUSH_SUBSCRIBER` | [src/notifications/push.ts:62](../../src/notifications/push.ts#L62) | `env("PUSH_SUBSCRIBER")` | not declared at this read |
-| `RATE_LIMIT_MS` | [src/constants.ts:33](../../src/constants.ts#L33) | `envInt("RATE_LIMIT_MS", 2000)` | `2000` |
+| `RATE_LIMIT_MS` | [src/constants.ts:35](../../src/constants.ts#L35) | `envInt("RATE_LIMIT_MS", 2000)` | `2000` |
 | `REPO_OUTPUT_DIR` | [scripts/lifeos-bridge.ts:16](../../scripts/lifeos-bridge.ts#L16) | `process.env.REPO_OUTPUT_DIR` | `outputRoot()` |
 | `RERANK_ENABLED` | [src/llm/config.ts:98](../../src/llm/config.ts#L98) | `process.env.RERANK_ENABLED` | not declared at this read |
 | `RERANK_TOP_N` | [src/llm/config.ts:101](../../src/llm/config.ts#L101) | `process.env.RERANK_TOP_N` | `"5"` |
-| `SCRAPE_TIMEOUT_MS` | [src/constants.ts:36](../../src/constants.ts#L36) | `envInt("SCRAPE_TIMEOUT_MS", 60_000)` | `60_000` |
+| `SCRAPE_TIMEOUT_MS` | [src/constants.ts:38](../../src/constants.ts#L38) | `envInt("SCRAPE_TIMEOUT_MS", 60_000)` | `60_000` |
 | `SOURCE_DISCOVERY_LIVE_CHECK` | [src/weekly_pipeline.ts:264](../../src/weekly_pipeline.ts#L264) | `process.env.SOURCE_DISCOVERY_LIVE_CHECK` | not declared at this read |
-| `SOURCE_DISCOVERY_TIMEOUT_MS` | [src/source_registry.ts:452](../../src/source_registry.ts#L452) | `process.env.SOURCE_DISCOVERY_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
+| `SOURCE_DISCOVERY_TIMEOUT_MS` | [src/source_registry.ts:458](../../src/source_registry.ts#L458) | `process.env.SOURCE_DISCOVERY_TIMEOUT_MS` | `SOURCE_FETCH_TIMEOUT_MS` |
 | `SOURCE_FETCH_TIMEOUT_MS` | [src/shared/source_health.ts:25](../../src/shared/source_health.ts#L25) | `positiveEnvNumber("SOURCE_FETCH_TIMEOUT_MS", 10000)` | `10000` |
 | `SOURCE_FRESHNESS_WINDOW_MS` | [src/shared/source_health.ts:26](../../src/shared/source_health.ts#L26) | `positiveEnvNumber("SOURCE_FRESHNESS_WINDOW_MS", 24 * 60 * 60 * 1000)` | `24 * 60 * 60 * 1000` |
-| `SPA_RENDER_MS` | [src/constants.ts:42](../../src/constants.ts#L42) | `envInt("SPA_RENDER_MS", 1500)` | `1500` |
-| `VERIFY_SAMPLE_SIZE` | [src/constants.ts:49](../../src/constants.ts#L49) | `envInt("VERIFY_SAMPLE_SIZE", 5)` | `5` |
+| `SPA_RENDER_MS` | [src/constants.ts:44](../../src/constants.ts#L44) | `envInt("SPA_RENDER_MS", 1500)` | `1500` |
+| `VERIFY_SAMPLE_SIZE` | [src/constants.ts:51](../../src/constants.ts#L51) | `envInt("VERIFY_SAMPLE_SIZE", 5)` | `5` |
 | `WEEKLY_DEADLINE_MS` | [src/weekly_pipeline.ts:68](../../src/weekly_pipeline.ts#L68) | `process.env.WEEKLY_DEADLINE_MS` | `3_600_000` |
 | `YT_DLP_TIMEOUT_MS` | [src/youtube_monitor.ts:61](../../src/youtube_monitor.ts#L61) | `process.env.YT_DLP_TIMEOUT_MS` | `'45000'` |
 

@@ -1,26 +1,27 @@
 /**
  * Tests for monitor.ts
  *
- * Tests pure-logic functions that do NOT require scraped output data.
- * The runMonitor integration test is included and gracefully handles
- * missing output/ directory (returns overallStatus: "error"). A full
- * repository run can contend with other filesystem-heavy tests, so it has
- * a bounded integration timeout longer than the default unit-test timeout.
+ * Real isolated empty and reviewed-seed corpora. Redirecting only reportPath
+ * does not isolate the producer's identity, lease, diff and snapshot writes.
  */
 import { describe, expect, test } from "bun:test";
 import { checkHashes, checkSectionCoverage, runMonitor } from "../src/monitor";
-import { mkdtemp, rm } from "fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
+import { withOutputRoot, paths } from "../src/shared/paths.ts";
+import { writeSeedCorpus } from "./helpers/output-root.ts";
+import type { ArticlePage, ScrapeManifest, TocNode } from "../src/types.ts";
+
+async function withMonitorRoot(body: (root: string) => Promise<void>): Promise<void> {
+  const root = await mkdtemp(join(tmpdir(), "cci-monitor-"));
+  try { await withOutputRoot(root, () => body(root)); }
+  finally { await rm(root, { recursive: true, force: true }); }
+}
 
 describe("runMonitor", () => {
-  test("returns an appropriate status when scraped data is absent or present", async () => {
-    // In the test environment, output/ may or may not have data.
-    // Either way, runMonitor must return a well-shaped MonitorReport.
-    // The report goes to a throwaway path: exercising the monitor must not
-    // overwrite the corpus artifact the published snapshot reports from.
-    const reportDir = await mkdtemp(join(tmpdir(), "cci-monitor-"));
-    const report = await runMonitor({ reportPath: join(reportDir, "monitor-report.json") });
+  test("returns an explicit error for an isolated absent corpus", () => withMonitorRoot(async root => {
+    const report = await runMonitor({ outputDir: root });
     expect(report).toHaveProperty("timestamp");
     expect(report).toHaveProperty("overallStatus");
     expect(report).toHaveProperty("articlesChecked");
@@ -28,41 +29,47 @@ describe("runMonitor", () => {
     expect(report).toHaveProperty("missingSections");
     expect(report).toHaveProperty("newSections");
     expect(report).toHaveProperty("summary");
-    expect(["clean", "changed", "error"]).toContain(report.overallStatus);
+    expect(report.overallStatus).toBe("error");
+    expect(report.articlesChecked).toBe(0);
     expect(typeof report.articlesChecked).toBe("number");
     expect(Array.isArray(report.hashMismatches)).toBe(true);
     expect(Array.isArray(report.missingSections)).toBe(true);
     expect(Array.isArray(report.newSections)).toBe(true);
     expect(report.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-  }, 180_000);
+  }));
+
+  test("an intact corpus is clean and corrupt bytes cannot replace its accepted report", () => withMonitorRoot(async root => {
+    await writeSeedCorpus(root, { articleCount: 1 });
+    const manifest = JSON.parse(await readFile(paths.manifest, "utf8")) as ScrapeManifest;
+    const guid = Object.keys(manifest.articles)[0]!;
+    const article = JSON.parse(await readFile(paths.article(guid), "utf8")) as ArticlePage;
+    const toc = JSON.parse(await readFile(paths.toc, "utf8")) as TocNode;
+    const selected = new Set(article.sections.map(section => section.guid));
+    const prune = (node: TocNode): TocNode => ({ ...node, children: node.children.map(prune).filter(child => child.children.length > 0 || child.type === "section" && selected.has(child.guid)) });
+    await writeFile(paths.toc, JSON.stringify(prune(toc)));
+    expect(await checkHashes()).toEqual({ checked: 1, mismatches: [] });
+    expect(await checkSectionCoverage()).toEqual({ missing: [], extra: [] });
+    expect((await runMonitor({ outputDir: root })).overallStatus).toBe("clean");
+    const baseline = await readFile(paths.manifest, "utf8");
+    const acceptedReport = await readFile(paths.monitorReport, "utf8");
+    await writeFile(paths.article(guid), JSON.stringify({ ...article, rawHtml: `${article.rawHtml}\nchanged fixture bytes` }));
+    const changed = await checkHashes();
+    expect(changed.mismatches).toHaveLength(1);
+    expect(changed.mismatches[0]).toContain("hash mismatch vs manifest baseline");
+    await expect(runMonitor({ outputDir: root })).rejects.toThrow("corpus is incomplete");
+    expect(await readFile(paths.manifest, "utf8")).toBe(baseline);
+    expect(await readFile(paths.monitorReport, "utf8")).toBe(acceptedReport);
+  }));
 });
 
 describe("checkHashes", () => {
-  test("returns {checked, mismatches} shape when no manifest exists", async () => {
-    // If manifest.json is absent, loadManifest will throw and the caller will handle it.
-    // We test checkHashes only when data may be present.
-    try {
-      const result = await checkHashes();
-      expect(result).toHaveProperty("checked");
-      expect(result).toHaveProperty("mismatches");
-      expect(typeof result.checked).toBe("number");
-      expect(Array.isArray(result.mismatches)).toBe(true);
-    } catch {
-      // No data — acceptable in test env
-    }
-  }, 120000);
+  test("rejects an absent manifest explicitly", () => withMonitorRoot(async () => {
+    await expect(checkHashes()).rejects.toThrow("Failed to load manifest");
+  }));
 });
 
 describe("checkSectionCoverage", () => {
-  test("returns {missing, extra} shape when data exists or is absent", async () => {
-    try {
-      const result = await checkSectionCoverage();
-      expect(result).toHaveProperty("missing");
-      expect(result).toHaveProperty("extra");
-      expect(Array.isArray(result.missing)).toBe(true);
-      expect(Array.isArray(result.extra)).toBe(true);
-    } catch {
-      // No data — acceptable in test env
-    }
-  }, 180000);
+  test("rejects an absent TOC explicitly", () => withMonitorRoot(async () => {
+    await expect(checkSectionCoverage()).rejects.toThrow("Failed to load TOC");
+  }));
 });

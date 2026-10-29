@@ -7,15 +7,118 @@ import {
   sourceRegistryFingerprint,
   validateSourceRegistry,
   sourceIdForMonitor,
+  writeSourceDiscoveryArtifacts,
 } from "../src/source_registry.ts";
 import { sourceHealth, isSourceHealthReceipt, errorMessage, EXPECTED_SOURCE_HEALTH } from "../src/shared/source_health.ts";
 import { MONITOR_KEYS, buildExtendedMonitorDefinitions, classifySourceHealth } from "../src/alerts/composite.ts";
 import { NWS_ALERTS_URL, NWS_FORECAST_ZONE } from "../src/alerts/nws_weather.ts";
-import { NWS_ALERTS_URL as CENTRAL_NWS_ALERTS_URL, NWS_FORECAST_ZONE as CENTRAL_NWS_FORECAST_ZONE } from "../src/constants.ts";
+import { NWS_ALERTS_URL as CENTRAL_NWS_ALERTS_URL, NWS_FORECAST_ZONE as CENTRAL_NWS_FORECAST_ZONE, USGS_EARTHQUAKE_URL } from "../src/constants.ts";
 import { coopsUrl } from "../src/alerts/noaa_tides.ts";
 import { COUNTY_CIVICCLERK_API, COUNTY_CIVICCLERK_PORTAL } from "../src/official_meetings.ts";
+import { mkdtemp, mkdir, readFile, rm, writeFile, symlink } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { withOutputRoot, paths } from "../src/shared/paths.ts";
+import { withTransportScope } from "../src/shared/transport.ts";
+import { runBoundedChild } from "../src/shared/subprocess.ts";
 
 describe("source discovery registry", () => {
+  test("Harbor discovery links use the official navigation's current host", () => {
+    const registry = getSourceRegistry();
+    for (const [id, path] of [["harbor-recordings", "board-meeting-recordings"], ["harbor-updates", "updates"], ["harbor-rfps", "request-for-proposals"]]) {
+      expect(registry.find(source => source.id === id)?.canonicalUrl).toBe(`https://www.ccharbor.com/${path}`);
+      expect(registry.find(source => source.id === id)?.automation).toBe("discovery-only");
+    }
+  });
+
+  test("report sorting preserves caller-owned registry order and rejects invalid report clocks", async () => {
+    const registry = getSourceRegistry().reverse();
+    const order = registry.map(source => source.id);
+    await buildSourceDiscoveryReport({ registry, health: [] });
+    expect(registry.map(source => source.id)).toEqual(order);
+    for (const checkedAt of ["invalid", "2026-02-30T00:00:00Z"]) {
+      await expect(buildSourceDiscoveryReport({ registry: [], health: [], checkedAt })).rejects.toThrow("timestamp");
+    }
+  });
+
+  test("equal display names keep distinct source-ID probe results and cannot imply collection", async () => {
+    const server = Bun.serve({ port: 0, fetch: request => new Response("fixture", { status: new URL(request.url).pathname === "/missing" ? 503 : 200 }) });
+    const base = `http://127.0.0.1:${server.port}`;
+    const seed = getSourceRegistry()[0]!;
+    const registry = ["available", "missing"].map(id => ({ ...seed, id, name: "Shared provider", canonicalUrl: `https://discovery.example/${id}`, endpointUrl: undefined }));
+    try {
+      const report = await withTransportScope({ fixture: { origin: base, allowedOrigins: ["https://discovery.example"] } }, () => buildSourceDiscoveryReport({ registry, health: [], probe: true }));
+      expect(report.probe).toEqual({ checked: 2, unavailable: 1 });
+      expect(report.sources.find(source => source.id === "available")!.reachability.status).toBe("ok");
+      expect(report.sources.find(source => source.id === "missing")!.reachability.status).toBe("unavailable");
+      expect(report.sources.every(source => source.collection === "not-checked")).toBe(true);
+    } finally { server.stop(true); }
+  });
+
+  test("absent retained health stays unchecked; corrupt, malformed, oversized and linked health fails", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cci-discovery-health-"));
+    try {
+      await withOutputRoot(root, async () => {
+        const at = "2026-09-30T12:00:00Z";
+        const source = getSourceRegistry().find(source => source.id === "news-lost-coast-outpost")!;
+        expect((await buildSourceDiscoveryReport({ registry: [source], checkedAt: at })).sources[0]!.collection).toBe("not-checked");
+        await mkdir(join(root, "news"));
+        const valid = JSON.stringify({ sources: [sourceHealth(source.name, "ok", at, { sourceId: source.id, fetchedAt: at, itemCount: 1 })] });
+        await writeFile(paths.newsHealth, valid);
+        expect((await buildSourceDiscoveryReport({ registry: [source], checkedAt: at })).sources[0]!.collection).toBe("ok");
+        await writeSourceDiscoveryArtifacts({ outputDir: root, checkedAt: at });
+        const committed = [paths.sourceRegistry, paths.sourceDiscovery, paths.sourceDiscoverySeen];
+        const before = await Promise.all(committed.map(path => readFile(path)));
+        for (const text of ["{", "null", "{}", '{"sources":[null]}', JSON.stringify({ sources: [{ source: source.name, status: "ok", itemCount: -1, checkedAt: at }] }), " ".repeat(2 * 1024 * 1024 + 1)]) {
+          await writeFile(paths.newsHealth, text);
+          await expect(buildSourceDiscoveryReport({ registry: [source], checkedAt: at })).rejects.toThrow();
+          await expect(writeSourceDiscoveryArtifacts({ outputDir: root, checkedAt: at })).rejects.toThrow();
+          expect(await Promise.all(committed.map(path => readFile(path)))).toEqual(before);
+        }
+        await rm(paths.newsHealth);
+        const target = join(root, "retained-health.json");
+        await writeFile(target, valid);
+        await symlink(target, paths.newsHealth);
+        await expect(buildSourceDiscoveryReport({ registry: [source], checkedAt: at })).rejects.toThrow();
+      });
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  test("explicit probe deadlines are honored without changing environment configuration", async () => {
+    const server = Bun.serve({ port: 0, fetch: async () => { await Bun.sleep(150); return new Response("late"); } });
+    try {
+      const source = { ...getSourceRegistry()[0]!, canonicalUrl: `http://127.0.0.1:${server.port}/slow`, endpointUrl: undefined };
+      const result = await probeSource(source, { allowPrivateHosts: ["127.0.0.1"], timeoutMs: 20 });
+      expect(result.status).toBe("unavailable");
+      expect(result.error).toMatch(/deadline|cancel|timeout/i);
+      expect((await probeSource(source, { allowPrivateHosts: ["127.0.0.1"], timeoutMs: 1000 })).status).toBe("ok");
+    } finally { server.stop(true); }
+  });
+
+  test("actual discovery CLI reports probe totals while uncollected sources stay unchecked", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cci-discovery-cli-"));
+    const server = Bun.serve({ port: 0, fetch: request => new Response("fixture", { status: new URL(request.url).pathname === "/updates" ? 503 : 200 }) });
+    try {
+      const offline = await runBoundedChild([process.execPath, "--eval", `process.env.CC_OUTPUT_DIR = ${JSON.stringify(root)}; await import('./scripts/run-source-discovery.ts');`], { timeoutMs: 15_000 });
+      expect(offline.status).toBe("ok");
+      expect(offline.stdout).not.toContain("Bounded probes:");
+      expect(JSON.parse(await readFile(join(root, "source-discovery.json"), "utf8")).probe).toEqual({ checked: 0, unavailable: 0 });
+      const fixture = { origin: `http://127.0.0.1:${server.port}`, allowedOrigins: [...new Set(getSourceRegistry().map(source => new URL(source.endpointUrl ?? source.canonicalUrl).origin))] };
+      const code = `import { withTransportScope } from './src/shared/transport.ts';
+        import { runSourceDiscoveryCli } from './src/source_registry.ts';
+        process.env.CC_OUTPUT_DIR = ${JSON.stringify(root)};
+        await withTransportScope({ fixture: ${JSON.stringify(fixture)} }, () => runSourceDiscoveryCli(['--check']));`;
+      const child = await runBoundedChild([process.execPath, "--eval", code], { timeoutMs: 15_000 });
+      expect(child.status).toBe("ok");
+      expect(child.reaped).toBe(true);
+      const report = JSON.parse(await readFile(join(root, "source-discovery.json"), "utf8"));
+      expect(report.probe.checked).toBeGreaterThan(0);
+      expect(report.probe.unavailable).toBe(1);
+      expect(report.sources.every((source: { operationalStatus: string }) => source.operationalStatus === "not-checked")).toBe(true);
+      expect(child.stdout).toContain(`Bounded probes: ${report.probe.checked} checked; 1 unavailable.`);
+    } finally { server.stop(true); await rm(root, { recursive: true, force: true }); }
+  }, 20_000);
+
   test("County identity declares its approved public provider, and tide discovery retains producer UTC parameters without historical dates", () => {
     const county = getSourceRegistry().find(source => source.id === "county-meetings")!;
     expect(county.endpointUrl).toBe(COUNTY_CIVICCLERK_API); expect(county.discoveredFrom).toContain(COUNTY_CIVICCLERK_PORTAL); expect(county.collectionMode).toBe("api");
@@ -37,6 +140,12 @@ describe("source discovery registry", () => {
     expect([...request.searchParams.entries()]).toEqual([["zone", "CAZ101"]]);
     expect(weather.provenance).toContain("Coastal Del Norte");
     expect(weather.provenance).not.toContain("CAZ006");
+  });
+  test("earthquake inventory and missing-health markers share the monitor's full past-hour feed", () => {
+    const earthquake = getSourceRegistry().find(source => source.configuredMonitor === "alert:earthquake")!;
+    expect(earthquake.canonicalUrl).toBe(USGS_EARTHQUAKE_URL);
+    expect(EXPECTED_SOURCE_HEALTH.find(source => source.source === "USGS Earthquake")!.url).toBe(USGS_EARTHQUAKE_URL);
+    expect(new URL(earthquake.canonicalUrl).pathname).toEndWith("/all_hour.geojson");
   });
   test("normalizes tracking URLs without changing the source identity", () => {
     expect(normalizeSourceUrl("HTTPS://Example.com/path/?utm_source=x#fragment")).toBe("https://example.com/path");

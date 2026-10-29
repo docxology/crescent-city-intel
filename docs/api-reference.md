@@ -227,6 +227,13 @@ An unregistered page cannot authorize closing another root's browser.
 | `sourceRegistryFingerprint` | `(registry?) → Promise<string>` | SHA-256 fingerprint of the normalized inventory |
 | `buildSourceDiscoveryReport` | `(options?) → Promise<SourceDiscoveryReport>` | Join known monitor health and optional bounded probes without hiding `not-checked` |
 | `writeSourceDiscoveryArtifacts` | `(options?) → Promise<SourceDiscoveryReport>` | Atomically persist registry, discovery, and idempotency artifacts |
+| `runSourceDiscoveryCli` | `(args?: readonly string[]) → Promise<void>` | Shared command implementation; prints probe totals independently of collection health |
+
+`probeSource(source, transport?)` returns an ID-bound reachability receipt and
+honors the supplied transport deadline. Report builders reject invalid report
+timestamps and corrupt retained health; absent health remains unchecked. Source
+constants, including `USGS_EARTHQUAKE_URL`, are listed in the generated export
+inventory and [configuration guide](configuration.md).
 
 ---
 

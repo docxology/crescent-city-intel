@@ -25,6 +25,23 @@ artifacts are `output/source-registry.json` and
 `output/source-discovery.json`. Known gaps remain listed in the report and are
 rendered by the GUI, API, monthly report, and Pages snapshot.
 
+Probe receipts bind to stable source IDs, so matching display names cannot share
+reachability results. The CLI reports actual probe counts separately from stored
+collection health; a reachable source without a collection receipt remains
+`not-checked`. Report construction preserves caller-owned registry ordering and
+requires a valid report timestamp. `probeSource` honors an explicit transport
+timeout before `SOURCE_DISCOVERY_TIMEOUT_MS` and the shared default.
+
+Missing retained health files remain unchecked. Existing files are read as bounded
+regular files (2 MiB maximum, no symlinks) and require valid JSON health envelopes
+and receipts. Corrupt or unreadable evidence fails discovery without replacing
+the prior committed report. It must not silently become an empty health baseline.
+
+The Harbor recording, updates and procurement references use the current official
+host, as linked from the [Harbor District navigation](https://www.ccharbor.com/).
+They remain discovery-only; those links do not establish recording acquisition
+or archive completeness.
+
 The discovered coverage boundary includes the official City and County sites,
 the joint County/City media hub, Harbor District news/agenda/recording/update/
 procurement pages, Redwood Coast Transit, the airport authority, Redwood
@@ -72,6 +89,11 @@ Writes `output/monitor-report.json`. Exit code 1 if `overallStatus === "changed"
 bun run monitor            # via scripts/run-monitor.ts
 bun run weekly-check       # in weekly automation
 ```
+
+Monitor tests bind the entire producer output root to a temporary directory.
+Redirecting only `reportPath` leaves identity and lease writes at the default
+root. Empty-corpus errors, clean retained-seed custody and corrupt-byte rejection
+are explicit controls; the accepted report is preserved after corruption.
 
 ---
 

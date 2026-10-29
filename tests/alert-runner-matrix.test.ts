@@ -10,6 +10,31 @@ import { closeBrowser } from "../src/browser.ts";
 import { withOutputRoot } from "../src/shared/paths.ts";
 import { NWS_ALERTS_URL } from "../src/constants.ts";
 const origins = ["https://api.weather.gov", "https://earthquake.usgs.gov", "https://files.airnowtech.org", "https://incidents.fire.ca.gov", "https://www.ndbc.noaa.gov", "https://api.tidesandcurrents.noaa.gov", "https://wildlife.ca.gov", "https://usdmdataservices.unl.edu", "https://pgealerts.alerts.pge.com", "https://satepsanone.nesdis.noaa.gov", "https://roads.dot.ca.gov", "https://www.dnusd.org", "https://www.navcen.uscg.gov", "https://public.mygov.us", "https://www.ccharbor.com", "https://www.eia.gov", "https://reports.psmfc.org", "https://meri.digitraffic.fi"];
+test("earthquake acquisition includes ordinary local M4 events while excluding small and distant events", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cci-usgs-feed-"));
+  const requests: string[] = [];
+  const generated = Date.now();
+  const feature = (id: string, mag: number, coordinates: number[]) => ({ type: "Feature", id,
+    properties: { mag, place: "Synthetic source fixture", time: generated - 1000, updated: generated,
+      url: `https://earthquake.usgs.gov/earthquakes/eventpage/${id}`, tsunami: 0, sig: 0, magType: "mw" },
+    geometry: { type: "Point", coordinates } });
+  const server = Bun.serve({ port: 0, fetch(request) {
+    const path = new URL(request.url).pathname; requests.push(path);
+    const features = path.endsWith("/all_hour.geojson") ? [feature("local-m4", 4, [-124.2028, 41.7485, 10]), feature("small", 3.9, [-124.2028, 41.7485, 10]), feature("distant", 6, [0, 0, 10])] : [];
+    return Response.json({ type: "FeatureCollection", metadata: { generated, count: features.length, status: 200 }, features });
+  } });
+  try {
+    const health = await runAllAlertMonitors({ only: ["earthquake"], notifications: false, outputDir: root,
+      fixture: { origin: `http://127.0.0.1:${server.port}`, allowedOrigins: ["https://earthquake.usgs.gov"] } });
+    const current = JSON.parse(await readFile(join(root, "alerts", "earthquake", "current.json"), "utf8"));
+    expect(current.events.map((event: { id: string }) => event.id)).toEqual(["local-m4"]);
+    expect(current.level).toBe("WATCH");
+    expect(requests).toEqual(["/earthquakes/feed/v1.0/summary/all_hour.geojson"]);
+    expect(health.find(row => row.source === "USGS Earthquake")).toMatchObject({ status: "ok", itemCount: 1,
+      url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson" });
+  } finally { server.stop(true); await rm(root, { recursive: true, force: true }); }
+});
+
 test("all twenty singleton failures persist actual selected attempts without freshening omitted evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "cci-alert-matrix-"));
   const server = Bun.serve({ port: 0, fetch() { return new Response("Recorded acquisition failure", { status: 503 }); } });

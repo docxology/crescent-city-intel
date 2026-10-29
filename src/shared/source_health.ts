@@ -6,7 +6,7 @@ import { appendFileSync, readFileSync, writeFileSync, renameSync } from "fs";
 import { throwIfAborted, redactUrl } from "./transport.js";
 import type { SourceHealth, SourceHealthStatus, SourceHealthSummary } from "../types.js";
 import { currentRunSignal } from "./run_scope.js";
-import { NWS_ALERTS_URL } from "../constants.js";
+import { NWS_ALERTS_URL, USGS_EARTHQUAKE_URL } from "../constants.js";
 
 /**
  * Default cap for the on-disk JSONL history files (alert history.jsonl, etc).
@@ -47,7 +47,7 @@ export const EXPECTED_SOURCE_HEALTH: ReadonlyArray<{ source: string; url: string
   { source: "Del Norte Triplicate", url: "https://www.triplicate.com/rss.xml", monitor: "news:Del Norte Triplicate" },
   { source: "Del Norte Triplicate deep content", url: "https://www.triplicate.com/news/", monitor: "triplicate" },
   { source: "NOAA Tsunami", url: "https://api.weather.gov/alerts/active?area=CA", monitor: "alerts" },
-  { source: "USGS Earthquake", url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", monitor: "alerts" },
+  { source: "USGS Earthquake", url: USGS_EARTHQUAKE_URL, monitor: "alerts" },
   { source: "NWS Weather", url: NWS_ALERTS_URL, monitor: "alerts" },
   { source: "NOAA Tides", url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", monitor: "alerts" },
   { source: "CDFW Fishing", url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", monitor: "alerts" },

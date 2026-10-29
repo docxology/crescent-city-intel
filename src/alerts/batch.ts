@@ -20,7 +20,7 @@ import { assertCivicProducerSupported } from "../civic_profile.js";
 import { monitorNOAATsunamiAlerts } from "./noaa_tsunami.ts";
 import { monitorUSGSEarthquakeAlerts } from "./usgs_earthquake.ts";
 import { monitorNWSWeatherAlerts } from "./nws_weather.ts";
-import { NWS_ALERTS_URL } from "../constants.js";
+import { NWS_ALERTS_URL, USGS_EARTHQUAKE_URL } from "../constants.js";
 import { AIRNOW_PUBLIC_KML_URL, getLastAirQualityError, runAirQualityMonitor } from "./epa_airnow.ts";
 import { CALFIRE_API_URL, getLastWildfireError, runWildfireMonitor } from "./calfire_wildfire.ts";
 import { runMarineMonitor, getLastMarineError } from "./ndbc_marine.ts";
@@ -243,7 +243,7 @@ async function runAlertMonitorsInScope(options: AlertRunOptions): Promise<Source
     const checkedAt = new Date().toISOString();
     const monitorDefinitions: AlertMonitorDefinition[] = [
       { source: "NOAA Tsunami", key: "tsunami", report: tsunami, itemCount: tsunami?.alerts?.length ?? 0, url: "https://api.weather.gov/alerts/active?area=CA", provenance: "NOAA CAP alerts (tsunami Warning/Watch/Advisory)" },
-      { source: "USGS Earthquake", key: "earthquake", report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson", provenance: "USGS GeoJSON feed" },
+      { source: "USGS Earthquake", key: "earthquake", report: earthquake, itemCount: earthquake?.events?.length ?? 0, url: USGS_EARTHQUAKE_URL, provenance: "USGS all-earthquakes past-hour GeoJSON feed; M4.0+ within 200 km" },
       { source: "NWS Weather", key: "weather", report: weather, itemCount: weather?.alerts?.length ?? 0, url: NWS_ALERTS_URL, provenance: "NWS active alerts" },
       { source: "NOAA Tides", key: "tides", report: tidesReport, itemCount: tidesReport?.predictions?.length ?? 0, url: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=9419750", provenance: "NOAA CO-OPS station 9419750" },
       { source: "CDFW Fishing", key: "fishing", report: fishingReport, itemCount: fishingReport?.bulletins?.length ?? 0, url: "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins", provenance: "CDFW North Coast bulletins" },

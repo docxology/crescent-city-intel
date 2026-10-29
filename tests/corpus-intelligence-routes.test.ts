@@ -12,6 +12,7 @@ import { handleApiRoute, _resetInsightsCache } from "../src/gui/routes.ts";
 import { reloadSearch } from "../src/gui/search.ts";
 import { invalidateSectionsCache } from "../src/shared/data.ts";
 import { beginSeedCorpus, endCorpusCopy } from "./helpers/output-root.ts";
+import { llmConfig } from "../src/llm/config.ts";
 import { SECTION_GRAPH_SCHEMA } from "../src/section_graph.ts";
 import { WORD_FREQUENCY_SCHEMA } from "../src/word_frequency.ts";
 import { SECTION_LONGEVITY_SCHEMA } from "../src/section_longevity.ts";
@@ -155,21 +156,28 @@ describe("GET /api/insights", () => {
 });
 
 describe("GET /api/llm/models", () => {
-  test("always lists the configured model, degrading honestly when unreachable", async () => {
-    const response = await get("/api/llm/models");
-    expect(response.status).toBe(200);
+  async function catalogue(status: number, models: string[], run: (requests: string[]) => Promise<void>) {
+    const requests: string[] = [];
+    const server = Bun.serve({ port: 0, fetch(request) { requests.push(new URL(request.url).pathname); return Response.json({ models: models.map(name => ({ name })) }, { status }); } });
+    const previous = { provider: llmConfig.provider, ollamaUrl: llmConfig.ollamaUrl, chatModel: llmConfig.chatModel };
+    Object.assign(llmConfig, { provider: "ollama", ollamaUrl: server.url.origin, chatModel: "zz-configured-fixture" });
+    try { await run(requests); } finally { Object.assign(llmConfig, previous); server.stop(true); }
+  }
+  test("caps a real HTTP catalogue and retains the configured model beyond the sorted cap", () => catalogue(200, [...Array.from({ length: 205 }, (_, i) => "a-model-" + i), "a-model-0"], async requests => {
+    const response = await get("/api/llm/models"); expect(response.status).toBe(200);
     const body = await response.json();
-    expect(["ollama", "openrouter"]).toContain(body.provider);
-    expect(body.configured).toBeTruthy();
-    expect(["ok", "unavailable"]).toContain(body.status);
-    expect(body.models).toContain(body.configured);
-    expect(body.count).toBe(body.models.length);
-    // An external catalogue must not decide this endpoint's payload size.
-    expect(body.models.length).toBeLessThanOrEqual(200);
-    expect(body.totalAvailable).toBeGreaterThanOrEqual(body.count);
-    expect(body.truncated).toBe(body.totalAvailable > body.count);
+    expect(requests).toEqual(["/api/tags"]); expect(body.provider).toBe("ollama"); expect(body.status).toBe("ok");
+    expect(body.configured).toBe("zz-configured-fixture"); expect(body.models).toContain(body.configured);
+    expect(body.count).toBe(200); expect(body.models).toHaveLength(200); expect(new Set(body.models).size).toBe(200);
+    expect(body.totalAvailable).toBe(206); expect(body.truncated).toBe(true);
     expect(JSON.stringify(body)).not.toMatch(/sk-[A-Za-z0-9]{8}/);
-  });
+  }));
+  test("an actual HTTP failure returns only the configured model with unavailable status", () => catalogue(503, ["must-not-appear"], async requests => {
+    const response = await get("/api/llm/models"); expect(response.status).toBe(200);
+    const body = await response.json(); expect(requests).toEqual(["/api/tags"]);
+    expect(body.provider).toBe("ollama"); expect(body.status).toBe("unavailable");
+    expect(body.models).toEqual(["zz-configured-fixture"]); expect(body.count).toBe(1); expect(body.totalAvailable).toBe(1); expect(body.truncated).toBe(false);
+  }));
 });
 
 /**

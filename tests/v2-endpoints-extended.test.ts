@@ -1,6 +1,11 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { handleApiRoute } from "../src/gui/routes.js";
-import { beginCorpusCopy, endCorpusCopy } from "./helpers/output-root.ts";
+import { beginCorpusCopy, endCorpusCopy, writeSeedCorpus } from "./helpers/output-root.ts";
+
+import { llmConfig } from "../src/llm/config.ts";
+import { llmHttpFixture } from "./helpers/llm-http.ts";
+import { indexAllSections } from "../src/llm/embeddings.ts";
+import { outputRoot } from "../src/shared/paths.ts";
 
 // Every write this suite makes lands in a throwaway copy of the corpus, never
 // in the real output/ tree the published snapshot is built from.
@@ -61,15 +66,19 @@ describe("v2.3 New API Endpoints", () => {
     expect(data).toHaveProperty("results");
   });
 
-  test("GET /api/chat accepts ?model param", async () => {
-    // Just verify the route accepts the param without error (will fail on LLM not running)
-    const url = new URL("http://localhost:3000/api/chat?q=test&model=gemma3:4b");
-    const resp = await handleApiRoute(url);
-    // Will be 503 if LLM not running, or 200 if it is — either is acceptable
-    expect([200, 503, 400]).toContain(resp.status);
-    // 30s, not bun's 5s default: a real embed+generate round-trip against a
-    // live local Ollama instance genuinely exceeds 5s (confirmed reproducibly
-    // this session — a real gemma3:4b RAG call timed out at exactly 5000ms
-    // three runs in a row when LLM services were actually up, not flaky).
+  test("GET /api/chat sends the model override to the actual HTTP provider", async () => {
+    const http = llmHttpFixture();
+    const previous = { provider: llmConfig.provider, ollamaUrl: llmConfig.ollamaUrl, chromaUrl: llmConfig.chromaUrl };
+    Object.assign(llmConfig, { provider: "ollama", ollamaUrl: http.url, chromaUrl: http.url });
+    try {
+      await writeSeedCorpus(outputRoot(), { articleCount: 1 }); await indexAllSections();
+      const resp = await handleApiRoute(new URL("http://localhost:3000/api/chat?q=city&model=fixture-override"));
+      expect(resp.status).toBe(200); const body = await resp.json(); expect(body.provider).toBe("ollama"); expect(body.model).toBe("fixture-override");
+      const chats = http.requests.filter(request => request.path === "/api/chat"); expect(chats).toHaveLength(1); expect(chats[0]!.body.model).toBe("fixture-override");
+      // Provider success and model selection cannot certify an unsupported
+      // fixture citation against the actual retrieved seed sections.
+      expect(body.evidence.disposition).toBe("abstained"); expect(body.evidence.verifiedSupport).toBe(false);
+      expect(body.answer).toBe("The retrieved sources do not establish an answer with valid citations. Please inspect the source sections or refine the question.");
+    } finally { Object.assign(llmConfig, previous); http.server.stop(true); }
   }, 30000);
 });

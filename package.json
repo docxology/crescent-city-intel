@@ -78,7 +78,7 @@
     "region": "bun run scripts/region.ts"
   },
   "dependencies": {
-    "region-intel": "github:docxology/region-intel#55fd07738269ea9ba3b821cd87bfe6d649f206d7"
+    "region-intel": "github:docxology/region-intel#4c6f0a078322b342ac85d0e1b12df6bd44f9a0fd"
   },
   "devDependencies": {
     "typescript": "5.9.3",

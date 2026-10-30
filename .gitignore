@@ -10,3 +10,4 @@ output/
 .omo/
 .*.publication-*
 .*.previous-*/
+.corpus-candidates/

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "region-deployment/v1",
+  "civicProfile": "configs/crescent-city-civic.json",
+  "regionConfig": "configs/crescent-city-region.json",
+  "outputDir": "output",
+  "seedDir": "pages-data",
+  "enabledMonitors": [
+    "tsunami",
+    "earthquake",
+    "weather",
+    "tides",
+    "fishing",
+    "airquality",
+    "wildfire",
+    "marine",
+    "marinezone",
+    "drought",
+    "psps",
+    "smoke",
+    "roads",
+    "schools",
+    "uscg",
+    "permits",
+    "dredging",
+    "fuel",
+    "pacfin",
+    "ais"
+  ],
+  "sources": [
+    {
+      "id": "city",
+      "name": "City of Crescent City",
+      "url": "https://www.crescentcity.org",
+      "kind": "official"
+    },
+    {
+      "id": "municipal-code",
+      "name": "Crescent City municipal code",
+      "url": "https://ecode360.com/CR4919",
+      "kind": "code"
+    }
+  ]
+}

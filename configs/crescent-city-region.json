@@ -1,0 +1,146 @@
+{
+  "alerts": {
+    "airQuality": {
+      "latitude": 41.7485,
+      "longitude": -124.2028,
+      "publicStationRadiusKm": 80,
+      "zip": "95531"
+    },
+    "ais": {
+      "feedUrl": "https://meri.digitraffic.fi/api/ais/v1/locations",
+      "watchBox": {
+        "maxLat": 42.1,
+        "maxLon": -123.9,
+        "minLat": 41.6,
+        "minLon": -124.45
+      }
+    },
+    "dredging": {
+      "sitemapUrl": "https://www.ccharbor.com/sitemap.xml",
+      "windowDays": 90
+    },
+    "drought": {
+      "county": "Del Norte",
+      "fips": "06015",
+      "state": "CA"
+    },
+    "earthquake": {
+      "latitude": 41.7485,
+      "longitude": -124.2028,
+      "minMagnitude": 4,
+      "radiusKm": 200
+    },
+    "fishing": {
+      "bulletinUrl": "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Bulletins",
+      "region": "California"
+    },
+    "fuel": {
+      "seriesId": "EMM_EPM0_PTE_SCA_DPG",
+      "spikeThreshold": 0.15,
+      "state": "California",
+      "trendWeeks": 8,
+      "url": "https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&s=EMM_EPM0_PTE_SCA_DPG&f=W"
+    },
+    "marine": {
+      "stations": [
+        {
+          "distanceNm": 27,
+          "id": "46027",
+          "latitude": 41.85,
+          "longitude": -124.38,
+          "name": "St Georges CA"
+        },
+        {
+          "distanceNm": 120,
+          "id": "46022",
+          "latitude": 40.72,
+          "longitude": -124.53,
+          "name": "Eel River CA"
+        },
+        {
+          "distanceNm": 60,
+          "id": "46214",
+          "latitude": 40.88,
+          "longitude": -124.36,
+          "name": "Humboldt Bay CA"
+        }
+      ],
+      "waveHeightWarningFt": 15,
+      "waveHeightWatchFt": 10,
+      "windSpeedWarningKt": 34,
+      "windSpeedWatchKt": 22
+    },
+    "marineForecast": {
+      "productLocation": "EKA",
+      "zoneCode": "PZZ450"
+    },
+    "pacfin": {
+      "dashboardUrl": "https://reports.psmfc.org/pacfin/"
+    },
+    "permits": {
+      "catalogUrl": "https://public.mygov.us/crescent_city_ca/module?module=pi"
+    },
+    "psps": {
+      "county": "Del Norte",
+      "utility": "PG&E"
+    },
+    "roads": {
+      "county": "Del Norte",
+      "routes": [
+        "101",
+        "199",
+        "169",
+        "197",
+        "299"
+      ],
+      "textUrl": "https://roads.dot.ca.gov/?roadnumber="
+    },
+    "schools": {
+      "alertsUrl": "https://www.dnusd.org/news",
+      "district": "Del Norte Unified School District",
+      "fallbackUrl": "https://www.dnusd.org/announcements",
+      "websiteUrl": "https://www.dnusd.org"
+    },
+    "smoke": {
+      "box": {
+        "latMax": 42.15,
+        "latMin": 41.45,
+        "lonMax": -123.55,
+        "lonMin": -124.45
+      }
+    },
+    "tides": {
+      "highTideAlertFt": 7,
+      "stationId": "9419750",
+      "stationName": "Crescent City, CA"
+    },
+    "tsunami": {
+      "capArea": "CA"
+    },
+    "uscg": {
+      "district": 11,
+      "listUrl": "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-search-results?district=11&sector=0&date-range={START}--{END}&items_per_page=50",
+      "messageUrl": "https://www.navcen.uscg.gov/broadcast-notice-to-mariners-message?guid={GUID}",
+      "windowDays": 35
+    },
+    "weather": {
+      "latitude": 41.7485,
+      "longitude": -124.2028,
+      "nwsZone": "CAZ101"
+    },
+    "wildfire": {
+      "counties": [
+        "Del Norte",
+        "Siskiyou",
+        "Humboldt",
+        "Trinity"
+      ],
+      "latitude": 41.7485,
+      "longitude": -124.2028,
+      "radiusKm": 150
+    }
+  },
+  "id": "crescent-city",
+  "profileId": "crescent-city",
+  "schemaVersion": "region-config/v1"
+}

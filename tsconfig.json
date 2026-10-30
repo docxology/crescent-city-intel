@@ -3,16 +3,16 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["bun-types"],
     "strict": true,
-    "allowImportingTsExtensions": true,
     "noEmit": true,
-    "outDir": "dist",
-    "rootDir": ".",
-    "declaration": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": [
+      "bun-types"
+    ]
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts"],
-  "exclude": ["node_modules", "dist", "output"]
+  "include": [
+    "scripts/**/*.ts",
+    "tests/**/*.ts"
+  ]
 }

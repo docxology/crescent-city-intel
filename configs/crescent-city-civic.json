@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "civic-profile/v1",
+  "id": "crescent-city",
+  "name": "Crescent City",
+  "municipality": "Crescent City, CA",
+  "county": "Del Norte County",
+  "state": "California",
+  "countryCode": "US",
+  "timeZone": "America/Los_Angeles",
+  "anchor": {
+    "latitude": 41.76,
+    "longitude": -124.2,
+    "bounds": {
+      "west": -124.408,
+      "south": 41.458,
+      "east": -123.536,
+      "north": 42.006
+    }
+  },
+  "code": {
+    "provider": "ecode360",
+    "municipalityCode": "CR4919"
+  },
+  "corpusSlug": "crescent-city-code",
+  "vectorNamespace": "crescent-city-code",
+  "calendar": {
+    "uidDomain": "crescent-city-intel",
+    "productId": "-//Crescent City Intel//Events Calendar//EN"
+  },
+  "publication": {
+    "title": "The Quadruplicate",
+    "description": "Civic intelligence for Crescent City and Del Norte County",
+    "siteUrl": "https://quadruplicate.org",
+    "repositoryUrl": "https://github.com/docxology/crescent-city-intel"
+  },
+  "capabilities": [
+    "analytics",
+    "crescent-city-adapters",
+    "ecode360",
+    "events",
+    "geo",
+    "news"
+  ]
+}

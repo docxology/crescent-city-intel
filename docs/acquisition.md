@@ -1,5 +1,13 @@
 # Source-bound municipal acquisition
 
+Install the frozen dependencies and Chromium before live browser acquisition:
+
+```sh
+bun install --frozen-lockfile
+bunx playwright install chromium
+```
+
+Read [operations](operations.md) for offline seed checks and hosted delivery.
 `region.candidate.json` selects a candidate root independent of active output and
 public seeds. It uses the same civic identity and regional policy. Run:
 
@@ -28,7 +36,7 @@ bun run corpus:promote -- --source .corpus-candidates/EDITION
 bun run corpus:check
 bun run pages:seed
 bun run pages:export
-bun run pages:validate
+bun run pages:validate -- .pages
 ```
 
 Replace `EDITION` with the candidate selected in `region.candidate.json`. Promotion
@@ -36,6 +44,12 @@ validates exact raw extraction custody, complete membership and live-verificatio
 bindings before replacing active files. A journal composes bounded transactions
 and restores earlier batches on failure, preserving unrelated news/alert state.
 Candidates must remain separate from active output and public seed roots.
+
+After seeding, compare `pages-data/publication-input.json` and
+`pages-data/verification-report.json` with [edition.md](edition.md). Update the
+recorded edition, verification time and input hashes together; changing docs
+alone does not acquire or verify new upstream content. Commit only reviewed
+public seed projections and documentation after all local checks pass.
 
 Only public corpus projections and their verification/input receipts belong in
 `pages-data/`. Raw HTML, checkpoints and private recovery evidence stay ignored.

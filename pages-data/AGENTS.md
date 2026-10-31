@@ -1,9 +1,9 @@
-# pages-data — agent notes
+# Crescent City public seed guidance
 
-Published snapshot data bundle (verified: crescent-city-code.json,
-domain-coverage.json, event_sources.json, geo-intel.json, manifest.json,
-readability.json, toc.json, verification-report.json + README.md, plus the
-HAND-CURATED directory.json seed — the one exception to the regenerate rule:
-directory.json is maintained by hand, every entry carrying the URL its facts
-were verified against (unverified fields stay null). Consumed by src/pages/static
-and validated by src/directory.ts + tests/directory.test.ts.
+Keep only reviewed public projections and exact input/verification receipts.
+Follow [the seed guide](README.md), [edition bindings](../docs/edition.md) and
+[acquisition procedure](../docs/acquisition.md). Regenerate through the pinned
+shared methods after complete accepted acquisition; never hand-edit generated
+corpus counts or hashes. Raw HTML, checkpoints, recovery journals and credentials
+remain ignored/local. Preserve source rights, jurisdiction identity and unknown
+or stale states. Generic implementation and algorithm tests belong in region-intel.

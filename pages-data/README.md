@@ -1,38 +1,25 @@
-# Public Pages seed
+# Accepted Crescent City public seed
 
-This directory contains the reviewed, public municipal-code seed used when a
-GitHub Actions checkout has no local `output/` directory. It contains only
-public generated artifacts: the consolidated code export, TOC, manifest,
-passing verification report, coverage, readability data, the backward-
-compatible `geo-intel.json` contract, and the `geo-observations.json` live
-hazard-observation envelope (`crescent-city-geo-observations/v1`). The Pages
-exporter derives the map-ready view from that reviewed contract and publishes
-the combined API-shaped surface as `.pages/data/geo-intel.json`, plus the
-hazard-observation envelope as `.pages/data/geo-observations.json`.
+This directory contains the reviewed public municipal-code projection from
+eCode360 `CR4919`: 245 article pages and 2206 sections. The
+[edition record](../docs/edition.md) names the exact edition, verification time
+and hashes; [publication-input.json](publication-input.json) and
+[verification-report.json](verification-report.json) are the source receipts.
+These files preserve a recorded source edition, not continuing legal currency.
 
-Refresh only after a successful scrape, verification, and export:
+A fresh clone can publish this seed with `bun run pages:export` followed by
+`bun run pages:validate -- .pages`. It does not contain the private retained
+HTML/article custody needed for local raw-corpus search or corpus promotion.
+Live news, meetings and alerts are collected separately and keep their own clocks.
 
-```bash
-bun run pages:seed
-```
+Refresh only through the shared accepted-corpus methods after successful
+[candidate acquisition, verification and promotion](../docs/acquisition.md).
+`bun run pages:seed` requires the complete matching hash-bound verification
+receipt. Do not copy partial articles, raw HTML, operator diagnostics or another
+municipality's seed into this directory. Update edition documentation from the
+resulting receipts and validate a fresh Pages export before committing.
 
-The refresh script refuses to copy data unless
-`output/verification-report.json` has `overallStatus: "pass"`. Live news,
-meetings, alerts, YouTube, Triplicate metadata, curation, and reports are
-collected separately by the Pages workflow and retain their own health states.
-
-## Directory seed (hand-curated)
-
-`directory.json` is the one hand-curated exception to the regenerate rule: the
-verified local-establishments directory (government, schools, healthcare,
-restaurants, churches, retail, services, finance, media, lodging, attractions)
-consumed by `src/directory.ts` and rendered on `directory.html`. Every entry
-carries the URL its facts were verified against; fields that could not be
-verified are `null`, never guessed. Edit it by hand, then run
-`bun test tests/directory.test.ts` — every entry must pass the same validation
-the export uses.
-
-The public Pages snapshot also carries the source registry and discovery report.
-Discovery-only sources are displayed as `not-checked` until a dedicated
-connector writes source health; the export never turns an unmonitored source
-into an implied healthy result. Triplicate remains citation/reference-only.
+`directory.json` is separately curated public reference evidence. Preserve its
+field-level source URLs and nulls; seed presence is not proof of current field
+currency. Directory validation and rendering belong to the pinned shared
+package, not nonexistent local `src/` or algorithm tests in this thin consumer.

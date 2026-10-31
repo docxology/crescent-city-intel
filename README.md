@@ -6,9 +6,31 @@ manuscript tooling live in [region-intel](https://github.com/docxology/region-in
 This repository owns its regional configuration, reviewed public seed and
 publication at [quadruplicate.org](https://quadruplicate.org).
 
+## Fresh clone and accepted public edition
+
 ```sh
+git clone https://github.com/docxology/crescent-city-intel.git
+cd crescent-city-intel
 bun install --frozen-lockfile
 bun run validate
+bun run pages:export
+bun run pages:validate -- .pages
+```
+
+The tracked accepted seed contains 245 article pages and 2206 sections
+from eCode360 `CR4919`. See [edition bindings](docs/edition.md) for verification
+time and hashes. A clean clone can build that static edition without a new
+scrape or model service. Local GUI corpus search needs separately acquired and
+promoted raw articles; see [acquisition](docs/acquisition.md).
+
+Use the [documentation index](docs/README.md) and [operations guide](docs/operations.md)
+for command scope, troubleshooting and hosted delivery. The public GitHub
+repository is marked `private: true` in `package.json` to prevent accidental
+package-registry publication; that flag does not make the GitHub repository private.
+
+## Regional commands
+
+```sh
 bun run gui
 bun run source-discovery
 bun run weekly-check

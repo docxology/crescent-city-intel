@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — deployment documentation
+
+- Add a version-aware documentation index, fresh-clone instructions, operations and workflow guidance.
+- Clarify accepted public seed versus local raw corpus, candidate promotion and manuscript ownership.
+- Reconcile public seed guidance with the thin importer layout; retain source timestamps and edition hashes.
+
 ## 4.0.0
 
 - Consume the shared `docxology/region-intel` package through one runner importer.

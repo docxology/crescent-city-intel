@@ -1,10 +1,10 @@
 {
   "schemaVersion": "crescent-city-publication-input/v1",
-  "editionId": "566cb0b35c923966c565a0ec672d3f63282834b45328deb6ea58e0daead171db",
+  "editionId": "d7443085937d5039ce5b0334db401d1f8d60a4d15b0cc6b30eb55a33669e3cd2",
   "selection": "verified-output",
   "files": {
     "crescent-city-code.json": {
-      "sha256": "532d86d90c269d5fcc795849a83b820d6b78404a91601e2dd72165a8ed5d9a4d",
+      "sha256": "d5d8a078350f898d71dfa26060cd6622eb1dcd19d4a83ec5b0dbdac1d1eac864",
       "bytes": 2910240
     },
     "toc.json": {
@@ -12,24 +12,24 @@
       "bytes": 1419626
     },
     "manifest.json": {
-      "sha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
+      "sha256": "77dfbc5926c9bf548d9e94c8b129c4a3184f86aae0e94716c275ff5d3ccb52de",
       "bytes": 79722
     },
     "verification-report.json": {
-      "sha256": "5fd21e19d4ac6424c5ccb1d8d800bedf030d2da71d4ac9aeed98e6e328291f80",
+      "sha256": "fc6fd3181d2e35425da40460faacb812fc418cffcaa8b0fe42c90555e52dfc22",
       "bytes": 89879
     },
     "domain-coverage.json": {
-      "sha256": "519eb47cdfc5b99ad974c78644c4ed0781e403db0aea61db807bcd21fb79d2ee",
+      "sha256": "687cd1bf4be15990dbc07b06f5dc4964173ecbe68ce8e0ae2867ba1b1fa1a2e9",
       "bytes": 34142
     },
     "readability.json": {
-      "sha256": "b425ed199fc548d00348bc30ae0bd3a72421db7352e4a0c0ddb12b4f7906a44d",
+      "sha256": "5dcb9996a86efc123a374f8f56fecdf8567ed7ce8a28eeb24ca011daf159caab",
       "bytes": 861690
     }
   },
   "reason": "Complete same-directory edition bound to local verification",
   "verification": "hash-bound-local",
-  "sourceVerifiedAt": "2026-10-01T12:07:25.069Z",
-  "sourceExportedAt": "2026-09-30T21:27:27.962Z"
+  "sourceVerifiedAt": "2026-10-31T00:16:20.166Z",
+  "sourceExportedAt": "2026-10-31T00:16:21.244Z"
 }

@@ -75,10 +75,12 @@
     "test:pages-readers": "bun run scripts/region.ts test:pages-readers",
     "civic:profile": "bun run scripts/region.ts civic:profile",
     "region:config": "bun run scripts/region.ts region:config",
-    "region": "bun run scripts/region.ts"
+    "region": "bun run scripts/region.ts",
+    "corpus:check": "bun run scripts/region.ts corpus:check",
+    "corpus:promote": "bun run scripts/region.ts corpus:promote"
   },
   "dependencies": {
-    "region-intel": "github:docxology/region-intel#4c6f0a078322b342ac85d0e1b12df6bd44f9a0fd"
+    "region-intel": "github:docxology/region-intel#cde5048bc9316ed6d1baf8e7e64f3d06c9e86385"
   },
   "devDependencies": {
     "typescript": "5.9.3",

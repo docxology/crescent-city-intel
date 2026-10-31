@@ -5,7 +5,7 @@
     "": {
       "name": "crescent-city-intel",
       "dependencies": {
-        "region-intel": "github:docxology/region-intel#4c6f0a078322b342ac85d0e1b12df6bd44f9a0fd",
+        "region-intel": "github:docxology/region-intel#cde5048bc9316ed6d1baf8e7e64f3d06c9e86385",
       },
       "devDependencies": {
         "bun-types": "1.3.9",
@@ -70,7 +70,7 @@
 
     "playwright-core": ["playwright-core@1.64.1", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ=="],
 
-    "region-intel": ["region-intel@github:docxology/region-intel#4c6f0a0", { "dependencies": { "@xmldom/xmldom": "^0.8.11", "cheerio": "^1.2.0", "chromadb": "^3.3.3", "playwright": "^1.55.0", "typescript": "^5.9.3" }, "bin": { "region-intel": "./src/regional_cli.ts" } }, "docxology-region-intel-4c6f0a0", "sha512-hmJUEw8iwNGcdYFLx9/RZ3VMa4OVNPleJLNmAd/V015fLOOQjq43GgUPhJd/L1JbkvemJL2BjJn9iXdX/j5MKg=="],
+    "region-intel": ["region-intel@github:docxology/region-intel#cde5048", { "dependencies": { "@xmldom/xmldom": "^0.8.11", "cheerio": "^1.2.0", "chromadb": "^3.3.3", "playwright": "^1.55.0", "typescript": "^5.9.3" }, "bin": { "region-intel": "./src/regional_cli.ts" } }, "docxology-region-intel-cde5048", "sha512-hAqLsuMSfoP6Pr08kkriBRPIQdgY4eifSflNkRv4JNzYPaajV1pPRQYkeXF01hlurAb8fZSKyJzPEZ09q+IXvw=="],
 
     "safer-buffer": ["safer-buffer@2.1.2", "", {}, "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="],
 

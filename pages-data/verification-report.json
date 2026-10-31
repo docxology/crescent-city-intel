@@ -1,13 +1,13 @@
 {
   "schemaVersion": "corpus-verification/v2",
-  "verifiedAt": "2026-10-01T12:07:25.069Z",
+  "verifiedAt": "2026-10-31T00:16:20.166Z",
   "municipality": "Crescent City, CA",
   "overallStatus": "pass",
   "publicationEligible": true,
   "binding": {
-    "manifestSha256": "726e9cc4d8ee508edfe58e0936dadc8cf8ab4ccad1e1f80b9384d81cbc1ffffd",
+    "manifestSha256": "77dfbc5926c9bf548d9e94c8b129c4a3184f86aae0e94716c275ff5d3ccb52de",
     "tocSha256": "35069e167487d7db92f78b160a397cb06ad3247316afc43e6d7a402772f1dcfb",
-    "articleSetSha256": "c7ea8210b84df80826d74cb583322b72c641c7dc1ecb4645ec36c1856fe45856"
+    "articleSetSha256": "8c4e4f42a55f4b58b1fbd332465adfe29a8a06a96205f9f84d6bbd8a92a2f080"
   },
   "planes": {
     "local": "pass",

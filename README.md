@@ -31,3 +31,6 @@ current legal advice. Optional model chat requires configured Ollama/Chroma or
 OpenRouter services. See `.env.example` and the shared configuration guide.
 
 The full pre-extraction history remains in this repository's Git history.
+
+See the [accepted municipal edition and exact input hashes](docs/edition.md) and
+[acquisition/promotion procedure](docs/acquisition.md).

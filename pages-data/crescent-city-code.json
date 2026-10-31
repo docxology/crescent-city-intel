@@ -2,15 +2,15 @@
   "municipality": "Crescent City, CA",
   "guid": "CR4919",
   "source": "https://ecode360.com/CR4919",
-  "exportedAt": "2026-09-30T21:27:27.962Z",
+  "exportedAt": "2026-10-31T00:16:21.244Z",
   "articles": [
     {
       "guid": "44236141",
       "title": "Statutory References for California Cities",
       "number": "SR",
       "url": "https://ecode360.com/44236141",
-      "sha256": "4c4cc62887d519f5d2830c9262ed9119be2be2fed6e971282a32f02e515f9dea",
-      "exportedArticleSha256": "f5284551c88341ba296d4d428b7966ddbb1709601248394822e63b491ff1ccda",
+      "sha256": "80806bffcd08c00a3992efdb9a8829cf89b60fe2ebb7d796bf92cbc455a88a76",
+      "exportedArticleSha256": "8bd669981b1c6ba52c294f2b53ec32c08ab0508024bd3a9391fd954b7e065a0a",
       "sections": [
         {
           "guid": "44236142",
@@ -117,8 +117,8 @@
       "title": "GENERAL PROVISIONS",
       "number": "1.04",
       "url": "https://ecode360.com/44236160",
-      "sha256": "caa9d6e6cb04ddbf846153054783d3b3764531fbfb09cfbc21cb4a7dfc730381",
-      "exportedArticleSha256": "8f1418fff5df7d4631d5f447ed0bdae8ebd01b2f661e248e0f42b6c23a4032be",
+      "sha256": "e1b5bb08ae63d4102fed5db2d6ace6265bc30629015aa5123e3f77bbd0c96fbb",
+      "exportedArticleSha256": "166eada41f489e8fab376969d199c6c6fd77fb517a7401d5cdf58301406217da",
       "sections": [
         {
           "guid": "44236161",
@@ -183,8 +183,8 @@
       "title": "CITY CLASSIFICATION",
       "number": "1.08",
       "url": "https://ecode360.com/44236191",
-      "sha256": "d2da2d41dec88c3a64a7922b586abd3e79c16bf21a8e55e08c06f93f8d4c2b1f",
-      "exportedArticleSha256": "7281eb0ed10b73bfd16e1db53cf79dfdb0d944e594a821640707e1f38b545426",
+      "sha256": "c4a73d630ecba1a4efebe8ac605e769b26ff63fa37dc388caa64a1301265e7c9",
+      "exportedArticleSha256": "97fa45a74eb2d0eafd7034abe2e5dc8868cb263b41c7dd45c7926d97caceb41f",
       "sections": [
         {
           "guid": "44236192",
@@ -214,8 +214,8 @@
       "title": "DATUM PLANE",
       "number": "1.12",
       "url": "https://ecode360.com/44236195",
-      "sha256": "5ca8164abbed50372cb44bd9f962080c654ee50cad5265d2688f9dd65818fc35",
-      "exportedArticleSha256": "55ac75eb992f97b2f6bf79142ff48a861d0dd1f11e3daa4e3ba54d4c48e4d5dd",
+      "sha256": "4cf2a66c16008073aacdefac815bd3c280bb880ca57029c406283e6e86f0476d",
+      "exportedArticleSha256": "62e2d962e1c46f8881ab1ffcb30b3fa031bc9e8feb39468d73803510c2940805",
       "sections": [
         {
           "guid": "44236196",
@@ -231,8 +231,8 @@
       "title": "GENERAL PENALTY",
       "number": "1.16",
       "url": "https://ecode360.com/44236199",
-      "sha256": "4d311d74a6c2bc4aae730436de9cadc5bc58a6d1b73f9136e2c450b8348b01c6",
-      "exportedArticleSha256": "0a1375b372c7adce027220c3638b7e9f8a5c8237417d752a77b0bd61c11569c9",
+      "sha256": "f8591fdc2350cb199ef5726d22b69099e0a4a0b44d517570a4cdb269058414dc",
+      "exportedArticleSha256": "e02af8a0259daa2856b846a15af496c72e871fed365ecc1fb4c187ae30ebd569",
       "sections": [
         {
           "guid": "44236200",
@@ -269,8 +269,8 @@
       "title": "CLAIMS",
       "number": "1.20",
       "url": "https://ecode360.com/44236207",
-      "sha256": "81e622b7ffa50885bc58306eb1861709925f3887fd064f00957bb08a81f42550",
-      "exportedArticleSha256": "7dd698f6dcaf2f27a3318acb00a1e1ab4dde69831c7068e47f36dd56f2fff2c0",
+      "sha256": "413610f723491a05e5e0672ce2fea0f4cf366608a3ef7aaa01560e2aef5c3413",
+      "exportedArticleSha256": "f48d680478c42d272fae782b9bb9d807c32786cf14ea0359608b137f26435aa6",
       "sections": [
         {
           "guid": "44236208",
@@ -321,8 +321,8 @@
       "title": "ADMINISTRATIVE CITATIONS",
       "number": "1.24",
       "url": "https://ecode360.com/44236217",
-      "sha256": "79244dfb1b15d34ea953f7dad4bbf9e9bc3ce8d903211f2be9bed0bdd19313f0",
-      "exportedArticleSha256": "a4ff5ce3ebf96e79fc9a989476b7f140aa00ec169a200fea8a782b1a4ccb3ad1",
+      "sha256": "457d204b8bcf307bdb62e4deaf059115a74d8f29e824b2c43accfebdf728b37b",
+      "exportedArticleSha256": "3fda552c0877de7101260cccd03c7fcf270f130863777be1eb3252b1a14ec67f",
       "sections": [
         {
           "guid": "44236218",
@@ -436,8 +436,8 @@
       "title": "CITY COUNCIL",
       "number": "2.04",
       "url": "https://ecode360.com/44236316",
-      "sha256": "8a421b4b710dcbb01a2c80ceece950c4d925c44fbf92d2f862b8bb5a2de1f2ec",
-      "exportedArticleSha256": "5b3a6791401c3cc5ba72d52a58ac09e996756c32c04661497af3f77f4d8fa321",
+      "sha256": "e935a8f3aa3fd0527058c925e9ce81bf6431c42a5153e09b124ddea827654808",
+      "exportedArticleSha256": "8ee707f667f743a8760e1a3f19271fbc3decd86cb641686c7520f6f0db523482",
       "sections": [
         {
           "guid": "44236317",
@@ -481,8 +481,8 @@
       "title": "CITY MANAGER",
       "number": "2.08",
       "url": "https://ecode360.com/44236333",
-      "sha256": "6bf678c401bbedfc7bbe7d132512b6d76e149d9fef4602ea5437c495de0f6c7b",
-      "exportedArticleSha256": "cc0dfeb1eb2482ccc537ecb0452a931bf82380693000fbb22749e90d3e6feb14",
+      "sha256": "fe3c2f78c1ffae6ad282fbcbc318a26ecee74a58a84d1735b76a3e782cf21ae8",
+      "exportedArticleSha256": "ffcb5cc23a08ff66ba3d2b6593877802d3e72828c08c05653958f395d80fa04e",
       "sections": [
         {
           "guid": "44236334",
@@ -652,8 +652,8 @@
       "title": "CITY ATTORNEY",
       "number": "2.12",
       "url": "https://ecode360.com/44236367",
-      "sha256": "9122fc7b1c0203bd2736cd387c43bd3c43fb0ff6fd9f1fbc5d5e61a85a43a87f",
-      "exportedArticleSha256": "6473ebd2d8879890526a781decf032acb83c4e094038c49ccf94976cf0ae9478",
+      "sha256": "409c39a7677ceeab54bd0fbb21530dd1538338aeaf8aedee51b3da91e3a5df78",
+      "exportedArticleSha256": "92ebe0323f4c9818c718c312961f09c54d0fc77ade46a8ecf8deeeae4cf81ebc",
       "sections": [
         {
           "guid": "44236368",
@@ -683,8 +683,8 @@
       "title": "OFFICE OF THE CITY CLERK",
       "number": "2.14",
       "url": "https://ecode360.com/44236377",
-      "sha256": "fbf410c72ba3890f151ea1bef57468f247ecf0811ef6b6a82146f4ba7ef53226",
-      "exportedArticleSha256": "889eacaa6f716b24f39670e7ccfc5631cb742fb43ec15eafe1acff1f3b6369a1",
+      "sha256": "760bfabe944f5ed9c3eef2d445f4fe5664f4120d05a8645d32b90d61247ccd96",
+      "exportedArticleSha256": "e977b3f265f164935ad0222e348476cdb0604670bf92988c817e7b5143f42ce7",
       "sections": [
         {
           "guid": "44236378",
@@ -728,8 +728,8 @@
       "title": "FINANCE DEPARTMENT",
       "number": "2.16",
       "url": "https://ecode360.com/44236383",
-      "sha256": "b17bfb72577b805c7689b01d759aca59e8dcaf3caa9833430839f256b575ed3c",
-      "exportedArticleSha256": "aced6fc74f8078147c85d4263ee85fed6428ac2c73ec3ddc91be6c42d40a0bd0",
+      "sha256": "8b5e597f3cdc0a2f1038e9bbe9a708339c10d65aaba65f9a0af78b16cecf3691",
+      "exportedArticleSha256": "53e8af968d39a933e83cea0327e3057fbe9a0b0d3a9ed665c72f60d3f76042a6",
       "sections": [
         {
           "guid": "44236384",
@@ -752,8 +752,8 @@
       "title": "DIRECTOR OF FINANCE",
       "number": "2.20",
       "url": "https://ecode360.com/44236388",
-      "sha256": "d6a915e80f485b603a7d4249167c0dea2fdfbfd5ecdb10cb36fec5fc63b5ce74",
-      "exportedArticleSha256": "96d562bca0a0b08c2e53a169c4d93651d9dbe2a30e9a3fae07e6b32870db45de",
+      "sha256": "c77bb6cbc273542b85874452f5bf7dcf6553c061cfdb5a5e796e41e2d8ec2243",
+      "exportedArticleSha256": "fa7793878e3f753bd0545f0c9416d261e6521829287076f2dcef0e35f77a4584",
       "sections": [
         {
           "guid": "44236389",
@@ -790,8 +790,8 @@
       "title": "PUBLIC WORKS DEPARTMENT",
       "number": "2.24",
       "url": "https://ecode360.com/44236397",
-      "sha256": "2235219a66fc0961683eda1f477e4b9b0e0f227a1aeb571dd5641a247cb9e632",
-      "exportedArticleSha256": "a76ac21b2fc804df43a334a79566a9763a6344a96a937438d9227e47f5728ebf",
+      "sha256": "bfe48ddce20385c342c255fa1f02598e84e5abdfc1c32a3177bbc3d597c62e56",
+      "exportedArticleSha256": "a2ef954bd0bbd2a72cc2fcbb3643e23baf9f8632ab4eac88df25980f1f2116ee",
       "sections": [
         {
           "guid": "44236398",
@@ -807,8 +807,8 @@
       "title": "PLANNING COMMISSION",
       "number": "2.28",
       "url": "https://ecode360.com/44236399",
-      "sha256": "002996fb1255aa145af4cc6f8a8126626d6fbd87e86b993b94782b4b327f1d9c",
-      "exportedArticleSha256": "98d1dad253b0c5448a84a0cd889fe7baa01f41658f9d2f6c1ff3a345e1499172",
+      "sha256": "b2e38a3c4a480da4d3837f4618ecbb4925cfbbed63afac757951156626f38448",
+      "exportedArticleSha256": "d1e812b9ad9914ede12d0e9d665f8d848c9abcd371d8ad9769e2e7284763db82",
       "sections": [
         {
           "guid": "44236400",
@@ -866,8 +866,8 @@
       "title": "PLANNING DEPARTMENT",
       "number": "2.30",
       "url": "https://ecode360.com/44236411",
-      "sha256": "cb5194805a9fedd0f6cb863964fa87883521ba843e9e4c35acc94c9d69f4e3b9",
-      "exportedArticleSha256": "a5c8791bd4e58cc18d50960cb5b0f832c8ada442caf7d5355245ca01b411eec5",
+      "sha256": "274d59f5fa08c237854c269cfac4d498b970fdfa3244379c0740a895e8a09933",
+      "exportedArticleSha256": "20a4250bde41c688cf716cb8b0693d30d818829a5add7a134bb6a9e25057df71",
       "sections": [
         {
           "guid": "44236412",
@@ -890,8 +890,8 @@
       "title": "HOUSING COMMISSION",
       "number": "2.32",
       "url": "https://ecode360.com/44236416",
-      "sha256": "85417ee9532a3a5135c07818df623252d43dc0d7d9b8a3618672980b7d56449f",
-      "exportedArticleSha256": "bc3a41666dbfc642f40e352728ccb2b9862c5d88271493239f4829f73b3a77a1",
+      "sha256": "5dae205091926045cdcafb46c5cb2172a13352e99692bce28e8c1bbdfbf7e008",
+      "exportedArticleSha256": "e5a60c6c95f2da985ebea25729465e6ac9ba67d5df4708e431fe3d0f57ea0261",
       "sections": [
         {
           "guid": "44236417",
@@ -942,8 +942,8 @@
       "title": "EMERGENCY ORGANIZATION",
       "number": "2.36",
       "url": "https://ecode360.com/44236433",
-      "sha256": "5a01ddbb633e706671ef7122fded12d28d2d34fbb40d5d3441c23f1da46fb262",
-      "exportedArticleSha256": "722734bd10f2078d05bf19fd571fd1dc274088db09f1586e21b5c16fe2838010",
+      "sha256": "1adb795ca73599e7029ce9935cbbf6211a275c9525bca3d018796e88b1afbf88",
+      "exportedArticleSha256": "bd018e758216794a6a5ae577b5d0c4e6eb1aa513213692a69a210990d18a6e33",
       "sections": [
         {
           "guid": "44236434",
@@ -1022,8 +1022,8 @@
       "title": "POLICE DEPARTMENT",
       "number": "2.40",
       "url": "https://ecode360.com/44236468",
-      "sha256": "800bf06d6045228549e4ad30b86c4dfa03f336500ce0fbd899d2f60a2ffe76fb",
-      "exportedArticleSha256": "ce2d7176b59cc9ddde52d28da058f8702b6d536d1e8d4a081cbf50885faa25b8",
+      "sha256": "2ff29c8fe13821adae073f31d1635146ab54f3f67732e8adc6fc954a03a2e791",
+      "exportedArticleSha256": "00d44187d985bcdc9f171e499d1b93c6cc5a000943e1010870c35c8e447be5c6",
       "sections": [
         {
           "guid": "44236469",
@@ -1067,8 +1067,8 @@
       "title": "CHIEF OF POLICE",
       "number": "2.41",
       "url": "https://ecode360.com/44236478",
-      "sha256": "fcaa48beac82ac1ac45186ec8def75b86c83c1d99214064a3a16115d2500c15b",
-      "exportedArticleSha256": "54dc36e0afb2aa4807a21bb09249cc6b396adcf9464903f67df5cddde785326b",
+      "sha256": "95e1c9f03ac1ffeee121bdb70883d5638a6911d84ad4a0dc3e20a276498229a2",
+      "exportedArticleSha256": "391334c6baedb395a53b4e1a0c050de7e8748080ceceed4e363ea982f21ed289",
       "sections": [
         {
           "guid": "44236479",
@@ -1098,8 +1098,8 @@
       "title": "FIRE DEPARTMENT",
       "number": "2.46",
       "url": "https://ecode360.com/44236484",
-      "sha256": "e661cbd7bb648ff5f78f3148c9d51e626e8d7942440c55d4769175e7fcea7311",
-      "exportedArticleSha256": "d69ab6e14905aa3a159676f0f4dae77779e536c9eb104a752c4f582a77e878fb",
+      "sha256": "ee39ac2e8838254b1c940d717ca0ad5df326f6d98d9cc1f0ab2b80703370a164",
+      "exportedArticleSha256": "ed5ff62337abc4707c074bc09f398396f3ee8cd0d8eb26f7ae39e8024600439a",
       "sections": [
         {
           "guid": "44236485",
@@ -1122,8 +1122,8 @@
       "title": "FIRE CHIEF",
       "number": "2.47",
       "url": "https://ecode360.com/44236489",
-      "sha256": "15186490abf91b5f3a4f1c0191e7504dba1d9a110dcabbb94e0c48c4518f282f",
-      "exportedArticleSha256": "49c2794fd0cd0da89e77708b4c0f54cc27fbcdc9ae4ec8c78e53f4e7a65cca4c",
+      "sha256": "ea5d2e96833090b46871176c25b012a2a018a118d0999656344e674587cd3dcf",
+      "exportedArticleSha256": "8284d5a9dd1e8dbba2ea1aea1aa5af92d8d73d9e305916b4e36d73b2803d05e2",
       "sections": [
         {
           "guid": "44236490",
@@ -1160,8 +1160,8 @@
       "title": "PARKS AND RECREATION DEPARTMENT",
       "number": "2.50",
       "url": "https://ecode360.com/44236497",
-      "sha256": "a365b13699c44347327e825b8dc06d1ee963eb5dd9cf4c770bd6d4a406e75206",
-      "exportedArticleSha256": "80dd7185e646ec77bbc1a9dd59ad293f8937d041e473f6cdca304a7bb24521bc",
+      "sha256": "c256b997e24d92ae9a678777ab72aac8fa4949a6b21279ac07ff1ff1e894d347",
+      "exportedArticleSha256": "a53b2d1e0e201724eb165c55c3359f6857ecae52f9835a4d70f9fed78481b45f",
       "sections": [
         {
           "guid": "44236498",
@@ -1184,8 +1184,8 @@
       "title": "DIRECTOR OF PARKS AND RECREATION",
       "number": "2.52",
       "url": "https://ecode360.com/44236502",
-      "sha256": "3df8a6ecad1e7a64a53d09492ede9b7b9c0b8b8f05d2568c8fc3a1d2a26400e0",
-      "exportedArticleSha256": "16631820f9261c1bb481d84ace2438682bb6be01c52e77987425e82d0e5f0fcd",
+      "sha256": "821a3f6ab98301e741140d7ca51d7119898cdb0a96d7fbd2610972ff74494a4f",
+      "exportedArticleSha256": "4d5d06c7ed674ca28de66c3febecd9099ae6e11689f4b2ec27815a3a4f8a90e4",
       "sections": [
         {
           "guid": "44236503",
@@ -1215,8 +1215,8 @@
       "title": "BUDGET",
       "number": "3.04",
       "url": "https://ecode360.com/44236511",
-      "sha256": "d452ca8d7ec1770dee4c9e174b2ecad65931d0a3bb9203012d512d243f7c3123",
-      "exportedArticleSha256": "5121361828df824b592e17b535a1bfc9e34b7daf0a3739b105973365ef862d91",
+      "sha256": "f2834f271cd96256c488e957910af452bd5d4f144ea9294726e37d3b476d4d2a",
+      "exportedArticleSha256": "a46dd08c64799e32996fb1cca50f5267aba54b62514ea0d9cf5b83c670dde0b0",
       "sections": [
         {
           "guid": "44236512",
@@ -1267,8 +1267,8 @@
       "title": "TRANSFER OF TAX FUNCTIONS",
       "number": "3.08",
       "url": "https://ecode360.com/44236518",
-      "sha256": "83dfac15adf4560fa92b4c282bfa05eae0cd28fc01124d0774624d05af76d7c2",
-      "exportedArticleSha256": "44a2889f2ae2d2cf8c47583b2040878eba4fe1bc2be3cac0f6b9617c802050fb",
+      "sha256": "d62771d55250bedf29b8bd7518da335e13f087fce82b0bc0c4417ae311459179",
+      "exportedArticleSha256": "79e55db54997e5c742ce28ab52b5257f922c08c7298adce7c751ef66507f662c",
       "sections": [
         {
           "guid": "44236519",
@@ -1291,8 +1291,8 @@
       "title": "REAL PROPERTY TRANSFER TAX",
       "number": "3.12",
       "url": "https://ecode360.com/44236523",
-      "sha256": "74bee95c5d0ff6d33a00f2220e3e4f938ab377f37a01aafc82b557e09bce4ddc",
-      "exportedArticleSha256": "731c6ed8c1b7e3b13434354966a43849e4fdc12c1d6e0d8ae4da24b7b21dd0e6",
+      "sha256": "b1246b1528a4d789eab3cdc85dd38b4051f3acb3ab4fde0da7e5990afd811406",
+      "exportedArticleSha256": "ed903536af4bf7e6fb6854f7246c1086a47fa6874f15486c6f41914063a2e02d",
       "sections": [
         {
           "guid": "44236524",
@@ -1378,8 +1378,8 @@
       "title": "SALES AND USE TAX",
       "number": "3.16",
       "url": "https://ecode360.com/44236551",
-      "sha256": "029a3a38d3076d9f44cf71bcf401455407acee618e3f78a1c852d56ff59943ea",
-      "exportedArticleSha256": "9a19d5af58997a79eac48daede7ccd908e372a02d10ccd444a1b3e60ab71e5b0",
+      "sha256": "541d49e2bcaa787158735060bba873a64b3ae599f27ae9e2a7702f8d1b7db70c",
+      "exportedArticleSha256": "7a2828fbc41a4f6b974d2eaf3392505e1aa68c30d6126eecf8ca73de85ce4afa",
       "sections": [
         {
           "guid": "44236552",
@@ -1514,8 +1514,8 @@
       "title": "TRANSIENT OCCUPANCY TAX",
       "number": "3.20",
       "url": "https://ecode360.com/44236585",
-      "sha256": "06c7ce8a89e3c64902fcfc6d13f4575034507078b83917ff350c47e5b77621d8",
-      "exportedArticleSha256": "bbb8cf7523f60678481545b0540b6983b5626cf635b7c48b65a82f1d1bcb2abf",
+      "sha256": "c67c674f7b5563c897134101df91d47c8371b18fc22b5d7d689cc5603037be1e",
+      "exportedArticleSha256": "35ae09f376a79802eb6fc4a80b6615038a615418641cb0eaffb98f1e727ea88f",
       "sections": [
         {
           "guid": "44236586",
@@ -1615,8 +1615,8 @@
       "title": "GAS TAX STREET IMPROVEMENT FUND",
       "number": "3.24",
       "url": "https://ecode360.com/44236640",
-      "sha256": "5d25cc595db6190d58ceb2818eeb4f7abbacd4e0e5568c8156f024eaf3c11d17",
-      "exportedArticleSha256": "b6b4bf30dd5804ebde0d2442413ddd5cf52bd70f3c6f6a29618fa8a213e03a41",
+      "sha256": "83352e5eeb734b14d5c87fb844f5e05ff215fa5b85eddf43760aa3151575bada",
+      "exportedArticleSha256": "58f17e23de4e8097064298b4bcb4a0bf4ae3b22ac0ca94d9604ac43752f47b6c",
       "sections": [
         {
           "guid": "44236641",
@@ -1646,8 +1646,8 @@
       "title": "TRANSACTIONS AND USE TAX",
       "number": "3.30",
       "url": "https://ecode360.com/44236644",
-      "sha256": "6f9813796e7a15d8d2165431bbc7683b5aaa3246151f4b18776e8966bef76377",
-      "exportedArticleSha256": "83243e1005a939a33976eaaaed7d64b6d5271f889c1517762dffb6dac06f2424",
+      "sha256": "aaaf18a2a32957fdfe341b21cdc6bd3e3042a88bb37f70845b88a17974368d9f",
+      "exportedArticleSha256": "fc74d0895d2442f4780eed417557d1702c36a939110ee6e3cf540d8ab59d1fa3",
       "sections": [
         {
           "guid": "44236645",
@@ -1782,8 +1782,8 @@
       "title": "GENERAL PROVISIONS",
       "number": "5.04",
       "url": "https://ecode360.com/44236699",
-      "sha256": "604a1ce5d2fb112a51941f600fc078835982d0beb57e177cf325d96108e6a935",
-      "exportedArticleSha256": "1887646c9b26774856dda0edf4fa1de6e28184f25496b12b527eebd8eaaa48b2",
+      "sha256": "da014aae620658c4b625a5e155e88c3af1cf806d71dc7f391504589ca681f47e",
+      "exportedArticleSha256": "46a5be36b7229cca29315d579218ff11f13fcc13cb58f80370ebcfc1b16c97d8",
       "sections": [
         {
           "guid": "44236700",
@@ -1827,8 +1827,8 @@
       "title": "ADMINISTRATIVE PROVISIONS",
       "number": "5.08",
       "url": "https://ecode360.com/44236712",
-      "sha256": "07426ca4cc956ff9ced969a4040a402c3a853847f4bd15436099ac565b867833",
-      "exportedArticleSha256": "36f5e62e4bf3eab0a7df26ac929ad992d7e9d12906b2ac495af23d974c44f428",
+      "sha256": "1e718ba40713419dab317bf5fb67caa50b51fdb691646568dffd7b5249a0ec07",
+      "exportedArticleSha256": "1a038b470ef10ee777181d48afce5579201dbe766acda3dc10144c27e2f3132e",
       "sections": [
         {
           "guid": "44236713",
@@ -1963,8 +1963,8 @@
       "title": "PROCEDURE FOR OBTAINING LICENSE",
       "number": "5.12",
       "url": "https://ecode360.com/44236745",
-      "sha256": "d561307cd4842a17e510e82e3de6c18a287135d23ce206047694ebcf6c691d26",
-      "exportedArticleSha256": "ede7d42fed6fe3a47e6c7ab3313d14dfd511a54bc6027bd4397103331790ffae",
+      "sha256": "9785d15c7b830181a50fa11ab811bc8d83f0c5f026469e92f0de5bf1eb8ffe63",
+      "exportedArticleSha256": "8e4e333a190d154c60b56a8f7d370cf7cc22500c67381e54cd1c018bc7d36aed",
       "sections": [
         {
           "guid": "44236746",
@@ -2015,8 +2015,8 @@
       "title": "LICENSE TAXES",
       "number": "5.16",
       "url": "https://ecode360.com/44236761",
-      "sha256": "88fabc2e22c540b2fad6542f8e4a7e003fac0801d5212872c893f6afff9b881e",
-      "exportedArticleSha256": "e402fb6efa3a27ae6993645c1103b802660c4e8912bb50bc341411b5c981eebd",
+      "sha256": "08108922640d0c455b92f0b8cb17b46865ad44d3fc9cb1d69e50e911b0e96d14",
+      "exportedArticleSha256": "e18d2a118b06263a4cbe43d4cdd44f72387e20705080f9f045b65c0ff6ab65fb",
       "sections": [
         {
           "guid": "44236762",
@@ -2074,8 +2074,8 @@
       "title": "ENFORCEMENT",
       "number": "5.20",
       "url": "https://ecode360.com/44236772",
-      "sha256": "8e2e90697e729b7cace74f51fcdf229a75d7dec29c9eb9e43cfe4b43eef11924",
-      "exportedArticleSha256": "9a3936f392f317c4bfea2fb181f49e2d7a16ddf23d38894196270beb2ea4357f",
+      "sha256": "df58ff1b22df40faeb05ae340495ee8c142e464e706b3f40f465f9e37c69d7bc",
+      "exportedArticleSha256": "8c8709f0ac760af4f2284b60a09ebe75b33428d0febe7dbcc45cff374666ecfb",
       "sections": [
         {
           "guid": "44236773",
@@ -2119,8 +2119,8 @@
       "title": "TAXICABS",
       "number": "5.24",
       "url": "https://ecode360.com/44236784",
-      "sha256": "6eff22cd69213940a6bd6783ae2e47ab29df7c421d936b789b0a94c3f1d5fb82",
-      "exportedArticleSha256": "6cfbe62011e39cafe4b5a5cd0395730ddabc99f02d356475ecba5a71a15d0689",
+      "sha256": "1aa11679da42b75bfa19a54721625b8001ac9f7dc61e34b7a410b0a0b33c2509",
+      "exportedArticleSha256": "fafaf99f28952baae9fd84d1cd72ffa88ae4df31cd7f25a08eeb9399aac3f2b5",
       "sections": [
         {
           "guid": "44236785",
@@ -2220,8 +2220,8 @@
       "title": "AMBULANCES",
       "number": "5.28",
       "url": "https://ecode360.com/44236880",
-      "sha256": "f1de4d833e19d49e6ed7ad2926cbc2597b9564725d6a4f63e2da9deb2e3b62bd",
-      "exportedArticleSha256": "288add1900a135ce85fe45a2961ff7369f744f760249ccfc3c7b5fc3c705ae03",
+      "sha256": "2af178ad814bf3ce75a51d20825061c5127bc63e19d110a803213b135a40395a",
+      "exportedArticleSha256": "66908b370a1ecaeab4b10ee7bd56aeab3b2cc049ea26734218c44f83524fa19c",
       "sections": [
         {
           "guid": "44236881",
@@ -2335,8 +2335,8 @@
       "title": "CABLE TELEVISION SYSTEMS",
       "number": "5.32",
       "url": "https://ecode360.com/44236920",
-      "sha256": "401b0e975fe95e704c51e94a377811b39a6b9d59c66ff766cc6df275fdeed4e4",
-      "exportedArticleSha256": "41d5ad9cf6d0395849dd7b1ecba3e0e0194e4e5f4d0ccc5e51bb04d95c16b51f",
+      "sha256": "3e9994857b93bc5e445024bf4014a92533e3a5a1400edbe2e60bb2c1423fd2da",
+      "exportedArticleSha256": "1bf6a0fc7a51eec873d149c9ab841ca69436b201d8ea5d1b43bb305c28a4e4eb",
       "sections": [
         {
           "guid": "44236921",
@@ -2849,8 +2849,8 @@
       "title": "BINGO",
       "number": "5.36",
       "url": "https://ecode360.com/44237114",
-      "sha256": "64c0da3a39287082188bb2281567ed45011c22d2672cc103980e11a9e4f2e46d",
-      "exportedArticleSha256": "193112d1a63f061897f84ba67f43a1dd967fb5b48992f9b8cdc54a664d184282",
+      "sha256": "5bf99205ef377c270f4b97299ca78339c5f8e8d24033cf798c061a0a748cd2a6",
+      "exportedArticleSha256": "3641a9211a5df77d8535f88374af819532a70e3dfe9eb8e027dced1b83114dc8",
       "sections": [
         {
           "guid": "44237115",
@@ -2936,8 +2936,8 @@
       "title": "CARDROOMS",
       "number": "5.40",
       "url": "https://ecode360.com/44237126",
-      "sha256": "acb1c1d1c1b903d15a16467754a18c57a585ff1d6e0ecb7190670320b5b7459d",
-      "exportedArticleSha256": "95b9a5b4796c7cd16b80388abb4a10c19396f2bcb728c847c50a9031617e2a2f",
+      "sha256": "d1bb7021b4deb514c842bff63d4c650a8199d5b0349c6d7fab8cdb34c0448bcd",
+      "exportedArticleSha256": "5de17199bfcc0fe890576b00e3829e3f3626e52f61c37123ed031726bf23c065",
       "sections": [
         {
           "guid": "44237127",
@@ -3107,8 +3107,8 @@
       "title": "MOBILE VENDORS",
       "number": "5.44",
       "url": "https://ecode360.com/44237178",
-      "sha256": "5da25dfd79f422f7b745089544c663e51a0dc46459ccad51a20dbd43f0821bd2",
-      "exportedArticleSha256": "665c65341468940d2adb288f370a32e4568f1343e5249929623a5a3e0e8d17c8",
+      "sha256": "b162e9c6a6c42ef6e06c1e010e40e5e5fe9b0f2e1cc32c17d52d2d02ff2030bc",
+      "exportedArticleSha256": "8a92557aaad512764bb1a6fab4442a39d9a8f611717b4be2a63bb75774329131",
       "sections": [
         {
           "guid": "44237179",
@@ -3208,8 +3208,8 @@
       "title": "SIDEWALK VENDORS",
       "number": "5.45",
       "url": "https://ecode360.com/44237239",
-      "sha256": "2bb087d715b478567b8027419979aa00ae31eebaa65a58e9f05f66729a94ad4e",
-      "exportedArticleSha256": "060edee107f7c689236a908683bedcf45307a1c87f113fbd42fdf9caaf855e69",
+      "sha256": "db9838268e1decaf569079c4182713b9409fe2d7381ee3d20116c55b2e8a2fe6",
+      "exportedArticleSha256": "54c0a51e7afa80f55322ea8fbdf737326ac8e709ed0665b9eda6d480ced36362",
       "sections": [
         {
           "guid": "44237240",
@@ -3295,8 +3295,8 @@
       "title": "ANIMAL-DRAWN CONVEYANCE LICENSES",
       "number": "5.48",
       "url": "https://ecode360.com/44237302",
-      "sha256": "c6d30dc8fb2405c9418eab5fc08c59a13231dfc82fccf7e97474a79df6588e9f",
-      "exportedArticleSha256": "681913dbf8884fdc04326fd9e0f9fbc2318605017df1efe905f8cb8b8fcfe627",
+      "sha256": "fa7159f51fe188a3e839495773c85af7a46dbe99fc4d01f9f53ad2efb75aee72",
+      "exportedArticleSha256": "aa5813e16f58c34865ede2d5a26e1078059557669f6effa88d3696646f0321ca",
       "sections": [
         {
           "guid": "44237303",
@@ -3382,8 +3382,8 @@
       "title": "FILMING OPERATIONS",
       "number": "5.52",
       "url": "https://ecode360.com/44237354",
-      "sha256": "1d0d087431643f092a4f531099b1fe05382541a6d7800fb7000729465606b469",
-      "exportedArticleSha256": "76b87b0522580e4bc9fee540a77931f40fe5d5a33a3ab54ae4056fb8dc2354cc",
+      "sha256": "d6d01f97aae067f6bba4e2bd7f67de8a339c79f4557a88776f00290d6fdd3600",
+      "exportedArticleSha256": "e789de8535ad581b96a53b7b5e0aa5279004cbe121dec87af5ad10f3e1cff368",
       "sections": [
         {
           "guid": "44237355",
@@ -3455,8 +3455,8 @@
       "title": "DOWNTOWN PARKING AND BUSINESS IMPROVEMENT DISTRICT",
       "number": "5.100",
       "url": "https://ecode360.com/44237365",
-      "sha256": "04d6a432594188311bc29df5598fc24fe5904beb35ffbcfd61852a67dae3cf22",
-      "exportedArticleSha256": "96a639cb48649180a56b41e817d3c9704e30a52f22b52619b0bf791368cf362d",
+      "sha256": "cf8e2b42b4dd8f2522f33960796c9cd18ecce001ebe52a011117aff1575dadd6",
+      "exportedArticleSha256": "6d5b01efb10676f88b9691ce7aa419003008f1b6dabc55f4b54fa1677cc30738",
       "sections": [
         {
           "guid": "44237366",
@@ -3528,8 +3528,8 @@
       "title": "DEFINITIONS",
       "number": "6.04",
       "url": "https://ecode360.com/44237409",
-      "sha256": "0a9c2d92f35513ab5a25b503752caf45f41a668cf954d42939cf808cec0f930b",
-      "exportedArticleSha256": "ae8d2ca6f0507dac9478a39443ef741f2f8b06fb789ae074977fddc08ff9f3a1",
+      "sha256": "f40e64cdd8357c68b87b909507decd5836c13ce6a33642d0b680d111b8f4f1e3",
+      "exportedArticleSha256": "1af11420adfd9f887a1c7230745c9ffca66282270dce6b564a3cbb5bbbb48ab2",
       "sections": [
         {
           "guid": "44237410",
@@ -3566,8 +3566,8 @@
       "title": "ANIMAL CONTROL",
       "number": "6.08",
       "url": "https://ecode360.com/44237417",
-      "sha256": "638dc81ddab79512640339bee23c482925089fd3765c00b5d29277a22770cbbb",
-      "exportedArticleSha256": "261a298d094b78ccc03929a3f950dd2631eeec41163b9c1bc396258147afa150",
+      "sha256": "ba460a1f476fbb6305071efb8ce73550c96e7c8149a513bbdc2772ed2afb6652",
+      "exportedArticleSha256": "5007ff42968f40917632854ba9aaaf5c0f46c2b0fba84a66bd5ec4668ea1768f",
       "sections": [
         {
           "guid": "44237418",
@@ -3604,8 +3604,8 @@
       "title": "FEEDING PIGEONS AND SEAGULLS",
       "number": "6.09",
       "url": "https://ecode360.com/44237449",
-      "sha256": "b3e36723c37af9a341da9a072da1c092818d5de7ef57dd0f6997be943c8f694c",
-      "exportedArticleSha256": "7eba03b6975b14a776fbf8721da6a62fecf3b480def5443d474c61ff90e718f8",
+      "sha256": "83d0337bec6019d90e4b9cb3ecda949c4f84db5de7ea66c67baa06b9d96dd5eb",
+      "exportedArticleSha256": "e26cd5fa41343e3eb11c74da8a46a4bdf11a15bc07635a84199a7e6d4b72c6b9",
       "sections": [
         {
           "guid": "44237450",
@@ -3635,8 +3635,8 @@
       "title": "GARBAGE AND REFUSE",
       "number": "8.04",
       "url": "https://ecode360.com/44237459",
-      "sha256": "ae09e028d06e8928aecab16155ebc0142a435da088d22d36409e7fe077c1e09b",
-      "exportedArticleSha256": "2f06207d9c019a8bfa41e8ad98bf1d33b2d792917e6114cc2a4da62ec028a31d",
+      "sha256": "45ca09ce292c32fa45d6ce180c21228ad0541ed46005961550b7b50e0cdeff30",
+      "exportedArticleSha256": "c76e547266e408e91935c6c93c49fb903e9182325d3da1eba52d238f3673afdd",
       "sections": [
         {
           "guid": "44237460",
@@ -3729,8 +3729,8 @@
       "title": "NUISANCES GENERALLY",
       "number": "8.08",
       "url": "https://ecode360.com/44237482",
-      "sha256": "8ab42d53a415dba0cfc9934c7ff2507de38bdf3ea29d1027de411c169898099a",
-      "exportedArticleSha256": "3077b373eb8f391678588f705a603fd4082e422e8f3165b25c0a5c9505027bd5",
+      "sha256": "25ff66681bb306a64e4e694bdbc404375b8efecc3404bfe1535e3eb1de342f5c",
+      "exportedArticleSha256": "73f8456f6b3b6fa5653aa4bf68212a7e2ceb6ac2e111b56ecaf8a71796f10efc",
       "sections": [
         {
           "guid": "44237483",
@@ -3921,8 +3921,8 @@
       "title": "ABANDONED VEHICLES AS NUISANCES",
       "number": "8.12",
       "url": "https://ecode360.com/44237627",
-      "sha256": "1e7b18eed01f37ec76c35c0d2cc95aae0dbf558e428f766b6a3df9f554845943",
-      "exportedArticleSha256": "8bd02316f3fd54071eada5d60af9a77a52d92a969bd029aaf6c95fb0e85906fa",
+      "sha256": "20eafa93f66ad98dde7808d7b55ecbf8c583c5abc8a2e17dad11a1606499a4dd",
+      "exportedArticleSha256": "b7690f9a38ad00419f437b86fb8f9b96953abe0962e79481c04a8a63e4c67bab",
       "sections": [
         {
           "guid": "44237628",
@@ -3994,8 +3994,8 @@
       "title": "HAZARDOUS MATERIALS DISCLOSURE",
       "number": "8.16",
       "url": "https://ecode360.com/44237646",
-      "sha256": "66c2c5c091f7e163c7247f531d8382061a06e742e8aec6d060c4cdc66d21bf22",
-      "exportedArticleSha256": "b8759cbd0630cf2f30e426dd1b6c98b2e364567693b08f694b2e457d53c1e7a0",
+      "sha256": "8d32276107d6b1955a780684700a09d05612195f473d6ae9b0e7651d61a6d071",
+      "exportedArticleSha256": "a8a7b61e173632fd285a7f10e3d5aa27cfa490a39871be1ee10deb35c9d33e2f",
       "sections": [
         {
           "guid": "44237647",
@@ -4067,8 +4067,8 @@
       "title": "NOISE REGULATIONS",
       "number": "8.18",
       "url": "https://ecode360.com/44237725",
-      "sha256": "3f8a0ab88435f6d6064d7a058c9db544a34cb45655afd31d7875b76e2c9fde1f",
-      "exportedArticleSha256": "a7accf08dd1062472897a66c0340ff9a74020b4a53d4254414134b0de331178d",
+      "sha256": "805652e36f21d703f29b46d17c015e665111c9b32e6d60c73458dcfaec7c65a9",
+      "exportedArticleSha256": "8719a8724c8bda41848aa183d6898bcce1cc0f537a630b8b607e3656ecd26f50",
       "sections": [
         {
           "guid": "44237726",
@@ -4140,8 +4140,8 @@
       "title": "SHOPPING CARTS",
       "number": "8.20",
       "url": "https://ecode360.com/44237797",
-      "sha256": "9a1fc95638900e1fe885555d2626133f82e74e805b6e6910e3124b6fe0304376",
-      "exportedArticleSha256": "cc2121d6a4d1648d2008c09595da6bc46e481cff767f59b971da7099021e0006",
+      "sha256": "0a9b3cb1062687efc2fc3d56c9906a712a1431712b849651625a319663161785",
+      "exportedArticleSha256": "a695aeddc0287d427664197328e336f6277897620d3c6e4f2a8425cc65809367",
       "sections": [
         {
           "guid": "44237798",
@@ -4241,8 +4241,8 @@
       "title": "FIREWORKS",
       "number": "8.22",
       "url": "https://ecode360.com/44237868",
-      "sha256": "8a32af109417a33a5b0545f6e68ec82d45734e51edae40939bda17b7d2498527",
-      "exportedArticleSha256": "98573a3dcaa38279ccf5b792f5d6212bc5fd24857173127d0244962ec20df177",
+      "sha256": "850e06c997cb69fc73e5162dbd5e78e9da7863a555e56541f1351ef2443a14b4",
+      "exportedArticleSha256": "9b27b560dcb4d7c6855f16c7b0d7c9464fdffb4af75aa746bc9d88c917b61179",
       "sections": [
         {
           "guid": "44237869",
@@ -4293,8 +4293,8 @@
       "title": "SOCIAL HOST ORDINANCE",
       "number": "8.24",
       "url": "https://ecode360.com/44237912",
-      "sha256": "337228c91b926ef841c7cffcf45f42ddb1be038c4b48001cf7a27b29e0e6d3dd",
-      "exportedArticleSha256": "2d0f0df9049c38c67ff64f1cbacbb930b39f3a4699ce041c433793a9374dbe90",
+      "sha256": "cfeb68f7b51603d0b8940534eee010557a80a93f84c1d6d034755d768e0b6eda",
+      "exportedArticleSha256": "250991de2bd8eff2c5e6114231a5036f69a58bb7b409c851be73253615182103",
       "sections": [
         {
           "guid": "44237913",
@@ -4394,8 +4394,8 @@
       "title": "COST RECOVERY FOR EMERGENCY RESPONSE SERVICES",
       "number": "8.30",
       "url": "https://ecode360.com/44237980",
-      "sha256": "53bde041fb5232faefe9d2bb9c5540a19d1464bb6637eb2c9743efe76fbb881c",
-      "exportedArticleSha256": "55e2aec657d23fc78db364a2701de872a16ad7b6b237948e0c57f121c873ee72",
+      "sha256": "1f5d9436478a51fc41b86313e881e41a5215920f7939d96d67d1adad7f9fbfb5",
+      "exportedArticleSha256": "89487e83df4f2e14556668ce267d1d5eed8feb1b5408efec87af417095063f0b",
       "sections": [
         {
           "guid": "44237981",
@@ -4425,8 +4425,8 @@
       "title": "ORGANIC WASTE DISPOSAL REDUCTION",
       "number": "8.32",
       "url": "https://ecode360.com/44237984",
-      "sha256": "18ad39cfc3eb02b5190f508135d8816ba3f94376c62d71daefd176e313054601",
-      "exportedArticleSha256": "b308ff8291679c082e3e8344a16014fc7a52c3fa659f8c28a773bcf0c2c57795",
+      "sha256": "023a52a534e4af4029e5e149c5bba288a2721ad47fdea66b08f3b10ca15b706a",
+      "exportedArticleSha256": "056a1829e779c22a04156fd1e01248643002fd6de278b6c78822251a6a2fd419",
       "sections": [
         {
           "guid": "44237985",
@@ -4533,8 +4533,8 @@
       "title": "REGULATION OF TOBACCO RETAILERS",
       "number": "8.36",
       "url": "https://ecode360.com/44238182",
-      "sha256": "51626479a2e3b008dab183ed7ea74ef1fe37315bd52bd54caee3231393d2e41f",
-      "exportedArticleSha256": "c77c5c79243afb15bdb2df994af102e21b0e532bedfb1d7c13c7889e2c6c2611",
+      "sha256": "0f8ceddcddf35c9f073d67367fe97154717972ef16ce42efb626942ae7e86eb7",
+      "exportedArticleSha256": "fec0d7b6f48d020bbe44691e9e4e3583aaa6a2b89a544604fa8d35bdac626f15",
       "sections": [
         {
           "guid": "44238183",
@@ -4578,8 +4578,8 @@
       "title": "CURFEW",
       "number": "9.04",
       "url": "https://ecode360.com/44238235",
-      "sha256": "cdd19dff85af93625845f224dec85ff50ca032ba3918d5c5addb60de869f4775",
-      "exportedArticleSha256": "8997244d3bbae8c41fe3cba477a3de4bc537184a06038b89f8fefe7960a622f3",
+      "sha256": "125323b234541b1b5b5ad85a963418ebc91821d889f5e82d0c5bd4901675acb2",
+      "exportedArticleSha256": "1b9f181912eaecf453e2612bc87921ffd1abad4118c80da0137025bb61fb8969",
       "sections": [
         {
           "guid": "44238236",
@@ -4602,8 +4602,8 @@
       "title": "ENTERTAINMENT FOR MINORS PROHIBITED IN CERTAIN DISTRICTS WHEN",
       "number": "9.05",
       "url": "https://ecode360.com/44238241",
-      "sha256": "8910c8200a5351712b22899ef1102288ddf0a924d20c433663f12f5d368ab2ab",
-      "exportedArticleSha256": "31ecb0e810383faff11d5090a1aa1475257d95fc14016ada2f0071f64d0680b1",
+      "sha256": "60940f941ad7e094070430d336ce7741a7705c44f28848f38eac639806761d59",
+      "exportedArticleSha256": "5b9900b66c20c8240fb4e596612e97e08bffc4cb8708c1f4b5ff5400476c9b6f",
       "sections": [
         {
           "guid": "44238242",
@@ -4640,8 +4640,8 @@
       "title": "OPEN CONTAINERS OF ALCOHOLIC BEVERAGES",
       "number": "9.07",
       "url": "https://ecode360.com/44238258",
-      "sha256": "4f114c5b17db67c84d9ec14438fc94ff5adda9be9270535714927387831eaa57",
-      "exportedArticleSha256": "cdfe533084dba4c25f774f2896933ea805628b8ab096a387539df9b2b368652b",
+      "sha256": "24b21c47a6b08cbc8134444164865051b63d8779f8afd4b27acb3e3ae69dcf08",
+      "exportedArticleSha256": "0825136cd535573bb81ad1bea81e2597376662b271698df0363ea69034fbf3ce",
       "sections": [
         {
           "guid": "44238259",
@@ -4664,8 +4664,8 @@
       "title": "DISCHARGE OF WEAPONS",
       "number": "9.08",
       "url": "https://ecode360.com/44238261",
-      "sha256": "719efe8f829616ee7d433a88af67bfdac4ae4f695e12f6347125e2142d6f9c9f",
-      "exportedArticleSha256": "c5e3895e0e640f94f8e5eacfaab5fecd03153c6de31776b4c83de86c41659811",
+      "sha256": "328aebd73ec5e270501a07ab377e7c8df36450db91f58f5bedb7b57a59409da5",
+      "exportedArticleSha256": "5a1701c51de8a0cc97c3f5e7701800fac558ba40f749f6e7fb110d96c4b9a8fb",
       "sections": [
         {
           "guid": "44238262",
@@ -4681,8 +4681,8 @@
       "title": "TRESPASS",
       "number": "9.12",
       "url": "https://ecode360.com/44238263",
-      "sha256": "b6701def83bf40b31205c7496982d6641603bed0957c595b246732ca61692fae",
-      "exportedArticleSha256": "150400fd26f8b0a0ab2ab09a51afb65533e427b8bc510e586067933278b9f008",
+      "sha256": "576998051d8518074e362fb642d0e516d322fb98f6f185be1fdcf59c8e4e9e42",
+      "exportedArticleSha256": "14e2dc631d7ad0d557be54c69dd384577fc9a28cb08c6ca86a7619388ddf7f76",
       "sections": [
         {
           "guid": "44238264",
@@ -4698,8 +4698,8 @@
       "title": "LODGING IN PUBLIC PLACES",
       "number": "9.15",
       "url": "https://ecode360.com/44238265",
-      "sha256": "2c2f4fdf5ef3a9737961eb0b0dedc055586b4018e47cf10591aa2be1c7a5610c",
-      "exportedArticleSha256": "f35737b6d2580f210eb30f4a63d4471da8b900b5a2b44177a49c5e0521688fd1",
+      "sha256": "b59857b28c4097c8c2d06d56a6fb1c0e19e9c5b3fc1353fc4b3ab15e4ea33a58",
+      "exportedArticleSha256": "d34d048407588254ab09079b3a4e95e3323f5db80b1c1a93565bf0cdf3c47779",
       "sections": [
         {
           "guid": "44238266",
@@ -4729,8 +4729,8 @@
       "title": "CAMPING WITHIN CITY LIMITS",
       "number": "9.16",
       "url": "https://ecode360.com/44238280",
-      "sha256": "5f5d3b4df49944227eb931a89030af02fabc4a535e9a18c42d3606928f23a402",
-      "exportedArticleSha256": "bd1d373fbd8f126623be1e901d609a3e2634def65f2d152b56f635bd06846033",
+      "sha256": "6688d373436ac48d017cd972ed5a18bb0b42f149948c27d9a588d25208ed80fb",
+      "exportedArticleSha256": "1ef0fbb18c004c89fbad33b5f3553dc8afab14018e9ff0b60c125f90e49cefe0",
       "sections": [
         {
           "guid": "44238281",
@@ -4788,8 +4788,8 @@
       "title": "SMOKING PROHIBITIONS",
       "number": "9.17",
       "url": "https://ecode360.com/44238305",
-      "sha256": "83bf32ec3838572f793ce8575454444514ace38e2a047cf57e8dd1a42bdf2b10",
-      "exportedArticleSha256": "5f8989e29b14677dab9e60ba4deccc13a758e03979f7ecd0cd28cb47bfb51150",
+      "sha256": "ab13e3030de6bc2efdf7e9325838a33e5f34479058e5ee655b4b87f907d036fc",
+      "exportedArticleSha256": "734b3d1b7dd2c0b3f814da2a9ba1e9907c9a3d2a72c19e1372a92771c1ad9ed4",
       "sections": [
         {
           "guid": "44238306",
@@ -4889,8 +4889,8 @@
       "title": "PROHIBITED SOLICITATION",
       "number": "9.18",
       "url": "https://ecode360.com/44238420",
-      "sha256": "775951e24b1720342c22f174686a6d080f1a4ae566438a9eadd0b9aa7ddb7d25",
-      "exportedArticleSha256": "b6e1275f8f8e6bb07c3c806d54e8d2208010bc6dd00bdc40c48db98983b07bd7",
+      "sha256": "fa0bf986355d7c0c3440de13eae43a041c811801252c5a84c7d518f1ce311649",
+      "exportedArticleSha256": "db4196a9ab624365e74ca2def5ba59e9fc92981af1d4ee8b2963a49a45e5c39d",
       "sections": [
         {
           "guid": "44238421",
@@ -4948,8 +4948,8 @@
       "title": "DEFINITIONS",
       "number": "10.04",
       "url": "https://ecode360.com/44238485",
-      "sha256": "9739a233e75114f48dc17a74d037556953014e9285e7f3b5feb2b69cdfa663e9",
-      "exportedArticleSha256": "04fb470d38fd031a6e1b8d13efb013ca047a24fcd62f9b88e4d83f387cdc2936",
+      "sha256": "c16c592f4e26daa6fa3af90c93dd56ae58702bd7693e0c456f056922e8f56245",
+      "exportedArticleSha256": "64c72d4d60e24085331ea065843ec67cb64cdec81afc22e57696ca452dbe7964",
       "sections": [
         {
           "guid": "44238486",
@@ -5070,8 +5070,8 @@
       "title": "ENFORCEMENT AND OBEDIENCE TO TRAFFIC REGULATIONS",
       "number": "10.08",
       "url": "https://ecode360.com/44238502",
-      "sha256": "8f66ce9d721dc15e367bf92d420b1882f31b4f755322ac0712e0e97ef68f00d9",
-      "exportedArticleSha256": "ff381caff7c3d9b2b7a74e95d398f5000c6cebb477ec7e2c5fd342b005bc5b99",
+      "sha256": "56bbadd7ef13dc0af4629390396c6fc1fc6cd0ba788f3229fe7ee9c2c25b0f19",
+      "exportedArticleSha256": "a4eef80616428126cc0559c81efe20775710a9197ab1944c57e8c1170552a305",
       "sections": [
         {
           "guid": "44238503",
@@ -5150,8 +5150,8 @@
       "title": "PARKING ENFORCEMENT",
       "number": "10.10",
       "url": "https://ecode360.com/44238522",
-      "sha256": "28cfefda010d4f12db638df310f63cdfbc6c816a1abe05c02e62f10f1c514502",
-      "exportedArticleSha256": "f35b81070049dfc467106c5c24677448f5876cf384a1346805edded88bbb3fcb",
+      "sha256": "ab7e380890e4fdcb10768494a4de0b6389f07bfc268b670d8085405d536dbd1f",
+      "exportedArticleSha256": "a7069a7802617ee6b68c5f571e3fb58c6c19243a996c9a486a0f4bd997f8b22c",
       "sections": [
         {
           "guid": "44238523",
@@ -5202,8 +5202,8 @@
       "title": "TRAFFIC CONTROL DEVICES",
       "number": "10.12",
       "url": "https://ecode360.com/44238592",
-      "sha256": "e8ad960df293de724400b941046beb1c99b393ed98dd358299c6c05488f8f7af",
-      "exportedArticleSha256": "d00159ef9c6c3764057611cd2fa174311d8306f4da3011d534e5b23ff37977b7",
+      "sha256": "ca9e4bbbe3a7d3e1625afad7947e9f53c590dc7c3d5d653161cd6d412295c2a5",
+      "exportedArticleSha256": "b991497bd63bd6aeb3a2d3cf55a9267095f5252c7f44c8d030063c6affe5d06a",
       "sections": [
         {
           "guid": "44238593",
@@ -5268,8 +5268,8 @@
       "title": "TURNING MOVEMENTS",
       "number": "10.16",
       "url": "https://ecode360.com/44238607",
-      "sha256": "a18ad81749e3914568e197a2cac18f9acde15b1ec5796eaa866b51757c747e68",
-      "exportedArticleSha256": "70a9b8b793ce73414d8d1358efea18f7b3720b5372f02b57a05dc51b6781ffd2",
+      "sha256": "5fc800d3aa44a19331ac055bf98ee63a1cba3bd23624dcdb6e7f27d367b22fb7",
+      "exportedArticleSha256": "616a9746bf7e0352f68e2462dff0073d88984c095b7f1a84218a12cfa36133ce",
       "sections": [
         {
           "guid": "44238608",
@@ -5292,8 +5292,8 @@
       "title": "ONE-WAY STREETS AND ALLEYS",
       "number": "10.20",
       "url": "https://ecode360.com/44238612",
-      "sha256": "2ffdec087926d6b7449657708bd4bcbade0175eb510edab3802b9ad5c35b2204",
-      "exportedArticleSha256": "cd581c0699a9828877ca6d11fd0f9b2277e2682b805511e4fcac28376e0847f7",
+      "sha256": "cb48c675c39964634e7f0851261ec7f4648961003e8d315f97eaed06a48ed6be",
+      "exportedArticleSha256": "03cb202d274753d42a7bbd26dcfec5e98a3b9bd72d336a6d91fb3a2408d9398c",
       "sections": [
         {
           "guid": "44238613",
@@ -5309,8 +5309,8 @@
       "title": "STOPPING, STANDING AND PARKING",
       "number": "10.24",
       "url": "https://ecode360.com/44238614",
-      "sha256": "d4e148d2ebb453b99fe900cada5e3dac1ba9201eed0ed01ff91eefbe94619747",
-      "exportedArticleSha256": "df9b58193929e630cb324b5d02c890cdbaf8024a656974f633a5a26193d2c7cd",
+      "sha256": "f8e5a07b08352383c4c072e07a9b53b12eb69b212de31aa5eeaa5038761bfa12",
+      "exportedArticleSha256": "e17e68a04d2ab19b175ee775ed36f8922dfb1d22daa7337cb2a0217f42c91f38",
       "sections": [
         {
           "guid": "44238615",
@@ -5480,8 +5480,8 @@
       "title": "DISABLED PARKING",
       "number": "10.28",
       "url": "https://ecode360.com/44238675",
-      "sha256": "bb9d53991155096e43be401474ec742cbb3439dc8a9cc32168c3f87a2a54df65",
-      "exportedArticleSha256": "8f0f6912cd67939600cb2ce4388ae63e77f62d536cde772e6b64cf880e62fb62",
+      "sha256": "5a6f08fadb20202bbb145ecd585aa9454c39acf49a446c6deecf5de392365ca1",
+      "exportedArticleSha256": "a73812bbf0b15da53bb9bffbbb910a3746b9de9f346b93703772af4f4f28b8da",
       "sections": [
         {
           "guid": "44238676",
@@ -5539,8 +5539,8 @@
       "title": "LOADING AND UNLOADING",
       "number": "10.32",
       "url": "https://ecode360.com/44238685",
-      "sha256": "cf560f88a5db53f93c498d16d5bea744bef07c4c1ee7ceb8833e5ba32749e3af",
-      "exportedArticleSha256": "2187fe324cfa5a4ad6320ca07a05631a31e8ef70dbeee53d3826c963f86acf2a",
+      "sha256": "6b63429ed0717633f363ccc19e5ce0da14506cd35de5218d309b709f5d465b16",
+      "exportedArticleSha256": "f3df0c1ccab9930a39b4dc7a7ca617bdef80d026dd1926bda0b66ff07d788acd",
       "sections": [
         {
           "guid": "44238686",
@@ -5598,8 +5598,8 @@
       "title": "SPECIAL STOPS",
       "number": "10.36",
       "url": "https://ecode360.com/44238709",
-      "sha256": "c01d8b6890c1427902033b3b03904d4465e81cfb0b3beaa87155d3dd89bb6056",
-      "exportedArticleSha256": "98a843ad5c00a7d6158a8a19a27129502670f87b5121e23eea07fe3377134c03",
+      "sha256": "37a7e05a5a316304eb819b0723da64452c32ea76cde009f38f74b99daa460a52",
+      "exportedArticleSha256": "3a4dcc0d17ce41feb32cbcb1a40d136b800c6f312cdb847fe12cbdee710f0ff7",
       "sections": [
         {
           "guid": "44238710",
@@ -5629,8 +5629,8 @@
       "title": "PEDESTRIANS",
       "number": "10.40",
       "url": "https://ecode360.com/44238715",
-      "sha256": "0021b41f42cf98a80462b73ad5a4534d057d2a18f7dfd50da8f60c7365aa61cb",
-      "exportedArticleSha256": "e5e0cbd156b59584bff14928690cd7c7d190b599217011224819b439129ac6bb",
+      "sha256": "95153e4034c72aa35042c13545270c2a5000d89743f22fe6afe3cdf82c5aaa3d",
+      "exportedArticleSha256": "0befc80f746ba9a097193206400f01dfca35200da10d4732950de38309a2057f",
       "sections": [
         {
           "guid": "44238716",
@@ -5660,8 +5660,8 @@
       "title": "MISCELLANEOUS DRIVING RULES",
       "number": "10.44",
       "url": "https://ecode360.com/44238719",
-      "sha256": "23df0c4ad83ee451d3ec5d284caadb668c937c6e45e04b070a0fa732ef1cd914",
-      "exportedArticleSha256": "0c3832ae0bf489b82eef9bc25bade05b1a522494360d541d66ebb7f85fcf6adc",
+      "sha256": "ce154a1c2e2b5dbd520b0cd0a1fe61327a3fb57ad1a12e82b17db71d556ed2b5",
+      "exportedArticleSha256": "3a07643328ed5fec9feff85ce32c4661cb986e89b1a2b028c9adccf47b2619b1",
       "sections": [
         {
           "guid": "44238720",
@@ -5733,8 +5733,8 @@
       "title": "SPEED LIMITS ON CERTAIN STREETS",
       "number": "10.48",
       "url": "https://ecode360.com/44238731",
-      "sha256": "4ab1dbe469e0c16ba88dcf3c86b9420fbd896b8579184ba3c5d742165b801e28",
-      "exportedArticleSha256": "a71096aff08e500b63de7ab0d250363354464da01ab7ab1e22d308e8c52c4795",
+      "sha256": "1a23e5e467e0b645479a9eb6917b2808688244fc583fd007734d2823dee5281c",
+      "exportedArticleSha256": "a42979077e366ab8145ae7b90a884f50e29205667c7e5452e2e96f7de605e93d",
       "sections": [
         {
           "guid": "44238732",
@@ -5771,8 +5771,8 @@
       "title": "RESTRICTED USE OF CERTAIN STREETS",
       "number": "10.52",
       "url": "https://ecode360.com/44238736",
-      "sha256": "fb01bf9803eab662ec85407c3eafc0fc57390cd13d1d846ef78ee3db8ce98485",
-      "exportedArticleSha256": "cff1bdd662fb83339dd81d72717149a4bea99d65ec810393f0248182f08b3e8c",
+      "sha256": "631ee178fd18db421536b299b238e254716fe7fac5226a20e03495a359b302af",
+      "exportedArticleSha256": "a0d8e756b5f575a3f933f63a5799829e9697ced9e1e697a6696af0d0a898b0ea",
       "sections": [
         {
           "guid": "44238737",
@@ -5816,8 +5816,8 @@
       "title": "ABANDONED VEHICLES",
       "number": "10.56",
       "url": "https://ecode360.com/44238746",
-      "sha256": "bbe11e0b6351be9631d9a4868d618d79720d73750ac8d3fb30e9e0efc75fab87",
-      "exportedArticleSha256": "47ab1d4188117c45309478d33034df6b10bc05ab4886888e424b86785a0a4051",
+      "sha256": "664c716bfe3becfac131c40bf9f743a3dab6245d01f335df6d1d8991f41c60ca",
+      "exportedArticleSha256": "2298a3ab6041ea17ff5804a71f0f43691c5e00abf2e0bdac7c4e271c9d526306",
       "sections": [
         {
           "guid": "44238747",
@@ -5959,8 +5959,8 @@
       "title": "IMPOUNDED VEHICLES",
       "number": "10.60",
       "url": "https://ecode360.com/44238796",
-      "sha256": "aa11a516186a5e64f12e6e2c55a0fe75a116938e7136ff1d97daaa12212dcd0c",
-      "exportedArticleSha256": "ce0c0ae62fd21ad2eb2f96466f152d01d619ecea8adb92a5ff0c97ed5d4e47db",
+      "sha256": "1178f0a33109ee121f76c9f5d81e321a851ca63ec44def9d0247d8bcf1a39caa",
+      "exportedArticleSha256": "727cbf4160efba261dcef64a5e62ea643f463597f8d66ebbbb956e8e63c094b4",
       "sections": [
         {
           "guid": "44238797",
@@ -6039,8 +6039,8 @@
       "title": "CURBS, GUTTERS AND SIDEWALKS",
       "number": "12.04",
       "url": "https://ecode360.com/44238864",
-      "sha256": "3703fda7ace86aaef44e70ed8718cb77dba2d964ea727d1873bbd33280a3ee80",
-      "exportedArticleSha256": "1c0f9e6095599fc03ef7b270d0c1bf83e36d2dffe77e2f7dce5ed6974bfc4a5f",
+      "sha256": "1205c71c6574effb7b8c06d60bab8b5012c07153458b09499b31c66a50239f52",
+      "exportedArticleSha256": "df4d9af490c5643473be4e82b8e1f936eed1de1c3c9314c9b761c4d0d9222412",
       "sections": [
         {
           "guid": "44238865",
@@ -6091,8 +6091,8 @@
       "title": "EXCAVATIONS",
       "number": "12.08",
       "url": "https://ecode360.com/44238890",
-      "sha256": "d7ca66d0bc59d4d0504ae2a3181b3ef0dc42dffaeb76000955278167ac215198",
-      "exportedArticleSha256": "863f4587328cd79e9d69810429396dcffd2283801cfa1c1b7caa9512f02813a7",
+      "sha256": "7c40ec17397f1f763f2ab17af40a62bed58dcc528e80acda2a58cab40973c410",
+      "exportedArticleSha256": "a558be7e5a3fdf6905098cb37c5d5aa4c8305f664f943957b69537659c688732",
       "sections": [
         {
           "guid": "44238891",
@@ -6108,8 +6108,8 @@
       "title": "STREET NUMBERING",
       "number": "12.12",
       "url": "https://ecode360.com/44238892",
-      "sha256": "a3f9fbd35a331ed85f04fc64e183fc150ed8fb82e62d9377074aae50d0f7322d",
-      "exportedArticleSha256": "966a12cadb6950f6beae395cdc86dbe745fbfefc85e3585df9c45d908f5d838d",
+      "sha256": "7e75859a5aaae963cc07c87f9bc149d56056e3cd0ad779ec65035493ac5e8ec9",
+      "exportedArticleSha256": "971d50e362c48c995f4f81ce204837c5b1a128d1f753292d78c2d92a2a31eb9f",
       "sections": [
         {
           "guid": "44238893",
@@ -6167,8 +6167,8 @@
       "title": "WEEDS AND REFUSE",
       "number": "12.16",
       "url": "https://ecode360.com/44238902",
-      "sha256": "422ceb17b55efa53e9dae9126f8ec05a3421fb5e851c8169e3cfd45e23db5d95",
-      "exportedArticleSha256": "aa60a5219bde7aafdf7d6f32d91ec470b6088188c05021af1899f6413586600f",
+      "sha256": "d32bf498ca00096734332d828aa78291764627003a4d217da71a54a475f9fd6e",
+      "exportedArticleSha256": "e6976e88c58873222c05b8fb959adc3cf121a122892dc37f288734f6fe212cbe",
       "sections": [
         {
           "guid": "44238903",
@@ -6296,8 +6296,8 @@
       "title": "PARK REGULATIONS",
       "number": "12.20",
       "url": "https://ecode360.com/44238930",
-      "sha256": "c6b4b7b40b5eb631f09aa16053c6b64a3768f20aee59dc22f4c896af6cc725d1",
-      "exportedArticleSha256": "40b1a34b01e2f0d0f8ecf099fd3401a62e7826fbdeb1beef028ae3d598de5aba",
+      "sha256": "b166355e7166c4f987072c69b8870ff737e126a4b30009a3dbd3efbaa2f052aa",
+      "exportedArticleSha256": "7860ca40c8e82bc35de58c3b91ac4911633db818f5bd2afe2f19e902c0d4f246",
       "sections": [
         {
           "guid": "44238931",
@@ -6362,8 +6362,8 @@
       "title": "WATERFRONT REGULATIONS",
       "number": "12.24",
       "url": "https://ecode360.com/44238980",
-      "sha256": "e3d4590a1a19feec3808985873d2c090f262808efd6ad13514bfcc604fb66c32",
-      "exportedArticleSha256": "1589fae87ce4531073abde461b036cde89240270f551a08d95767a4a2fac05eb",
+      "sha256": "bda4f539349e7edac9cd5b48246d9b85ff00e443d20bb6ff0f75e9f25559f0ba",
+      "exportedArticleSha256": "481fca660dd96709cfdb2e38b172a4d8110157b95cf820e3d34d9c8e28472daf",
       "sections": [
         {
           "guid": "44238981",
@@ -6578,8 +6578,8 @@
       "title": "PROHIBITION OF WHEELED DEVICES",
       "number": "12.32",
       "url": "https://ecode360.com/44239039",
-      "sha256": "772abeabe7d444d1da1a841f1feed0f1ec52f994b5bc8b9236d5c845e269e81f",
-      "exportedArticleSha256": "0c0b90b031083756b8e6f84e823bbe6e666dcc31631b99a67a8541b99a279230",
+      "sha256": "bfe81a0677f13ba59b934e8881f805a8e2c4978ea72b044a948863f7407073e7",
+      "exportedArticleSha256": "f15a78057670ea05406965aed09d9829196d657ae8cecfaaabc234e3606ebd9d",
       "sections": [
         {
           "guid": "44239040",
@@ -6616,8 +6616,8 @@
       "title": "THE DESIGNATION AND USAGE OF SKATE PARKS",
       "number": "12.30",
       "url": "https://ecode360.com/44239049",
-      "sha256": "36205c008d96954c807f1cd3eb6351a6c8ea70d30a849aac385a9153ce60f1b8",
-      "exportedArticleSha256": "5c428f4b14e67068338f98c470536d1d9ee63a4bc7464fa1f8e33c8f98cd9aad",
+      "sha256": "2220d0562a0131e864e0beb354f1ad389fba9add1e9e95625554bfcca606e997",
+      "exportedArticleSha256": "7ea5568bcc7049d5c800ae0d1ec4de58a89849454a2081058ce5feccdf03c074",
       "sections": [
         {
           "guid": "44239050",
@@ -6682,8 +6682,8 @@
       "title": "PUBLIC TREES",
       "number": "12.34",
       "url": "https://ecode360.com/44239066",
-      "sha256": "39192bccea7bd8628bcd441ed91b513aaccb3f99e937aa970099a9446f4bd536",
-      "exportedArticleSha256": "4ea2d7b0d177b6e6bc1c83dd7d92bb91c435ca4a74183baeb12c118ab113b7b7",
+      "sha256": "ce33549692b7f21fb76ff7a2e6dfe508b6f5da3578aac1f60559cbd98dfbf8cd",
+      "exportedArticleSha256": "508cba124d8df1baf0fd526c9011c03fbeacfbbdf88fd900966b016ac42bafc2",
       "sections": [
         {
           "guid": "44239067",
@@ -6729,8 +6729,8 @@
       "title": "PARKING REGULATIONS",
       "number": "12.40",
       "url": "https://ecode360.com/44239191",
-      "sha256": "bf0589e414f6be705353f82ed5ef36d8a272ec5872d95274ccab58b41b0df357",
-      "exportedArticleSha256": "fe2fff3e006d6b9bcb6516491525f53c1aba7aa0e7a837a2e74d48f88aaf5f38",
+      "sha256": "a76601747c71e53667baf6d1f6035e645a7404ad0671fc85858acea8af8a264a",
+      "exportedArticleSha256": "db519b1ef582f698553eb5691880697bc3ba0ff6282858bedda7d553bf1fc79a",
       "sections": [
         {
           "guid": "44239192",
@@ -6781,8 +6781,8 @@
       "title": "SMALL WIRELESS FACILITIES",
       "number": "12.44",
       "url": "https://ecode360.com/44239216",
-      "sha256": "64f9b7bff10553c375963cfd46ad443b35c98682e71de849218b88a2941dde6d",
-      "exportedArticleSha256": "d599b4578afa3b6a2ae435bbd32d6f2b6501b38fd7b09043398a9cf3cec9c5d7",
+      "sha256": "adc497e8eb7626d9e9e86fd11b02d78d8853050a5cf6143ec4286e63b78b51f0",
+      "exportedArticleSha256": "1aa59ee8438ccf0517d136f6d233602c1dee92b0d097eeed59718cfb40a0f539",
       "sections": [
         {
           "guid": "44239217",
@@ -6882,8 +6882,8 @@
       "title": "WATER DEPARTMENT",
       "number": "13.04",
       "url": "https://ecode360.com/44239328",
-      "sha256": "028f1b0b2bc6e40a1fc843f570e7e9b5a0821dbbcc7bcc18e96c7249283acbe3",
-      "exportedArticleSha256": "5f391a86d1442607db95e74fd58058fafe34ab7131737cea7f369aef695f6191",
+      "sha256": "d6507bbe344ac83d4d0bc4044a60fdfeb0b801723c5b93a3e8c81be37c32b95f",
+      "exportedArticleSha256": "235161f2e7bb62c763a704f6125ab06d1734f7a1ecb37962f7c3b11e81d8b032",
       "sections": [
         {
           "guid": "44239329",
@@ -6920,8 +6920,8 @@
       "title": "DEFINITIONS",
       "number": "13.08",
       "url": "https://ecode360.com/44239340",
-      "sha256": "e58ff923f26be5b03fda375b538926a444f36a9b72a5bac79eb4d00bc5140275",
-      "exportedArticleSha256": "edc8900a4b9185ea57a3453baad9a213d962f25030101abfd1d1d97e6748e63a",
+      "sha256": "fc597e0106b55fa6596a7b7a3c7dc2ee6ec9613ac174499bb0c300d9d1fe5dad",
+      "exportedArticleSha256": "9cd968b1944267481acfcce49b078661043344fd074741ddad8141fa4217a984",
       "sections": [
         {
           "guid": "44239341",
@@ -7119,8 +7119,8 @@
       "title": "WATER SERVICE REGULATIONS",
       "number": "13.12",
       "url": "https://ecode360.com/44239368",
-      "sha256": "601745397a9cd4610765c33473445d0f1890e7c6c815369d41a4656b36bbfb55",
-      "exportedArticleSha256": "8a0baf9070a28379a841979543d1170d05cb845eed32145acd191c2a983e9119",
+      "sha256": "258a57661b705f19a0dcaf271efd58fb235c5dd6ce6b6759a5b1d840339e9da2",
+      "exportedArticleSha256": "0c07cc49507471acd2d62d2256b13987113bcc524b583d6c96d7e716652a286b",
       "sections": [
         {
           "guid": "44239369",
@@ -7451,8 +7451,8 @@
       "title": "DELINQUENT WATER AND/OR SEWER CHARGES",
       "number": "13.13",
       "url": "https://ecode360.com/44239505",
-      "sha256": "f60feb8ed1e8e01211a8a0f6d64a1393645b4739438f1b3cd0fff0281e3747b3",
-      "exportedArticleSha256": "b243aecf283e4003d6aaccafbd8ddb3f764757a881f01ba6bd9b4592e717c060",
+      "sha256": "acc83202b02e9e8f8b87148f9a20e5175c797513cffc8d993c7f85fa47385de4",
+      "exportedArticleSha256": "992d2b48d12613be8f05955207698c2ebc11b644db515042824686b3598486c8",
       "sections": [
         {
           "guid": "44239506",
@@ -7517,8 +7517,8 @@
       "title": "CROSS-CONNECTION",
       "number": "13.14",
       "url": "https://ecode360.com/44239520",
-      "sha256": "1a7d7fa89e1b844cb9b7987e706a1cbeed9f182940e5ad6d54fe67041d16a017",
-      "exportedArticleSha256": "2e57232567f33a655d2b6419d16268647b7f0c24feca6a80496bea16ca0cd39e",
+      "sha256": "72b9dafb7a6d4d7a08e22d4d82f01343491272fc1ad921d18b7184d26f2e87ed",
+      "exportedArticleSha256": "cc65264db5be532bdf4af20d6d1ad6156ee7c4cd0855a4828e0e7349bccf510f",
       "sections": [
         {
           "guid": "47272747",
@@ -7583,8 +7583,8 @@
       "title": "WATER SERVICE RATES",
       "number": "13.16",
       "url": "https://ecode360.com/44239528",
-      "sha256": "6ea3e951761b0dbedf42a19ff4f8f177ee262a29267a1e4529dbfa94cec70b00",
-      "exportedArticleSha256": "53b32fd9766381192775836b0f31ba92004b538229205d2c4b67b593a168423e",
+      "sha256": "57e1c63f4c36132f97398a5f6260b09ba85bc1bd228e8b98f18f3281ab55a832",
+      "exportedArticleSha256": "6d060cb11c84b8adfaf4ba7af91e27bd8f35e082c7ed3c2fdfac1c18efd1f68a",
       "sections": [
         {
           "guid": "44239529",
@@ -7635,8 +7635,8 @@
       "title": "WATER CONSERVATION",
       "number": "13.17",
       "url": "https://ecode360.com/44239530",
-      "sha256": "b9ccf0dcec9941f52c813624151aef7681dcc8c75f9da597ff47a47e4d968144",
-      "exportedArticleSha256": "495bc23692acc34ef3ac49e992fbdc43c182ae6a3814dd8c8f377adf81ff3169",
+      "sha256": "e894adb6e6928d48b1ccbf44cdbc1d21e57e4a946a743c8f23369e545a0826b2",
+      "exportedArticleSha256": "feb59511cf24ecb3fb7f4c02180698114761186e53881dbfb87790a03b568954",
       "sections": [
         {
           "guid": "44239531",
@@ -7743,8 +7743,8 @@
       "title": "ADMINISTRATION",
       "number": "13.20",
       "url": "https://ecode360.com/44239557",
-      "sha256": "e4a97c125334f40c50ea9fefde69c8eabe0409020682b73fcee956ce919a7f68",
-      "exportedArticleSha256": "13f142fbefe67d964a3f1653fcb08997f989b19da7575822dcb22f9fab871ba9",
+      "sha256": "8ff6310820392e3611e08c37cac4c5e5cac1699d8bbb57e803a99659ff14c868",
+      "exportedArticleSha256": "3b61b1e5b66149d062bfcd67276e901d5f71dcada6da0aa1218efa6a6cb3ac82",
       "sections": [
         {
           "guid": "44239558",
@@ -7767,8 +7767,8 @@
       "title": "SEWER SERVICE REGULATIONS",
       "number": "13.24",
       "url": "https://ecode360.com/44239564",
-      "sha256": "a3d39a80fcba3d07a315fccc6eed61eed173f738f4c5ba1af637f9260463990b",
-      "exportedArticleSha256": "728de1613f1a04a23adac1feaf7ffd5a2b8af51977d2107600eda50f818af313",
+      "sha256": "e2feb51907bd1d384b9f54b7d496ec91552bdbc92913cd69048112ed11f80ea0",
+      "exportedArticleSha256": "f99b572df1c9cbb720d20f2f89e6438cc8315124e18948f101fe832117466398",
       "sections": [
         {
           "guid": "44239565",
@@ -7847,8 +7847,8 @@
       "title": "SEWER EXTENSIONS",
       "number": "13.28",
       "url": "https://ecode360.com/44239583",
-      "sha256": "3ac6fde668aeceb61d70aa8569f750287be14d92ac650878b9c361b0540a1ff5",
-      "exportedArticleSha256": "cbe43034b264c45558d325deeb3e607b6002a66a5242489f6f0a36bcc938b7e4",
+      "sha256": "8473e7e19f2589fdf5f9667bc529a6039086ca3b01083209e614e189e9a0bca0",
+      "exportedArticleSha256": "93d21cc54a9646b81c26ea5230642804070846b25b85af57b11959308440bff8",
       "sections": [
         {
           "guid": "44239584",
@@ -7969,8 +7969,8 @@
       "title": "SEWER CHARGES",
       "number": "13.30",
       "url": "https://ecode360.com/44239614",
-      "sha256": "07fdf918e03d262a23ea5fd0f908ad46e3aa6fc97eb64569d1abec13cc040e4c",
-      "exportedArticleSha256": "bb8d8c871b05a0934ebe2746ec6a203b55573246d6ffbbe39200629397f5432b",
+      "sha256": "ed65927c8d5ba489a9ff9563712ded1d07ff6306b25c92ee2779e3b8bc27e18b",
+      "exportedArticleSha256": "dfcf6b17e01b0ebd20084cc320abed858edfa08debd1fc3acc1f95703e4d82a6",
       "sections": [
         {
           "guid": "44239615",
@@ -8077,8 +8077,8 @@
       "title": "SEWER EXTENSION REVOLVING FUND",
       "number": "13.32",
       "url": "https://ecode360.com/44239624",
-      "sha256": "fafd09c241a4cb240c382e34d64e3bf7aaa11c3cad72ac42b256d1309a7ce3ad",
-      "exportedArticleSha256": "0a607de662f41960717691b7395eaf40439e69c27f19746fbfea1d83e24ab4f3",
+      "sha256": "f6891bc1de6672208312435cb8189babbc0cb2b271d6b189960f7987b19611dd",
+      "exportedArticleSha256": "1df0181e803153d196799d015f9bf16f3414504ec3cd2b8422f37c0b72e5f2c9",
       "sections": [
         {
           "guid": "44239625",
@@ -8629,8 +8629,8 @@
       "title": "PASS THROUGH OF WATER AND SEWER CHARGES TO RESIDENTIAL TENANTS",
       "number": "13.50",
       "url": "https://ecode360.com/44240131",
-      "sha256": "00fbf26419db310e1a89602b57c054b58d7552c9a508b5ed65d2b811a0b99bab",
-      "exportedArticleSha256": "16e99de836dad3a9d269c02b8d7e73b8c17059c6bee744850435371ac8e8d174",
+      "sha256": "f707f641ba587896ea9005ecf8e0c00ab89210376a46608be690a9298047d845",
+      "exportedArticleSha256": "3c74c5bc6f599e8261870b2709977030df13316d66548a9fcdf4e5b58724a09d",
       "sections": [
         {
           "guid": "44240132",
@@ -8695,8 +8695,8 @@
       "title": "GENERAL PROVISIONS",
       "number": "14.04",
       "url": "https://ecode360.com/44240148",
-      "sha256": "e5c3662f5d4011c316d00213877decc55c60c99c9a3ac6a683b0ea22d12af6c7",
-      "exportedArticleSha256": "bfd75da83865c39564dc8c2d918695c1919184ad0e3f284810a8d236029dfb70",
+      "sha256": "622e0436a719c8b7fb35543a54519f5089eb225180abe9356f66f95cbdf8aef4",
+      "exportedArticleSha256": "21fddee9614633d23d14133eb112d6b4ecf91324e887c88eff11047472d76a60",
       "sections": [
         {
           "guid": "44240149",
@@ -8733,8 +8733,8 @@
       "title": "PUBLIC PROJECTS",
       "number": "14.08",
       "url": "https://ecode360.com/44240197",
-      "sha256": "fde35a99cea1eacc2fa249d7fd485709af1d5901edbdda3130d3f2390be7f129",
-      "exportedArticleSha256": "b335ac0c5c5c330ed993ae336570cf319e358f237d740dd74aec8cfa0e477a31",
+      "sha256": "874e2d8a1d142779e58e575018e5a5495e483c2c179bb048e01ee757b7ee6c78",
+      "exportedArticleSha256": "6e9cd8cbec5a4410e6a0d6c1ff966017b6097a80d849ab99d14ed9e4d1a9fcbe",
       "sections": [
         {
           "guid": "44240198",
@@ -8813,8 +8813,8 @@
       "title": "GOODS AND NON-PROFESSIONAL SERVICES",
       "number": "14.12",
       "url": "https://ecode360.com/44240239",
-      "sha256": "74a84aa462172a64093a866a58f7e74fdddbcecc13eeefbce25d769211c6abc1",
-      "exportedArticleSha256": "6d8f92dfe162edeaddf8fee1958e3a4ba93b9bdf3c8cd948a2ca2e841733931a",
+      "sha256": "e28294000f284d67e78ba0322b7f047a99a9e06e8d88cd55fcb34038aac21cdb",
+      "exportedArticleSha256": "69d78a7670d6d4d42f4f9ba55295e25ae773b5b88f570809e934c96d3941ae30",
       "sections": [
         {
           "guid": "44240240",
@@ -8865,8 +8865,8 @@
       "title": "PROFESSIONAL SERVICES",
       "number": "14.16",
       "url": "https://ecode360.com/44240298",
-      "sha256": "b9f1962ede07857bcbd71bbb37bfd44d173147f69211a422c79d11150e21aa42",
-      "exportedArticleSha256": "5008ea1683d2598f01f301c1620e57431aba9ca1817d6fa1b2c293a241345a08",
+      "sha256": "48fa2127dc591727a833e1eb4597df163e804aa7ca13d2772a47c2eee70f7080",
+      "exportedArticleSha256": "6ee4dd78f381889ed7c40a5278adf39e899d4265cc16a82ffd84759b314a3694",
       "sections": [
         {
           "guid": "44240299",
@@ -8903,8 +8903,8 @@
       "title": "FEDERAL PROCUREMENTS",
       "number": "14.20",
       "url": "https://ecode360.com/44240326",
-      "sha256": "29fa19184296ecc2ff37b366a68c79f68f91415025a34244b6f830b30f60b3ac",
-      "exportedArticleSha256": "3ffa3055864110b977e8faafbb05f761e3c1fee91d28e00e174f462affc3e22d",
+      "sha256": "57e42a904b7290b38a136095eae9cf8fc8dc42113661a19ec37603d8ebf119ac",
+      "exportedArticleSha256": "43b6566d7bf5abccf4637e157aa51c42b623e2289639c4f21accc1b566ea0f2c",
       "sections": [
         {
           "guid": "44240327",
@@ -8997,8 +8997,8 @@
       "title": "BID PROTEST PROCEDURES",
       "number": "14.24",
       "url": "https://ecode360.com/44240377",
-      "sha256": "629b375f99f5c59aff6b060de8655e3724d2bfff3f0158eb89728db7dea1cc51",
-      "exportedArticleSha256": "ba438c0e72684316c6321a02e678eae75e52f71c3a382793cd24ed4dda219df3",
+      "sha256": "3d750b84c2ef4fa8192d7d071c9e6ea0621ada05ec2eadfa578566c4222eb9bd",
+      "exportedArticleSha256": "4bb4caba42c01bd85cd6232234b434459a1f59ca29c5f8a8457c003e18135c9a",
       "sections": [
         {
           "guid": "44240378",
@@ -9056,8 +9056,8 @@
       "title": "EXCEPTIONS TO PROCUREMENT RULES",
       "number": "14.28",
       "url": "https://ecode360.com/44240389",
-      "sha256": "fdb02aff55b05789b997cdf198b727b21a1266d3d301ff331307b43f92d442c8",
-      "exportedArticleSha256": "b0d731d8e48826068004476723e62d89c782b13da53ab6d8319eea6c679cdd4f",
+      "sha256": "c16ae884b6b2bd6e84605c8924d6eb4ea47faf45c99707ce67d2ad6e48c69f97",
+      "exportedArticleSha256": "42d42778f660863da2e25be04555df6e23900effef85cc76852bdeca103a41fe",
       "sections": [
         {
           "guid": "44240390",
@@ -9080,8 +9080,8 @@
       "title": "SURPLUS SUPPLIES AND EQUIPMENT",
       "number": "14.32",
       "url": "https://ecode360.com/44240401",
-      "sha256": "e60697348a6638e119e2df7efe91c0ece5a7b1ec5fa7bf78b8c1c4457e73d7f0",
-      "exportedArticleSha256": "94bc39fb76284631424d0154533e937c6499cf6cc58f9683f7b049175ae95a40",
+      "sha256": "587311dc68b642fad28c0dead4237274f6b1adf868eae22359e7863ceb13e531",
+      "exportedArticleSha256": "e622024f1c6d3108b08013afd0f19acc978f604ef29f0d623dfa72adeaae7935",
       "sections": [
         {
           "guid": "44240402",
@@ -9158,8 +9158,8 @@
       "title": "WATERFRONT BUILDING DEVELOPMENT",
       "number": "15.28",
       "url": "https://ecode360.com/44240452",
-      "sha256": "a2b0d40a8237a53068390ec53cc4304f618f0ce076233c548f4ce132ced1b699",
-      "exportedArticleSha256": "15a3099c723863a61d88b881402501e45f1b0e78fdae77ee3badf0a7715233af",
+      "sha256": "e30e64a85485545cce158552b5c34b4be7881fc260338df27d1e0ffa09a0fccf",
+      "exportedArticleSha256": "350e323a6344752c7818f46b3339863ce6596aff599f91fc8ce132f23a58c68d",
       "sections": [
         {
           "guid": "44240453",
@@ -9203,8 +9203,8 @@
       "title": "FLOOD DAMAGE PREVENTION",
       "number": "15.32",
       "url": "https://ecode360.com/44240464",
-      "sha256": "adf3fb1bafd18f9147ba8bc4c83790ced530686c7ddc9082c29a5629bf7b0096",
-      "exportedArticleSha256": "f1431ebaffd51dc2481da976dd66af8d2e09828d37832ae2cd5aa1bdad089814",
+      "sha256": "c2b85a359e2f10d3432fe042b08d8dc011950986b317712bdd344922c9e1b242",
+      "exportedArticleSha256": "644f2a653db9808988df5abd108a9c6a21b7d706d6eb056529e9cba37a4a5e32",
       "sections": [
         {
           "guid": "44240465",
@@ -9283,8 +9283,8 @@
       "title": "PERMITS FOR ELECTRIC VEHICLE CHARGING STATIONS",
       "number": "15.36",
       "url": "https://ecode360.com/44240721",
-      "sha256": "e00efbcbfaaf204dfe821496544991f9f4b3614ca6e78da3c43bf74ef1c336bc",
-      "exportedArticleSha256": "8eeadd61d2faf7b0dfb27b8371875091e4ea0cebd9168326f3636b51af3bd28b",
+      "sha256": "8c36a35d81054d258d5919d457e2dd79dafcd72fd934f0755135c23a2eff6b90",
+      "exportedArticleSha256": "f2dad8b5335a5189f516d1e37580587f537d669fca712b091546e7c2ad2db43a",
       "sections": [
         {
           "guid": "44240722",
@@ -9356,8 +9356,8 @@
       "title": "SMALL RESIDENTIAL ROOFTOP SOLAR ENERGY SYSTEMS",
       "number": "15.40",
       "url": "https://ecode360.com/44240747",
-      "sha256": "1f723c8bd9a0f20038b3da18e7749c0cbc93091b14fdc66c2d92255f6cd1789b",
-      "exportedArticleSha256": "ffe218b3dc7c8fea92232da3573623efe665daf8ee6f554d2368432561c3bceb",
+      "sha256": "a4af00b532447d8f5c9810d50b4f4b1799445a0efe8233599db53ed79d44afa9",
+      "exportedArticleSha256": "7160e271f838701c0bdbe7f076aa418b2afc559b57546456c0c287808ea5d4dc",
       "sections": [
         {
           "guid": "44240748",
@@ -9429,8 +9429,8 @@
       "title": "GENERAL PROVISIONS",
       "number": "16.04",
       "url": "https://ecode360.com/44240784",
-      "sha256": "91731afb4171a1f28644e2b9b3afe3bd97b4bf46caf84ca8890408d6fe9d2d7e",
-      "exportedArticleSha256": "37d113262e47404f1a6a4868ddea8c33c7d5a40cf60f8aac7a528848d0f7650e",
+      "sha256": "098c33c77895abeffc48fe1b411b91e67e194c266eaffedf8940a1c59c6b8465",
+      "exportedArticleSha256": "74d16147eca56355111831c825bb2ba26e1e7ceeabc265a218d9e09358074a02",
       "sections": [
         {
           "guid": "44240785",
@@ -9474,8 +9474,8 @@
       "title": "DEFINITIONS",
       "number": "16.08",
       "url": "https://ecode360.com/44240790",
-      "sha256": "5bcb31ba8d65d04fcda56ef8348cabd941d50be9ea1a1a2ee857f48085c4ec7b",
-      "exportedArticleSha256": "ebd7764a0381a2c34fb4009e03e833127b82bd294478f221e0e9901b7207a3e4",
+      "sha256": "77d9639b1f93e6232d18afefc82279092e22f927b186a004c614c3f8921cca9d",
+      "exportedArticleSha256": "6e820c7771a8bc7542fefe1cf45aa366bf6f5ae3da6c49a4498c1c8fba54ca96",
       "sections": [
         {
           "guid": "44240791",
@@ -9526,8 +9526,8 @@
       "title": "ADMINISTRATIVE PROVISIONS",
       "number": "16.12",
       "url": "https://ecode360.com/44240797",
-      "sha256": "434912696c32a1645b4a9cbd051e6d0bb4f4a5f499dfeb2c3f3156693e3b1a6a",
-      "exportedArticleSha256": "bfe5dd2b1544fcf6e6f89ba344c92f6452ed92785d9454e27632e4bec21cfec6",
+      "sha256": "2f93b0a99334c4f70364083a1e64a8635b20441a68cffcefcd77d49def47f91a",
+      "exportedArticleSha256": "48a503e6fa42acbfd10660edb354a15c0d889b46fa9ef6de8a357c4bc353491f",
       "sections": [
         {
           "guid": "44240798",
@@ -9585,8 +9585,8 @@
       "title": "TENTATIVE MAPS",
       "number": "16.16",
       "url": "https://ecode360.com/44240818",
-      "sha256": "5027744532afeebfe6cd1a005ab4e8ec93619c7d43588154b5e03039b07ff9c8",
-      "exportedArticleSha256": "bc42216de26f62bc7bde55ce535568279c285b78f7d79503be3cf11299dd21ff",
+      "sha256": "bac8a2c062df59262b16ea73ea4e2f8a5eafd213aa96d8ea18eabca24ec1ed0f",
+      "exportedArticleSha256": "1efc6416992db021e2c4ab7df67dfaf20d39d4b762994f8029500a2339125088",
       "sections": [
         {
           "guid": "44240819",
@@ -9714,8 +9714,8 @@
       "title": "PARCEL MAPS",
       "number": "16.20",
       "url": "https://ecode360.com/44240864",
-      "sha256": "7b86ac6d62675deff79dfb92ec103b44d68c18eaba81c24408a50c7833d767ef",
-      "exportedArticleSha256": "2d370abcc6bafc4c19f7504c019620d752f0345f6a4f4e47c7c6f2ec32129eac",
+      "sha256": "a090c8b017f6e98d58bd20ab018ac0c67c53bc3f7cf9729172585a8a791d5384",
+      "exportedArticleSha256": "c48e1f878c23a076254a67b9e60f14c11c37fc1b5bbda76cce88e9035c7d983b",
       "sections": [
         {
           "guid": "44240865",
@@ -9759,8 +9759,8 @@
       "title": "FINAL MAPS",
       "number": "16.24",
       "url": "https://ecode360.com/44240875",
-      "sha256": "2e933481f9a5a967c86a2a8d0def263ea44d8c61f577e80baf4082efc41d5bdd",
-      "exportedArticleSha256": "6758a928d498621464aad561b0c67c2e96b7fec0810dfa7656430cdbd991052e",
+      "sha256": "79c964c0d94ca3760bf4a7e9d2e9584fc997cc2b5d7716e3d7549e14ad9784cb",
+      "exportedArticleSha256": "60722a4f057a1c57b249da233eb53569c50e8387514dc348fdbd4834a2a5117c",
       "sections": [
         {
           "guid": "44240876",
@@ -9825,8 +9825,8 @@
       "title": "REGULATIONS FOR DESIGN, FACILITIES AND EASEMENTS",
       "number": "16.28",
       "url": "https://ecode360.com/44240922",
-      "sha256": "2c209b90de45372408ba104cb96622dfd051c032471a2e71fce0f67facea1bf5",
-      "exportedArticleSha256": "85ebdeca4284a7d53e0da0bce33b6b1bbac143dc6675bc28b21130eb72a67e17",
+      "sha256": "2b0d8278523e5c0cdc9c098ff2e57b9f154714ec3f501f4e4cc18586ef28ce38",
+      "exportedArticleSha256": "399ac858a6e00d3d453f1597b578622d4bde07fa433247b288974b51bef2dad3",
       "sections": [
         {
           "guid": "44240923",
@@ -9891,8 +9891,8 @@
       "title": "REVERSION TO ACREAGE",
       "number": "16.32",
       "url": "https://ecode360.com/44240968",
-      "sha256": "276f823f3e697b32c0429d1c3e4e442b6c0537f7b19ee4720e3fedf9ba1d7ce4",
-      "exportedArticleSha256": "47f20e19dcf75e329e941b94798022a3bb08f9b345c278ab2b3f932053412040",
+      "sha256": "1fc97a78ddab7086fe5309c6f420fa08a683b0430f9e1db036bc3af2c0e27808",
+      "exportedArticleSha256": "c0f0731d6eacbd3494c8c97997c3f01d0fc9eb283151d095b96ed603cc646dc2",
       "sections": [
         {
           "guid": "44240969",
@@ -9957,8 +9957,8 @@
       "title": "LOT LINE ADJUSTMENTS",
       "number": "16.34",
       "url": "https://ecode360.com/44240993",
-      "sha256": "9e584e922fdf16ce7bb4787a3a18d8753f1254e148cc40b2c6bd6b3919e0227c",
-      "exportedArticleSha256": "821ae19be98db1c56b8895766e2d0d141467a3177611d1629b28a6c25e48db03",
+      "sha256": "245a492c4022a0687e9f1ea1ce7b2189a1cf6c31bc58e242b3fbfc77da55af52",
+      "exportedArticleSha256": "c7b940da038a7d228f6c6056a88de63043d7bbee673a7b28f1c802820ea910e9",
       "sections": [
         {
           "guid": "44240994",
@@ -9995,8 +9995,8 @@
       "title": "IMPROVEMENT SECURITY",
       "number": "16.36",
       "url": "https://ecode360.com/44241007",
-      "sha256": "f1f4f148af3c1759071ef4290a1d5623025b5a5c2e5044b399e56bce7f8c6dd0",
-      "exportedArticleSha256": "1bba5e0106937bbc0b0775e56a0d4651fecb4f0b8b3ef551f62954e0961312ae",
+      "sha256": "e1bcc108f674aaff700582052b4ad37c4171d2ff335a4358cf84729927271991",
+      "exportedArticleSha256": "f2861e0d95602e18dbb2896ed18baa54ab03e44f6f16fc3231da85e31b26ec3c",
       "sections": [
         {
           "guid": "44241008",
@@ -10033,8 +10033,8 @@
       "title": "ENFORCEMENT",
       "number": "16.40",
       "url": "https://ecode360.com/44241012",
-      "sha256": "47a624ac10c276a05b05ae131f2859a766b5eb13599c2f033a08699cbbac8c56",
-      "exportedArticleSha256": "50a0aac6216d71a1b5de4e7a69f494a61e42bbb4ed034a9d89ae8648b04852a4",
+      "sha256": "f77ecf3ba38f590009ef03026df900b5d0228bec19b6e9d63f73d234e24d8176",
+      "exportedArticleSha256": "7d0c6284ddb908e6b41388e5578959201c416bde8c4198942347893091f46ecf",
       "sections": [
         {
           "guid": "44241013",
@@ -10050,8 +10050,8 @@
       "title": "GENERAL PROVISIONS",
       "number": "17.02",
       "url": "https://ecode360.com/44241016",
-      "sha256": "84ba109bf05f6a9ab473b32df46f67cf6381f46681af7fef9af05c6c8a66a6c7",
-      "exportedArticleSha256": "62bf1b3914d328cfb1b177f8df05e975496edfb2ce1c24404b212f34d284a426",
+      "sha256": "157e6deecdd00f4cf6806419e0228445f6349b8503572083be322f35d824dde4",
+      "exportedArticleSha256": "ee81d695d43ada703ceb6f8496725d26e57bc95a14a1281f90567909179a65d4",
       "sections": [
         {
           "guid": "44241017",
@@ -10109,8 +10109,8 @@
       "title": "DEFINITIONS",
       "number": "17.04",
       "url": "https://ecode360.com/44241040",
-      "sha256": "58e817a5e6bef5a13b1bb9d265ce2ced8a2bd4d9c822a2e12a5c1f2b7570ddff",
-      "exportedArticleSha256": "02435efe5f9d832b708a7766677f6635e7f20b992b306aea059f6821e7f69507",
+      "sha256": "d278c42409b5557b1f87f1dc7f77a53abcf216be533a5c0158f6543b5b810abc",
+      "exportedArticleSha256": "e527e2c8a28be194b5a2edafd6f31b69b86ef7abcd3efbbaadc1cf768c803644",
       "sections": [
         {
           "guid": "44241041",
@@ -10854,8 +10854,8 @@
       "title": "ADMINISTRATION",
       "number": "17.06",
       "url": "https://ecode360.com/44241148",
-      "sha256": "cbba3fe9cd8b218418b5497a2834d3a7720ceeb1e330b6200439835c088e17c6",
-      "exportedArticleSha256": "a5c4e597cb1759eb123b7343d3b56c60991ce693b4275aebd21da941f8ba62f9",
+      "sha256": "80b64744971faa1d007e73e748f81d3148e52b690862b104202d66b89cc68e9f",
+      "exportedArticleSha256": "f9ee0a2b6dcd24a9d130e1ec317b605c934ee0422ff66dfaee8bc80396ea695f",
       "sections": [
         {
           "guid": "44241149",
@@ -10899,8 +10899,8 @@
       "title": "DISTRICT CLASSIFICATIONS",
       "number": "17.08",
       "url": "https://ecode360.com/44241170",
-      "sha256": "8a542bb1d7d6ff082cd1f218de1f4d06a348179e9d51834e2f15f1e06f1ba33f",
-      "exportedArticleSha256": "9adb530f5828542cdb6eaa62b3e239e77db087052fb0e63f39a5e734f97cb819",
+      "sha256": "00fb889af86a47a1f18dcaf36407aeefcc5ee8aa1d1408acd9cf5a9a6968a874",
+      "exportedArticleSha256": "83e4196ecb7496e3134ab3fc8b76f1690281a62daaa5ac0861cc8dbc8fb2e919",
       "sections": [
         {
           "guid": "44241171",
@@ -10965,8 +10965,8 @@
       "title": "R-1 LOW DENSITY RESIDENTIAL DISTRICT",
       "number": "17.10",
       "url": "https://ecode360.com/44241193",
-      "sha256": "32c986bbd71b27c340474d13c1a9bcedcc87eb01502c310100f37fcee9aff9b6",
-      "exportedArticleSha256": "998941c6fd0affe9b309ea98a478ad8efff8ce957da5737b954033c891ee55ec",
+      "sha256": "fbe0852f9bd93976f325902f49b3ba726851272053a0defad82f3f6f6193e56f",
+      "exportedArticleSha256": "89370362dfb3394b61a9c51cdd53f7d947add073fccc83906b6aa1fd53d944f4",
       "sections": [
         {
           "guid": "46612513",
@@ -11017,8 +11017,8 @@
       "title": "R-2 MODERATE DENSITY RESIDENTIAL DISTRICT",
       "number": "17.14",
       "url": "https://ecode360.com/44241233",
-      "sha256": "6e1f75d87aefb23823cb5c5b62f5e15df054c7c476f331cc04c6cc92f155d384",
-      "exportedArticleSha256": "88661e4728d90db35b15659970a4ce109559d5f8bed19622c876f24aaf728312",
+      "sha256": "9a04d121035a9083c3c2c3ff85a054020fe1a165453b2c81a6a81dd4987fc388",
+      "exportedArticleSha256": "a1a5060302ea2f4fa88ff9010b5ec8a292efdb69901d92bb1bfed0213d5c6b18",
       "sections": [
         {
           "guid": "46612567",
@@ -11069,8 +11069,8 @@
       "title": "R-3 HIGH DENSITY RESIDENTIAL DISTRICT",
       "number": "17.16",
       "url": "https://ecode360.com/44241272",
-      "sha256": "4631fc1c0c41b196d2243d815339a85122aab7605c3e4f862c24eab5d3b23f86",
-      "exportedArticleSha256": "2d0009d052e17b99d1168bd8a65e28e5cc9d24e87406eb8c3f9782beb34d0756",
+      "sha256": "64f92b24f3bb5cf6e33a8828df05e8375a694e2b5ae7394c318f29d7cc946ac7",
+      "exportedArticleSha256": "342c0b4d1d035f007cddbd87d59966604779725ffad5fde8f1b72e1d720e2360",
       "sections": [
         {
           "guid": "46612624",
@@ -11135,8 +11135,8 @@
       "title": "R-P RESIDENTIAL-PROFESSIONAL DISTRICT",
       "number": "17.18",
       "url": "https://ecode360.com/44241321",
-      "sha256": "df89ce548ce61459ed6c9cd3a6594dd11bf7ca93c1ef2bb296ce67ffb7d9c0ff",
-      "exportedArticleSha256": "ecbdd99b184f82e7bb3785a796777bb8e15a8ace2ae0e573b40c1059d4b11961",
+      "sha256": "b099192e979de1b071ce767c54a9ef756bcfc4d180fe8ec87d379faca2e9142d",
+      "exportedArticleSha256": "f9fb7560da970b60910e87baece701fe65e858795c07270eafaf8c6bce0eb974",
       "sections": [
         {
           "guid": "46612688",
@@ -11187,8 +11187,8 @@
       "title": "C-1 DOWNTOWN BUSINESS DISTRICT",
       "number": "17.20",
       "url": "https://ecode360.com/44241370",
-      "sha256": "68300af87e30460ae8820f0b833eec6d34acaa549c8ec04a4fdb0917e89b14bc",
-      "exportedArticleSha256": "6da4e414ecba232a41cd4ac0e8898c4b7be6304705006dce3e1392ff949b24eb",
+      "sha256": "4178fec89dc9378fe23c7e273b9819fc4416b24277eafb4c41f79af024094acf",
+      "exportedArticleSha256": "e08c2a30d0f785320741c3d6cf8f9cdf238a64944c36802e72eaf9fb07777752",
       "sections": [
         {
           "guid": "46612753",
@@ -11260,8 +11260,8 @@
       "title": "C-2 GENERAL COMMERCIAL DISTRICT",
       "number": "17.22",
       "url": "https://ecode360.com/44241431",
-      "sha256": "6687d43ebdc88c9a194af80b2b6cd259d29ae0118ad09001aa28809418befe60",
-      "exportedArticleSha256": "e2b7ee06dcee9e06c2ad001e6646f1fca97b4f1391fd5fc8dc3fc40ebd23f77a",
+      "sha256": "3a49e3f7bcb31bc6e32787625b27251d33bb0cb5f447471147ce9d354a64d88b",
+      "exportedArticleSha256": "ef5d9ce2ca409872b070810d0fc5147aff449be1de1e56f8c0632172a866840d",
       "sections": [
         {
           "guid": "44241432",
@@ -11326,8 +11326,8 @@
       "title": "CW WATERFRONT COMMERCIAL DISTRICT",
       "number": "17.23",
       "url": "https://ecode360.com/44241478",
-      "sha256": "f544cbfb28aff6acf67bcabe09b80063e19bc3bff45a71357204d438fdc4c14c",
-      "exportedArticleSha256": "1a6132f101eef411041498140c828f1db8463d7af348f5f53321d881ebfd343b",
+      "sha256": "7d68d10930bd4ad2844d3731b5e2c30d75347a3e8bf2af7e44817b100a440a56",
+      "exportedArticleSha256": "be10d6b7b91ba461aafc38c488dc4374adbe2d43218ed9366a9b999a467683fd",
       "sections": [
         {
           "guid": "44241479",
@@ -11399,8 +11399,8 @@
       "title": "HS HIGHWAY SERVICE DISTRICT",
       "number": "17.24",
       "url": "https://ecode360.com/44241529",
-      "sha256": "1fb91afb747ebab6d5159334679c7da479f28f69d5fdcaee711ca44b06b105e7",
-      "exportedArticleSha256": "9ae595a9df62e55932ef3cddd9a0f8e3f9816fd26c925ae753da19f813e0ed5c",
+      "sha256": "623f075e85dda9a473ee98699e4edddb40afaa32b5906e18cbd3d411267ef0b4",
+      "exportedArticleSha256": "ca81add04e39ad0d141d22af75170eef947cf0976704a30fb266804396f4b170",
       "sections": [
         {
           "guid": "44241530",
@@ -11451,8 +11451,8 @@
       "title": "C-M COMMERCIAL MANUFACTURING DISTRICT",
       "number": "17.26",
       "url": "https://ecode360.com/44241564",
-      "sha256": "af8a1bb806a0a284eedcccdc14b7aa9c969bdbb452886ee26e6d604600dfcb6a",
-      "exportedArticleSha256": "8411720f9f59ae179bb1d00dda5ed4d3ad196ae664a76918f835ecf513279d0e",
+      "sha256": "cdeaaea533215deee8aedc64432fdd0bc9d98961aae36cca9b5d5173549c2ffb",
+      "exportedArticleSha256": "0770f25d9799dcb5c752b9ec2dec37af339291921de1d01db8eeb5151a6ddfdb",
       "sections": [
         {
           "guid": "44241565",
@@ -11517,8 +11517,8 @@
       "title": "M MANUFACTURING DISTRICT",
       "number": "17.28",
       "url": "https://ecode360.com/44241637",
-      "sha256": "f5d91bd6e6821d8b5575cca57c61de82b0c6b681686c3b16228529549d27b56c",
-      "exportedArticleSha256": "758c1d92e6cdc649e0ab7c12af29711d917a694e38c6ed576b575de305d96708",
+      "sha256": "73faa243419e54859ddb9888ec532eb532ff377dfa79683d7f085dbe022f1e62",
+      "exportedArticleSha256": "54ba5ed0b3de992cd856ad4f9db8c9c000a4e0a48f96f8f3126f37a4991db020",
       "sections": [
         {
           "guid": "44241638",
@@ -11576,8 +11576,8 @@
       "title": "M-P INDUSTRIAL PERFORMANCE DISTRICT",
       "number": "17.30",
       "url": "https://ecode360.com/44241723",
-      "sha256": "043d2a555c0d05d90c4adf0eff4e8ca6bb701f68cfb482d56a3abcac817203e0",
-      "exportedArticleSha256": "b1824de28189f36dad20f38a34a7993142d4178b2f57f283eccbaf4059ea4cc4",
+      "sha256": "917325de31205cececf880c5c4a4da233985627cb4dfe2e48a8a8922bce05db0",
+      "exportedArticleSha256": "58e3129632b90e73a4286ab76fe9e2a03674776ddad2d03537910da67c297492",
       "sections": [
         {
           "guid": "44241724",
@@ -11712,8 +11712,8 @@
       "title": "NR NATURAL RESOURCES DISTRICT",
       "number": "17.31",
       "url": "https://ecode360.com/44241787",
-      "sha256": "cc20b403bdce1de27e2670ca7eef0ac60ba89eac82f0b07006addc535ce4bc7a",
-      "exportedArticleSha256": "5dc73676b28aa9f579434b25dcdfbc8a045f3365bf0422cea7eb2a1299f3018a",
+      "sha256": "9c8f8928bcba808b7fac247e9bf0596fece58b8e74338707089133002fc28da4",
+      "exportedArticleSha256": "15644492df799ea06bde87cd9dde25918bc371af1079bb5d1483b423ec35d8e2",
       "sections": [
         {
           "guid": "44241788",
@@ -11750,8 +11750,8 @@
       "title": "O OPEN SPACE DISTRICT",
       "number": "17.32",
       "url": "https://ecode360.com/44241815",
-      "sha256": "a47c0165ed08957d30c2391bb4d2a71017521ff73fc0eff1877b5f0d4bb4143e",
-      "exportedArticleSha256": "b00eda06e591b2c1c9e1c4d1ac087fd631bb2abccea481db0f8d7efbbf0d6f75",
+      "sha256": "0fd1a8ce9828f663c6a4bf3e635bea10138b70ff2445f75126e689d6b379838f",
+      "exportedArticleSha256": "39654bc11f939d05b3ee254a36d6029993ff693e2b0295494d896460ec00ab71",
       "sections": [
         {
           "guid": "44241816",
@@ -11809,8 +11809,8 @@
       "title": "PUBLIC FACILITY OR PF DISTRICT",
       "number": "17.33",
       "url": "https://ecode360.com/44241843",
-      "sha256": "2374dcfd7922e07c77138dc0ccb4841f1dfc7a315bbd679b49a17a97ff8972d2",
-      "exportedArticleSha256": "e3c3f4709a24b0dbe31b04bce066cf617318673a5a58418d95840f5aa8c28f21",
+      "sha256": "8eec28a0b1edb5c7bfd8272d6891d853c6dddd04534c88cbfb6e406fb5763eb1",
+      "exportedArticleSha256": "a1a500b060d7a03cf415980a61fb9b94f6ca571d0bb7bc9ed9c778723658fc87",
       "sections": [
         {
           "guid": "44241844",
@@ -11854,8 +11854,8 @@
       "title": "PUD PLANNED UNIT DEVELOPMENT OVERLAY DISTRICT",
       "number": "17.34",
       "url": "https://ecode360.com/44241876",
-      "sha256": "441482a114d41283f538a11739be1f50bd81f225f935c68e7dd0bfaacde06c8e",
-      "exportedArticleSha256": "dda37548b4b9ddc79fcb30224612bab3a6ec272ebf5385f654f1e54e6d0044b3",
+      "sha256": "62a68cf327e15f99bbd3acb046ed8e81d20c1a3cd2bbe2dc61ccd38dd434d049",
+      "exportedArticleSha256": "90049bafb35461ab31f9d9378bdb24739bc65089344fe2a9e0495c7d93cd4744",
       "sections": [
         {
           "guid": "44241877",
@@ -12004,8 +12004,8 @@
       "title": "ACCESSORY DWELLING UNITS",
       "number": "17.35",
       "url": "https://ecode360.com/44241912",
-      "sha256": "5c4a1deb07ff3e34a1e83e273803a3e2df21d62abc17f29ce5920ec68028d476",
-      "exportedArticleSha256": "5c41b24543ebf953219d9b431b267f4d2c0a8f8304ae4ddb69c3d3e94fdb11f3",
+      "sha256": "0422321ed1210189e593add9cea4ae1620e084d82c81e641a8f8bb94b964f7af",
+      "exportedArticleSha256": "66d20137eab75f89466d804bd38d74c2e2b902f9301d5870ae7eb6e6acda5e47",
       "sections": [
         {
           "guid": "44241913",
@@ -12119,8 +12119,8 @@
       "title": "SPECIFIC PLANS AND REGULATIONS",
       "number": "17.36",
       "url": "https://ecode360.com/44242034",
-      "sha256": "ec4aca524315693f2e0972b33823a7bc5f753b835fecb44af877bf507707d052",
-      "exportedArticleSha256": "7f32a6f3164a2ebdfbe77037bf4549ad585f32e9038c97ebe499da246eb54c70",
+      "sha256": "37f7c894fdd33f2ea366ca506fcbdd5f889defd92bd55744e294f3f6c0940f3b",
+      "exportedArticleSha256": "f045bc17327b684b3444a74c9ecb803b26fe4b814119f340d0d483ec4c1de708",
       "sections": [
         {
           "guid": "44242035",
@@ -12185,8 +12185,8 @@
       "title": "SIGNS",
       "number": "17.39",
       "url": "https://ecode360.com/44242046",
-      "sha256": "2f70d27149402e502521d65372e5885d424161b99558d8d4b8043438802aa3f9",
-      "exportedArticleSha256": "1ea4313eaa4a45762560095eeed18810ba3c52b0a791128d06e0d28d2a2031b6",
+      "sha256": "76831b7b4f9be50629c2b985960f0f1521c405a4c8413e3208a4e8e766df8d6c",
+      "exportedArticleSha256": "a918a2815b0383a22035d5abd87effaf703efb465d27ee043c8de911dd8330d0",
       "sections": [
         {
           "guid": "44242047",
@@ -12335,8 +12335,8 @@
       "title": "FENCES",
       "number": "17.40",
       "url": "https://ecode360.com/44242411",
-      "sha256": "7a251f93020168fe14da41759cffae2d98f6a59d5298c265feae457a838c0723",
-      "exportedArticleSha256": "102cf9e0e48921428cb576b75dc786478070640f7d8742d0e47b042e6fc52458",
+      "sha256": "f0f2c91d4959711a8866b1ca6242e181f69e2e6015d0435141dc797413efe1ef",
+      "exportedArticleSha256": "cc8d4fbbce23bd639c4aca83f71f06ecf249654ce466a78a8920571307c13bad",
       "sections": [
         {
           "guid": "44242412",
@@ -12387,8 +12387,8 @@
       "title": "LANDSCAPING",
       "number": "17.41",
       "url": "https://ecode360.com/44242431",
-      "sha256": "37f124d943ba7c17f4eccd4b212b2a4a2c95db9e16fad98113d4510ac5e6be8a",
-      "exportedArticleSha256": "464b4392cc2a8ba8633c1d7ae28bfa3de2dd7e7d1b12196fd7d81ffd1d19d55b",
+      "sha256": "713fc49605e18c3a1d06da357413dab2e192908528075c7b7307c716dcec41d3",
+      "exportedArticleSha256": "91bfe036cd93e0a2c50d434f6b2846ea71dfe9ce2771ab56cae4489dc9cd0bcd",
       "sections": [
         {
           "guid": "44242432",
@@ -12404,8 +12404,8 @@
       "title": "OFF-STREET PARKING",
       "number": "17.42",
       "url": "https://ecode360.com/44242794",
-      "sha256": "c2f3712a6954d8926906fc86563ef9eb0501c373b5eaf297c12e3cd474f7c5a6",
-      "exportedArticleSha256": "4daa5f45c897843a7b25a66b6e29dae03ad3745feaccc83b903df41ee600663c",
+      "sha256": "1c4240694cf764525affbaaae3e741c42bdccbbbf3a7a059a04ad1d0b3bd6885",
+      "exportedArticleSha256": "0ae9b03a0eafd210ed7826ac3b3e52b0b4f619d09e810099442c5e3797ca380e",
       "sections": [
         {
           "guid": "44242795",
@@ -12540,8 +12540,8 @@
       "title": "LANDSCAPING STANDARDS",
       "number": "17.43",
       "url": "https://ecode360.com/44242940",
-      "sha256": "897891e3fe05049f01de5cb2d5570c9470e5e6410aecf464e98ab1fd25d68c4d",
-      "exportedArticleSha256": "0a0a9638079c29457774b15b8625c215e2d663020bebb4318b1e63abe944d773",
+      "sha256": "1cd7708b392de2358aff067d440c55d8060eb0c1329e2674c6241095131682bd",
+      "exportedArticleSha256": "7d612e3279c0d1822235b90bd09a122f2d5cf88fd9083c9bc1067a289b360466",
       "sections": [
         {
           "guid": "44242941",
@@ -12599,8 +12599,8 @@
       "title": "HEIGHT AND AREA EXCEPTIONS",
       "number": "17.44",
       "url": "https://ecode360.com/44242989",
-      "sha256": "1b91586c147540b5fa6040a7a8f9c1c7cb5f59ae7e10002d6c54e6c76adf59d1",
-      "exportedArticleSha256": "2763d2ebab9ea41114e6624b19ff936bdbd4bd193b0d95f4c9494763348d3bee",
+      "sha256": "fee02d262e14724ffa0bdfe04dd4d87a51b2c6bec2821a92f0e02116e035623c",
+      "exportedArticleSha256": "22b9539ff04e88b50f5f64f70c5a6d2d11ec2fa4c92dfb178171341c57388ef4",
       "sections": [
         {
           "guid": "44242990",
@@ -12686,8 +12686,8 @@
       "title": "SITE PLAN AND ARCHITECTURAL REVIEW",
       "number": "17.46",
       "url": "https://ecode360.com/44243004",
-      "sha256": "37056e0b10aa8b98f879c65629ac50a145bd5a90b2473eb67a8ea9d5733636cc",
-      "exportedArticleSha256": "cad91fa68995f70a61faec5e95b3b146c23a259ec93a1931d183197ab3fc6458",
+      "sha256": "103e8332b29861ea0fcc1364d2f20836b42cce58f00eea7d1fb16dddce337e27",
+      "exportedArticleSha256": "73f744d668623098b6ecfd1ad76b027fc4d56fd4c41c42c9da796dc5eaa8c476",
       "sections": [
         {
           "guid": "44243005",
@@ -12773,8 +12773,8 @@
       "title": "SPECIAL ZONING USES",
       "number": "17.48",
       "url": "https://ecode360.com/44243040",
-      "sha256": "255655cd4c658a3c215d51fc89331af76a0c535ff762dff83ae9d8cf7a79e631",
-      "exportedArticleSha256": "6718bbb61eaf1672d86cf969e9c89bb3081878d21fcd9b02b73174c2ad939268",
+      "sha256": "575e6bc1d2939b1bb3671c06f315fed44d7d7c7508bfe1c8171b15365ee197e5",
+      "exportedArticleSha256": "01b961cd78717de2c20ac7ef6562e831077d5f3059a0daaec689cceb47a2d480",
       "sections": [
         {
           "guid": "44243041",
@@ -12839,8 +12839,8 @@
       "title": "NONCONFORMING USES",
       "number": "17.50",
       "url": "https://ecode360.com/44243175",
-      "sha256": "d24699686dabeeb783ac022758d1f33162f132555719035254c3c0aad86c2ae4",
-      "exportedArticleSha256": "f8c0bf0b3cd002b311512614fa8bff6ec0f92cb0a41139505bd0966303d94994",
+      "sha256": "80b171f8b510e6fbd84885fbf04edee966b9cb53a631c06bfc34a8d222492a4d",
+      "exportedArticleSha256": "d2b787a816271e9c535c3892a6af90852797bab99d8bda8a82db7cbfafe64c97",
       "sections": [
         {
           "guid": "44243176",
@@ -12912,8 +12912,8 @@
       "title": "TEMPORARY USES",
       "number": "17.52",
       "url": "https://ecode360.com/44243220",
-      "sha256": "f19abc83e6fc4753ed014e348195f2e1c1c7c6008eb0fcff26a8ba0a6e190a51",
-      "exportedArticleSha256": "34bb3be26441009403788b9d75f53ccec82a7b9d6eb77b50bc14ca89e3c5611f",
+      "sha256": "4633d4639d8cf65646c1732346621194a50ea56d7a288a1e556b3d5009f0ba56",
+      "exportedArticleSha256": "997f6d21e2d42f34a7bed61d22b0e4fc37f013390cf55954b77edbf1d9fb4736",
       "sections": [
         {
           "guid": "44243221",
@@ -12929,8 +12929,8 @@
       "title": "USE PERMITS",
       "number": "17.54",
       "url": "https://ecode360.com/44243228",
-      "sha256": "dc7d90a40858035bd447a36b81f87a84ac391b5a812e5f6dedf37a5a52afc9e9",
-      "exportedArticleSha256": "b53557679d0311bc08803bcbbc91e491f0197d8280947b1f4aafe330a9aec426",
+      "sha256": "f78db7888aa39de562d5303e17c3cef6e87b51a6180b2bfda1b00b36f5c5facf",
+      "exportedArticleSha256": "464eb554e24933713b7aaa7cf321ac97395be1b440479a5b8ed3b8c2db86cc20",
       "sections": [
         {
           "guid": "44243229",
@@ -12974,8 +12974,8 @@
       "title": "VARIANCES",
       "number": "17.56",
       "url": "https://ecode360.com/44243242",
-      "sha256": "53a2119a9d18d554b6a4e554812165caf640cee92589c30779d5a6b31d546415",
-      "exportedArticleSha256": "6a5eca781ecc39aef3cde771a4a047e09bf436b6b20b2a91e3a351f246e98759",
+      "sha256": "945f1201f8191dc25fa8d31db8141625b2f0599145cbd108e7ad8062e5d7c798",
+      "exportedArticleSha256": "a842e72ef7bccba819b504a3aa53fef1027fc5ecdeeb832afd0218b87f7b29e9",
       "sections": [
         {
           "guid": "44243243",
@@ -13019,8 +13019,8 @@
       "title": "AMENDMENTS AND REZONING",
       "number": "17.58",
       "url": "https://ecode360.com/44243256",
-      "sha256": "a5e643b93008e8e34adaddfbaed9ef8ede7aee2c0c94e2d0cd6d86875bb166ff",
-      "exportedArticleSha256": "4cfcb8a321c46417b3f74fcf9e51e5dc5630c9d95e77e8a490f2ef026664282c",
+      "sha256": "d36375726fe6440ce41696ec12ea014a7714d19f57d98b45348b2582cdf2ab47",
+      "exportedArticleSha256": "41cf18d51fe6bb6865ba6af32db7fb746ca47403d93453168d071542ea107eee",
       "sections": [
         {
           "guid": "44243257",
@@ -13085,8 +13085,8 @@
       "title": "BED AND BREAKFAST ESTABLISHMENTS",
       "number": "17.59",
       "url": "https://ecode360.com/44243279",
-      "sha256": "cd9f71d87f0918e625984672a2578cec09e174e90408984124b6febb61359ec6",
-      "exportedArticleSha256": "b68b08e711e98e630cb11b20ac8147ba062ba37e1a71c0b6b13a1a89842f5934",
+      "sha256": "9489233722057b615835f14d499e8b75813ecaba07ecdf165a8709bb134f784b",
+      "exportedArticleSha256": "3789614566e9b4badb4e3eba962ba496eb893bd41a2db1aa24598dc5dca07821",
       "sections": [
         {
           "guid": "44243280",
@@ -13193,8 +13193,8 @@
       "title": "COASTAL ZONE GENERAL PROVISIONS",
       "number": "17.60",
       "url": "https://ecode360.com/44243326",
-      "sha256": "255062e78a20132c4fcd0a1211595e703cc94a9b1a654bd10d6b613a67bba2b4",
-      "exportedArticleSha256": "2ae8e70a8ee9e2c05f829d4f9b7954ef4c3546c12e4824353f5b190ed450194f",
+      "sha256": "c346e6771c9abb06cb9a58a1f4470949728b5efc572bc40f740bededb6b2883b",
+      "exportedArticleSha256": "9bf742a259e3ee149b0fd0aef6553c2e21de31cdd78267d163d0837e9c30f299",
       "sections": [
         {
           "guid": "44243327",
@@ -13245,8 +13245,8 @@
       "title": "COASTAL ZONE DEFINITIONS",
       "number": "17.61",
       "url": "https://ecode360.com/44243340",
-      "sha256": "d4b74a4f52eab6c1c607274a2310f7da56e6197a80fcd08dc18f2947ba9608fc",
-      "exportedArticleSha256": "8232118746d4f34942e1f3dbc92c3f1ea83d41e9d3b4fb0c2e326b06c984af70",
+      "sha256": "f7e0d6e0e7983295dfeda31209d4370bd47256ff36404556a487ff33fed7d5d4",
+      "exportedArticleSha256": "2bfd6d5b8143318b13b6de505d5551f524edd52b75617a7e8e1a86170b94bbc2",
       "sections": [
         {
           "guid": "44243341",
@@ -14039,8 +14039,8 @@
       "title": "COASTAL ZONE ADMINISTRATION",
       "number": "17.62",
       "url": "https://ecode360.com/44243467",
-      "sha256": "5635f65721c5bbc95c8817215e61e0c0ddb7ff586c3862c8580f598461bd0760",
-      "exportedArticleSha256": "3aac7176414e8342d9d1d9ce7206cca30de862aa2b098fc297dee4137d9402be",
+      "sha256": "ca4f4a575f18c3d328f71eadc4d384331a41f00eee273ca13839cc963accffa1",
+      "exportedArticleSha256": "2b09ecec568204f4b6d482974d990cf4bcaca6f2e3075c194a771c409f963dbc",
       "sections": [
         {
           "guid": "44243468",
@@ -14084,8 +14084,8 @@
       "title": "COASTAL ZONE DISTRICT CLASSIFICATIONS",
       "number": "17.63",
       "url": "https://ecode360.com/44243490",
-      "sha256": "cc3f763dd0f55a2394f2a0f661696af5b74340a9e7dde129f1dedb992f1f7a15",
-      "exportedArticleSha256": "e637326d103c1b7f0f32a66d649792a30adfe9b94307f39b9eaba28ad445bfc4",
+      "sha256": "0de39fe3625e8b1225896e7d9769265a9d299a05841aeb32ea965ba1adf3b35c",
+      "exportedArticleSha256": "60f8c2d01c192614c753ff2d1fb4b41125973e286f7ff39fed59e0b9585cf41e",
       "sections": [
         {
           "guid": "44243491",
@@ -14150,8 +14150,8 @@
       "title": "CZ-R1 COASTAL ZONE LOW DENSITY RESIDENTIAL DISTRICT",
       "number": "17.64",
       "url": "https://ecode360.com/44243513",
-      "sha256": "469a9f17926e0a0bf0932c5968ffd38182d5ee68e81d8910eba68ffcbf2e3a9d",
-      "exportedArticleSha256": "643457072d4e131d83a0de32ec59cd5a213b735746fcbc1de513f63abdbd157e",
+      "sha256": "0461f76f116571a107995f794885e486bef4fddda572e5c9fc6e0db1a7cb3e22",
+      "exportedArticleSha256": "9ad6efcead77e9e58deea4800a1e8366bfc06e7ebb34c0fe72b2db061ec7321e",
       "sections": [
         {
           "guid": "44243514",
@@ -14202,8 +14202,8 @@
       "title": "CZ-R1B COASTAL ZONE LOW-DENSITY RESIDENTIAL-BEACH DISTRICT",
       "number": "17.65",
       "url": "https://ecode360.com/44243552",
-      "sha256": "6ed6ddc3a0c375fc5c02583ff1ffaf91d3c8d7b43d9828a1d8757d43fcf83cb8",
-      "exportedArticleSha256": "78f9c6d5cc7949c7178f421ce2762f52fc02fd46eba46fe66b3ccedd7a0c7689",
+      "sha256": "ea86422744132957a705ebe495f9102b49083c6302c49690f4d883d46a0e4302",
+      "exportedArticleSha256": "0713edc71e7936054a0bc6b4cffe3527440b89c38c388df3899db6963f7577bd",
       "sections": [
         {
           "guid": "44243553",
@@ -14254,8 +14254,8 @@
       "title": "CZ-C2 COASTAL ZONE GENERAL COMMERCIAL DISTRICT",
       "number": "17.68",
       "url": "https://ecode360.com/44243585",
-      "sha256": "fb9503609d031a757c25e6a2a38a47397889fbe38ae6b44ab5636ba742daac52",
-      "exportedArticleSha256": "ce3da0f2fc68d8e5a1007964f407b385e0a22996917075a12afac5c247c62781",
+      "sha256": "42c14821eec28dad1af7d7049a7afbfd0f64fa692bd009ccc5cb50618b5929e0",
+      "exportedArticleSha256": "a0ff074dc2ca203d6bcf959dc9f8cae8a45c201303c55c5351ee94d1fb708a10",
       "sections": [
         {
           "guid": "44243586",
@@ -14320,8 +14320,8 @@
       "title": "CZ-HS COASTAL ZONE HIGHWAY SERVICE DISTRICT",
       "number": "17.69",
       "url": "https://ecode360.com/44243612",
-      "sha256": "a740995be76cd931505fb424c0b1f69870792a460163cd9ea9401b043de17eca",
-      "exportedArticleSha256": "0b4e942445706dbb67ba00976d003a935526244f165c463fa96401cc66c90ecd",
+      "sha256": "49ae2d2209ea6b3d2b6db69cf6dd4716f394a96c2d888024411488280fb8de5c",
+      "exportedArticleSha256": "be8416659ce49bcb8980e0f729775d879d6c22ec95b4671f82b36a58fe65fe0d",
       "sections": [
         {
           "guid": "44243613",
@@ -14393,8 +14393,8 @@
       "title": "HARBOR-RELATED DISTRICT CZ-HR COASTAL ZONE",
       "number": "17.70",
       "url": "https://ecode360.com/44243654",
-      "sha256": "90803ffbff96a458790c898bc3db8ddea0ab22bb8c3b846b8b928d0289e83c56",
-      "exportedArticleSha256": "761f90a0545ec12df736161a8ba5cbc745dc672c078b61b3a2d08cc99234c336",
+      "sha256": "1e00b8780b4ee0e1b32ea0a9e7eb45ad28425f0c6292fd4c8253b533eb05114b",
+      "exportedArticleSha256": "abb8f4e6f26524d1ac8bd72a6e958e9bdf2808720556682990f82666726719cc",
       "sections": [
         {
           "guid": "44243655",
@@ -14438,8 +14438,8 @@
       "title": "CZ-HD COASTAL ZONE HARBOR DEPENDENT DISTRICT",
       "number": "17.70A",
       "url": "https://ecode360.com/44243681",
-      "sha256": "96ce4d46af6c6fb31f1dba9639696a0147f64d32e5f614ff0e19805d8e5260fd",
-      "exportedArticleSha256": "aca2ce55a8ea1561f8b7ec8cdbccc8aedbdd7b8c220d226070a5e2cf6ef508be",
+      "sha256": "24b5231a732b92459bc988b110082df73c003d15231a5c2be174774facd993cc",
+      "exportedArticleSha256": "73226d9df3a60e8b29eb1f3bcbbb3ed7482d2d69c42a50003c1ca8fdaec9375f",
       "sections": [
         {
           "guid": "44243682",
@@ -14497,8 +14497,8 @@
       "title": "CZ-O COASTAL ZONE OPEN SPACE DISTRICT",
       "number": "17.71",
       "url": "https://ecode360.com/44243713",
-      "sha256": "59900ddddcd453337674ec2e48c12c09b3d604cbda5762caba928645aa7d232f",
-      "exportedArticleSha256": "a513d1d1d4ac2b7b8fb6a0fed14afb10a4129a126f598ef2591700039d8652f0",
+      "sha256": "eca1669d23b7cd7b65fca2b9224e96292acc7e822430885df2142ea727bb05bd",
+      "exportedArticleSha256": "57ff7e3de4fad59cdb3122c944e521085dc205695691f1b4298034cc8148d770",
       "sections": [
         {
           "guid": "44243714",
@@ -14556,8 +14556,8 @@
       "title": "CZ-NR COASTAL ZONE NATURAL RESOURCES DISTRICT",
       "number": "17.72",
       "url": "https://ecode360.com/44243746",
-      "sha256": "99662d19b43515294d70c9c23d0fa6de70a21266943d47a4375b646d8b2b5b62",
-      "exportedArticleSha256": "0f04d689b81693f0f913f25f3941c86f25c70f7edd922c1cf398317ca6a60bd7",
+      "sha256": "1d8b2c6dc422b2aee5c53bfcaf12c650660ffd4ac070614abb3ec01891e10d70",
+      "exportedArticleSha256": "134f966735b81493d1b32fbc624b1f5a804d9359cb9f3bc26ccd89fbe15d8932",
       "sections": [
         {
           "guid": "44243747",
@@ -14594,8 +14594,8 @@
       "title": "CZ-CW COASTAL ZONE WATERFRONT COMMERCIAL DISTRICT",
       "number": "17.73",
       "url": "https://ecode360.com/44243771",
-      "sha256": "2b2e61f8fb5071718fca6a0033acab409a201b40c0d760bdecf68df859fb5dfb",
-      "exportedArticleSha256": "63c8a5209f561c2e387866d1a50aa5c8c40e1e7e39c64aa64d623993f6dd94cb",
+      "sha256": "d495c672da49fb2ffc2bb9f555b16c8ca6876bf39ec0c6e1399483679bf2a7c8",
+      "exportedArticleSha256": "dcbb61f15662bd5a22ecb3a2c2dfa69c2b21c41ca045137fa7fc344ce02958a5",
       "sections": [
         {
           "guid": "44243772",
@@ -14667,8 +14667,8 @@
       "title": "COASTAL ZONE SIGNS",
       "number": "17.74",
       "url": "https://ecode360.com/44243812",
-      "sha256": "2d1818f0b220c89e9529df0a92b508c8adad0ef812162995214041370fb467a3",
-      "exportedArticleSha256": "60247cabdfc3f220bde6f25061dbc274ba22d98ab1118ce8bacf4800fd4ed809",
+      "sha256": "c0e4596beedece50fba5b21d52c288ed3f82ba5394eec6e206b32821cb61b47c",
+      "exportedArticleSha256": "211e24cf568a4ef3e4ea2ae993452d9515864c29a824ca1bd8c739bba29a0efe",
       "sections": [
         {
           "guid": "44243813",
@@ -14803,8 +14803,8 @@
       "title": "COASTAL ZONE FENCES",
       "number": "17.75",
       "url": "https://ecode360.com/44244139",
-      "sha256": "b28d6985298ea599cbf759b98fe5d79c62613a9d348f20f952f5d29a95c6b858",
-      "exportedArticleSha256": "b6955100d19746510af8df5c017bba5694b347fcea479c6a59a158be2f7be911",
+      "sha256": "b19e8a8b6eeadaef8d972c40a4900b72560146b1dd1dfa18ecfe1701e7b9e3d3",
+      "exportedArticleSha256": "f0907eaf756cef99194aa7dbdef2d9c4b49c76db1c5f2972d90e08cd2e002f40",
       "sections": [
         {
           "guid": "44244140",
@@ -14855,8 +14855,8 @@
       "title": "COASTAL ZONE OFF-STREET PARKING",
       "number": "17.76",
       "url": "https://ecode360.com/44244159",
-      "sha256": "790447231abad2321712bfba3b843fd28c261920dff403c00eb066c06a991b9a",
-      "exportedArticleSha256": "1e6bd1434253b779dae3eded61a54a3295ca3a68d7bb1d215ced37a71dbf3f02",
+      "sha256": "5c3833c2111952bde1de6698694271d08464f114ebc92709d84890e3893853e4",
+      "exportedArticleSha256": "5c96c62eb6d9576adb718354dba9411fbf747d32db77c3096c12788f73e1911f",
       "sections": [
         {
           "guid": "44244160",
@@ -14984,8 +14984,8 @@
       "title": "COASTAL ZONE SPECIFIC PLANS AND REGULATIONS",
       "number": "17.77",
       "url": "https://ecode360.com/44244301",
-      "sha256": "6654c93216cb712e99e5dbb5d16e23da4951e5c45376f6daffebb910097e8441",
-      "exportedArticleSha256": "95dd0de404af391e3254a435f74d27e9b8430c60fd23d724df1a5ab231c7c0c7",
+      "sha256": "a73beb12fd0b40397950dfc0174073b4fa396618ee7bd59770b70bd7beb34bd7",
+      "exportedArticleSha256": "0a8eb226a05182e4c6bd3ec8bb3da64dafacd1401363c7967486dbc1c49b4b48",
       "sections": [
         {
           "guid": "44244302",
@@ -15050,8 +15050,8 @@
       "title": "COASTAL ZONE HEIGHT AND AREA EXCEPTIONS",
       "number": "17.78",
       "url": "https://ecode360.com/44244313",
-      "sha256": "517cbb42ffbe65818e4ed7ca63563982716000a9aed2ffe0d7c79e57571961d3",
-      "exportedArticleSha256": "406fd0045ee22dbe86a831c8af8643391acfb581c00c71faac75d612dd74ef43",
+      "sha256": "ad7875b48188beb25a16b5c123a0f60eee6112d66de451278ae86b07c380002b",
+      "exportedArticleSha256": "78b6202f5cc90da9adff952eb494b0136138276fdd9c87111474b5e135e8e402",
       "sections": [
         {
           "guid": "44244314",
@@ -15130,8 +15130,8 @@
       "title": "SITE PLAN AND ARCHITECTURAL REVIEW",
       "number": "17.79",
       "url": "https://ecode360.com/44244326",
-      "sha256": "d09c4693c6e319dcbeb8393e02513ec51ca7479284f3568cc52cc4a8a18bdf05",
-      "exportedArticleSha256": "4f2f2d2bd9bd77383bff7d178192db6a8bdb4572df40fc40c1612fc232488c77",
+      "sha256": "4ab268bca94953aab9c3a23370d8fd4bb2f0e0073d91b56bca066edc602faca3",
+      "exportedArticleSha256": "d1abf3b1783b14e47913defdd6f6d371a2be4749e5cc07092fa2268bd136b43c",
       "sections": [
         {
           "guid": "44244327",
@@ -15217,8 +15217,8 @@
       "title": "COASTAL ZONE NONCONFORMING USES",
       "number": "17.80",
       "url": "https://ecode360.com/44244362",
-      "sha256": "b5beac71b6e92221fd2af31c832c081acfa9f77c00563a16fb577e74c16da270",
-      "exportedArticleSha256": "61c39d5a2b0f7be33144433493078d718f28ea4afdc45f719c09df1e9f6b5b19",
+      "sha256": "d609b5c9a6b0122728f983e9ae6dd2c45795915869d520f0a621243cb5be244b",
+      "exportedArticleSha256": "1e7720b12dfde2a67edb7d63a1a83b5ef5b19eac59014ac0dffda5e94d1dd79f",
       "sections": [
         {
           "guid": "44244363",
@@ -15269,8 +15269,8 @@
       "title": "COASTAL ZONE AMENDMENTS AND REZONING",
       "number": "17.81",
       "url": "https://ecode360.com/44244393",
-      "sha256": "78eb3836bd46dc64b72aab32cc19f5e4a96353ca6c1c0de3028af5cd36e0c9cf",
-      "exportedArticleSha256": "eb6e1b537f97e10ae38de0056de387b461935bf19efe818a04673497101cdc91",
+      "sha256": "770f6d2f8734cbd43ceb48fb74f73a55c00e4adaaacaa14d688f79ae00b7da74",
+      "exportedArticleSha256": "fec4d92317a89270e240b1898dcec4a0f8663f01487b640ce1418c9896980072",
       "sections": [
         {
           "guid": "44244394",
@@ -15335,8 +15335,8 @@
       "title": "COASTAL ZONE USE PERMITS",
       "number": "17.82",
       "url": "https://ecode360.com/44244415",
-      "sha256": "1c6d2abd88d71b8db384de1f283af89c5307c22cc2022860be5fe091fe24392b",
-      "exportedArticleSha256": "318ef1c19b3fd6c5a77c4a96e897da815337e7f9558df9b5a53f60033f2a8815",
+      "sha256": "8096e012d018aef76eccf0bb705021f5924fa93fa1727590a104857d3532ba3f",
+      "exportedArticleSha256": "36c3f6ca0c92a1a1612e0b5e8b2087dc41a2d0d9d318d465def58077b87ff2a2",
       "sections": [
         {
           "guid": "44244416",
@@ -15394,8 +15394,8 @@
       "title": "SPECIAL ZONING USES",
       "number": "17.83",
       "url": "https://ecode360.com/44244433",
-      "sha256": "be0ae1bfe1af5f1d3eb97f705aa1d3b0e510e9446cab65f6001e3640da831fdb",
-      "exportedArticleSha256": "823f1a76927efab15d9219e6186cb97818a9fb714a8d82ffa2329186dcce051e",
+      "sha256": "fbce4db17f95219562cf0c42ff270d1a14f716b149ab50adac31b1c3e7a1cec8",
+      "exportedArticleSha256": "1b3a94d982834a20683e4c9431e08bc751c38423ad830cac0cd0534ffef6bad0",
       "sections": [
         {
           "guid": "44244434",
@@ -15453,8 +15453,8 @@
       "title": "COASTAL ZONE COASTAL DEVELOPMENT PERMITS AND APPEALS",
       "number": "17.84",
       "url": "https://ecode360.com/44244547",
-      "sha256": "f9c991bd9be921e77a7e8413c1a77dd95ca20bb6510f2e837f3bc15db1642e22",
-      "exportedArticleSha256": "a4b537dc6cbd776c98e149a1a8cc694bec8bd7ded7407bde6b79b8213102118b",
+      "sha256": "8c5c5210abb8d75a5dc7d2662c6f3c30e8d60fdba8e8e11e41b29b73e349ec06",
+      "exportedArticleSha256": "17a8b6cdc881031cb8262b637eab95872531d50776579990ac26a24c4c7bb5b1",
       "sections": [
         {
           "guid": "44244548",
@@ -15582,8 +15582,8 @@
       "title": "COASTAL RESOURCE PROTECTION PUBLIC ACCESS AND RECREATIONAL OPPORTUNITIES",
       "number": "17.84A",
       "url": "https://ecode360.com/44244763",
-      "sha256": "acb0cb8e192f0cbc7279cbc15d8c0ef6ec3db3b5716aff9750864b960e69bb13",
-      "exportedArticleSha256": "7fb14c8bc19138ea15a9c8a34ce4275e3a2b188aa35880c5e6957f117921ba5b",
+      "sha256": "b425d75ddc0f8bee1c34b287f334a6ee034f70d7a9fe926f218d149f20a5cb9d",
+      "exportedArticleSha256": "99614dd6de5a6affd7bbfd3bd6259e2f9e360249828b3659af0f927bcd218517",
       "sections": [
         {
           "guid": "44244764",
@@ -15676,8 +15676,8 @@
       "title": "CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES WATER QUALITY",
       "number": "17.84B",
       "url": "https://ecode360.com/44244942",
-      "sha256": "dd761417466f300d8da839ab2c01cc3d900db6a6a5d3bfd9957c6b10954c44f1",
-      "exportedArticleSha256": "136a66a855ae82e01a05188779ba7c60049f7cfddd4f554c7ac5dd1780bb804d",
+      "sha256": "f2c571fe19fa267d46b1cc8fa7bc37c7bb0cd79ae5fd9b77bdd95508c3eb0bf3",
+      "exportedArticleSha256": "3498e70e0ca35f69af9a346c9eac5109232ffc2291b4f2886e5bb93ff9395bcf",
       "sections": [
         {
           "guid": "44244943",
@@ -15721,8 +15721,8 @@
       "title": "CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES BIOLOGICAL RESOURCES",
       "number": "17.84C",
       "url": "https://ecode360.com/44245023",
-      "sha256": "0bad0850ae54943b1f62a1f5f9c8623a5d183773b6ab0d50d5fd8c1ad63f97fb",
-      "exportedArticleSha256": "45f0b8726e3eaded16b1849d73c1d1f3fb857937ce7cad960f7f5cd6f54724cc",
+      "sha256": "41f373cbe176ad20d4c88007f1a5c4b5499215cedb1e690c1aac63c601bf896b",
+      "exportedArticleSha256": "99bebf50f93fe37d78f53424401c59c3384dcd5d6e64d3fee49cadfb67675914",
       "sections": [
         {
           "guid": "44245024",
@@ -15766,8 +15766,8 @@
       "title": "CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES PROTECTION OF SOIL RESOURCES",
       "number": "17.84D",
       "url": "https://ecode360.com/44245177",
-      "sha256": "11e054305b208d13f315413378f032a9d3357c22f5c8c8704e81bbfdf22bd595",
-      "exportedArticleSha256": "93ef7dd4f0d71bb941662a4841706070a52cf0c816433fb0a67c312b1c31ab1b",
+      "sha256": "56883209d7950fa62afdd4f2fe7cc62905ae0ba60b0fd0da7a2ad18d85163230",
+      "exportedArticleSha256": "3662f23aa7fe40cebce76bcd682f86e58f82146779df3c68d301935c9b7412e9",
       "sections": [
         {
           "guid": "44245178",
@@ -15811,8 +15811,8 @@
       "title": "CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES VISUAL RESOURCES",
       "number": "17.84F",
       "url": "https://ecode360.com/44245196",
-      "sha256": "10d4a1b4401dfe047ba2aac0ee19cbb97f5502ce7c45228272262e9a2e754ce5",
-      "exportedArticleSha256": "96079eaa8b3d49cce4c30e5701b46adca53f2db50ff02939876a82740150dfd0",
+      "sha256": "89fc201b8dbf2a437f4bb4451703bef64bc6b377079e30abbebeb0c3e6495d91",
+      "exportedArticleSha256": "d3e7da24b272a1e5c7f95367133fc63f945189fa20b84585b38065fd7798cf52",
       "sections": [
         {
           "guid": "44245197",
@@ -15856,8 +15856,8 @@
       "title": "CALIFORNIA COASTAL ZONE RESOURCE PROTECTION PROCEDURES NATURAL AND MAN-MADE HAZARDS AVOIDANCE",
       "number": "17.84G",
       "url": "https://ecode360.com/44245224",
-      "sha256": "1ea41e87c95b57a47c035541c2f20285f51732b020997949d2ca44990a39b059",
-      "exportedArticleSha256": "c0422ea74dc5b41cfc7a77198e2f041b4f4c51f97e2dbc00f8b889d58e68093d",
+      "sha256": "78cab7176b48c50336a32a182a862ebf91bd928a47e12ab04b233479eec7c455",
+      "exportedArticleSha256": "b545c47bf951dbe1d1f30dfd463983c68ba95bd306e9e0d36e1ad6f189e5e1db",
       "sections": [
         {
           "guid": "44245225",
@@ -15901,8 +15901,8 @@
       "title": "VARIANCES",
       "number": "17.85",
       "url": "https://ecode360.com/44245315",
-      "sha256": "57a346dc456fa46e888b06b195c1f53b203fc8d48c7fbf461a16922b17679ce5",
-      "exportedArticleSha256": "ce0d2c52d1b41a7af926cd222935199af732182e183f4827ca7ec5e3f72f1ea3",
+      "sha256": "3c0e5fb409bd94eb8a5a47a751bbd92762e8355504f1670d5d7e0401b9f34b2e",
+      "exportedArticleSha256": "60c7269c5a7de50c47abe6db13e3fd41317a92c961c77565548d3aa380ad6135",
       "sections": [
         {
           "guid": "44245316",
@@ -15946,8 +15946,8 @@
       "title": "COASTAL ZONE WATERFRONT DEVELOPMENT",
       "number": "17.86",
       "url": "https://ecode360.com/44245329",
-      "sha256": "53d79f44b4f96457598f8716af66a74f6cd47629f4ab9cec220b1210fd8743a6",
-      "exportedArticleSha256": "c714ef10e73f53f160f9d80b9d20991c23d721dac6fba6620040bc1403f92cb8",
+      "sha256": "01f1e963edbb58dd925ce708dc29190452f2edd15fc6061219fabf1f9f5687f1",
+      "exportedArticleSha256": "d85d8aa0895635e3ffaa076126ce659d18771cc997ce8a8db3921470b1ac5583",
       "sections": [
         {
           "guid": "44245330",
@@ -15977,8 +15977,8 @@
       "title": "PUBLIC TREES",
       "number": "17.87",
       "url": "https://ecode360.com/44245373",
-      "sha256": "5dd800a1addf4987d4a1296e10791724c506848379f397ecbde4d331cb111ffe",
-      "exportedArticleSha256": "fd079f317a6b62d3b4190c9c3224c3e89766a8478d499da2533b46902c5b38ac",
+      "sha256": "1b75f06ef070f83afca8a88dd1e320648d2c6c1b2320c0e6b963d88d4578c1d6",
+      "exportedArticleSha256": "93c53e19a5e44453f6a9d668e32aff4ebc4aa4ab027a16c8129ac4f814ce70ef",
       "sections": [
         {
           "guid": "44245374",
@@ -16015,8 +16015,8 @@
       "title": "STORM WATER QUALITY MANAGEMENT",
       "number": "17.88",
       "url": "https://ecode360.com/44245401",
-      "sha256": "267e48cfb02c206c9badc17f64659a9eb930edf0d45d8e043ce9ec1c64c71a0f",
-      "exportedArticleSha256": "a6ac970c8f08d7f1e7472cedb56c50fd55a782e274cd0146e6a4ef4e7965c817",
+      "sha256": "4fe24fc9accf24882fcd8fbb895cf8ee3bbc2eb2dccba17c15e4c04dcf36316f",
+      "exportedArticleSha256": "116b094384afd4fd5e85c0d1a7e601f13c6b07949cd70a519af2dbd7a4b4b589",
       "sections": [
         {
           "guid": "44245402",
@@ -16242,8 +16242,8 @@
       "title": "BED AND BREAKFAST ESTABLISHMENTS",
       "number": "17.89",
       "url": "https://ecode360.com/44245526",
-      "sha256": "932e01512945e5e1f5f6ad44dfb72ccb25a1a3561d22e99362940eb90d05e1ff",
-      "exportedArticleSha256": "5a7723ad0641a400e949669788b413d9d3add255b9a479557323f4f627cd329f",
+      "sha256": "12cbf9c2331cd6b839cd35d4753bb62c39b6a6fee363f5e6216f23c2d29adb64",
+      "exportedArticleSha256": "f8cb166cb219252d3884b615732862609f99b6f1150f5cfe17b9384656624312",
       "sections": [
         {
           "guid": "44245527",
@@ -16350,8 +16350,8 @@
       "title": "SALE OF ALCOHOLIC BEVERAGES",
       "number": "17.90",
       "url": "https://ecode360.com/44245572",
-      "sha256": "7e358b8bac9272126c05151ccfb1c7c166f320cdf20c4fbef02941b8487f20da",
-      "exportedArticleSha256": "5fe5d9da61c344cdadff1652c4adbf2028d4169ed9916b59d3cbe7fa44ad7fbb",
+      "sha256": "ab3866adc81fff6c0a31f50330299603c260fb8e8f8eae8ba5afa345ab51cc70",
+      "exportedArticleSha256": "2fd15eada234c6296a60b9e7444817923a207f83d6767d45caea317d778caf58",
       "sections": [
         {
           "guid": "44245573",
@@ -16388,8 +16388,8 @@
       "title": "SALE OF TOBACCO PRODUCTS",
       "number": "17.91",
       "url": "https://ecode360.com/44245640",
-      "sha256": "eb4890ef4b840c6e60658b3bf73141c93e12ddb0d065b456b57fce533dfd27bb",
-      "exportedArticleSha256": "e1b363b9b3db3d20122ca3c81a2356b190bc1cce34dc633693d971647439678d",
+      "sha256": "c9145d0e3518114b70ad58d0e0ce56c12fc932ce555d13c7c74f8a3ffa7d072d",
+      "exportedArticleSha256": "c6c51499a53cd087134dd471801fcbbc30d04e9bec092fc0ca637182568d01fc",
       "sections": [
         {
           "guid": "44245641",
@@ -16468,8 +16468,8 @@
       "title": "REASONABLE ACCOMMODATION",
       "number": "17.92",
       "url": "https://ecode360.com/44245675",
-      "sha256": "ec9e5dd95984a5af8118b09f239158411561e0cf4a6b897a1a667099318eabd4",
-      "exportedArticleSha256": "bb2043330e561a2b8997fc44fefd3273aca4b1b62b6302b9a8214f90ef674b90",
+      "sha256": "d2d59cc5fdbb6c6a32a40703087d5a32ef0e4eb55ec8018bad91d85ec9ed2dbf",
+      "exportedArticleSha256": "a0ca345311a5671305389c8ea0c79116ecf2cb65ee5b7c2047b9f17de0270b39",
       "sections": [
         {
           "guid": "44245676",
@@ -16527,8 +16527,8 @@
       "title": "STANDARDS FOR MARIJUANA",
       "number": "17.93",
       "url": "https://ecode360.com/44245701",
-      "sha256": "675e44f9a8d749367674ae758778dd94cacd5c8868d17c0d53d2bde732426cef",
-      "exportedArticleSha256": "4f59968f6dbb3f0cd508800f41e23d46f4cb8604052578159c222ce11aada320",
+      "sha256": "b38a13879b21716bfdd94c1c20fe854b7ab9682826384a87eaa0218a8f1112c4",
+      "exportedArticleSha256": "5973efe793c8314e30deed7f58413d2fe9c8af6d54054f4e56bf7b001cd97bc3",
       "sections": [
         {
           "guid": "44245702",
@@ -16579,8 +16579,8 @@
       "title": "CANNABIS CULTIVATION FOR PERSONAL OR MEDICAL USE",
       "number": "17.94",
       "url": "https://ecode360.com/44245729",
-      "sha256": "1c2f9ed6aaf559902c50e22c1b335e1986414a054e56d3de3822b549e4927f1f",
-      "exportedArticleSha256": "fc5896d3da7b8035253fc1c178933d4b2d7a785abddfbc6bac7dccacfbd83410",
+      "sha256": "7cdb2b51a74d130149c0a3e4cf2e74cc204707481e4a8c7ec1f40cebebfcac6d",
+      "exportedArticleSha256": "87577e75f527d1022984ea8250b26b49bc5f1353196a33422a7cea0b8e95fe7d",
       "sections": [
         {
           "guid": "44245730",
@@ -16673,8 +16673,8 @@
       "title": "COMMERCIAL CANNABIS REGULATIONS",
       "number": "17.95",
       "url": "https://ecode360.com/44245805",
-      "sha256": "677cb3a6d2841074d36a436d7b24bfe40b8d71e2ad7324782030030238f187fc",
-      "exportedArticleSha256": "7006c0712e6f3266e9ab55d79d0f4958667cbb42cb47bb535e193dc4019e45f4",
+      "sha256": "34681bcc1a5930163e907868fccf3d55aee841bea5294737a6c6015ad4bf8f81",
+      "exportedArticleSha256": "494fc5dcd6af09c5060a87a1b4a97e1ac0a23717945f5b6252518f10336981f4",
       "sections": [
         {
           "guid": "44245806",
@@ -16830,8 +16830,8 @@
       "title": "PURPOSE AND INTENT",
       "number": "8-100",
       "url": "https://ecode360.com/44246011",
-      "sha256": "ab8d7bb5c0edc293061cb9436ecac40406fe5e98b0ecf7dbcbe024395bf087b1",
-      "exportedArticleSha256": "842172ec5d2cd4355380a40aa0d45823e81eb656aa0d26200c77148a807a517d",
+      "sha256": "db36092223521942db5ebdc940d633b715fbc54f60b59c8a6d72cd894b5bb002",
+      "exportedArticleSha256": "a4ef2bbd4013c682d8185c2274d5a892c1ed899868298ff462f2642e2373d3ba",
       "sections": [
         {
           "guid": "44246012",
@@ -16847,8 +16847,8 @@
       "title": "GENERAL PROVISIONS",
       "number": "8-200",
       "url": "https://ecode360.com/44246013",
-      "sha256": "f8b7909f08de5b41b9a9f80e77fbe256b98183132df7da495c65401fce25fa43",
-      "exportedArticleSha256": "1d1f993b20537d7664daebff08d1b45693a36a689fbc39e16da8ddc69af8dae6",
+      "sha256": "a7b75148fbd91c14c4b6d3b287e174aa1439420027025e0c7efa516cd5183e37",
+      "exportedArticleSha256": "487b6174dacff2d3f610d3bcc952db9f1f5544689b6cb89f5490c8fdc395ac22",
       "sections": [
         {
           "guid": "44246014",
@@ -16864,8 +16864,8 @@
       "title": "PERSONNEL RULES",
       "number": "8-210",
       "url": "https://ecode360.com/44246098",
-      "sha256": "09ad83b71ffd6abc21375fd1c385ea9f313f5e060acc51ecf22bb38c2b4f8946",
-      "exportedArticleSha256": "dad9500a779b7c170fdbf1b4da76d01a57205f34c98e2bfe585c29e1f7925d46",
+      "sha256": "8127e64e600d3fe24b336126ee57b4d68a8df47265b0f2617a5da47685adeff3",
+      "exportedArticleSha256": "9de6b943f62ddc62c0cb4b98b09cafa6786fae10e37b15022c15d3657edb1375",
       "sections": [
         {
           "guid": "44246099",
@@ -16951,8 +16951,8 @@
       "title": "EMPLOYER-EMPLOYEE REPRESENTATION RULES",
       "number": "8-250",
       "url": "https://ecode360.com/44246242",
-      "sha256": "f5c7be1036e4e1c19a115a91f12b80e138e900ff25cf46eaf515f3a77cefb343",
-      "exportedArticleSha256": "720a2c057cf9e087b4363a64f3288daadc776169d3a42662bf6e56ae4e2e2a12",
+      "sha256": "8c28d1f65a8fd58b93b1c0a3ed816a2970945c18eecbf1a5c421087f093ef83a",
+      "exportedArticleSha256": "84cf77655f210769b99cc1d6752a0150f161064473c5a40b8a6885b302917a12",
       "sections": [
         {
           "guid": "44246243",
@@ -16989,8 +16989,8 @@
       "title": "USE OF PUBLIC SEWERS REQUIRED",
       "number": "II",
       "url": "https://ecode360.com/44246382",
-      "sha256": "867cb11f30ea3875d6b499f37dfc515f5113e8940bbba61fb2febee3f41c435f",
-      "exportedArticleSha256": "7a8bf0d7bc1c989f9e400a5e4b8aa94c899af10060110c19440ddf60553fc3ab",
+      "sha256": "3676531d374d7ead4997b1daafc8cffbbee55e15322fe2dc57abe92038796bcf",
+      "exportedArticleSha256": "4d30b7abd2a365e2b70458f81d52686541f5104544e5892c8ddc5247580c9130",
       "sections": [
         {
           "guid": "44246383",
@@ -17048,8 +17048,8 @@
       "title": "ADMINISTRATIVE REGULATIONS",
       "number": "III",
       "url": "https://ecode360.com/44246393",
-      "sha256": "accb9e19b20c45998a0dfb4258a7b1387c033cbb326dae3741a6306e41f9a11a",
-      "exportedArticleSha256": "840db3179b63cfa3ce69bed049a8c0871a8ec4b36411000ff0babac932060f4c",
+      "sha256": "3ccdf640bbcd5b2c87ef3f88c66ebed65c54198d762b1cc5add47a07b0d6ef12",
+      "exportedArticleSha256": "5c76799d66333e0108c8d8faac01dac3a677a640f6a27c8c6b9e255774101ee4",
       "sections": [
         {
           "guid": "44246394",
@@ -17065,8 +17065,8 @@
       "title": "PERMITS",
       "number": "IV",
       "url": "https://ecode360.com/44246395",
-      "sha256": "fcddb3346decb7961e429f22bcdc482a97d5faaa0a50c076f2fa5dfa44fa71df",
-      "exportedArticleSha256": "f8980bd143672154bc18c59416af67181fce2bde9c81d8242fbaa09ce461cde3",
+      "sha256": "423e51351600a3446246e865ed24c617a1e27d0e7d40e1ee43d530871ea87ed8",
+      "exportedArticleSha256": "d1874107b6c41cc1507af86df9fa94db5cba2f35f41aa30b228196be8536a5e0",
       "sections": [
         {
           "guid": "44246396",
@@ -17264,8 +17264,8 @@
       "title": "SEWER EXTENSIONS",
       "number": "V",
       "url": "https://ecode360.com/44246441",
-      "sha256": "7e9257616d62d95dfb9595cd32bd14ad19d27e4230bdeef44f77451cc7547d5f",
-      "exportedArticleSha256": "0e0d59b88d6efb87b2e6488c4e612fcf797f6ae9d7ea45d241358c3ca1340b2f",
+      "sha256": "964d3f542011518c179c51deee3e5e068eed728a2df31e1c038654c9e3fde24f",
+      "exportedArticleSha256": "68896e7e09b1ab0a4ec703cb06009b4eea05f8fe07e18db0286c1b839ce868a4",
       "sections": [
         {
           "guid": "44246442",
@@ -17393,8 +17393,8 @@
       "title": "SEWER EXTENSION REVOLVING FUND",
       "number": "VI",
       "url": "https://ecode360.com/44246473",
-      "sha256": "27691dac2dffe3b047549e0101230b52bf80ec8b08d2a9a8fabac1923f81f913",
-      "exportedArticleSha256": "409c0c39de55102d053d638177583f6eb35a3e743def1b98ed4aa32d74e873ca",
+      "sha256": "f14e616e1c351cee0e4b76324d7968bbd5c32480e18f58d41a1f1ba38f9b7884",
+      "exportedArticleSha256": "dc9ecfceba4691c377ce147b2774d961cc5bbb1e8821f9fd9cf29bdaf6962e26",
       "sections": [
         {
           "guid": "44246474",
@@ -17431,8 +17431,8 @@
       "title": "DESIGN STANDARDS",
       "number": "IX",
       "url": "https://ecode360.com/44246478",
-      "sha256": "220ed845598a742fd7a3352d78bd42044499e73634e0426a76da4fa9af1111a4",
-      "exportedArticleSha256": "3459502eb7ed4a9ebd8a12b11f772b4904a1e2b5fcae7732c66595dd42f75fd8",
+      "sha256": "22651c5586b8ceeaf5c9eb5a9b94c4e1421da975d003399085524ee4631152ef",
+      "exportedArticleSha256": "94482a335afd1316817af0b6e94440d7d88524d47cac1bafec7904a0b2fdc13f",
       "sections": [
         {
           "guid": "44246479",
@@ -17455,8 +17455,8 @@
       "title": "DEFINITIONS",
       "number": "XI",
       "url": "https://ecode360.com/44246516",
-      "sha256": "52a3b2e4168ed0ed5eb5c082852b5b48a6ed3176d20c0fe6ddcb7208ba236619",
-      "exportedArticleSha256": "82fc6a78e5dcec6b67f03fae33db281f9dc1da275c9b030422ddfeff6a336a28",
+      "sha256": "afb3833dd4abd3fe0ac34424bfaed8dcd88ef3a80930c903c2959ff89c2a628b",
+      "exportedArticleSha256": "c6b7291fba6621d8e5213ca9ec6dbf04d8e0503dd8e86665c6a9ca98bd4f708b",
       "sections": [
         {
           "guid": "44246517",
@@ -17472,8 +17472,8 @@
       "title": "(RESERVED)",
       "number": "X",
       "url": "https://ecode360.com/44246587",
-      "sha256": "c04a4fcc621e1b9f275cb2cdc165018f9b843b97ba63f6aa4cdbb95122bc02da",
-      "exportedArticleSha256": "0ffe8c8139c3c7364eac58bafe93f16f58d9c2c76a8c21e9aa81abe3fe4d6650",
+      "sha256": "85e50b5840308479a8632693efca0e96923cc3218b97b7f9e27d789298dd9495",
+      "exportedArticleSha256": "95c183d267e87d6f88bc3f734249c856aed86a017c03e81d267cc77627f08194",
       "sections": [
         {
           "guid": "44246588",
@@ -17489,8 +17489,8 @@
       "title": "Cross Reference Table",
       "number": "CRT",
       "url": "https://ecode360.com/44246595",
-      "sha256": "db40f18e6d0659582a80aae8ac78d04828513d39ab101c15ef4cbdc03a1a9543",
-      "exportedArticleSha256": "857872f962231512b5b6b9ab82583c69442d45c8e3320a301e9c3dd3ee6c1b8e",
+      "sha256": "a9e670bde0e602bff28ceeb5bc2bbd4c635803a7a5dc3c5e70628d244b379ac2",
+      "exportedArticleSha256": "ba60d5a0dfe9ce04bd74f5c731caa005d224556efc00a05ceb56d01f8471cb8c",
       "sections": [
         {
           "guid": "44246596",
@@ -17506,8 +17506,8 @@
       "title": "Ordinance List and Disposition Table",
       "number": "OL",
       "url": "https://ecode360.com/44246598",
-      "sha256": "ed88a85f990825e86857addd6e89f7ba1cd0a38630c10303a85c753b8dc596d4",
-      "exportedArticleSha256": "069eca7d4feb69e0ffbc78800678f853f2666f036544d31a050f973dfcb82e91",
+      "sha256": "bf336f5a9a9f285aba33a6be2d73f96e3db6e82b9073cc4c371618f59d0334da",
+      "exportedArticleSha256": "2ab3093cff20263e6484fe23961f7ed43df59d7647f1e34e9d515fe34de67b4a",
       "sections": [
         {
           "guid": "44246599",
@@ -17523,8 +17523,8 @@
       "title": "REGULATION OF NITROUS OXIDE",
       "number": "8.40",
       "url": "https://ecode360.com/46612342",
-      "sha256": "4596cf04137fc41d8bb431efa27f715cfa3811e64bcee373eada6b45644e0202",
-      "exportedArticleSha256": "9a41b3fdc738b5512bab5cad67bf9aeb08cefe3b9fbab3d15cc70674fde36ea7",
+      "sha256": "529d3e806fa70917b475cbd13ed70886256eba845acedb0e4a17ab335c2bb2bc",
+      "exportedArticleSha256": "f73f4b63568dd625a1cbe5954b7dd43bdc531d28dda4306aa0eaa4a991c34891",
       "sections": [
         {
           "guid": "46612343",
@@ -17568,8 +17568,8 @@
       "title": "PUMP TRACK REGULATIONS",
       "number": "12.46",
       "url": "https://ecode360.com/46612453",
-      "sha256": "8e3b4985211e1164006a3c150ea5473c1d1c7c2e110f2236d2aea1dcc41ec01b",
-      "exportedArticleSha256": "4d81b15457c4e8212f3127354af91dd38d8d63fc26d465be4ba4b2c4fb111a5f",
+      "sha256": "9608de329b47f468b81b26504ec673e7104d93d20d55b105ed800db6fe385cf5",
+      "exportedArticleSha256": "1c5d00a37c8710d87c0b7ccf39c9b06a7a8f50e88902b72b13962dd644bb72b4",
       "sections": [
         {
           "guid": "46612454",
@@ -17613,8 +17613,8 @@
       "title": "RECREATIONAL VEHICLES ON RESIDENTIAL PROPERTY",
       "number": "17.55",
       "url": "https://ecode360.com/46612481",
-      "sha256": "ce3491c287f4efe1bca5ff15f66783d2ceb661e5b3347266fbc9d41ab3fa20a7",
-      "exportedArticleSha256": "87ecf47646f90e1d3550827fbe8758199382aaadc2c2f2dea3f61848a3adfaf8",
+      "sha256": "330f33b6a31ced49b8bd25a97987c4136bbf634daf7092211b286c11500228cc",
+      "exportedArticleSha256": "7a82aa8a2356be6447af12e5893630bd9293d8d710389db25e0762fcb8c03e65",
       "sections": [
         {
           "guid": "46612482",
@@ -17672,8 +17672,8 @@
       "title": "CALIFORNIA BUILDING CODE",
       "number": "15.100",
       "url": "https://ecode360.com/47272637",
-      "sha256": "de70b76d18531d5725b7c7aee2de037508b6e28eb955e1a50635ffc0669cab5c",
-      "exportedArticleSha256": "ed9cc5e24bf76c6e0fbd4894f939a2891e4b6d30ac2f455ffd2f56d953cead36",
+      "sha256": "89eee810b8aeb99b1897932e5ce639e9840cb331c5fe963b4beb0b2302a840ca",
+      "exportedArticleSha256": "671f0cc5416a4d833645ffd00d654b70b423faa218c94e3ba2585202a18e70b6",
       "sections": [
         {
           "guid": "47272638",
@@ -17703,8 +17703,8 @@
       "title": "CALIFORNIA RESIDENTIAL CODE",
       "number": "15.104",
       "url": "https://ecode360.com/47272652",
-      "sha256": "40d59c5cbf8893a46cedc344ebba4f16fb7617f0ba1cc13517a367228cfc5797",
-      "exportedArticleSha256": "9ec92710e6f70cea4c5230c05692211e0b038c054dc42a6ab8002cd91c4350ee",
+      "sha256": "b6b6d70ef89db6f43db14321b4c2da782f63bb8be21f45a19005db7dbe1e8d73",
+      "exportedArticleSha256": "6c4ade8ef141d6046ed4839ed80207b3db229e4f6ad324851eaa7a866cee683b",
       "sections": [
         {
           "guid": "47272653",
@@ -17727,8 +17727,8 @@
       "title": "CALIFORNIA ELECTRICAL CODE",
       "number": "15.108",
       "url": "https://ecode360.com/47272662",
-      "sha256": "e9fedcfd974f1242c18e29e79f15ac63693686559b3de2760118b3d3330a0fc4",
-      "exportedArticleSha256": "9c25197e22e074f79b632e12e76be0768b93d7419b105fcfd33a6fff300d8bbb",
+      "sha256": "e004e2813aa9b8837cf1835517dc7755f0baa101a6cd2bdcbaf008384bcd54ac",
+      "exportedArticleSha256": "ec4a86bc454760d000c0c7aa64966560bba8122d37aa1d1bd0b3fc6d581e6999",
       "sections": [
         {
           "guid": "47272663",
@@ -17744,8 +17744,8 @@
       "title": "CALIFORNIA MECHANICAL CODE",
       "number": "15.112",
       "url": "https://ecode360.com/47272664",
-      "sha256": "06f32d931274b0d1daf08978d84d1d3f3a75476291e2ea5617d7a7831732e629",
-      "exportedArticleSha256": "4939af35474ec9998acbc26a08a824b359a28e2cb9e14ce279bfcad93535b431",
+      "sha256": "9113bf297571bc4dea9d2520aae21304ca7304d9fa3df4b476c0480cba40788b",
+      "exportedArticleSha256": "94d82eb11b52a27b4bc193df3486ad49545910cf6d328df4cc58c4fff0e39f8a",
       "sections": [
         {
           "guid": "47272665",
@@ -17761,8 +17761,8 @@
       "title": "CALIFORNIA PLUMBING CODE",
       "number": "15.116",
       "url": "https://ecode360.com/47272666",
-      "sha256": "c5c3fc392c16b9b04510dc6499f73b078f7e1182b09e40173a56e9e6d08ce49d",
-      "exportedArticleSha256": "8c31a0277def99e81da29c0a8037f50bc5e7a67e4a66558ccf453beff4205a87",
+      "sha256": "f83c6e999410fae09667067c03f4f1b3ffb3018b9b5cbc087e8617549839d223",
+      "exportedArticleSha256": "5c123647749f13b95561d1af980c7e660a5b17784889504362557fb780fef59c",
       "sections": [
         {
           "guid": "47272667",
@@ -17778,8 +17778,8 @@
       "title": "CALIFORNIA ENERGY CODE",
       "number": "15.120",
       "url": "https://ecode360.com/47272668",
-      "sha256": "31c2d6fa813bd32d92f57382e1fe1183562779931d5aaefff8ccbbc6e3f42b7f",
-      "exportedArticleSha256": "1476d7a3ea9b18ec18cfb5bc705fe88d7cee4b6656aa32645ced71263fd1691d",
+      "sha256": "ff6ed727deb8652f02654f18c81b30d06e95ccf1101fdaedd89ca80e11890998",
+      "exportedArticleSha256": "a1b9058e5cb679859ad737ab0a14d143f46d027114a5a89b55517fbf719cf69a",
       "sections": [
         {
           "guid": "47272669",
@@ -17795,8 +17795,8 @@
       "title": "CALIFORNIA HISTORICAL BUILDING CODE",
       "number": "15.124",
       "url": "https://ecode360.com/47272670",
-      "sha256": "591b76b4d594c548e7bd05000d89b21157c46e4be738dc1c8239a94362215d03",
-      "exportedArticleSha256": "98b7df15c93a25e5514d540fc855ffacd88b5d1928b251c4903892284aa18f40",
+      "sha256": "d71c83fcbe46d221c48ce6bae8d63cc075f82450978bd1b1ef0a11c4230be154",
+      "exportedArticleSha256": "5bf09f4c22353fc71e207abd9912ce6cce0c4b423a7df9c595c7a7fb59f99c2a",
       "sections": [
         {
           "guid": "47272671",
@@ -17812,8 +17812,8 @@
       "title": "CALIFORNIA FIRE CODE",
       "number": "15.128",
       "url": "https://ecode360.com/47272672",
-      "sha256": "4701880d90fe481ebff59b9b39a89f82cbcd76dccf667b9fb14f04835c9c3017",
-      "exportedArticleSha256": "bc4dcdaaae576a751cc8b4ad19a8b7414f78c99a72fc5baaf1eaa4be99f56bdc",
+      "sha256": "4ea37f176e4729c84dd0109847f8d90536de3ac826a01ed90fba37dcffeaab86",
+      "exportedArticleSha256": "e9f865e7bdccf519302ec35aa1a4307bb0ae081a681209178272c46b9544e4d7",
       "sections": [
         {
           "guid": "47272673",
@@ -17836,8 +17836,8 @@
       "title": "CALIFORNIA EXISTING BUILDING CODE",
       "number": "15.132",
       "url": "https://ecode360.com/47272677",
-      "sha256": "fd50c1b3b656ea07ed0664525a92533df6849dfdcf2b0b740dfac28edee06c42",
-      "exportedArticleSha256": "d7993175b858c49a10bf0234248538beedbc65f43e5f9c8c6e2fd1b8db378208",
+      "sha256": "697811e56eb04e3136622bb8a777fe77dbac7229d1699d0539c34a7e6b6d6e9a",
+      "exportedArticleSha256": "1faef5e462d61f246c9bd32f3a7f780df644bf73a423a9311ca4f7d1d94d9670",
       "sections": [
         {
           "guid": "47272678",
@@ -17853,8 +17853,8 @@
       "title": "CALIFORNIA GREEN BUILDING STANDARDS CODE",
       "number": "15.136",
       "url": "https://ecode360.com/47272679",
-      "sha256": "c24d63149d2c95617d219be65804f9f2158f5a420e99adb1ddaa4120e4777817",
-      "exportedArticleSha256": "083d69f788451eb81c13f3f74a93132a99a79ef072e7cac3354cd93c7dea8218",
+      "sha256": "ed18a2c1303c2f25dc6cd3204ac5cc5627bbdf82cd44057eb836c782211e7640",
+      "exportedArticleSha256": "b4cb4a742850532ae815d5f37b571c1801c76228781f110d74a11e05db7c6336",
       "sections": [
         {
           "guid": "47272680",
@@ -17870,8 +17870,8 @@
       "title": "INTERNATIONAL PROPERTY MAINTENANCE CODE",
       "number": "15.140",
       "url": "https://ecode360.com/47272681",
-      "sha256": "d40d66f9f83dc390bd563d5bcbecc45b4683e7ef21ac81cb257e938bf84b5d28",
-      "exportedArticleSha256": "6785e33ca028462793e239e8cce70100f10a55cbb8b7056a53e00544cca06680",
+      "sha256": "3827c913e1b196272d949e93abfbe78475f037a00f893ee635ec081f770326f9",
+      "exportedArticleSha256": "8ddf24d607a5d3509d754efa42e7eef1084415ee9d7991b2cfd28630088f802a",
       "sections": [
         {
           "guid": "47272682",

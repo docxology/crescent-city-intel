@@ -11,7 +11,7 @@
 The [repository guide](../README.md) is the starting point. Generic methods and
 their documentation live in [region-intel](https://github.com/docxology/region-intel/tree/main/docs).
 For documentation matching the installed runtime, use
-[the pinned shared revision](https://github.com/docxology/region-intel/tree/7cb15fa1af0455e4d756551ddf828da0cbf5095e/docs).
+[the pinned shared revision](https://github.com/docxology/region-intel/tree/7667ae7fdfa7cc54fc80d90153c2873051f29ac4/docs).
 The shared repository's main branch can contain documentation or code newer
 than this consumer's frozen dependency. Public source material retains its own
 rights; the repository license does not grant additional rights over it.

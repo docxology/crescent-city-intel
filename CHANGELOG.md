@@ -1,5 +1,10 @@
 # Changelog
 
+## Shared template publication and editorial artwork
+
+- Pin the corrected shared manuscript runtime, retaining the thin regional importer.
+- Add conceptual Crescent City cover artwork with provenance and source-rights boundaries.
+
 ## Unreleased — deployment documentation
 
 - Add a version-aware documentation index, fresh-clone instructions, operations and workflow guidance.

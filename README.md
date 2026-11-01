@@ -1,5 +1,9 @@
 # Crescent City Intel — The Quadruplicate
 
+![Crescent civic information: conceptual editorial landscape](docs/assets/crescent-editorial.png)
+
+*Conceptual editorial artwork; [provenance and scope](docs/assets/ARTWORK.md).*
+
 Thin regional orchestration for Crescent City and Del Norte County, California.
 All shared methods, source adapters, tests, OpenAPI, module documentation and
 manuscript tooling live in [region-intel](https://github.com/docxology/region-intel).

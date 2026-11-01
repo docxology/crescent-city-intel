@@ -80,7 +80,7 @@
     "corpus:promote": "bun run scripts/region.ts corpus:promote"
   },
   "dependencies": {
-    "region-intel": "github:docxology/region-intel#cde5048bc9316ed6d1baf8e7e64f3d06c9e86385"
+    "region-intel": "github:docxology/region-intel#7cb15fa1af0455e4d756551ddf828da0cbf5095e"
   },
   "devDependencies": {
     "typescript": "5.9.3",

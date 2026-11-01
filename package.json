@@ -77,10 +77,11 @@
     "region:config": "bun run scripts/region.ts region:config",
     "region": "bun run scripts/region.ts",
     "corpus:check": "bun run scripts/region.ts corpus:check",
-    "corpus:promote": "bun run scripts/region.ts corpus:promote"
+    "corpus:promote": "bun run scripts/region.ts corpus:promote",
+    "publication:check": "bun run scripts/region.ts publication:check"
   },
   "dependencies": {
-    "region-intel": "github:docxology/region-intel#7667ae7fdfa7cc54fc80d90153c2873051f29ac4"
+    "region-intel": "github:docxology/region-intel#dfa78895e45fba9885e0fe9e1edfca152bed88da"
   },
   "devDependencies": {
     "typescript": "5.9.3",

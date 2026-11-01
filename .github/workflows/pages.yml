@@ -23,6 +23,8 @@ jobs:
         with:
           bun-version: 1.4.2
       - run: bun install --frozen-lockfile
+      - name: Verify the committed public input and manuscript closure
+        run: bun run publication:check
       - run: bunx playwright install --with-deps chromium
       - run: bun run validate
       - name: Install pinned transcript dependencies

@@ -17,3 +17,9 @@
 - Keep independent identity, provider policy, enabled monitors and output roots.
 - Validate configuration binding, installed-package integration and publication.
 - Generic method documentation and manuscript tooling are maintained in the shared repository.
+
+## Shared committed and staged publication preflight
+
+- Add the shared publication:check command and require committed public byte
+  correspondence before consumer acceptance, Pages and native build workflows.
+- Preserve regional seed identity and all source observation clocks.

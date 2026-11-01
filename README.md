@@ -60,3 +60,9 @@ The full pre-extraction history remains in this repository's Git history.
 
 See the [accepted municipal edition and exact input hashes](docs/edition.md) and
 [acquisition/promotion procedure](docs/acquisition.md).
+
+Before pushing, stage the intended public changes and run
+publication:check with --staged; after committing, run publication:check without
+that flag. Both commands use shared methods and check exact Git/worktree bytes.
+See the [publication preflight](https://github.com/docxology/region-intel/blob/main/docs/publication-preflight.md)
+and [security policy](https://github.com/docxology/region-intel/blob/main/SECURITY.md).

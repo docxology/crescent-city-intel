@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+type: software
+title: "crescent-city-intel"
+authors:
+  - family-names: Friedman
+    given-names: Daniel Ari
+    orcid: "https://orcid.org/0000-0001-6232-9096"
+repository-code: "https://github.com/docxology/crescent-city-intel"
+abstract: "Crescent City civic intelligence with municipal code search, civic and hazard monitors, news, meetings, events, local RAG, and public snapshots with source provenance. Built with Bun, TypeScript and Playwright."

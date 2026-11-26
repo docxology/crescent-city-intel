@@ -11,7 +11,7 @@ repository-admission contract.
 
 ```sh
 bun install --frozen-lockfile
-bun run status
+bun run publication:check
 bun run validate
 bun run pages:export
 bun run pages:validate -- .pages
@@ -58,9 +58,10 @@ The actual definitions are
 [consumer acceptance](../.github/workflows/validate.yml),
 [Pages delivery](../.github/workflows/pages.yml) and
 [weekly collection](../.github/workflows/weekly.yml). Main pushes trigger
-acceptance and Pages; collection is also scheduled weekly. Pages builds perform
-live source collection before exporting, so provider results can differ from a
-local offline seed check. Keep upstream unavailable/stale states visible.
+acceptance and Pages. Pages also has a weekly schedule and runs live
+collection before export. The separate collection workflow has its own
+schedule. The published result can therefore differ from an offline seed
+export. Keep upstream unavailable/stale states visible.
 The weekly workflow collects in its runner workspace; it does not commit a new
 municipal seed back into this repository.
 

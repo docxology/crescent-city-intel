@@ -1,0 +1,13 @@
+{
+  "edition": "d7443085937d5039ce5b0334db401d1f8d60a4d15b0cc6b30eb55a33669e3cd2",
+  "sourceVerifiedAt": "2026-10-31T00:16:20.166Z",
+  "receiptFilesVerified": 6,
+  "articles": 245,
+  "sections": 2206,
+  "minSectionsPerArticle": 0,
+  "medianSectionsPerArticle": 6,
+  "maxSectionsPerArticle": 112,
+  "emptySectionText": 4,
+  "historicalSampleChecks": 5,
+  "historicalSamplePasses": 5
+}

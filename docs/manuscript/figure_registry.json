@@ -1,0 +1,10 @@
+{
+  "figures": [
+    {
+      "label": "fig:section-counts",
+      "filename": "sections-per-article.png",
+      "alt_text": "Histogram of sections per article in the reviewed edition, with a median of six and a long right tail.",
+      "generated_by": "Histogram of articles[].sections.length in the verified pages-data/crescent-city-code.json projection"
+    }
+  ]
+}

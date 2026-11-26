@@ -1,0 +1,29 @@
+paper:
+  title: "Crescent City Intel: Verifying and Publishing a Municipal Code Edition"
+  subtitle: "Civic deployment and local evidence report"
+  version: "4.0.0"
+
+authors:
+  - name: "Daniel Ari Friedman"
+    orcid: "0000-0001-6232-9096"
+
+publication:
+  github_repository: "docxology/crescent-city-intel"
+
+keywords:
+  - "civic information"
+  - "municipal code"
+  - "artifact provenance"
+  - "static publication"
+
+metadata:
+  license: "CC-BY-SA-4.0"
+  language: "en"
+
+render:
+  formats:
+    pdf: true
+    html: true
+    slides: false
+    docx: false
+    epub: false
